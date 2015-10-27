@@ -19,7 +19,10 @@ The recommended method of using it is from within a PowerCLI session in conjunct
 
 To import the module and connect to vCenter and NSX, do the following:
 
+* An execution policy allowing unsigned modules to be loaded is required (Required for PowerCLI as well).
+* If you downloaded the module (as opposed to copy text and paste to a new file), you first have to 'unblock' it.  Locate the file, get properties and click 'Unblock'.  
 * Start PowerCLI
+* If you haven't already, set at least a RemoteSigned execution policy - Set-ExecutionPolicy RemoteSigned.  This only needs to be done once and you probably already did it for PowerCLI to work.
 * import-module <path to PowerNSX.psm1>
 * connect-viserver <vcenter hostname or ip> 
 * connect-nsxserver <nsx manager hostname or ip>
