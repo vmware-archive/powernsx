@@ -107,9 +107,8 @@ function install-dotNet45 {
     write-host
 
     if ( $decision -ne 0 ) {
-        write-host -ForegroundColor Yellow "dotNet Framework 4.5 install rejected. Unable to continue." 
-        write-host
-        break
+        throw "dotNet Framework 4.5 install rejected. Unable to continue." 
+        
     }
 
     Write-Host -NoNewline "Downloading dotNet 4.5..." 
@@ -120,9 +119,8 @@ function install-dotNet45 {
     catch { 
         Write-Host -ForegroundColor Yellow "Failed."
         write-host
-        write-host -ForegroundColor Yellow "Unable to continue.  Please check your internet connection and run this script again." 
-        write-host
-        Break
+        throw "Unable to continue.  Please check your internet connection and run this script again." 
+
     }
 
     Write-Host -ForegroundColor Green "Ok."
@@ -134,8 +132,8 @@ function install-dotNet45 {
     catch {
         Write-Host -ForegroundColor Yellow "Failed."
         write-host 
-        write-host "Resolve the cause of failure, or manually perform dotNet 4.5 installation and run this script again."
-        break 
+        throw "Resolve the cause of failure, or manually perform dotNet 4.5 installation and run this script again."
+
     }
     Write-Host -ForegroundColor Green  "Ok." 
 }
@@ -152,9 +150,8 @@ function install-wmf($version, $uri) {
 
         Write-Host -ForegroundColor Yellow "Failed."
         write-host
-        write-host -ForegroundColor Yellow "Unable to continue.  Please check your internet connection and run this script again." 
-        write-host
-        Break
+        throw "Unable to continue.  Please check your internet connection and run this script again." 
+
     }
 
     Write-Host -ForegroundColor Green "Ok."
@@ -167,8 +164,8 @@ function install-wmf($version, $uri) {
         Write-Host -ForegroundColor Red  "Error."
         write-host 
         write-host -ForegroundColor Yellow "An error occured installing WMF. $_"
-        write-host -ForegroundColor Yellow "Unable to continue.  Resolve the issue and run this script again."
-        break 
+        throw "Unable to continue.  Resolve the issue and run this script again."
+        
     }
     Write-Host -ForegroundColor Green  "Ok."
 
@@ -185,13 +182,12 @@ function install-wmf($version, $uri) {
 
     if ( $decision -ne 0 ) { 
 
-        write-host -ForegroundColor Yellow "Reboot rejected. Restart the system manually and rerun this script." 
-        write-host
-        Break
+        Throw "Reboot rejected. Restart the system manually and rerun this script." 
+        
     }
     else {
         restart-computer
-        break
+        exit
     } 
 }
 
@@ -214,9 +210,8 @@ function check-powershell {
         write-host  
 
         if ( $decision -ne 0 ) {
-            write-host -ForegroundColor Yellow "Windows Management Framework upgrade rejected. Unable to continue." 
-            write-host
-            break
+            Throw "Windows Management Framework upgrade rejected. Unable to continue." 
+            
         }
         else {
             switch ( [System.Environment]::OSVersion.Version.Major ) {
@@ -275,9 +270,8 @@ function check-powershell {
         if ( $unsupportedPlatform ) {
             write-host  
             write-host -ForegroundColor Yellow "Unsupported Windows version for automated installation of WMF."
-            write-host -ForegroundColor Yellow "Please manually install Windows Management Framework 3 (if supported) or above and run this script again." 
-            write-host
-            break  
+            Throw "Please manually install Windows Management Framework 3 (if supported) or above and run this script again." 
+            
         }
     }
     else{
@@ -348,16 +342,16 @@ function install-powercli {
     write-host
 
     if ( $decision -ne 0 ) { 
-        write-host -ForegroundColor Yellow "PowerCLI rejected. Unable to continue." 
+        throw "PowerCLI rejected. Unable to continue." 
         write-host
     }
     else {
 
         Start-Process -pspath $PowerCLI_Download
-        write-host -ForegroundColor Yellow "Complete the PowerCLI installation and rerun this script from within a PowerCLI session."
-        write-host
-        break
+        Throw "Rerun this script when the PowerCLI installation is complete."
     }
+
+
 }
 
 function check-PowerNSX {
@@ -377,9 +371,8 @@ function check-PowerNSX {
         write-host
 
         if ( $decision -ne 0 ) { 
-            write-host -ForegroundColor Yellow "PowerNSX install rejected. Rerun this script at a later date if you change your mind." 
-            write-host
-            Break
+            throw "PowerNSX install rejected. Rerun this script at a later date if you change your mind." 
+
         }
         else {
 
@@ -395,8 +388,8 @@ function check-PowerNSX {
             if (-not (Test-Path $ModulePath)) { 
                 write-host -ForegroundColor Yellow "Failed."
                 write-host 
-                write-host -ForegroundColor Red "Unable to download/install PowerNSX."
-                Break
+                throw "Unable to download/install PowerNSX."
+
             }
             else{
                 write-host -ForegroundColor Green "Ok."
@@ -409,7 +402,8 @@ function check-PowerNSX {
 
     write-host -NoNewline "Checking PSModulePath for PowerNSX..."
 
-    $envModulePath = [Environment]::GetEnvironmentVariable("PSModulePath")
+    #Need to use registry here as the PowerCLI installation changes will not have propogated to the current host.
+    $envModulePath = (Get-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Session Manager\Environment').PSModulePath
     $ParentModulePath = split-path -parent (split-path -parent $ModulePath)
     if (-not ( $envModulePath.Contains( $ParentModulePath ))) { 
 
@@ -427,8 +421,7 @@ function check-PowerNSX {
             write-host
             write-host -ForegroundColor Yellow "Unable to add module path to PSModulePath environment variable. $_"
             write-host -ForegroundColor Yellow "Resolve the problem and run this script again."
-            Break
- 
+
         }
         write-host -ForegroundColor Green "Ok."
 
@@ -440,6 +433,57 @@ function check-PowerNSX {
 
 }
 
+function _set-executionpolicy {
+
+    $message  = "Execution Policy Change."
+    $question = "The execution policy helps protect you from scripts that you do not trust.  " + 
+        "Changing the execution policy might expose you to the security risks described in the " + 
+        "about_Execution_Policies help topic. Do you want to change the execution policy?"
+
+    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+    write-host
+
+    if ( $decision -ne 0 ) { 
+        throw "ExecutionPolicy change rejected."
+
+    }
+    else {
+
+        set-executionPolicy "RemoteSigned" -confirm:$false
+        write-host 
+        write-host -ForegroundColor Yellow "Changed ExecutionPolicy to RemoteSigned"
+        write-host   
+    }
+}
+
+function check-executionpolicy {
+
+write-host -NoNewline "Checking ExecutionPolicy..."
+    switch ( get-executionpolicy){
+
+        "AllSigned" { 
+            write-host -ForegroundColor Yellow "Failed. (Allsigned)"
+            _set-executionpolicy
+
+        }
+        "Restricted" { 
+            write-host -ForegroundColor Yellow "Failed. (Restricted)"
+            _set-executionpolicy
+     
+        }
+        "Default" { 
+            write-host -ForegroundColor Yellow "Failed. (Default)"
+            _set-executionpolicy
+           
+        }
+        default { write-host -ForegroundColor Green "Ok." }
+
+    }
+}
 function init {
 
     #Perform environment check, and guided dependancy installation for PowerNSX.
@@ -477,16 +521,47 @@ function init {
         write-host "PowerShell Module directory and run Import-Module PowerNSX from"
         write-host "a PowerCLI session." 
         write-host  
-        Break
+        break
     }
     else {
         write-host -ForegroundColor Yellow "Performing automated installation of PowerNSX."
         write-host
+        
+        if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+            [Security.Principal.WindowsBuiltInRole] "Administrator"))) { 
 
-        check-powershell
-        check-powercli
-        check-PowerNSX
-
+            write-host -ForegroundColor Yellow "The PowerNSX installer requires Administrative rights."
+            write-host -ForegroundColor Yellow "Please restart PowerShell with right click, 'Run As Administrator'"
+            break
+        }
+        try {
+            check-executionpolicy
+        }
+        catch {
+            write-host -ForegroundColor Yellow $_
+            break
+        }
+        try {
+            check-powershell
+        }
+        catch {
+            write-host -ForegroundColor Yellow $_
+            break
+        }
+        try {
+            check-powercli
+        }
+        catch {
+            write-host -ForegroundColor Yellow $_
+            break
+        }
+        try {
+            check-PowerNSX
+        }
+        catch {
+            write-host -ForegroundColor Yellow $_
+            break
+        }
 
         write-host 
         write-host -ForegroundColor Green "PowerNSX installation complete."
@@ -498,7 +573,9 @@ function init {
         write-host "    get-command -module PowerNSX"
         write-host 
         write-host "Review the PowerNSX Documentation at <> for further assistance"
-        write-host "Enjoy!"
+        write-host
+        write-host -ForegroundColor Green "Enjoy!"
+        write-host
 
     }
 }
