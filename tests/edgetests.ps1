@@ -38,60 +38,30 @@ $vnic0 = New-NsxEdgeInterfaceSpec -index 1 -Type uplink -Name "vNic1" -Connected
 $vnic1 = New-NsxEdgeInterfaceSpec -index 2 -Type internal -Name "vNic2" -ConnectedTo $ls2 -PrimaryAddress $ip2 -SubnetPrefixLength 24
 $vnic2 = New-NsxEdgeInterfaceSpec -index 3 -Type trunk -Name "vNic3" -ConnectedTo $pg1
 
-New-NsxEdgeServicesGateway -Name $name -Interface $vnic0,$vnic1,$vnic2 -Cluster $cl -Datastore $ds -password "VMware1!VMware1!"
+New-NsxEdge -Name $name -Interface $vnic0,$vnic1,$vnic2 -Cluster $cl -Datastore $ds -password "VMware1!VMware1!"
 
 
 #Add a vnic 
-Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface -Index 4 | Set-NsxEdgeInterface -Name "vNic4" -Type internal -ConnectedTo $ls4 -PrimaryAddress $ip4 -SubnetPrefixLength 24
+Get-NsxEdge $name | Get-NsxEdgeInterface -Index 4 | Set-NsxEdgeInterface -Name "vNic4" -Type internal -ConnectedTo $ls4 -PrimaryAddress $ip4 -SubnetPrefixLength 24
 
 #Add a subint of VLAN and Network Type
-Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "vNic3" | New-NsxEdgeSubinterface  -Name "sub1" -PrimaryAddress $ip5 -SubnetPrefixLength 24 -TunnelId 1 -Vlan 123
-Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "vNic3" | New-NsxEdgeSubinterface  -Name "sub2" -PrimaryAddress $ip6 -SubnetPrefixLength 24 -TunnelId 2 -Network $ls5
+Get-NsxEdge $name | Get-NsxEdgeInterface "vNic3" | New-NsxEdgeSubinterface  -Name "sub1" -PrimaryAddress $ip5 -SubnetPrefixLength 24 -TunnelId 1 -Vlan 123
+Get-NsxEdge $name | Get-NsxEdgeInterface "vNic3" | New-NsxEdgeSubinterface  -Name "sub2" -PrimaryAddress $ip6 -SubnetPrefixLength 24 -TunnelId 2 -Network $ls5
 
 #Get and Remove a subint by name
-Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "vNic3" | Get-NsxEdgeSubInterface "sub1" | Remove-NsxEdgeSubinterface -confirm:$false 
+Get-NsxEdge $name | Get-NsxEdgeInterface "vNic3" | Get-NsxEdgeSubInterface "sub1" | Remove-NsxEdgeSubinterface -confirm:$false 
 
 #Get and Remove a subint by index
-Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "Vnic3" | Get-NsxEdgeSubInterface -Index 11 | Remove-NsxEdgeSubinterface -confirm:$false
+Get-NsxEdge $name | Get-NsxEdgeInterface "Vnic3" | Get-NsxEdgeSubInterface -Index 11 | Remove-NsxEdgeSubinterface -confirm:$false
 
 
 #Get and remove a vNic by name and index
-Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface -index 3 | Clear-NsxEdgeInterface -confirm:$false
-Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "vNic4" | Clear-NsxEdgeInterface -confirm:$false
-
-
-#enable LB
-get-nsxedgeservicesgateway $name | Update-NsxEdgeServicesGateway -EnableLoadBalancing -EnableAcceleration
-$monitor = get-nsxedgeservicesgateway $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor default_http_monitor 
-$AppProfile = get-nsxedgeservicesgateway $name | New-NsxLoadBalancerApplicationProfile -Name HTTP -Type HTTP -insertXForwardedFor
-
-#Web Vip
-$WebMember1 = New-NsxLoadBalancerMemberSpec -name Web01 -IpAddress 192.168.200.11 -Port 80
-$WebMember2 = New-NsxLoadBalancerMemberSpec -name Web02 -IpAddress 192.168.200.12 -Port 80
-$WebPool = get-nsxedgeservicesgateway $name | New-NsxLoadBalancerPool -Name WebPool -Description "WebServer Pool" -Transparent:$false -Algorithm round-robin -Monitor $monitor -MemberSpec $WebMember1,$WebMember2
-$WebVip = get-nsxedgeservicesgateway $name | New-NsxLoadBalancerVip -Name WebVip -Description testdesc -IpAddress $ip1 -Protocol http -Port 80 -ApplicationProfile $AppProfile -DefaultPool $WebPool -AccelerationEnabled
-
-#Remove Vip
-#Still to do.
-
-#Remove Poolmember
-#Still to do.
-
-#remove monitor
-#Still to do.
-
-#remove appprofile
-#Still to do.
-
-#Add member to pool
-#Still to do.
-
-#Remove LB
-#Still to do.
+Get-NsxEdge $name | Get-NsxEdgeInterface -index 3 | Clear-NsxEdgeInterface -confirm:$false
+Get-NsxEdge $name | Get-NsxEdgeInterface "vNic4" | Clear-NsxEdgeInterface -confirm:$false
 
 
 #Clean up
-get-nsxedgeservicesgateway  $name | remove-nsxedgeservicesgateway -confirm:$false
+get-NsxEdge  $name | remove-NsxEdge -confirm:$false
 start-sleep 10
 get-nsxtransportzone | get-nsxlogicalswitch $ls1_name | remove-nsxlogicalswitch -confirm:$false
 get-nsxtransportzone | get-nsxlogicalswitch $ls2_name | remove-nsxlogicalswitch -confirm:$false

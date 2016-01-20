@@ -1,6 +1,7 @@
 #Powershell NSX module
 #Nick Bradford
 #nbradford@vmware.com
+#Version 1.0 RC 1
 
 
 
@@ -35,13 +36,13 @@
 ###
 # To Do
 #
-# - Check for PS3 min. Install Windows Management Framework 4.0 automatically?
-# - Get Vms on LS -> needs get-nsxbackingpg (Get-NsxTransportZone | Get-NsxLogicalSwitch LS1 | get-nsxbackingpg | get-vm)
-# - Get Edges on LS -> needs get-nsxedgeservice gateway to accept LS as input object
-# - Get Hosts on LS -> needs get-nsxbackingpg (Get-NsxTransportZone | Get-NsxLogicalSwitch LS1 | get-nsxbackingpg | % { $_.vdswitch | get-vmhost } | sort-object -uniq 
+# - Get Edges on LS -> needs get-nsxedge to accept LS as input object
 # - Set/New LR interface functions returning xmldoc, not element.  Check edge interface output as well.
-#
-#
+# - Need to check for PowerCLI we now pretty much require it - which is snapin or module...dang it...
+# - Update Edge (LB? ) validation cmdlets with edgeId
+
+#Requires -Version 3.0
+
 
 set-strictmode -version Latest
 
@@ -148,13 +149,13 @@ function Invoke-NsxRestMethod {
     $headerDictionary.add("Authorization", "Basic $Base64cred")
 
     if ( $extraHeader ) {
-        $extraHeader.GetEnumerator() | % {
-            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($_.Key ) : $($_.Value)"
-            $headerDictionary.add($_.Key, $_.Value)
+        foreach ($header in $extraHeader.GetEnumerator()) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
+            $headerDictionary.add($header.Key, $header.Value)
         }
     }
     $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: $($body | Format-Xml)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
     #do rest call
     
     try { 
@@ -182,7 +183,7 @@ function Invoke-NsxRestMethod {
 
     }
     switch ( $response ) {
-        { $_ -is [xml] } { write-debug "$($MyInvocation.MyCommand.Name) : Response: $($response.outerxml | Format-Xml)" } 
+        { $_ -is [xml] } { write-debug "$($MyInvocation.MyCommand.Name) : Response: `n$($response.outerxml | Format-Xml)" } 
         { $_ -is [System.String] } { write-debug "$($MyInvocation.MyCommand.Name) : Response: $($response)" }
         default { write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown" }
 
@@ -285,13 +286,13 @@ function Invoke-NsxWebRequest {
     $headerDictionary.add("Authorization", "Basic $Base64cred")
 
     if ( $extraHeader ) {
-        $extraHeader.GetEnumerator() | % {
-            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($_.Key ) : $($_.Value)"
-            $headerDictionary.add($_.Key, $_.Value)
+        foreach ($header in $extraHeader.GetEnumerator()) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
+            $headerDictionary.add($header.Key, $header.Value)
         }
     }
     $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: $($body | Format-Xml)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
     #do rest call
     
     try { 
@@ -333,19 +334,114 @@ function Add-XmlElement {
     #Internal function used to simplify the exercise of adding XML text Nodes.
     param ( 
 
-        [System.XML.XMLDocument]$xmlDoc,
         [System.XML.XMLElement]$xmlRoot,
         [String]$xmlElementName,
         [String]$xmlElementText
     )
 
     #Create an Element and append it to the root
-    [System.XML.XMLElement]$xmlNode = $xmlDoc.CreateElement($xmlElementName)
-    [System.XML.XMLNode]$xmlText = $xmlDoc.CreateTextNode($xmlElementText)
+    [System.XML.XMLElement]$xmlNode = $xmlRoot.OwnerDocument.CreateElement($xmlElementName)
+    [System.XML.XMLNode]$xmlText = $xmlRoot.OwnerDocument.CreateTextNode($xmlElementText)
     $xmlNode.AppendChild($xmlText) | out-null
     $xmlRoot.AppendChild($xmlNode) | out-null
 }
 Export-ModuleMember -function Add-XmlElement
+
+function Get-EasterEgg {
+
+$OhCaptainMyCaptain = @"                                                                                 
+                                                                                 
+                                                                                 
+                                                                                 
+                                                                                 
+                                                                                 
+                                                                                 
+                                                                                 
+                                                                                 
+                                         `                                       
+                                 `;;###',.`                                      
+                               `'#++##@#+#+@;'`                                  
+                             `;#++++@#++####+@#+'                                
+                             +##+#+###+++@###@#@#;..                             
+                            :#+#'++##+''+##@+###@@#:                             
+                           ,'+''+##++#+++##+######'+:                            
+                         `'+'+;''#'##++'+##+#@@@+#+'#`                           
+                         +;;+;#'#'++@@##@'+#@#@#@##:'+                           
+                        ;';:+#++++'#+####@#'+#@@@@+#++@                          
+                        ;++@@+#'++@@##+###+++#####;+###.                         
+                       .+++@#+#'+##+###@@#+';;'++###,'++`                        
+                       +#'##+#+##@+'+@##@+;:::;;'+####@+;                        
+                       +;+@'@+@###+''+++':::,,,:;'+#+#@#+                        
+                      `#'@'@;#@##''';;;;:,,,,,,,:;'+#+#@@`                       
+                       +#;@+'@#+#+';;;;::,,,,,,,,,:;+###@,                       
+                      +#+;;;'+,++''';;:::,,,,,,.,,,,;+#@@:                       
+                      +'#;';',.::'';;:;;:,,,,,,,..,,,;+##;                       
+                      #+'#'';::::;;;;::::,:,,,,,,,,,,,;:#@                       
+                      ###'+''::,:;;;::::::,,,,,.,,.,,,;;+;                       
+                     `;#+''+'::::::;;;:::,,,,,,,,,,,,::#+                        
+                     .;+#;#+::;:,,''''''':,,::::::::,,:#'` `                     
+                     :'+'##',:;,'++####+#+::;+'#+''';::@+                        
+                     ;.;++#:,::+@#@@###+++::'#####+#++:@#+                       
+                     ;,;;+'.,'+####+#+++'';:;'+####+++:'+'                       
+                     '+';#;,:+++####@##+++;::;+##@+'';;;#;                       
+                     ;+''#,,;+++@+#'@,##++;,:'+##+:#+:,;',                       
+                     ;;`';,,;+++++'+;;++++;.,:+'#+:'::,:;:                       
+                     ,,'+.:::'''+++''''+++;,,::;'';:,,:;;;                       
+                     :'';,::::;;'''''''+++;,,,::;;:::,,:;;                       
+                     :'+:::::::;;;;;;;'''+':,,,,:,,,,,,;,:                       
+                     ::#':::::;;:;::;;''++':,,,,,,,,,,,;:;                       
+                     :;;';;::;:;:::::;'+++':,,,,,,,,,,:;:'                       
+                     ::,;:;:;;;;;:::;;'+++;:.,:,,,,,,,:;:'                       
+                     ,,.+:;;;;''';;:;'+''';,.,:;:,,,,::;:'                       
+                      ::+:;;;+''';;;;'+''';:.,,;;:,,,::;:'                       
+                      ;'':;:;++'''';''++++'';;;,;;::,::;:;                       
+                         :;;;+++''''''++##+''+,,,:;::::;;                        
+                         :;;;+++''''+++#++++;::,,,;:::;'                         
+                         :;;;'+''''''++++''':,:::::::;;;                         
+                         :;;;++'''''+'''':::,,:;;;::::;:                         
+                          ;;;+++'''+##++++''++';+';::;;                          
+                          ;';+++'''''+++'+#+';':;';:;;;                          
+                          `'''++'''''''+';:::::,,:;;;;,                          
+                          .;''++''''''+''';;;::,::;;;'                           
+                         .:,''+++''''''+++++';:::;;;;                            
+                         `#,;'''+++'''''''''::::;;;;                             
+                        .`#,:'+''++''';;;:;;:::;:;;',                            
+                         `@,:'++''+++';;;:::::::';++.`                           
+                       . `@,;'+'+''+++';;;;;::;'';#+:`                           
+                        ``#':;++'+''++++'++'';''':++;`,                          
+                      .```:+;'''''''''++++++++'';:++;.`                          
+                       ```.@'''''''''''''''''+';::++;,`:                         
+                     ,````.#+'''''''''''''''';;;:;+';,```                        
+                    . ````.,#+'''''''''''';;;:;::;#';:``.`:                      
+                  .`.````...#+'''''''''';;;:;;;::++;::``````..                   
+                .`..``````..,#'''''''';'';;;:;:::+'::,`````````:                 
+              .``.,,``````...'#''''''';'';;;:::::+'::,````.``````,.              
+           `.`..`.,.``````.`.,#+'';;;';';;;::::::+'::,`````.````````:            
+         ,`````:.`. ````......:#';;;;;;;;;;:::::;,':::````````````..``:          
+       ,```,`,:,...`````..`....++;;;;;;;;;;:::::+`:,:,+':`.`.`````.....`,        
+     :``....:,:,..,`````........'+;;;;;;;;;:::,;`.,,,.'';..````````.`.....,      
+   :``....:,.,::,.,`````.........,.';;;;;;:::::``:,,.'';;,..,.``````...``...`    
+ .``.`.,:..,.,::,,,`````......`.,.,..````..`````.:,,';;;;:,.`:.``````.````.`.,   
+,``,.```....,,:,,,:`````..````,':::....````````...;;;;;;;;:.``:.`````````.``..   
+.`....````...,,,,,:````....`.';::::;.......`````:,:::::;;;;,```:`````````.``..;  
+........,......,,,,````..`.;;;;,:;:,:,..```````.`,,,,:::::;:.`````````````.```.  
+``.....,.,,,..,,,,.```` `,;,,::;.,,:::..``````......,,,,,,,:.`````````````..`.`. 
+```.......,.,,,,,,.`` .:;,,,,,:::;..,::``````..,,..........,.`````````````...`., 
+```.........,,,:::..,,,:::,,,,,,::::,,:,````..,:,`..``````...`````````````..```. 
+.```........,,,:::,,,,,,,,,,,,,,,,,:;,,:`.``...,,.`````````````````````````````.:
+:,.``.....,,,,,:::,,,,,,,,,,,,,,,,,,,:;:,:```,..`````````````````````````````````
+::,.`.....,,,,,:::,,,,,,,,.,,,,,,,,,,,.,;:,,....````````````````````````````````,
+.::,..````..,,,:::,,,,,,,,....,...,,,,,,.`::,..````````````````````````````````.:
+.,::...`````.,,,,,,,,.,,..............,,,,``;.`````````````````````````````.````,
+,,,::..```````..,,,....................`....,.`````````````````````````````````..
+`,,::,...`...```....................``````.,,.``````````````````````````````````,
+..,:::.........``.`...............````````.,.```````````````````````````````````,
+..,,::,..````....................``````.``.:``````````````````````````````````..,
+"@
+
+    $OhCaptainMyCaptain
+}
+Export-ModuleMember -function Get-EasterEgg
 
 ########
 ########
@@ -385,6 +481,38 @@ Function Validate-LogicalSwitchOrDistributedPortGroup {
         }
         else { 
             #Its a VDS type - no further Checking
+        }   
+    }
+    $true
+}
+
+Function Validate-LogicalSwitch {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )      
+
+    if (-not ($argument -is [System.Xml.XmlElement] ))
+    { 
+        throw "Must specify a logical switch" 
+    } 
+    else {
+
+        #Do we Look like XML describing a Logical Switch
+        
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "Object specified does not contain an objectId property.  Specify a Logical Switch object."
+        }
+        if ( -not ( $argument | get-member -name objectTypeName -Membertype Properties)) { 
+            throw "Object specified does not contain a type property.  Specify a Logical Switch object."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "Object specified does not contain a name property.  Specify a Logical Switch object."
+        }
+        switch ($argument.objectTypeName) {
+            "VirtualWire" { }
+            default { throw "Object specified is not a supported type.  Specify a Logical Switch object." }
         }   
     }
     $true
@@ -495,6 +623,406 @@ Function Validate-Edge {
     }
     else {
         throw "Specify a valid Edge Services Gateway Object"
+    }
+}
+
+Function Validate-EdgeRouting {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name routingGlobalConfig -Membertype Properties)) { 
+            throw "XML Element specified does not contain a routingGlobalConfig property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name version -Membertype Properties)) { 
+            throw "XML Element specified does not contain a version property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge Routing object."
+    }
+}
+
+Function Validate-EdgeStaticRoute {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name type -Membertype Properties)) { 
+            throw "XML Element specified does not contain a type property."
+        }
+        if ( -not ( $argument | get-member -name network -Membertype Properties)) { 
+            throw "XML Element specified does not contain a network property."
+        }
+        if ( -not ( $argument | get-member -name nextHop -Membertype Properties)) { 
+            throw "XML Element specified does not contain a nextHop property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge Static Route object."
+    }
+}
+
+Function Validate-EdgeBgpNeighbour {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain an ipAddress property."
+        }
+        if ( -not ( $argument | get-member -name remoteAS -Membertype Properties)) { 
+            throw "XML Element specified does not contain a remoteAS property."
+        }
+        if ( -not ( $argument | get-member -name weight -Membertype Properties)) { 
+            throw "XML Element specified does not contain a weight property."
+        }
+        if ( -not ( $argument | get-member -name holdDownTimer -Membertype Properties)) { 
+            throw "XML Element specified does not contain a holdDownTimer property."
+        }
+        if ( -not ( $argument | get-member -name keepAliveTimer -Membertype Properties)) { 
+            throw "XML Element specified does not contain a keepAliveTimer property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge BGP Neighbour object."
+    }
+}
+
+Function Validate-EdgeOspfArea {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an OSPF Area element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name areaId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an areaId property."
+        }
+        if ( -not ( $argument | get-member -name type -Membertype Properties)) { 
+            throw "XML Element specified does not contain a type property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge OSPF Area object."
+    }
+}
+
+Function Validate-EdgeOspfInterface {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an OSPF Area element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name areaId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an areaId property."
+        }
+        if ( -not ( $argument | get-member -name vnic -Membertype Properties)) { 
+            throw "XML Element specified does not contain a vnic property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge OSPF Interface object."
+    }
+}
+
+Function Validate-EdgeRedistributionRule {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an OSPF Area element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name learner -Membertype Properties)) { 
+            throw "XML Element specified does not contain an areaId property."
+        }
+        if ( -not ( $argument | get-member -name id -Membertype Properties)) { 
+            throw "XML Element specified does not contain an id property."
+        }
+        if ( -not ( $argument | get-member -name action -Membertype Properties)) { 
+            throw "XML Element specified does not contain an action property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge Redistribution Rule object."
+    }
+}
+
+Function Validate-LogicalRouterRouting {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an LogicalRouter routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name routingGlobalConfig -Membertype Properties)) { 
+            throw "XML Element specified does not contain a routingGlobalConfig property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name version -Membertype Properties)) { 
+            throw "XML Element specified does not contain a version property."
+        }
+        if ( -not ( $argument | get-member -name logicalrouterId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an logicalrouterId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LogicalRouter Routing object."
+    }
+}
+
+Function Validate-LogicalRouterStaticRoute {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an LogicalRouter routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name type -Membertype Properties)) { 
+            throw "XML Element specified does not contain a type property."
+        }
+        if ( -not ( $argument | get-member -name network -Membertype Properties)) { 
+            throw "XML Element specified does not contain a network property."
+        }
+        if ( -not ( $argument | get-member -name nextHop -Membertype Properties)) { 
+            throw "XML Element specified does not contain a nextHop property."
+        }
+        if ( -not ( $argument | get-member -name logicalrouterId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an logicalrouterId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LogicalRouter Static Route object."
+    }
+}
+
+Function Validate-LogicalRouterBgpNeighbour {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an LogicalRouter routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain an ipAddress property."
+        }
+        if ( -not ( $argument | get-member -name remoteAS -Membertype Properties)) { 
+            throw "XML Element specified does not contain a remoteAS property."
+        }
+        if ( -not ( $argument | get-member -name weight -Membertype Properties)) { 
+            throw "XML Element specified does not contain a weight property."
+        }
+        if ( -not ( $argument | get-member -name holdDownTimer -Membertype Properties)) { 
+            throw "XML Element specified does not contain a holdDownTimer property."
+        }
+        if ( -not ( $argument | get-member -name keepAliveTimer -Membertype Properties)) { 
+            throw "XML Element specified does not contain a keepAliveTimer property."
+        }
+        if ( -not ( $argument | get-member -name logicalrouterId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an logicalrouterId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LogicalRouter BGP Neighbour object."
+    }
+}
+
+Function Validate-LogicalRouterOspfArea {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an OSPF Area element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name areaId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an areaId property."
+        }
+        if ( -not ( $argument | get-member -name type -Membertype Properties)) { 
+            throw "XML Element specified does not contain a type property."
+        }
+        if ( -not ( $argument | get-member -name logicalrouterId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an logicalrouterId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LogicalRouter OSPF Area object."
+    }
+}
+
+Function Validate-LogicalRouterOspfInterface {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an OSPF Area element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name areaId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an areaId property."
+        }
+        if ( -not ( $argument | get-member -name vnic -Membertype Properties)) { 
+            throw "XML Element specified does not contain a vnic property."
+        }
+        if ( -not ( $argument | get-member -name logicalrouterId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an logicalrouterId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LogicalRouter OSPF Interface object."
+    }
+}
+
+Function Validate-LogicalRouterRedistributionRule {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an OSPF Area element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name learner -Membertype Properties)) { 
+            throw "XML Element specified does not contain an areaId property."
+        }
+        if ( -not ( $argument | get-member -name id -Membertype Properties)) { 
+            throw "XML Element specified does not contain an id property."
+        }
+        if ( -not ( $argument | get-member -name action -Membertype Properties)) { 
+            throw "XML Element specified does not contain an action property."
+        }
+        if ( -not ( $argument | get-member -name logicalrouterId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an logicalrouterId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LogicalRouter Redistribution Rule object."
+    }
+}
+
+Function Validate-EdgePrefix {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge prefix element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a name property."
+        }
+        if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain an ipAddress property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge Prefix object."
+    }
+}
+
+Function Validate-LogicalRouterPrefix {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge prefix element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a name property."
+        }
+        if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain an ipAddress property."
+        }
+        if ( -not ( $argument | get-member -name logicalRouterId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an logicalRouterId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LogicalRouter Prefix object."
     }
 }
 
@@ -743,8 +1271,14 @@ Function Validate-LoadBalancer {
         if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
             throw "XML Element specified does not contain an enabled property."
         }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
     }
-    $true
+    else { 
+        throw "Specify a valid LoadBalancer object."
+    }
 }
 
 Function Validate-LoadBalancerMonitor {
@@ -766,8 +1300,43 @@ Function Validate-LoadBalancerMonitor {
         if ( -not ( $argument | get-member -name type -Membertype Properties)) { 
             throw "XML Element specified does not contain a type property."
         }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
     }
-    $true
+    else { 
+        throw "Specify a valid LoadBalancer Monitor object."
+    }
+}
+
+Function Validate-LoadBalancerVip {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an LB monitor element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name virtualServerId -Membertype Properties)) { 
+            throw "XML Element specified does not contain a virtualServerId property."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a name property."
+        }
+        if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain an ipAddress property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LoadBalancer VIP object."
+    }
 }
 
 Function Validate-LoadBalancerMemberSpec {
@@ -779,22 +1348,28 @@ Function Validate-LoadBalancerMemberSpec {
 
     if ($argument -is [System.Xml.XmlElement] ) {
         if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
-                throw "XML Element specified does not contain a name property.  Create with New-NsxLoadbalancerMemberSpec"}
+            throw "XML Element specified does not contain a name property.  Create with New-NsxLoadbalancerMemberSpec"
+        }
         if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) { 
-                throw "XML Element specified does not contain an ipAddress property.  Create with New-NsxLoadbalancerMemberSpec"}
+            throw "XML Element specified does not contain an ipAddress property.  Create with New-NsxLoadbalancerMemberSpec"
+        }
         if ( -not ( $argument | get-member -name weight -Membertype Properties)) { 
-                throw "XML Element specified does not contain a weight property.  Create with New-NsxLoadbalancerMemberSpec"}
+            throw "XML Element specified does not contain a weight property.  Create with New-NsxLoadbalancerMemberSpec"
+        }
         if ( -not ( $argument | get-member -name port -Membertype Properties)) { 
-            throw "XML Element specified does not contain a port property.  Create with New-NsxLoadbalancerMemberSpec"}
+            throw "XML Element specified does not contain a port property.  Create with New-NsxLoadbalancerMemberSpec"
+        }
         if ( -not ( $argument | get-member -name minConn -Membertype Properties)) { 
-            throw "XML Element specified does not contain a minConn property.  Create with New-NsxLoadbalancerMemberSpec"}
+            throw "XML Element specified does not contain a minConn property.  Create with New-NsxLoadbalancerMemberSpec"
+        }
         if ( -not ( $argument | get-member -name maxConn -Membertype Properties)) { 
-            throw "XML Element specified does not contain a maxConn property.  Create with New-NsxLoadbalancerMemberSpec"}                       
+            throw "XML Element specified does not contain a maxConn property.  Create with New-NsxLoadbalancerMemberSpec"
+        }            
+        $true           
     }
     else { 
         throw "Specify a valid Member Spec object as created by New-NsxLoadBalancerMemberSpec."
     }
-    $true
 }
 
 Function Validate-LoadBalancerApplicationProfile {
@@ -816,8 +1391,11 @@ Function Validate-LoadBalancerApplicationProfile {
         if ( -not ( $argument | get-member -name template -Membertype Properties)) { 
             throw "XML Element specified does not contain a template property."
         }
+        $True
     }
-    $true
+    else { 
+        throw "Specify a valid LoadBalancer Application Profile object."
+    }
 }
 
 Function Validate-LoadBalancerPool {
@@ -836,12 +1414,44 @@ Function Validate-LoadBalancerPool {
         if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
             throw "XML Element specified does not contain a name property."
         }
+        $True
     }
-    $true
+    else { 
+        throw "Specify a valid LoadBalancer Pool object."
+    }
 }
 
+Function Validate-LoadBalancerPoolMember {
+ 
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
 
+    #Check if it looks like an LB pool element
+    if ($_ -is [System.Xml.XmlElement] ) {
 
+        if ( -not ( $argument | get-member -name poolId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an poolId property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain an ipAddress property."
+        }
+        if ( -not ( $argument | get-member -name port -Membertype Properties)) { 
+            throw "XML Element specified does not contain a port property."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a name property."
+        }
+        $True
+    }
+    else { 
+        throw "Specify a valid LoadBalancer Pool Member object."
+    }
+}
 
 ##########
 ##########
@@ -849,26 +1459,47 @@ Function Validate-LoadBalancerPool {
 
 function Format-XML () {
 
-    #Shamelessly ripped from the web, useful for formatting XML output into a form that 
+    #Shamelessly ripped from the web with some modification, useful for formatting XML output into a form that 
     #is easily read by humans.  Seriously - how is this not part of the dotnet system.xml classes?
 
     param ( 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,Position=1) ]
-            [xml]$xml="", 
+            $xml="", 
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [int]$indent=2
     ) 
 
+    if ( ($xml -is [System.Xml.XmlElement]) -or ( $xml -is [System.Xml.XmlDocument] ) ) { 
+        try {
+            [xml]$_xml = $xml.OuterXml 
+        }
+        catch {
+            throw "Specified XML element cannot be cast to an XML document."
+        }
+    }
+    elseif ( $xml -is [string] ) {
+        try { 
+            [xml]$_xml = $xml
+        }
+        catch {
+            throw "Specified string cannot be cast to an XML document."
+        } 
+    }
+    else{
+
+        throw "Unknown data type specified as xml."
+    }
+
+
     $StringWriter = New-Object System.IO.StringWriter 
     $XmlWriter = New-Object System.XMl.XmlTextWriter $StringWriter 
     $xmlWriter.Formatting = "indented" 
     $xmlWriter.Indentation = $Indent 
-    $xml.WriteContentTo($XmlWriter) 
+    $_xml.WriteContentTo($XmlWriter) 
     $XmlWriter.Flush() 
     $StringWriter.Flush() 
     Write-Output $StringWriter.ToString() 
-
 }
 Export-ModuleMember -function Format-Xml
 
@@ -929,8 +1560,19 @@ function Connect-NsxServer {
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
             [ValidateNotNullorEmpty()]
-            [bool]$DefaultConnection=$true
-
+            [bool]$DefaultConnection=$true,
+        [Parameter (Mandatory=$false,ParameterSetName="cred")]
+        [Parameter (ParameterSetName="userpass")]   
+            [bool]$DisableVIAutoConnect=$false,
+        [Parameter (Mandatory=$false,ParameterSetName="cred")]
+        [Parameter (ParameterSetName="userpass")]    
+            [string]$VIUserName,
+        [Parameter (Mandatory=$false,ParameterSetName="cred")]
+        [Parameter (ParameterSetName="userpass")]    
+            [string]$VIPassword,
+        [Parameter (Mandatory=$false,ParameterSetName="cred")]
+        [Parameter (ParameterSetName="userpass")]    
+            [PSCredential]$VICred
     )
 
     if ($PSCmdlet.ParameterSetName -eq "userpass") {      
@@ -940,8 +1582,13 @@ function Connect-NsxServer {
     $URI = "/api/1.0/appliance-management/global/info"
     
     #Test NSX connection
-    $response = invoke-nsxrestmethod -cred $Credential -server $Server -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate $ValidateCertificate
+    try {
+        $response = invoke-nsxrestmethod -cred $Credential -server $Server -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate $ValidateCertificate
+    } 
+    catch {
 
+        Throw "Unable to connect to NSX Manager at $Server.  $_"
+    }
     $connection = new-object PSCustomObject
     $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
     $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
@@ -950,13 +1597,735 @@ function Connect-NsxServer {
     $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
     $connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
     $connection | add-member -memberType NoteProperty -name "ValidateCertificate" -value $ValidateCertificate -force
+    $connection | add-member -memberType NoteProperty -name "VIConnection" -force -Value ""
 
     if ( $defaultConnection) { set-variable -name DefaultNSXConnection -value $connection -scope Global }
+    
+    #More and more functionality requires PowerCLI connection as well, so now pushing the user in that direction.  Will establish connection to vc the NSX manager 
+    #is registered against.
+
+    $vcInfo = Invoke-NsxRestMethod -method get -URI "/api/2.0/services/vcconfig"
+    $RegisteredvCenterIP = $vcInfo.vcInfo.ipAddress
+    $ConnectedToRegisteredVC=$false
+
+    if ((test-path variable:global:DefaultVIServer )) {
+
+        #Already have a PowerCLI connection - is it to the right place?
+
+        #the 'ipaddress' in vcinfo from NSX api can be fqdn, 
+        #Resolve to ip so we can compare to any existing connection.  
+        #Resolution can result in more than one ip so we have to iterate over it.
+        
+        $RegisteredvCenterIPs = ([System.Net.Dns]::GetHostAddresses($RegisteredvCenterIP))
+
+        #Remembering we can have multiple vCenter connections too :|
+        :outer foreach ( $VIServerConnection in $global:DefaultVIServer ) {
+            $ExistingVIConnectionIPs =  [System.Net.Dns]::GetHostAddresses($VIServerConnection.Name)
+            foreach ( $ExistingVIConnectionIP in [IpAddress[]]$ExistingVIConnectionIPs ) {
+                foreach ( $RegisteredvCenterIP in [IpAddress[]]$RegisteredvCenterIPs ) {
+                    if ( $ExistingVIConnectionIP -eq $RegisteredvCenterIP ) {
+                        if ( $VIServerConnection.IsConnected ) { 
+                            $ConnectedToRegisteredVC = $true
+                            write-host -foregroundcolor Green "Using existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString)"
+                            $connection.VIConnection = $VIServerConnection
+                            break outer
+                        }
+                        else {
+                            write-host -foregroundcolor Yellow "Existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString) is not connected."
+                        }
+                    }
+                }
+            }
+        }
+    } 
+
+    if ( -not $ConnectedToRegisteredVC ) {
+        if ( -not (($VIUserName -and $VIPassword) -or ( $VICred ) )) {
+            #We assume that if the user did not specify VI creds, then they may want a connection to VC, but we will ask.
+            $decision = 1
+            if ( -not $DisableVIAutoConnect) {
+              
+                #Ask the question and get creds.
+
+                $message  = "PowerNSX requires a PowerCLI connection to the vCenter server NSX is registered against for proper operation."
+                $question = "Automatically create PowerCLI connection to $($RegisteredvCenterIP)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+
+            }
+
+            if ( $decision -eq 0 ) { 
+                write-host 
+                write-host -foregroundcolor Yellow "Enter credentials for vCenter $RegisteredvCenterIP"
+                $VICred = get-credential
+                $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP
+
+            }
+            else {
+                write-host
+                write-host -foregroundcolor Yellow "Some PowerNSX cmdlets will not be fully functional without a valid PowerCLI connection to vCenter server $RegisteredvCenterIP"
+            }
+        }
+        else { 
+            #User specified VI username/pwd or VI cred.  Connect automatically to the registered vCenter
+            write-host "Creating PowerCLI connection to vCenter server $RegisteredvCenterIP"
+
+            if ( $VICred ) { 
+                $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP
+            }
+            else {
+                $connection.VIConnection = Connect-VIServer -User $VIUserName -Password $VIPassword $RegisteredvCenterIP
+            }
+        }
+    }
 
     $connection
-
 }
 Export-ModuleMember -Function Connect-NsxServer
+
+function Get-PowerNsxVersion {
+
+    <#
+    .SYNOPSIS
+    Retrieves the version of PowerNSX.
+    
+    .EXAMPLE
+    Get-PowerNsxVersion
+
+    Get the instaled version of PowerNSX
+
+    #>
+
+    [PSCustomobject]@{
+        "Version" = "1.0 RC1";
+        "Major" = 1 ;
+        "Minor" = 0;
+
+    }
+}
+Export-ModuleMember -function Get-PowerNsxVersion {
+    
+}
+
+#########
+#########
+# Infra functions
+
+function Get-NsxClusterStatus {
+
+    <#
+    .SYNOPSIS
+    Retrieves the resource status from NSX for the given cluster.
+
+    .DESCRIPTION
+    All clusters visible to NSX manager (managed by the vCenter that NSX Manager
+    is synced with) can have the status of NSX related resources queried.
+
+    This cmdlet returns the resource status of all registered NSX resources for 
+    the given cluster.
+
+    .EXAMPLE
+    This example shows how to query the status for the cluster MyCluster 
+
+    PS C:\> get-cluster MyCluster | Get-NsxClusterStatus
+
+    .EXAMPLE
+    This example shows how to query the status for all clusters
+
+    PS C:\> get-cluster MyCluster | Get-NsxClusterStatus
+
+    #>
+
+    param (
+
+        [Parameter ( Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster
+
+    )
+
+    begin {}
+
+    process{
+        #Get resource status for given cluster
+        write-debug "$($MyInvocation.MyCommand.Name) : Query status for cluster $($cluster.name) ($($cluster.ExtensionData.Moref.Value))"
+        $uri = "/api/2.0/nwfabric/status-without-alarms?resource=$($cluster.ExtensionData.Moref.Value)"
+        try {
+            $response = invoke-nsxrestmethod -connection $defaultNSXConnection -method get -uri $uri
+            $response.resourceStatuses.resourceStatus.nwFabricFeatureStatus
+
+        }
+        catch {
+            throw "Unable to query resource status for cluster $($cluster.Name) ($($cluster.ExtensionData.Moref.Value)).  $_"
+        }
+    }
+    end{}
+}
+Export-ModuleMember -Function Get-NsxClusterStatus
+
+function Parse-CentralCliResponse {
+
+    param (
+        [Parameter ( Mandatory=$True, Position=1)]
+            [String]$response
+    )
+
+
+    #Response is straight text unfortunately, so there is no structure.  Having a crack at writing a very simple parser though the formatting looks.... challenging...
+    
+    #Control flags for handling list and table processing.
+    $TableHeaderFound = $false
+    $MatchedVnicsList = $false
+    $MatchedRuleset = $false
+    $MatchedAddrSet = $false
+
+    $RuleSetName = ""
+    $AddrSetName = ""
+
+    $KeyValHash = @{}
+    $KeyValHashUsed = $false
+
+    #Defined this as variable as the swtich statement does not let me concat strings, which makes for a verrrrry long line...
+    $RegexDFWRule = "^(?<Internal>#\sinternal\s#\s)?(?<RuleSetMember>rule\s)?(?<RuleId>\d+)\sat\s(?<Position>\d+)\s(?<Direction>in|out|inout)\s" + 
+            "(?<Type>protocol|ethertype)\s(?<Service>.*?)\sfrom\s(?<Source>.*?)\sto\s(?<Destination>.*?)(?:\sport\s(?<Port>.*))?\s" + 
+            "(?<Action>accept|reject|drop)(?:\swith\s(?<Log>log))?(?:\stag\s(?<Tag>'.*'))?;"
+
+
+
+    foreach ( $line in ($response -split '[\r\n]')) { 
+
+        #Init EntryHash hashtable
+        $EntryHash= @{}
+
+        switch -regex ($line.trim()) {
+
+            #C CLI appears to emit some error conditions as ^ Error:<digits> 
+            "^Error \d+:.*$" {
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Error line. $_ "
+                
+                Throw "CLI command returned an error: ( $_ )"
+
+            }
+
+            "^\s*$" { 
+                #Blank line, ignore...
+                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring blank line: $_"
+                break
+
+            }
+
+            "^# Filter rules$" { 
+                #Filter line encountered in a ruleset list, ignore...
+                if ( $MatchedRuleSet ) { 
+                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring meaningless #Filter rules line in ruleset: $_"
+                    break
+                }
+                else {
+                    throw "Error parsing Centralised CLI command output response.  Encountered #Filter rules line when not processing a ruleset: $_"
+                }
+
+            }
+            #Matches a single integer of 1 or more digits at the start of the line followed only by a fullstop.
+            #Example is the Index in a VNIC list.  AFAIK, the index should only be 1-9. but just in case we are matching 1 or more digit...
+            "^(\d+)\.$" { 
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Index line.  Discarding value: $_ "
+                If ( $MatchedVnicsList ) { 
+                    #We are building a VNIC list output and this is the first line.
+                    #Init the output object to static kv props, but discard the value (we arent outputing as it appears superfluous.)
+                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, initialising new Vnic list object"
+
+                    $VnicListHash = @{}
+                    $VnicListHash += $KeyValHash
+                    $KeyValHashUsed = $true
+
+                }
+                break
+            } 
+
+            #Matches the start of a ruleset list.  show dfw host host-xxx filter xxx rules will output in rulesets like this
+            "ruleset\s(\S+) {" {
+
+                #Set a flag to say we matched a ruleset List, and create the output object.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Ruleset output.  Processing following lines as DFW Ruleset: $_"
+                $MatchedRuleset = $true 
+                $RuleSetName = $matches[1].trim()
+                break        
+            }
+
+            #Matches the start of a addrset list.  show dfw host host-xxx filter xxx addrset will output in addrsets like this
+            "addrset\s(\S+) {" {
+
+                #Set a flag to say we matched a addrset List, and create the output object.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Addrset output.  Processing following lines as DFW Addrset: $_"
+                $MatchedAddrSet = $true 
+                $AddrSetName = $matches[1].trim()
+                break        
+            }
+
+            #Matches a addrset entry.  show dfw host host-xxx filter xxx addrset will output in addrsets.
+            "^(?<Type>ip|mac)\s(?<Address>.*),$" {
+
+                #Make sure we were expecting it...
+                if ( -not $MatchedAddrSet ) {
+                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw addrset entry : $_" 
+                }
+
+                #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
+                [PSCustomobject]@{
+                    "AddrSet" = $AddrSetName;
+                    "Type" = $matches.Type;
+                    "Address" = $matches.Address
+                }
+
+                break
+            }
+
+            #Matches a rule, either within a ruleset, or individually listed.  show dfw host host-xxx filter xxx rules will output in rulesets, 
+            #or show dfw host-xxx filter xxx rule 1234 will output individual rule that should match.
+            $RegexDFWRule {
+
+                #Check if the rule is individual or part of ruleset...
+                if ( $Matches.ContainsKey("RuleSetMember") -and (-not $MatchedRuleset )) {
+                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw ruleset entry : $_" 
+                }
+
+                $Type = switch ( $matches.Type ) { "protocol" { "Layer3" } "ethertype" { "Layer2" }}
+                $Internal = if ( $matches.ContainsKey("Internal")) { $true } else { $false }
+                $Port = if ( $matches.ContainsKey("Port") ) { $matches.port } else { "Any" } 
+                $Log = if ( $matches.ContainsKey("Log") ) { $true } else { $false } 
+                $Tag = if ( $matches.ContainsKey("Tag") ) { $matches.Tag } else { "" } 
+
+                If ( $MatchedRuleset ) {
+
+                    #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
+                    [PSCustomobject]@{
+                        "RuleSet" = $RuleSetName;
+                        "InternalRule" = $Internal;
+                        "RuleID" = $matches.RuleId;
+                        "Position" = $matches.Position;
+                        "Direction" = $matches.Direction;
+                        "Type" = $Type;
+                        "Service" = $matches.Service;
+                        "Source" = $matches.Source;
+                        "Destination" = $matches.Destination;
+                        "Port" = $Port;
+                        "Action" = $matches.Action;
+                        "Log" = $Log;
+                        "Tag" = $Tag
+
+                    }
+                }
+
+                else {
+                    #We are not processing a RuleSet; so we need to emit an output object without a ruleset name.
+                    [PSCustomobject]@{
+                        "InternalRule" = $Internal;
+                        "RuleID" = $matches.RuleId;
+                        "Position" = $matches.Position;
+                        "Direction" = $matches.Direction;
+                        "Type" = $Type;
+                        "Service" = $matches.Service;
+                        "Source" = $matches.Source;
+                        "Destination" = $matches.Destination;
+                        "Port" = $Port;
+                        "Action" = $matches.Action;
+                        "Log" = $Log;
+                        "Tag" = $Tag
+                    }
+                }
+
+                break
+            }
+
+            #Matches the end of a ruleset and addr lists.  show dfw host host-xxx filter xxx rules will output in lists like this
+            "^}$" {
+
+                if ( $MatchedRuleset ) { 
+
+                    #Clear the flag to say we matched a ruleset List
+                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW ruleset."
+                    $MatchedRuleset = $false
+                    $RuleSetName = ""
+                    break     
+                }
+
+                if ( $MatchedAddrSet ) { 
+                   
+                    #Clear the flag to say we matched an addrset List
+                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW addrset."
+                    $MatchedAddrSet = $false
+                    $AddrSetName = ""
+                    break     
+                }
+
+                throw "Error parsing Centralised CLI command output response.  Encountered unexpected list completion character in line: $_"
+            }
+
+            #More Generic matches
+
+            #Matches the generic KV case where we have _only_ two strings separated by more than one space.
+            #This will do my head in later when I look at it, so the regex explanation is:
+            #    - (?: gives non capturing group, we want to leverage $matches later, so dont want polluting groups.
+            #    - (\S|\s(?!\s)) uses negative lookahead assertion to 'Match a non whitespace, or a single whitespace, as long as its not followed by another whitespace.
+            #    - The rest should be self explanatory.
+            "^((?:\S|\s(?!\s))+\s{2,}){1}((?:\S|\s(?!\s))+)$" { 
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (multispace separated): $_ )"
+                
+                $key = $matches[1].trim()
+                $value = $matches[2].trim()
+                If ( $MatchedVnicsList ) { 
+                    #We are building a VNIC list output and this is one of the lines.
+                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, Adding $key = $value to current VnicListHash"
+
+                    $VnicListHash.Add($key,$value)
+
+                    if ( $key -eq "Filters" ) {
+
+                        #Last line in a VNIC List...
+                        write-debug "$($MyInvocation.MyCommand.Name) : VNIC List :  Outputing VNIC List Hash."
+                        [PSCustomobject]$VnicListHash
+                    }
+                }
+                else {
+                    #Add KV to hash table that we will append to output object
+                    $KeyValHash.Add($key,$value)
+                }     
+                break
+            }
+
+            #Matches a general case output line containing Key: Value for properties that are consistent accross all entries in a table. 
+            #This will match a line with multiple colons in it, not sure if thats an issue yet...
+            "^((?:\S|\s(?!\s))+):((?:\S|\s(?!\s))+)$" {
+                if ( $TableHeaderFound ) { Throw "Error parsing Centralised CLI command output response.  Key Value line found after header: ( $_ )" }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (Colon Separated) : $_"
+                
+                #Add KV to hash table that we will append to output object
+                $KeyValHash.Add($matches[1].trim(),$matches[2].trim())
+
+                break
+            }
+
+            #Matches a Table header line.  This is a special case of the table entry line match, with the first element being ^No\.  Hoping that 'No.' start of the line is consistent :S
+            "^No\.\s{2,}(.+\s{2,})+.+$" {
+                if ( $TableHeaderFound ) { 
+                    throw "Error parsing Centralised CLI command output response.  Matched header line more than once: ( $_ )"
+                }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Header line: $_"
+                $TableHeaderFound = $true
+                $Props = $_.trim() -split "\s{2,}"
+                break
+            }
+
+            #Matches the start of a Virtual Nics List output.  We process the output lines following this as a different output object
+            "Virtual Nics List:" {
+                #When central cli outputs a NIC 'list' it does so with a vertical list of Key Value rather than a table format, 
+                #and with multi space as the KV separator, rather than a : like normal KV output.  WTF?
+                #So Now I have to go forth and collate my nic object over the next few lines...
+                #Example looks like this:
+
+                #Virtual Nics List:
+                #1.
+                #Vnic Name      test-vm - Network adapter 1
+                #Vnic Id        50012d15-198c-066c-af22-554aed610579.000
+                #Filters        nic-4822904-eth0-vmware-sfw.2
+
+                #Set a flag to say we matched a VNic List, and create the output object initially with just the KV's matched already.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched VNIC List line.  Processing remaining lines as Vnic List: $_"
+                $MatchedVnicsList = $true 
+                break                       
+
+            }
+
+            #Matches a table entry line.  At least three properties (that may contain a single space) separated by more than one space.
+            "^((?:\S|\s(?!\s))+\s{2,}){2,}((?:\S|\s(?!\s))+)$" {
+                if ( -not $TableHeaderFound ) { 
+                    throw "Error parsing Centralised CLI command output response.  Matched table entry line before header: ( $_ )"
+                }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Entry line: $_"
+                $Vals = $_.trim() -split "\s{2,}"
+                if ($Vals.Count -ne $Props.Count ) { 
+                    Throw "Error parsing Centralised CLI command output response.  Table entry line contains different value count compared to properties count: ( $_ )"
+                }
+
+                #Build the output hashtable with the props returned in the table entry line
+                for ( $i= 0; $i -lt $props.count; $i++ ) {
+
+                    #Ordering is hard, and No. entry is kinda superfluous, so removing it from output (for now)
+                    if ( -not ( $props[$i] -eq "No." )) {
+                        $EntryHash[$props[$i].trim()]=$vals[$i].trim()
+                    }
+                }
+
+                #Add the KV pairs that were parsed before the table.
+                try {
+
+                    #This may fail if we have a key of the same name.  For the moment, Im going to assume that this wont happen...
+                    $EntryHash += $KeyValHash
+                    $KeyValHashUsed = $true
+                }
+                catch {
+                    throw "Unable to append static Key Values to EntryHash output object.  Possibly due to a conflicting key"
+                }
+
+                #Emit the entry line as a PSCustomobject :)
+                [PSCustomObject]$EntryHash
+                break
+            }
+            default { throw "Unable to parse Centralised CLI output line : $($_ -replace '\s','_')" } 
+        }
+    }
+
+    if ( (-not $KeyValHashUsed) -and $KeyValHash.count -gt 0 ) {
+
+        #Some output is just key value, so, if it hasnt been appended to output object already, we will just emit it.
+        #Not sure how this approach will work long term, but it works for show dfw vnic <>
+        write-debug "$($MyInvocation.MyCommand.Name) : KeyValHash has not been used after all line processing, outputing as is: $_"
+        [PSCustomObject]$KeyValHash
+    }
+}
+
+function Invoke-NsxCli {
+
+    <#
+    .SYNOPSIS
+    Provides access to the NSX Centralised CLI.
+
+    .DESCRIPTION
+    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It 
+    provides centralised means of performing read only operations against 
+    various aspects of the dataplane including Logical Switching, Logical 
+    Routing, Distributed Firewall and Edge Services Gateways.
+
+    The results returned by the Centralised CLI are actual (realised) state
+    as opposed to configured state.  They should you how the dataplane actually
+    is configured at the time the query is run.
+
+    The Centralised CLI is primarily a trouble shooting tool.
+
+    #>
+
+    param (
+
+        [Parameter ( Mandatory=$true, Position=1) ]
+            [ValidateNotNullOrEmpty()]
+            [String]$Query,
+        [Parameter ( Mandatory=$false) ]
+            [switch]$SupressWarning
+               
+    )
+
+    begin{ 
+        if ( -not $SupressWarning ) {
+            write-warning "This cmdlet is experimental and has not been completely tested.  Use with caution and report any errors." 
+        }
+    }
+
+    process{
+
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Executing Central CLI query $Query"
+        
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlCli = $XMLDoc.CreateElement("nsxcli")
+        $xmlDoc.appendChild($xmlCli) | out-null
+
+        Add-XmlElement -xmlRoot $xmlCli -xmlElementName "command" -xmlElementText $Query
+
+        #<nsxcli><command>show cluster all</command></nsxcli>
+
+        $Body = $xmlCli.OuterXml
+        $uri = "/api/1.0/nsx/cli?action=execute"
+        try {
+            $response = invoke-nsxrestmethod -connection $defaultNSXConnection -method post -uri $uri -Body $Body
+            Parse-CentralCliResponse $response
+        }
+        catch {
+
+            throw "Unable to execute Centralised CLI query.  $_"
+        }
+    }
+    end{}
+}
+Export-ModuleMember -Function Invoke-NsxCli
+
+function Get-NsxCliDfwFilter {
+
+    <#
+    .SYNOPSIS
+    Uses the NSX Centralised CLI to retreive the VMs VNIC filters.
+
+    .DESCRIPTION
+    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It 
+    provides centralised means of performing read only operations against 
+    various aspects of the dataplane including Logical Switching, Logical 
+    Routing, Distributed Firewall and Edge Services Gateways.
+
+    The results returned by the Centralised CLI are actual (realised) state
+    as opposed to configured state.  They show you how the dataplane actually
+    is configured at the time the query is run.
+
+    This cmdlet accepts a VM object, and leverages the Invoke-NsxCli cmdlet by 
+    constructing the appropriate Centralised CLI command without requiring the 
+    user to do the show cluster all -> show cluster domain-xxx -> show host 
+    host-xxx -> show vm vm-xxx dance -> show dfw host host-xxx filter xxx rules
+    dance.  It returns objects representing the Filters defined on each vnic of 
+    the VM
+
+    #>
+
+    Param ( 
+        [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine
+    )
+
+    begin{}
+
+    process{
+
+        $query = "show vm $($VirtualMachine.ExtensionData.Moref.Value)"
+        $filters = Invoke-NsxCli $query -SupressWarning
+        
+        foreach ( $filter in $filters ) { 
+            #Execute the appropriate CLI query against the VMs host for the current filter...
+            $query = "show vnic $($Filter."Vnic Id")"
+            Invoke-NsxCli $query -SupressWarning
+        }
+    }
+
+    end{}
+}
+Export-ModuleMember -Function Get-NsxCliDfwFilter
+
+function Get-NsxCliDfwRule {
+
+    <#
+    .SYNOPSIS
+    Uses the NSX Centralised CLI to retreive the rules configured for the 
+    specified VMs vnics.
+
+    .DESCRIPTION
+    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It 
+    provides centralised means of performing read only operations against 
+    various aspects of the dataplane including Logical Switching, Logical 
+    Routing, Distributed Firewall and Edge Services Gateways.
+
+    The results returned by the Centralised CLI are actual (realised) state
+    as opposed to configured state.  They show you how the dataplane actually
+    is configured at the time the query is run.
+
+    This cmdlet accepts a VM object, and leverages the Invoke-NsxCli cmdlet by 
+    constructing the appropriate Centralised CLI command without requiring the 
+    user to do the show cluster all -> show cluster domain-xxx -> show host 
+    host-xxx -> show vm vm-xxx dance -> show dfw host host-xxx filter xxx
+    dance.  It returns objects representing the DFW rules instantiated on 
+    the VMs vnics dfw filters.
+
+    #>
+
+    Param ( 
+        [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine
+    )
+
+    begin{}
+
+    process{
+
+        if ( $VirtualMachine.PowerState -eq 'PoweredOn' ) { 
+            #First we retrieve the filter names from the host that the VM is running on
+            try { 
+                $query = "show vm $($VirtualMachine.ExtensionData.Moref.Value)"
+                $VMs = Invoke-NsxCli $query -SupressWarning
+            }
+            catch {
+                #Invoke-nsxcli threw an exception.  There are a couple we want to handle here...
+                switch -regex ($_.tostring()) {
+                    "\( Error 100: \)" { 
+                        write-warning "Virtual Machine $($VirtualMachine.Name) has no DFW Filter active."; 
+                        return                    }
+                    default {throw}
+                } 
+            }
+
+            #Potentially there are multiple 'VMs' (VM with more than one NIC).
+            foreach ( $VM in $VMs ) { 
+                #Execute the appropriate CLI query against the VMs host for the current filter...
+                $query = "show dfw host $($VirtualMachine.VMHost.ExtensionData.MoRef.Value) filter $($VM.Filters) rules"
+                $rule = Invoke-NsxCli $query -SupressWarning
+                $rule | add-member -memberType NoteProperty -Name "VirtualMachine" -Value $VirtualMachine
+                $rule | add-member -memberType NoteProperty -Name "Filter" -Value $($VM.Filters)
+                $rule
+            }
+        } else {
+            write-warning "Virtual Machine $($VirtualMachine.Name) is not powered on."
+        }
+    }
+    end{}
+}
+Export-ModuleMember -Function Get-NsxCliDfwRule
+
+function Get-NsxCliDfwAddrSet {
+
+    <#
+    .SYNOPSIS
+    Uses the NSX Centralised CLI to retreive the address sets configured
+    for the specified VMs vnics.
+
+    .DESCRIPTION
+    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It 
+    provides centralised means of performing read only operations against 
+    various aspects of the dataplane including Logical Switching, Logical 
+    Routing, Distributed Firewall and Edge Services Gateways.
+
+    The results returned by the Centralised CLI are actual (realised) state
+    as opposed to configured state.  They show you how the dataplane actually
+    is configured at the time the query is run.
+
+    This cmdlet accepts a VM object, and leverages the Invoke-NsxCli cmdlet by 
+    constructing the appropriate Centralised CLI command without requiring the 
+    user to do the show cluster all -> show cluster domain-xxx -> show host 
+    host-xxx -> show vm vm-xxx dance -> show dfw host host-xxx filter xxx
+    dance.  It returns object representing the Address Sets defined on the 
+    VMs vnics DFW filters. 
+
+    #>
+
+    Param ( 
+        [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine
+    )
+
+    begin{}
+
+    process{
+
+        #First we retrieve the filter names from the host that the VM is running on
+        $query = "show vm $($VirtualMachine.ExtensionData.Moref.Value)"
+        $Filters = Invoke-NsxCli $query -SupressWarning
+
+        #Potentially there are multiple filters (VM with more than one NIC).
+        foreach ( $filter in $filters ) { 
+            #Execute the appropriate CLI query against the VMs host for the current filter...
+            $query = "show dfw host $($VirtualMachine.VMHost.ExtensionData.MoRef.Value) filter $($Filter.Filters) addrset"
+            Invoke-NsxCli $query -SupressWarning
+        }
+    }
+    end{}
+}
+Export-ModuleMember -Function Get-NsxCliDfwAddrSet
+
+
 
 
 #########
@@ -996,7 +2365,6 @@ function Get-NsxTransportZone {
     } else {
         $response.vdnscopes.vdnscope
     }
-
 }
 Export-ModuleMember -Function Get-NsxTransportZone
 
@@ -1112,7 +2480,6 @@ function Get-NsxLogicalSwitch {
     end {
 
     }
-
 }
 Export-ModuleMember -Function Get-NsxLogicalSwitch
 
@@ -1171,10 +2538,10 @@ function New-NsxLogicalSwitch  {
 
 
         #Create an Element and append it to the root
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "tenantId" -xmlElementText $TenantId
-        if ( $ControlPlaneMode ) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "controlPlaneMode" -xmlElementText $ControlPlaneMode } 
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenantId" -xmlElementText $TenantId
+        if ( $ControlPlaneMode ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "controlPlaneMode" -xmlElementText $ControlPlaneMode } 
            
         #Do the post
         $body = $xmlroot.OuterXml
@@ -1250,7 +2617,6 @@ function Remove-NsxLogicalSwitch {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Remove-NsxLogicalSwitch
 
@@ -1336,18 +2702,18 @@ function New-NsxLogicalRouterInterfaceSpec {
         [System.XML.XMLElement]$xmlVnic = $XMLDoc.CreateElement("interface")
         $xmlDoc.appendChild($xmlVnic) | out-null
 
-        if ( $PsBoundParameters.ContainsKey("Name")) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "name" -xmlElementText $Name }
-        if ( $PsBoundParameters.ContainsKey("Type")) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "type" -xmlElementText $type }
-        if ( $PsBoundParameters.ContainsKey("Index")) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "index" -xmlElementText $Index }
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "mtu" -xmlElementText $MTU 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "isConnected" -xmlElementText $Connected
+        if ( $PsBoundParameters.ContainsKey("Name")) { Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "name" -xmlElementText $Name }
+        if ( $PsBoundParameters.ContainsKey("Type")) { Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "type" -xmlElementText $type }
+        if ( $PsBoundParameters.ContainsKey("Index")) { Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "index" -xmlElementText $Index }
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "mtu" -xmlElementText $MTU 
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "isConnected" -xmlElementText $Connected
 
         switch ($ConnectedTo){
             { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl]) -or ( $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
             { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
         }  
 
-        if ( $PsBoundParameters.ContainsKey("ConnectedTo")) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "connectedToId" -xmlElementText $PortGroupID }
+        if ( $PsBoundParameters.ContainsKey("ConnectedTo")) { Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "connectedToId" -xmlElementText $PortGroupID }
 
         if ( $PsBoundParameters.ContainsKey("PrimaryAddress")) {
 
@@ -1494,7 +2860,7 @@ function New-NsxLogicalRouter {
 
     This cmdlet creates a new Logical Router.  A Logical router has many 
     configuration options - not all are exposed with New-NsxLogicalRouter.  
-    Use Update-NsxLogicalRouter for other configuration.
+    Use Set-NsxLogicalRouter for other configuration.
 
     Interface configuration is handled by passing interface spec objects created by 
     the New-NsxLogicalRouterInterfaceSpec cmdlet.
@@ -1571,19 +2937,19 @@ function New-NsxLogicalRouter {
         [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("edge")
         $xmlDoc.appendChild($xmlRoot) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "distributedRouter"
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "distributedRouter"
 
         switch ($ManagementPortGroup){
 
-            { $_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+            { $_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] -or $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
             { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
 
         }
 
         [System.XML.XMLElement]$xmlMgmtIf = $XMLDoc.CreateElement("mgmtInterface")
         $xmlRoot.appendChild($xmlMgmtIf) | out-null
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMgmtIf -xmlElementName "connectedToId" -xmlElementText $PortGroupID
+        Add-XmlElement -xmlRoot $xmlMgmtIf -xmlElementName "connectedToId" -xmlElementText $PortGroupID
 
         [System.XML.XMLElement]$xmlAppliances = $XMLDoc.CreateElement("appliances")
         $xmlRoot.appendChild($xmlAppliances) | out-null
@@ -1597,14 +2963,14 @@ function New-NsxLogicalRouter {
 
         [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
         $xmlAppliances.appendChild($xmlAppliance) | out-null
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $datastore.extensiondata.moref.value
+        Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
+        Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $datastore.extensiondata.moref.value
 
         if ( $EnableHA ) {
             [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
             $xmlAppliances.appendChild($xmlAppliance) | out-null
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $HAdatastore.extensiondata.moref.value
+            Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
+            Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $HAdatastore.extensiondata.moref.value
                
         }
 
@@ -1629,7 +2995,7 @@ function New-NsxLogicalRouter {
         if ( $EnableHA ) {
             
             [System.XML.XMLElement]$xmlHA = $XMLDoc.CreateElement("highAvailability")
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlHA -xmlElementName "enabled" -xmlElementText "true"
+            Add-XmlElement -xmlRoot $xmlHA -xmlElementName "enabled" -xmlElementText "true"
             $body = $xmlHA.OuterXml
             $URI = "/api/4.0/edges/$edgeId/highavailability/config"
             Write-Progress -activity "Enable HA on Logical Router $Name"
@@ -1703,7 +3069,6 @@ function Remove-NsxLogicalRouter {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Remove-NsxLogicalRouter
 
@@ -1886,9 +3251,9 @@ function New-NsxLogicalRouterInterface {
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($LogicalRouter.Id)/interfaces/?action=patch"
         Write-Progress -activity "Creating Logical Router interface."
-        invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
         Write-progress -activity "Creating Logical Router interface." -completed
-
+        $response.interfaces
     }
 
     end {}
@@ -1953,7 +3318,6 @@ function Remove-NsxLogicalRouterInterface {
     end {}
 }
 Export-ModuleMember -Function Remove-NsxLogicalRouterInterface
-
 
 function Get-NsxLogicalRouterInterface {
 
@@ -2028,6 +3392,7 @@ function Get-NsxLogicalRouterInterface {
 Export-ModuleMember -Function Get-NsxLogicalRouterInterface
 
 
+
 ########
 ########
 # ESG related functions
@@ -2065,13 +3430,13 @@ function New-NsxEdgeVnicAddressGroup {
 
         [System.XML.XMLElement]$xmlAddressGroup = $xmlDoc.CreateElement("addressGroup")
         $xmlAddressGroups.appendChild($xmlAddressGroup) | out-null
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAddressGroup -xmlElementName "primaryAddress" -xmlElementText $PrimaryAddress
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAddressGroup -xmlElementName "subnetPrefixLength" -xmlElementText $SubnetPrefixLength
+        Add-XmlElement -xmlRoot $xmlAddressGroup -xmlElementName "primaryAddress" -xmlElementText $PrimaryAddress
+        Add-XmlElement -xmlRoot $xmlAddressGroup -xmlElementName "subnetPrefixLength" -xmlElementText $SubnetPrefixLength
         if ( $SecondaryAddresses ) { 
             [System.XML.XMLElement]$xmlSecondaryAddresses = $XMLDoc.CreateElement("secondaryAddresses")
             $xmlAddressGroup.appendChild($xmlSecondaryAddresses) | out-null
             foreach ($Address in $SecondaryAddresses) { 
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlSecondaryAddresses -xmlElementName "ipAddress" -xmlElementText $Address
+                Add-XmlElement -xmlRoot $xmlSecondaryAddresses -xmlElementName "ipAddress" -xmlElementText $Address
             }
         }
     }
@@ -2165,19 +3530,19 @@ function New-NsxEdgeInterfaceSpec {
         [System.XML.XMLElement]$xmlVnic = $XMLDoc.CreateElement("vnic")
         $xmlDoc.appendChild($xmlVnic) | out-null
 
-        if ( $PsBoundParameters.ContainsKey("Name")) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "name" -xmlElementText $Name }
-        if ( $PsBoundParameters.ContainsKey("Index")) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "index" -xmlElementText $Index }  
+        if ( $PsBoundParameters.ContainsKey("Name")) { Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "name" -xmlElementText $Name }
+        if ( $PsBoundParameters.ContainsKey("Index")) { Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "index" -xmlElementText $Index }  
         if ( $PsBoundParameters.ContainsKey("Type")) { 
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "type" -xmlElementText $Type 
+            Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "type" -xmlElementText $Type 
         }
         else {
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "type" -xmlElementText "internal" 
+            Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "type" -xmlElementText "internal" 
 
         }
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "mtu" -xmlElementText $MTU
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "enableProxyArp" -xmlElementText $EnableProxyArp
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "enableSendRedirects" -xmlElementText $EnableSendICMPRedirects
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "isConnected" -xmlElementText $Connected
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "mtu" -xmlElementText $MTU
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "enableProxyArp" -xmlElementText $EnableProxyArp
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "enableSendRedirects" -xmlElementText $EnableSendICMPRedirects
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "isConnected" -xmlElementText $Connected
 
         if ( $PsBoundParameters.ContainsKey("ConnectedTo")) { 
             switch ($ConnectedTo){
@@ -2185,7 +3550,7 @@ function New-NsxEdgeInterfaceSpec {
                 { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl]) -or ( $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
                 { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
             }  
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "portgroupId" -xmlElementText $PortGroupID
+            Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "portgroupId" -xmlElementText $PortGroupID
         }
 
         if ( $PsBoundParameters.ContainsKey("PrimaryAddress")) {
@@ -2277,12 +3642,12 @@ function New-NsxEdgeSubInterfaceSpec {
         [System.XML.XMLElement]$xmlVnic = $XMLDoc.CreateElement("subInterface")
         $xmlDoc.appendChild($xmlVnic) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "name" -xmlElementText $Name 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "tunnelId" -xmlElementText $TunnelId
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "isConnected" -xmlElementText $Connected
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "name" -xmlElementText $Name 
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "tunnelId" -xmlElementText $TunnelId
+        Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "isConnected" -xmlElementText $Connected
 
-        if ( $PsBoundParameters.ContainsKey("MTU")) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "mtu" -xmlElementText $MTU }
-        if ( $PsBoundParameters.ContainsKey("EnableSendICMPRedirects")) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "enableSendRedirects" -xmlElementText $EnableSendICMPRedirects } 
+        if ( $PsBoundParameters.ContainsKey("MTU")) { Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "mtu" -xmlElementText $MTU }
+        if ( $PsBoundParameters.ContainsKey("EnableSendICMPRedirects")) { Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "enableSendRedirects" -xmlElementText $EnableSendICMPRedirects } 
         if ( $PsBoundParameters.ContainsKey("Network")) { 
             switch ($Network){
 
@@ -2291,12 +3656,12 @@ function New-NsxEdgeSubInterfaceSpec {
             }  
 
             #Even though the element name is logicalSwitchId, subinterfaces support VDPortGroup as well as Logical Switch.
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "logicalSwitchId" -xmlElementText $PortGroupID
+            Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "logicalSwitchId" -xmlElementText $PortGroupID
         }
 
         if ( $PsBoundParameters.ContainsKey("VLAN")) {
 
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVnic -xmlElementName "vlanId" -xmlElementText $VLAN
+            Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "vlanId" -xmlElementText $VLAN
         }
 
 
@@ -2343,7 +3708,7 @@ function Set-NsxEdgeInterface {
     .EXAMPLE
     Get an interface, then update it.
     
-    PS C:\>$interface = Get-NsxEdgeServicesGateway testesg | Get-NsxEdgeInterface -Index 4
+    PS C:\>$interface = Get-NsxEdge testesg | Get-NsxEdgeInterface -Index 4
 
     PS C:\> $interface | Set-NsxEdgeInterface -Name "vNic4" -Type internal 
         -ConnectedTo $ls4 -PrimaryAddress $ip4 -SubnetPrefixLength 24
@@ -2466,7 +3831,7 @@ function Clear-NsxEdgeInterface {
     .EXAMPLE
     Get an interface and then clear its configuration.
 
-    PS C:\> $interface = Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "vNic4"
+    PS C:\> $interface = Get-NsxEdge $name | Get-NsxEdgeInterface "vNic4"
 
     PS C:\> $interface | Clear-NsxEdgeInterface -confirm:$false
 
@@ -2515,7 +3880,6 @@ function Clear-NsxEdgeInterface {
 }
 Export-ModuleMember -Function Clear-NsxEdgeInterface
 
-
 function Get-NsxEdgeInterface {
 
     <#
@@ -2534,16 +3898,16 @@ function Get-NsxEdgeInterface {
 
     .EXAMPLE
     Get all interface configuration for ESG named EsgTest
-    PS C:\> Get-NsxEdgeServicesGateway EsgTest | Get-NsxEdgeInterface
+    PS C:\> Get-NsxEdge EsgTest | Get-NsxEdgeInterface
 
     .EXAMPLE
     Get interface configuration for interface named vNic4 on ESG named EsgTest
-    PS C:\> Get-NsxEdgeServicesGateway EsgTest | Get-NsxEdgeInterface vNic4
+    PS C:\> Get-NsxEdge EsgTest | Get-NsxEdgeInterface vNic4
 
 
     .EXAMPLE
     Get interface configuration for interface number 4 on ESG named EsgTest
-    PS C:\> Get-NsxEdgeServicesGateway EsgTest | Get-NsxEdgeInterface -index 4
+    PS C:\> Get-NsxEdge EsgTest | Get-NsxEdgeInterface -index 4
 
     #>
 
@@ -2594,7 +3958,6 @@ function Get-NsxEdgeInterface {
 }
 Export-ModuleMember -Function Get-NsxEdgeInterface
 
-
 function New-NsxEdgeSubInterface {
 
     <#
@@ -2614,7 +3977,7 @@ function New-NsxEdgeSubInterface {
     .EXAMPLE
     Get an NSX Edge interface and configure a new subinterface in VLAN mode.
 
-    PS C:\> $trunk = Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "vNic3"
+    PS C:\> $trunk = Get-NsxEdge $name | Get-NsxEdgeInterface "vNic3"
 
     PS C:\> $trunk | New-NsxEdgeSubinterface  -Name "sub1" -PrimaryAddress $ip5 
         -SubnetPrefixLength 24 -TunnelId 1 -Vlan 123
@@ -2622,7 +3985,7 @@ function New-NsxEdgeSubInterface {
     .EXAMPLE
     Get an NSX Edge interface and configure a new subinterface in Network mode.
 
-    PS C:\> $trunk = Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "vNic3"
+    PS C:\> $trunk = Get-NsxEdge $name | Get-NsxEdgeInterface "vNic3"
 
     PS C:\> $trunk | New-NsxEdgeSubinterface  -Name "sub1" -PrimaryAddress $ip5 
         -SubnetPrefixLength 24 -TunnelId 1 -Network $LS2
@@ -2743,7 +4106,7 @@ function Remove-NsxEdgeSubInterface {
     .EXAMPLE
     Get a subinterface and then remove it.
 
-    PS C:\> $interface =  Get-NsxEdgeServicesGateway $name | Get-NsxEdgeInterface "vNic3" 
+    PS C:\> $interface =  Get-NsxEdge $name | Get-NsxEdgeInterface "vNic3" 
 
     PS C:\> $interface | Get-NsxEdgeSubInterface "sub1" | Remove-NsxEdgeSubinterface 
  
@@ -2777,7 +4140,7 @@ function Remove-NsxEdgeSubInterface {
     }
 
     #Get the vnic xml
-    $ParentVnic = $(Get-NsxEdgeServicesGateway -objectId $SubInterface.edgeId).vnics.vnic | ? { $_.index -eq $subInterface.vnicId }
+    $ParentVnic = $(Get-NsxEdge -objectId $SubInterface.edgeId).vnics.vnic | ? { $_.index -eq $subInterface.vnicId }
 
     #Remove the node using xpath query.
     $NodeToRemove = $ParentVnic.subInterfaces.SelectSingleNode("descendant::subInterface[index=$($subInterface.Index)]")
@@ -2792,7 +4155,6 @@ function Remove-NsxEdgeSubInterface {
     Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." -completed
 }
 Export-ModuleMember -Function Remove-NsxEdgeSubInterface
-
 
 function Get-NsxEdgeSubInterface {
 
@@ -2813,7 +4175,7 @@ function Get-NsxEdgeSubInterface {
     .EXAMPLE
     Get an NSX Subinterface called sub1 from any interface on esg testesg
 
-    PS C:\> Get-NsxEdgeServicesGateway testesg | Get-NsxEdgeInterface | 
+    PS C:\> Get-NsxEdge testesg | Get-NsxEdgeInterface | 
         Get-NsxEdgeSubInterface "sub1"
 
 
@@ -2872,7 +4234,7 @@ function Get-NsxEdgeSubInterface {
 }
 Export-ModuleMember -Function Get-NsxEdgeSubInterface
 
-function Get-NsxEdgeServicesGateway {
+function Get-NsxEdge {
 
     <#
     .SYNOPSIS
@@ -2890,7 +4252,7 @@ function Get-NsxEdgeServicesGateway {
 
     
     .EXAMPLE
-    PS C:\>  Get-NsxEdgeServicesGateway
+    PS C:\>  Get-NsxEdge
 
     #>
 
@@ -2988,11 +4350,10 @@ function Get-NsxEdgeServicesGateway {
 
         }
     }
-
 }
-Export-ModuleMember -Function Get-NsxEdgeServicesGateway
+Export-ModuleMember -Function Get-NsxEdge
 
-function New-NsxEdgeServicesGateway {
+function New-NsxEdge {
 
     <#
     .SYNOPSIS
@@ -3023,7 +4384,7 @@ function New-NsxEdgeServicesGateway {
         -SecondaryAddresses "2.2.2.2" -SubnetPrefixLength 24
 
     Then create the Edge Services Gateway
-    PS C:\> New-NsxEdgeServicesGateway -name DMZ_Edge_2 
+    PS C:\> New-NsxEdge -name DMZ_Edge_2 
         -Cluster (get-cluster Cluster1) -Datastore (get-datastore Datastore1) 
         -Interface $vnic0,$vnic1 -Password 'Pass'
 
@@ -3092,9 +4453,9 @@ function New-NsxEdgeServicesGateway {
         [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("edge")
         $xmlDoc.appendChild($xmlRoot) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
-        if ( $Tenant ) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant}
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
+        if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant}
 
 
         [System.XML.XMLElement]$xmlAppliances = $XMLDoc.CreateElement("appliances")
@@ -3107,20 +4468,20 @@ function New-NsxEdgeServicesGateway {
 
         }
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliances -xmlElementName "applianceSize" -xmlElementText $FormFactor
+        Add-XmlElement -xmlRoot $xmlAppliances -xmlElementName "applianceSize" -xmlElementText $FormFactor
 
         [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
         $xmlAppliances.appendChild($xmlAppliance) | out-null
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $datastore.extensiondata.moref.value
-        if ( $VMFolder ) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VMFolder.extensiondata.moref.value}
+        Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
+        Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $datastore.extensiondata.moref.value
+        if ( $VMFolder ) { Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VMFolder.extensiondata.moref.value}
 
         if ( $EnableHA ) {
             [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
             $xmlAppliances.appendChild($xmlAppliance) | out-null
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $HAdatastore.extensiondata.moref.value
-            if ( $VMFolder ) { Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VMFolder.extensiondata.moref.value}
+            Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
+            Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $HAdatastore.extensiondata.moref.value
+            if ( $VMFolder ) { Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VMFolder.extensiondata.moref.value}
                
         }
 
@@ -3144,7 +4505,7 @@ function New-NsxEdgeServicesGateway {
         if ( $EnableHA ) {
             
             [System.XML.XMLElement]$xmlHA = $XMLDoc.CreateElement("highAvailability")
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlHA -xmlElementName "enabled" -xmlElementText "true"
+            Add-XmlElement -xmlRoot $xmlHA -xmlElementName "enabled" -xmlElementText "true"
             $body = $xmlHA.OuterXml
             $URI = "/api/4.0/edges/$edgeId/highavailability/config"
             
@@ -3153,18 +4514,18 @@ function New-NsxEdgeServicesGateway {
             write-progress -activity "Enable HA on edge $Name" -completed
 
         }
-        Get-NsxEdgeServicesGateway -objectID $edgeId
+        Get-NsxEdge -objectID $edgeId
 
     }
     end {}
- 
 }
-Export-ModuleMember -Function New-NsxEdgeServicesGateway
+Export-ModuleMember -Function New-NsxEdge
 
-function Update-NsxEdgeServicesGateway {
+function Set-NsxEdge {
+
     <#
     .SYNOPSIS
-    Updates an existing NSX Edge Services Gateway.
+    Configures an existing NSX Edge Services Gateway Raw configuration.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -3173,34 +4534,31 @@ function Update-NsxEdgeServicesGateway {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    ESGs support iNterfaces connected to either VLAN backed port groups or NSX
+    ESGs support interfaces connected to either VLAN backed port groups or NSX
     Logical Switches.
 
-    PowerCLI cmdlets such as Get-VDPortGroup and Get-Datastore require a valid
-    PowerCLI session.
+    Use the Set-NsxEdge to perform updates to the Raw XML config for an ESG
+    to enable basic support for manipulating Edge features that arent supported
+    by specific PowerNSX cmdlets.
 
-    Note:  This cmdlet is not yet complete.
-    
     .EXAMPLE
-    Example1: Enable Load Balancing
-    PS C:\> Update-NsxEdgeServicesGateway -EnableLoadBalancing 
-        -EnableAcceleration
+    Disable the Edge Firewall on ESG Edge01
 
+    PS C:\> $edge = Get-NsxEdge Edge01
+    PS C:\> $edge.features.firewall.enabled = "false"
+    PS C:\> $edge | Set-NsxEdge
     
     #>
 
-    [CmdletBinding(DefaultParameterSetName="default")]
+    [CmdletBinding()]
  
     param (
 
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
-        [Parameter (Mandatory=$True,ParameterSetName="LoadBalancer")]
-        [switch]$EnableLoadBalancing,
-        [Parameter (Mandatory=$False,ParameterSetName="LoadBalancer")]
-        [switch]$EnableAcceleration=$true
-
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true
     )
     
     begin {
@@ -3209,49 +4567,42 @@ function Update-NsxEdgeServicesGateway {
 
     process {
 
-         #Create the XMLRoot
-        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+            
+        #Clone the Edge Element so we can modify without barfing up the source object.
+        $_Edge = $Edge.CloneNode($true)
 
-        switch  ($pscmdlet.ParameterSetName) {
-
-            "LoadBalancer" {
-
-                $import = $xmlDoc.ImportNode(($edge.features.loadBalancer), $true)
-                [System.XML.XMLElement]$xmlLB = $xmlDoc.AppendChild($import)
-
-                if ( $EnableLoadBalancing ) { 
-                    $xmlLb.enabled = "true" 
-                } else { 
-                    $xmlLb.enabled = "false" 
-                } 
-                if ( $EnableAcceleration ) { 
-                    $xmllb.accelerationEnabled = "true" 
-                } else { 
-                    $xmllb.accelerationEnabled = "false" 
-                } 
-
-                
-                $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/loadbalancer/config"
-                $body = $xmlLB.OuterXml 
-
-            }
-
+        #Remove EdgeSummary...
+        $edgeSummary = $_Edge.SelectSingleNode('descendant::edgeSummary')
+        if ( $edgeSummary ) {
+            $_Edge.RemoveChild($edgeSummary) | out-null
         }
+
+        $URI = "/api/4.0/edges/$($_Edge.Id)"
+        $body = $_Edge.OuterXml     
         
-        Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
-        write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($Edge.Name)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
-        Get-NsxEdgeServicesGateway -objectId $($Edge.Edgesummary.ObjectId)
-
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed
+            Get-NsxEdge -objectId $($Edge.Id)
+        }
     }
 
     end {}
-
 }
-Export-ModuleMember -Function Update-NsxEdgeServicesGateway
+Export-ModuleMember -Function Set-NsxEdge
 
-function Remove-NsxEdgeServicesGateway {
+function Remove-NsxEdge {
 
     <#
     .SYNOPSIS
@@ -3267,7 +4618,7 @@ function Remove-NsxEdgeServicesGateway {
     This cmdlet removes the specified ESG. 
     .EXAMPLE
    
-    PS C:\> Get-NsxEdgeServicesGateway TestESG | Remove-NsxEdgeServicesGateway
+    PS C:\> Get-NsxEdge TestESG | Remove-NsxEdge
         -confirm:$false
     
     #>
@@ -3308,9 +4659,5323 @@ function Remove-NsxEdgeServicesGateway {
     }
 
     end {}
-
 }
-Export-ModuleMember -Function Remove-NsxEdgeServicesGateway
+Export-ModuleMember -Function Remove-NsxEdge
+
+#########
+#########
+# Edge Routing related functions
+
+function Set-NsxEdgeRouting {
+    
+    <#
+    .SYNOPSIS
+    Configures global routing configuration of an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Set-NsxEdgeRouting cmdlet configures the global routing configuration of
+    the specified Edge Services Gateway.
+    
+    .EXAMPLE
+    Configure the default route of the ESG
+    
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayVnic 0 -DefaultGatewayAddress 10.0.0.101
+
+    .EXAMPLE
+    Enable ECMP
+    
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableECMP
+    
+
+    .EXAMPLE
+    Enable OSPF
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableOSPF -RouterId 1.1.1.1
+
+    .EXAMPLE
+    Enable BGP
+    
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdge | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBGP -RouterId 1.1.1.1 -LocalAS 1234
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableOspfRouteRedistribution:$false -Confirm:$false
+
+    Disable OSPF Route Redistribution without confirmation.
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableOspf,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableBgp,
+        [Parameter (Mandatory=$False)]
+            [IpAddress]$RouterId,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,65535)]
+            [int]$LocalAS,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableEcmp,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableOspfRouteRedistribution,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableBgpRouteRedistribution,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableLogging,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
+            [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,200)]
+            [int]$DefaultGatewayVnic,        
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,9128)]
+            [int]$DefaultGatewayMTU,        
+        [Parameter (Mandatory=$False)]
+            [string]$DefaultGatewayDescription,       
+        [Parameter (Mandatory=$False)]
+            [ipAddress]$DefaultGatewayAddress,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,255)]
+            [int]$DefaultGatewayAdminDistance        
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('EnableOSPF') -or $PsBoundParameters.ContainsKey('EnableBGP') ) { 
+            $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
+            $xmlRouterId = $xmlGlobalConfig.SelectSingleNode('descendant::routerId')
+            if ( $EnableOSPF -or $EnableBGP ) {
+                if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
+                    #Existing config missing and no new value set...
+                    throw "RouterId must be configured to enable dynamic routing"
+                }
+
+                if ($PsBoundParameters.ContainsKey("RouterId")) {
+                    #Set Routerid...
+                    if ($xmlRouterId) {
+                        $xmlRouterId = $RouterId.IPAddresstoString
+                    }
+                    else{
+                        Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                    }
+                }
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('EnableOSPF')) { 
+            $ospf = $_EdgeRouting.SelectSingleNode('descendant::ospf') 
+            if ( -not $ospf ) {
+                #ospf node does not exist.
+                [System.XML.XMLElement]$ospf = $_EdgeRouting.ownerDocument.CreateElement("ospf")
+                $_EdgeRouting.appendChild($ospf) | out-null
+            }
+
+            if ( $ospf.SelectSingleNode('descendant::enabled')) {
+                #Enabled element exists.  Update it.
+                $ospf.enabled = $EnableOSPF.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
+            }
+        
+        }
+
+        if ( $PsBoundParameters.ContainsKey('EnableBGP')) {
+
+            $bgp = $_EdgeRouting.SelectSingleNode('descendant::bgp') 
+
+            if ( -not $bgp ) {
+                #bgp node does not exist.
+                [System.XML.XMLElement]$bgp = $_EdgeRouting.ownerDocument.CreateElement("bgp")
+                $_EdgeRouting.appendChild($bgp) | out-null
+            }
+
+            if ( $bgp.SelectSingleNode('descendant::enabled')) {
+                #Enabled element exists.  Update it.
+                $bgp.enabled = $EnableBGP.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("LocalAS")) { 
+                if ( $bgp.SelectSingleNode('descendant::localAS')) {
+                #LocalAS element exists, update it.
+                    $bgp.localAS = $LocalAS.ToString()
+                }
+                else {
+                    #LocalAS element does not exist...
+                    Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
+                }
+            }
+            elseif ( (-not ( $bgp.SelectSingleNode('descendant::localAS')) -and $EnableBGP  )) {
+                throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
+            }
+            
+
+        }
+
+        if ( $PsBoundParameters.ContainsKey("EnableECMP")) { 
+            $_EdgeRouting.routingGlobalConfig.ecmp = $EnableECMP.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("EnableOspfRouteRedistribution")) { 
+
+            $_EdgeRouting.ospf.redistribution.enabled = $EnableOspfRouteRedistribution.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("EnableBgpRouteRedistribution")) { 
+            if ( -not $_EdgeRouting.SelectSingleNode('child::bgp/redistribution/enabled') ) {
+                throw "BGP must have been configured at least once to enable or disable BGP route redistribution.  Enable BGP and try again."
+            }
+
+            $_EdgeRouting.bgp.redistribution.enabled = $EnableBgpRouteRedistribution.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("EnableLogging")) { 
+            $_EdgeRouting.routingGlobalConfig.logging.enable = $EnableLogging.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("LogLevel")) { 
+            $_EdgeRouting.routingGlobalConfig.logging.logLevel = $LogLevel.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("DefaultGatewayVnic") -or $PsBoundParameters.ContainsKey("DefaultGatewayAddress") -or 
+            $PsBoundParameters.ContainsKey("DefaultGatewayDescription") -or $PsBoundParameters.ContainsKey("DefaultGatewayMTU") -or
+            $PsBoundParameters.ContainsKey("DefaultGatewayAdminDistance") ) { 
+
+            #Check for and create if required the defaultRoute element. first.
+            if ( -not $_EdgeRouting.staticRouting.SelectSingleNode('descendant::defaultRoute')) {
+                #defaultRoute element does not exist
+                $defaultRoute = $_EdgeRouting.ownerDocument.CreateElement('defaultRoute')
+                $_EdgeRouting.staticRouting.AppendChild($defaultRoute) | out-null
+            }
+            else {
+                #defaultRoute element exists
+                $defaultRoute = $_EdgeRouting.staticRouting.defaultRoute
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayVnic") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('descendant::vnic')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "vnic" -xmlElementText $DefaultGatewayVnic.ToString()
+                }
+                else {
+                    #element exists
+                    $defaultRoute.vnic = $DefaultGatewayVnic.ToString()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayAddress") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('descendant::gatewayAddress')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "gatewayAddress" -xmlElementText $DefaultGatewayAddress.ToString()
+                }
+                else {
+                    #element exists
+                    $defaultRoute.gatewayAddress = $DefaultGatewayAddress.ToString()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayDescription") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('descendant::description')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "description" -xmlElementText $DefaultGatewayDescription
+                }
+                else {
+                    #element exists
+                    $defaultRoute.description = $DefaultGatewayDescription
+                }
+            }
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayMTU") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('descendant::mtu')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "mtu" -xmlElementText $DefaultGatewayMTU.ToString()
+                }
+                else {
+                    #element exists
+                    $defaultRoute.mtu = $DefaultGatewayMTU.ToString()
+                }
+            }
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayAdminDistance") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('descendant::adminDistance')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "adminDistance" -xmlElementText $DefaultGatewayAdminDistance.ToString()
+                }
+                else {
+                    #element exists
+                    $defaultRoute.adminDistance = $DefaultGatewayAdminDistance.ToString()
+                }
+            }
+        }
+
+
+        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+        $body = $_EdgeRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Set-NsxEdgeRouting
+
+function Get-NsxEdgeRouting {
+    
+    <#
+    .SYNOPSIS
+    Retreives routing configuration for the spcified NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgeRouting cmdlet retreives the routing configuration of
+    the specified Edge Services Gateway.
+    
+    .EXAMPLE
+    Get routing configuration for the ESG Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeRouting = $Edge.features.routing.CloneNode($True)
+        Add-XmlElement -xmlRoot $_EdgeRouting -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_EdgeRouting
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeRouting 
+
+# Static Routing
+
+function Get-NsxEdgeStaticRoute {
+    
+    <#
+    .SYNOPSIS
+    Retreives Static Routes from the spcified NSX Edge Services Gateway Routing 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgeStaticRoute cmdlet retreives the static routes from the 
+    routing configuration specified.
+
+    .EXAMPLE
+    Get static routes defining on ESG Edge01
+
+    PS C:\> Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$Network,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$NextHop       
+        
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeStaticRouting = ($EdgeRouting.staticRouting.CloneNode($True))
+        $EdgeStaticRoutes = $_EdgeStaticRouting.SelectSingleNode('descendant::staticRoutes')
+
+        #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called route.
+        If ( $EdgeStaticRoutes.SelectSingleNode('descendant::route')) { 
+
+            $RouteCollection = $EdgeStaticRoutes.route
+            if ( $PsBoundParameters.ContainsKey('Network')) {
+                $RouteCollection = $RouteCollection | ? { $_.network -eq $Network }
+            }
+
+            if ( $PsBoundParameters.ContainsKey('NextHop')) {
+                $RouteCollection = $RouteCollection | ? { $_.nextHop -eq $NextHop }
+            }
+
+            foreach ( $StaticRoute in $RouteCollection ) { 
+                Add-XmlElement -xmlRoot $StaticRoute -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+            }
+
+            $RouteCollection
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeStaticRoute
+
+function New-NsxEdgeStaticRoute {
+    
+    <#
+    .SYNOPSIS
+    Creates a new static route and adds it to the specified ESGs routing
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The New-NsxEdgeStaticRoute cmdlet adds a new static route to the routing
+    configuration of the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Add a new static route to ESG Edge01 for 1.1.1.0/24 via 10.0.0.200
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | New-NsxEdgeStaticRoute -Network 1.1.1.0/24 -NextHop 10.0.0.200
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,200)]
+            [int]$Vnic,        
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,9128)]
+            [int]$MTU,        
+        [Parameter (Mandatory=$False)]
+            [string]$Description,       
+        [Parameter (Mandatory=$True)]
+            [ipAddress]$NextHop,
+        [Parameter (Mandatory=$True)]
+            [string]$Network,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,255)]
+            [int]$AdminDistance        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        #Create the new route element.
+        $Route = $_EdgeRouting.ownerDocument.CreateElement('route')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the static route element,
+        #as it might be empty, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
+        $StaticRoutes = $_EdgeRouting.staticRouting.SelectSingleNode('descendant::staticRoutes')
+        $StaticRoutes.AppendChild($Route) | Out-Null
+
+        Add-XmlElement -xmlRoot $Route -xmlElementName "network" -xmlElementText $Network.ToString()
+        Add-XmlElement -xmlRoot $Route -xmlElementName "nextHop" -xmlElementText $NextHop.ToString()
+
+        if ( $PsBoundParameters.ContainsKey("Vnic") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("MTU") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "mtu" -xmlElementText $MTU.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("Description") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+    
+        if ( $PsBoundParameters.ContainsKey("AdminDistance") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "adminDistance" -xmlElementText $AdminDistance.ToString()
+        }
+
+
+        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+        $body = $_EdgeRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute -Network $Network -NextHop $NextHop
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxEdgeStaticRoute
+
+function Remove-NsxEdgeStaticRoute {
+    
+    <#
+    .SYNOPSIS
+    Removes a static route from the specified ESGs routing configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Remove-NsxEdgeStaticRoute cmdlet removes a static route from the routing
+    configuration of the specified Edge Services Gateway.
+
+    Routes to be removed can be constructed via a PoSH pipline filter outputing
+    route objects as produced by Get-NsxEdgeStaticRoute and passing them on the
+    pipeline to Remove-NsxEdgeStaticRoute.
+
+    .EXAMPLE
+    Remove a route to 1.1.1.0/24 via 10.0.0.100 from ESG Edge01
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | ? { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxEdgeStaticRoute
+
+    .EXAMPLE
+    Remove all routes to 1.1.1.0/24 from ESG Edge01
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | ? { $_.network -eq '1.1.1.0/24' } | Remove-NsxEdgeStaticRoute
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeStaticRoute $_ })]
+            [System.Xml.XmlElement]$StaticRoute,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $StaticRoute.edgeId
+        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+
+        #Remove the edgeId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Need to do an xpath query here to query for a route that matches the one passed in.  
+        #Union of nextHop and network should be unique
+        $xpathQuery = "//staticRoutes/route[nextHop=`"$($StaticRoute.nextHop)`" and network=`"$($StaticRoute.network)`"]"
+        write-debug "XPath query for route nodes to remove is: $xpathQuery"
+        $RouteToRemove = $routing.staticRouting.SelectSingleNode($xpathQuery)
+
+        if ( $RouteToRemove ) { 
+
+            write-debug "RouteToRemove Element is: `n $($RouteToRemove.OuterXml | format-xml) "
+            $routing.staticRouting.staticRoutes.RemoveChild($RouteToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            }
+        }
+        else {
+            Throw "Route for network $($StaticRoute.network) via $($StaticRoute.nextHop) was not found in routing configuration for Edge $edgeId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxEdgeStaticRoute
+
+# Prefixes
+
+function Get-NsxEdgePrefix {
+    
+    <#
+    .SYNOPSIS
+    Retreives IP Prefixes from the spcified NSX Edge Services Gateway Routing 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgePrefix cmdlet retreives IP prefixes from the 
+    routing configuration specified.
+    
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgePrefix
+
+    Retrieve prefixes from Edge Edge01
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgePrefix -Network 1.1.1.0/24
+
+    Retrieve prefix 1.1.1.0/24 from Edge Edge01
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgePrefix -Name CorpNet
+
+    Retrieve prefix CorpNet from Edge Edge01
+      
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$Network       
+        
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_GlobalRoutingConfig = ($EdgeRouting.routingGlobalConfig.CloneNode($True))
+        $IpPrefixes = $_GlobalRoutingConfig.SelectSingleNode('child::ipPrefixes')
+
+        #IPPrefixes may not exist...
+        if ( $IPPrefixes ) { 
+            #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ipPrefix.
+            If ( $IpPrefixes.SelectSingleNode('child::ipPrefix')) { 
+
+                $PrefixCollection = $IPPrefixes.ipPrefix
+                if ( $PsBoundParameters.ContainsKey('Network')) {
+                    $PrefixCollection = $PrefixCollection | ? { $_.ipAddress -eq $Network }
+                }
+
+                if ( $PsBoundParameters.ContainsKey('Name')) {
+                    $PrefixCollection = $PrefixCollection | ? { $_.name -eq $Name }
+                }
+
+                foreach ( $Prefix in $PrefixCollection ) { 
+                    Add-XmlElement -xmlRoot $Prefix -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+                }
+
+                $PrefixCollection
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgePrefix
+
+function New-NsxEdgePrefix {
+    
+    <#
+    .SYNOPSIS
+    Creates a new IP prefix and adds it to the specified ESGs routing
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The New-NsxEdgePrefix cmdlet adds a new IP prefix to the routing
+    configuration of the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | New-NsxEdgePrefix -Name test -Network 1.1.1.0/24
+
+    Create a new prefix called test for network 1.1.1.0/24 on ESG Edge01
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullorEmpty()]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullorEmpty()]
+            [string]$Name,       
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullorEmpty()]
+            [string]$Network      
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('child::edgeId')) ) | out-null
+
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the IP prefix element,
+        #as it might be empty or not exist, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
+        $ipPrefixes = $_EdgeRouting.routingGlobalConfig.SelectSingleNode('child::ipPrefixes')
+        if ( -not $ipPrefixes ) { 
+            #Create the ipPrefixes element
+            $ipPrefixes = $_EdgeRouting.ownerDocument.CreateElement('ipPrefixes')
+            $_EdgeRouting.routingGlobalConfig.AppendChild($ipPrefixes) | Out-Null
+        }
+
+        #Create the new ipPrefix element.
+        $ipPrefix = $_EdgeRouting.ownerDocument.CreateElement('ipPrefix')
+        $ipPrefixes.AppendChild($ipPrefix) | Out-Null
+
+        Add-XmlElement -xmlRoot $ipPrefix -xmlElementName "name" -xmlElementText $Name.ToString()
+        Add-XmlElement -xmlRoot $ipPrefix -xmlElementName "ipAddress" -xmlElementText $Network.ToString()
+
+
+        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+        $body = $_EdgeRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgePrefix -Network $Network -Name $Name
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxEdgePrefix
+
+function Remove-NsxEdgePrefix {
+    
+    <#
+    .SYNOPSIS
+    Removes an IP prefix from the specified ESGs routing configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Remove-NsxEdgePrefix cmdlet removes a IP prefix from the routing
+    configuration of the specified Edge Services Gateway.
+
+    Prefixes to be removed can be constructed via a PoSH pipline filter outputing
+    prefix objects as produced by Get-NsxEdgePrefix and passing them on the
+    pipeline to Remove-NsxEdgePrefix.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgePrefix -Network 1.1.1.0/24 | Remove-NsxEdgePrefix
+
+    Remove any prefixes for network 1.1.1.0/24 from ESG Edge01
+
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgePrefix $_ })]
+            [System.Xml.XmlElement]$Prefix,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $Prefix.edgeId
+        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+
+        #Remove the edgeId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('child::edgeId')) ) | out-null
+
+        #Need to do an xpath query here to query for a prefix that matches the one passed in.  
+        #Union of nextHop and network should be unique
+        $xpathQuery = "/routingGlobalConfig/ipPrefixes/ipPrefix[name=`"$($Prefix.name)`" and ipAddress=`"$($Prefix.ipAddress)`"]"
+        write-debug "XPath query for prefix nodes to remove is: $xpathQuery"
+        $PrefixToRemove = $routing.SelectSingleNode($xpathQuery)
+
+        if ( $PrefixToRemove ) { 
+
+            write-debug "PrefixToRemove Element is: `n $($PrefixToRemove.OuterXml | format-xml) "
+            $routing.routingGlobalConfig.ipPrefixes.RemoveChild($PrefixToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            }
+        }
+        else {
+            Throw "Prefix $($Prefix.Name) for network $($Prefix.network) was not found in routing configuration for Edge $edgeId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxEdgePrefix
+
+# BGP
+
+function Get-NsxEdgeBgp {
+    
+    <#
+    .SYNOPSIS
+    Retreives BGP configuration for the spcified NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgeBgp cmdlet retreives the bgp configuration of
+    the specified Edge Services Gateway.
+    
+    .EXAMPLE
+    Get the BGP configuration for Edge01
+
+    PS C:\> Get-NsxEdge Edg01 | Get-NsxEdgeRouting | Get-NsxEdgeBgp   
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        if ( $EdgeRouting.SelectSingleNode('descendant::bgp')) { 
+            $bgp = $EdgeRouting.SelectSingleNode('child::bgp').CloneNode($True)
+            Add-XmlElement -xmlRoot $bgp -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+            $bgp
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeBgp
+
+function Set-NsxEdgeBgp {
+    
+    <#
+    .SYNOPSIS
+    Manipulates BGP specific base configuration of an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Set-NsxEdgeBgp cmdlet allows manipulation of the BGP specific configuration
+    of a given ESG.
+    
+   
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableBGP,
+        [Parameter (Mandatory=$False)]
+            [IpAddress]$RouterId,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,65535)]
+            [int]$LocalAS,
+        [Parameter (Mandatory=$False)]
+            [switch]$GracefulRestart,
+        [Parameter (Mandatory=$False)]
+            [switch]$DefaultOriginate
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('EnableBGP') ) { 
+            $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
+            $xmlRouterId = $xmlGlobalConfig.SelectSingleNode('descendant::routerId')
+            if ( $EnableBGP ) {
+                if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
+                    #Existing config missing and no new value set...
+                    throw "RouterId must be configured to enable dynamic routing"
+                }
+
+                if ($PsBoundParameters.ContainsKey("RouterId")) {
+                    #Set Routerid...
+                    if ($xmlRouterId) {
+                        $xmlRouterId = $RouterId.IPAddresstoString
+                    }
+                    else{
+                        Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                    }
+                }
+            }
+
+            $bgp = $_EdgeRouting.SelectSingleNode('descendant::bgp') 
+
+            if ( -not $bgp ) {
+                #bgp node does not exist.
+                [System.XML.XMLElement]$bgp = $_EdgeRouting.ownerDocument.CreateElement("bgp")
+                $_EdgeRouting.appendChild($bgp) | out-null
+            }
+
+            if ( $bgp.SelectSingleNode('descendant::enabled')) {
+                #Enabled element exists.  Update it.
+                $bgp.enabled = $EnableBGP.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("LocalAS")) { 
+                if ( $bgp.SelectSingleNode('descendant::localAS')) {
+                    #LocalAS element exists, update it.
+                    $bgp.localAS = $LocalAS.ToString()
+                }
+                else {
+                    #LocalAS element does not exist...
+                    Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
+                }
+            }
+            elseif ( (-not ( $bgp.SelectSingleNode('descendant::localAS')) -and $EnableBGP  )) {
+                throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
+            }
+
+            if ( $PsBoundParameters.ContainsKey("GracefulRestart")) { 
+                if ( $bgp.SelectSingleNode('descendant::gracefulRestart')) {
+                    #element exists, update it.
+                    $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
+                }
+                else {
+                    #element does not exist...
+                    Add-XmlElement -xmlRoot $bgp -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) { 
+                if ( $bgp.SelectSingleNode('descendant::defaultOriginate')) {
+                    #element exists, update it.
+                    $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+                }
+                else {
+                    #element does not exist...
+                    Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
+                }
+            }
+        }
+
+        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+        $body = $_EdgeRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Set-NsxEdgeBgp
+
+function Get-NsxEdgeBgpNeighbour {
+    
+    <#
+    .SYNOPSIS
+    Returns BGP neighbours from the spcified NSX Edge Services Gateway BGP 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgeBgpNeighbour cmdlet retreives the BGP neighbours from the 
+    BGP configuration specified.
+
+    .EXAMPLE
+    Get all BGP neighbours defined on Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour
+    
+    .EXAMPLE
+    Get BGP neighbour 1.1.1.1 defined on Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour -IpAddress 1.1.1.1
+
+    .EXAMPLE
+    Get all BGP neighbours with Remote AS 1234 defined on Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour | ? { $_.RemoteAS -eq '1234' }
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$Network,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$IpAddress,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,65535)]
+            [int]$RemoteAS              
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        $bgp = $EdgeRouting.SelectSingleNode('descendant::bgp')
+
+        if ( $bgp ) {
+
+            $_bgp = $bgp.CloneNode($True)
+            $BgpNeighbours = $_bgp.SelectSingleNode('descendant::bgpNeighbours')
+
+
+            #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called bgpNeighbour.
+            if ( $BgpNeighbours.SelectSingleNode('descendant::bgpNeighbour')) { 
+
+                $NeighbourCollection = $BgpNeighbours.bgpNeighbour
+                if ( $PsBoundParameters.ContainsKey('IpAddress')) {
+                    $NeighbourCollection = $NeighbourCollection | ? { $_.ipAddress -eq $IpAddress }
+                }
+
+                if ( $PsBoundParameters.ContainsKey('RemoteAS')) {
+                    $NeighbourCollection = $NeighbourCollection | ? { $_.remoteAS -eq $RemoteAS }
+                }
+
+                foreach ( $Neighbour in $NeighbourCollection ) { 
+                    #We append the Edge-id to the associated neighbour config XML to enable pipeline workflows and 
+                    #consistent readable output
+                    Add-XmlElement -xmlRoot $Neighbour -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+                }
+
+                $NeighbourCollection
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeBgpNeighbour
+
+function New-NsxEdgeBgpNeighbour {
+    
+    <#
+    .SYNOPSIS
+    Creates a new BGP neighbour and adds it to the specified ESGs BGP
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The New-NsxEdgeBgpNeighbour cmdlet adds a new BGP neighbour to the bgp
+    configuration of the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Add a new neighbour 1.2.3.4 with remote AS number 1234 with defaults.
+
+    PS C:\> Get-NsxEdge | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress 1.2.3.4 -RemoteAS 1234
+
+    .EXAMPLE
+    Add a new neighbour 1.2.3.4 with remote AS number 22235 specifying weight, holddown and keepalive timers and dont prompt for confirmation.
+
+    PowerCLI C:\> Get-NsxEdge | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress 1.2.3.4 -RemoteAS 22235 -Confirm:$false -Weight 90 -HoldDownTimer 240 -KeepAliveTimer 90 -confirm:$false
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$IpAddress,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(0,65535)]
+            [int]$RemoteAS,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,65535)]
+            [int]$Weight,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(2,65535)]
+            [int]$HoldDownTimer,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65534)]
+            [int]$KeepAliveTimer,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [string]$Password     
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Create the new bgpNeighbour element.
+        $Neighbour = $_EdgeRouting.ownerDocument.CreateElement('bgpNeighbour')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the bgp element,
+        #as it might not exist which wil cause PoSH to throw in stric mode.
+        $bgp = $_EdgeRouting.SelectSingleNode('descendant::bgp')
+        if ( $bgp ) { 
+            $bgp.selectSingleNode('descendant::bgpNeighbours').AppendChild($Neighbour) | Out-Null
+
+            Add-XmlElement -xmlRoot $Neighbour -xmlElementName "ipAddress" -xmlElementText $IpAddress.ToString()
+            Add-XmlElement -xmlRoot $Neighbour -xmlElementName "remoteAS" -xmlElementText $RemoteAS.ToString()
+
+            #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+            #If the user did not specify a given parameter, we dont want to modify from the existing value.
+            if ( $PsBoundParameters.ContainsKey("Weight") ) { 
+                Add-XmlElement -xmlRoot $Neighbour -xmlElementName "weight" -xmlElementText $Weight.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("HoldDownTimer") ) { 
+                Add-XmlElement -xmlRoot $Neighbour -xmlElementName "holdDownTimer" -xmlElementText $HoldDownTimer.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("KeepAliveTimer") ) { 
+                Add-XmlElement -xmlRoot $Neighbour -xmlElementName "keepAliveTimer" -xmlElementText $KeepAliveTimer.ToString()
+            }
+
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $_EdgeRouting.OuterXml 
+           
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+                Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
+            }
+        }
+        else {
+            throw "BGP is not enabled on edge $edgeID.  Enable BGP using Set-NsxEdgeRouting or Set-NsxEdgeBGP first."
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxEdgeBgpNeighbour
+
+function Remove-NsxEdgeBgpNeighbour {
+    
+    <#
+    .SYNOPSIS
+    Removes a BGP neigbour from the specified ESGs BGP configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Remove-NsxEdgeBgpNeighbour cmdlet removes a BGP neighbour route from the 
+    bgp configuration of the specified Edge Services Gateway.
+
+    Neighbours to be removed can be constructed via a PoSH pipline filter outputing
+    neighbour objects as produced by Get-NsxEdgeBgpNeighbour and passing them on the
+    pipeline to Remove-NsxEdgeBgpNeighbour.
+
+    .EXAMPLE
+    Remove the BGP neighbour 1.1.1.2 from the the edge Edge01's bgp configuration
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour | ? { $_.ipaddress -eq '1.1.1.2' } |  Remove-NsxEdgeBgpNeighbour 
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeBgpNeighbour $_ })]
+            [System.Xml.XmlElement]$BgpNeighbour,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $BgpNeighbour.edgeId
+        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+
+        #Remove the edgeId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Validate the BGP node exists on the edge 
+        if ( -not $routing.SelectSingleNode('descendant::bgp')) { throw "BGP is not enabled on ESG $edgeId.  Enable BGP and try again." }
+
+        #Need to do an xpath query here to query for a bgp neighbour that matches the one passed in.  
+        #Union of ipaddress and remote AS should be unique (though this is not enforced by the API, 
+        #I cant see why having duplicate neighbours with same ip and AS would be useful...maybe 
+        #different filters?)
+        #Will probably need to include additional xpath query filters here in the query to include 
+        #matching on filters to better handle uniquness amongst bgp neighbours with same ip and remoteAS
+
+        $xpathQuery = "//bgpNeighbours/bgpNeighbour[ipAddress=`"$($BgpNeighbour.ipAddress)`" and remoteAS=`"$($BgpNeighbour.remoteAS)`"]"
+        write-debug "XPath query for neighbour nodes to remove is: $xpathQuery"
+        $NeighbourToRemove = $routing.bgp.SelectSingleNode($xpathQuery)
+
+        if ( $NeighbourToRemove ) { 
+
+            write-debug "NeighbourToRemove Element is: `n $($NeighbourToRemove.OuterXml | format-xml) "
+            $routing.bgp.bgpNeighbours.RemoveChild($NeighbourToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            }
+        }
+        else {
+            Throw "Neighbour $($BgpNeighbour.ipAddress) with Remote AS $($BgpNeighbour.RemoteAS) was not found in routing configuration for Edge $edgeId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxEdgeBgpNeighbour
+
+# OSPF
+
+function Get-NsxEdgeOspf {
+    
+    <#
+    .SYNOPSIS
+    Retreives OSPF configuration for the spcified NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgeOspf cmdlet retreives the OSPF configuration of
+    the specified Edge Services Gateway.
+    
+    .EXAMPLE
+    Get the OSPF configuration for Edge01
+
+    PS C:\> Get-NsxEdge Edg01 | Get-NsxEdgeRouting | Get-NsxEdgeOspf
+    
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        if ( $EdgeRouting.SelectSingleNode('descendant::ospf')) { 
+            $ospf = $EdgeRouting.ospf.CloneNode($True)
+            Add-XmlElement -xmlRoot $ospf -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+            $ospf
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeOspf
+
+function Set-NsxEdgeOspf {
+    
+    <#
+    .SYNOPSIS
+    Manipulates OSPF specific base configuration of an existing NSX Edge 
+    Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Set-NsxEdgeOspf cmdlet allows manipulation of the OSPF specific 
+    configuration of a given ESG.
+    
+   
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableOSPF,
+        [Parameter (Mandatory=$False)]
+            [IpAddress]$RouterId,
+        [Parameter (Mandatory=$False)]
+            [switch]$GracefulRestart,
+        [Parameter (Mandatory=$False)]
+            [switch]$DefaultOriginate
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('EnableOSPF') ) { 
+            $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
+            $xmlRouterId = $xmlGlobalConfig.SelectSingleNode('descendant::routerId')
+            if ( $EnableOSPF ) {
+                if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
+                    #Existing config missing and no new value set...
+                    throw "RouterId must be configured to enable dynamic routing"
+                }
+
+                if ($PsBoundParameters.ContainsKey("RouterId")) {
+                    #Set Routerid...
+                    if ($xmlRouterId) {
+                        $xmlRouterId = $RouterId.IPAddresstoString
+                    }
+                    else{
+                        Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                    }
+                }
+            }
+
+            $ospf = $_EdgeRouting.SelectSingleNode('descendant::ospf') 
+
+            if ( -not $ospf ) {
+                #ospf node does not exist.
+                [System.XML.XMLElement]$ospf = $_EdgeRouting.ownerDocument.CreateElement("ospf")
+                $_EdgeRouting.appendChild($ospf) | out-null
+            }
+
+            if ( $ospf.SelectSingleNode('descendant::enabled')) {
+                #Enabled element exists.  Update it.
+                $ospf.enabled = $EnableOSPF.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("GracefulRestart")) { 
+                if ( $ospf.SelectSingleNode('descendant::gracefulRestart')) {
+                    #element exists, update it.
+                    $ospf.gracefulRestart = $GracefulRestart.ToString().ToLower()
+                }
+                else {
+                    #element does not exist...
+                    Add-XmlElement -xmlRoot $ospf -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) { 
+                if ( $ospf.SelectSingleNode('descendant::defaultOriginate')) {
+                    #element exists, update it.
+                    $ospf.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+                }
+                else {
+                    #element does not exist...
+                    Add-XmlElement -xmlRoot $ospf -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
+                }
+            }
+        }
+
+        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+        $body = $_EdgeRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Set-NsxEdgeOspf
+
+function Get-NsxEdgeOspfArea {
+    
+    <#
+    .SYNOPSIS
+    Returns OSPF Areas defined in the spcified NSX Edge Services Gateway OSPF 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgeOspfArea cmdlet retreives the OSPF Areas from the OSPF 
+    configuration specified.
+
+    .EXAMPLE
+    Get all areas defined on Edge01.
+
+    PS C:\> C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeOspfArea 
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,4294967295)]
+            [int]$AreaId              
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        $ospf = $EdgeRouting.SelectSingleNode('descendant::ospf')
+
+        if ( $ospf ) {
+
+            $_ospf = $ospf.CloneNode($True)
+            $OspfAreas = $_ospf.SelectSingleNode('descendant::ospfAreas')
+
+
+            #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ospfArea.
+            if ( $OspfAreas.SelectSingleNode('descendant::ospfArea')) { 
+
+                $AreaCollection = $OspfAreas.ospfArea
+                if ( $PsBoundParameters.ContainsKey('AreaId')) {
+                    $AreaCollection = $AreaCollection | ? { $_.areaId -eq $AreaId }
+                }
+
+                foreach ( $Area in $AreaCollection ) { 
+                    #We append the Edge-id to the associated Area config XML to enable pipeline workflows and 
+                    #consistent readable output
+                    Add-XmlElement -xmlRoot $Area -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+                }
+
+                $AreaCollection
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeOspfArea
+
+function Remove-NsxEdgeOspfArea {
+    
+    <#
+    .SYNOPSIS
+    Removes an OSPF area from the specified ESGs OSPF configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Remove-NsxEdgeOspfArea cmdlet removes a BGP neighbour route from the 
+    bgp configuration of the specified Edge Services Gateway.
+
+    Areas to be removed can be constructed via a PoSH pipline filter outputing
+    area objects as produced by Get-NsxEdgeOspfArea and passing them on the
+    pipeline to Remove-NsxEdgeOspfArea.
+    
+    .EXAMPLE
+    Remove area 51 from ospf configuration on Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeOspfArea -AreaId 51 | Remove-NsxEdgeOspfArea
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeOspfArea $_ })]
+            [System.Xml.XmlElement]$OspfArea,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $OspfArea.edgeId
+        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+
+        #Remove the edgeId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Validate the OSPF node exists on the edge 
+        if ( -not $routing.SelectSingleNode('descendant::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
+        if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
+
+        
+
+        $xpathQuery = "//ospfAreas/ospfArea[areaId=`"$($OspfArea.areaId)`"]"
+        write-debug "XPath query for area nodes to remove is: $xpathQuery"
+        $AreaToRemove = $routing.ospf.SelectSingleNode($xpathQuery)
+
+        if ( $AreaToRemove ) { 
+
+            write-debug "AreaToRemove Element is: `n $($AreaToRemove.OuterXml | format-xml) "
+            $routing.ospf.ospfAreas.RemoveChild($AreaToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            }
+        }
+        else {
+            Throw "Area $($OspfArea.areaId) was not found in routing configuration for Edge $edgeId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxEdgeOspfArea
+
+function New-NsxEdgeOspfArea {
+    
+    <#
+    .SYNOPSIS
+    Creates a new OSPF Area and adds it to the specified ESGs OSPF 
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The New-NsxEdgeOspfArea cmdlet adds a new OSPF Area to the ospf
+    configuration of the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Create area 50 as a normal type on ESG Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | New-NsxEdgeOspfArea -AreaId 50
+
+    .EXAMPLE
+    Create area 10 as a nssa type on ESG Edge01 with password authentication
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | New-NsxEdgeOspfArea -AreaId 10 -Type password -Password "Secret"
+
+
+   
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(0,4294967295)]
+            [uint32]$AreaId,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("normal","nssa",IgnoreCase = $false)]
+            [string]$Type,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("none","password","md5",IgnoreCase = $false)]
+            [string]$AuthenticationType="none",
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [string]$Password
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Create the new ospfArea element.
+        $Area = $_EdgeRouting.ownerDocument.CreateElement('ospfArea')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
+        #as it might not exist which wil cause PoSH to throw in stric mode.
+        $ospf = $_EdgeRouting.SelectSingleNode('descendant::ospf')
+        if ( $ospf ) { 
+            $ospf.selectSingleNode('descendant::ospfAreas').AppendChild($Area) | Out-Null
+
+            Add-XmlElement -xmlRoot $Area -xmlElementName "areaId" -xmlElementText $AreaId.ToString()
+
+            #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+            #If the user did not specify a given parameter, we dont want to modify from the existing value.
+            if ( $PsBoundParameters.ContainsKey("Type") ) { 
+                Add-XmlElement -xmlRoot $Area -xmlElementName "type" -xmlElementText $Type.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("AuthenticationType") -or $PsBoundParameters.ContainsKey("Password") ) { 
+                switch ($AuthenticationType) {
+
+                    "none" { 
+                        if ( $PsBoundParameters.ContainsKey('Password') ) { 
+                            throw "Authentication type must be other than none to specify a password."
+                        }
+                        #Default value - do nothing
+                    }
+
+                    default { 
+                        if ( -not ( $PsBoundParameters.ContainsKey('Password')) ) {
+                            throw "Must specify a password if Authentication type is not none."
+                        }
+                        $Authentication = $Area.ownerDocument.CreateElement("authentication")
+                        $Area.AppendChild( $Authentication ) | out-null
+
+                        Add-XmlElement -xmlRoot $Authentication -xmlElementName "type" -xmlElementText $AuthenticationType
+                        Add-XmlElement -xmlRoot $Authentication -xmlElementName "value" -xmlElementText $Password
+                    }
+                }
+            }
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $_EdgeRouting.OuterXml 
+           
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+                Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeOspfArea -AreaId $AreaId
+            }
+        }
+        else {
+            throw "OSPF is not enabled on edge $edgeID.  Enable OSPF using Set-NsxEdgeRouting or Set-NsxEdgeOSPF first."
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxEdgeOspfArea
+
+function Get-NsxEdgeOspfInterface {
+    
+    <#
+    .SYNOPSIS
+    Returns OSPF Interface mappings defined in the spcified NSX Edge Services 
+    Gateway OSPF configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgeOspfInterface cmdlet retreives the OSPF Area to interfaces 
+    mappings from the OSPF configuration specified.
+
+    .EXAMPLE
+    Get all OSPF Area to Interface mappings on ESG Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface
+   
+    .EXAMPLE
+    Get OSPF Area to Interface mapping for Area 10 on ESG Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface -AreaId 10
+   
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,4294967295)]
+            [int]$AreaId,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,200)]
+            [int]$vNicId    
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        $ospf = $EdgeRouting.SelectSingleNode('descendant::ospf')
+
+        if ( $ospf ) {
+
+            $_ospf = $ospf.CloneNode($True)
+            $OspfInterfaces = $_ospf.SelectSingleNode('descendant::ospfInterfaces')
+
+
+            #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ospfArea.
+            if ( $OspfInterfaces.SelectSingleNode('descendant::ospfInterface')) { 
+
+                $InterfaceCollection = $OspfInterfaces.ospfInterface
+                if ( $PsBoundParameters.ContainsKey('AreaId')) {
+                    $InterfaceCollection = $InterfaceCollection | ? { $_.areaId -eq $AreaId }
+                }
+
+                if ( $PsBoundParameters.ContainsKey('vNicId')) {
+                    $InterfaceCollection = $InterfaceCollection | ? { $_.vnic -eq $vNicId }
+                }
+
+                foreach ( $Interface in $InterfaceCollection ) { 
+                    #We append the Edge-id to the associated Area config XML to enable pipeline workflows and 
+                    #consistent readable output
+                    Add-XmlElement -xmlRoot $Interface -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+                }
+
+                $InterfaceCollection
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeOspfInterface
+
+function Remove-NsxEdgeOspfInterface {
+    
+    <#
+    .SYNOPSIS
+    Removes an OSPF Interface from the specified ESGs OSPF configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Remove-NsxEdgeOspfInterface cmdlet removes a BGP neighbour route from 
+    the bgp configuration of the specified Edge Services Gateway.
+
+    Interfaces to be removed can be constructed via a PoSH pipline filter 
+    outputing interface objects as produced by Get-NsxEdgeOspfInterface and 
+    passing them on the pipeline to Remove-NsxEdgeOspfInterface.
+    
+    .EXAMPLE
+    Remove Interface to Area mapping for area 51 from ESG Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface -AreaId 51 | Remove-NsxEdgeOspfInterface
+
+    .EXAMPLE
+    Remove all Interface to Area mappings from ESG Edge01 without confirmation.
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface | Remove-NsxEdgeOspfInterface -confirm:$false
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeOspfInterface $_ })]
+            [System.Xml.XmlElement]$OspfInterface,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $OspfInterface.edgeId
+        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+
+        #Remove the edgeId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Validate the OSPF node exists on the edge 
+        if ( -not $routing.SelectSingleNode('descendant::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
+        if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
+
+        
+
+        $xpathQuery = "//ospfInterfaces/ospfInterface[areaId=`"$($OspfInterface.areaId)`"]"
+        write-debug "XPath query for interface nodes to remove is: $xpathQuery"
+        $InterfaceToRemove = $routing.ospf.SelectSingleNode($xpathQuery)
+
+        if ( $InterfaceToRemove ) { 
+
+            write-debug "InterfaceToRemove Element is: `n $($InterfaceToRemove.OuterXml | format-xml) "
+            $routing.ospf.ospfInterfaces.RemoveChild($InterfaceToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            }
+        }
+        else {
+            Throw "Interface $($OspfInterface.areaId) was not found in routing configuration for Edge $edgeId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxEdgeOspfInterface
+
+function New-NsxEdgeOspfInterface {
+    
+    <#
+    .SYNOPSIS
+    Creates a new OSPF Interface to Area mapping and adds it to the specified 
+    ESGs OSPF configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The New-NsxEdgeOspfInterface cmdlet adds a new OSPF Area to Interface 
+    mapping to the ospf configuration of the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Add a mapping for Area 10 to Interface 0 on ESG Edge01
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | New-NsxEdgeOspfInterface -AreaId 10 -Vnic 0
+   
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(0,4294967295)]
+            [uint32]$AreaId,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(0,200)]
+            [int]$Vnic,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,255)]
+            [int]$HelloInterval,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65535)]
+            [int]$DeadInterval,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,255)]
+            [int]$Priority,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65535)]
+            [int]$Cost,
+        [Parameter (Mandatory=$false)]
+            [switch]$IgnoreMTU
+
+    )
+
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Create the new ospfInterface element.
+        $Interface = $_EdgeRouting.ownerDocument.CreateElement('ospfInterface')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
+        #as it might not exist which wil cause PoSH to throw in stric mode.
+        $ospf = $_EdgeRouting.SelectSingleNode('descendant::ospf')
+        if ( $ospf ) { 
+            $ospf.selectSingleNode('descendant::ospfInterfaces').AppendChild($Interface) | Out-Null
+
+            Add-XmlElement -xmlRoot $Interface -xmlElementName "areaId" -xmlElementText $AreaId.ToString()
+            Add-XmlElement -xmlRoot $Interface -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
+
+            #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+            #If the user did not specify a given parameter, we dont want to modify from the existing value.
+            if ( $PsBoundParameters.ContainsKey("HelloInterval") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "helloInterval" -xmlElementText $HelloInterval.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DeadInterval") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "deadInterval" -xmlElementText $DeadInterval.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("Priority") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "priority" -xmlElementText $Priority.ToString()
+            }
+            
+            if ( $PsBoundParameters.ContainsKey("Cost") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "cost" -xmlElementText $Cost.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("IgnoreMTU") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "mtuIgnore" -xmlElementText $IgnoreMTU.ToString().ToLower()
+            }
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $_EdgeRouting.OuterXml 
+           
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+                Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface -AreaId $AreaId
+            }
+        }
+        else {
+            throw "OSPF is not enabled on edge $edgeID.  Enable OSPF using Set-NsxEdgeRouting or Set-NsxEdgeOSPF first."
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxEdgeOspfInterface
+
+# Redistribution Rules
+
+function Get-NsxEdgeRedistributionRule {
+    
+    <#
+    .SYNOPSIS
+    Returns dynamic route redistribution rules defined in the spcified NSX Edge
+    Services Gateway routing configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Get-NsxEdgeRedistributionRule cmdlet retreives the route redistribution
+    rules defined in the ospf and bgp configurations for the specified ESG.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner ospf
+
+    Get all Redistribution rules for ospf on ESG Edge01
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("ospf","bgp")]
+            [string]$Learner,
+        [Parameter (Mandatory=$false)]
+            [int]$Id
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        #Rules can be defined in either ospf or bgp (isis as well, but who cares huh? :) )
+        if ( ( -not $PsBoundParameters.ContainsKey('Learner')) -or ($PsBoundParameters.ContainsKey('Learner') -and $Learner -eq 'ospf')) {
+
+            $ospf = $EdgeRouting.SelectSingleNode('child::ospf')
+
+            if ( $ospf ) {
+
+                $_ospf = $ospf.CloneNode($True)
+                if ( $_ospf.SelectSingleNode('child::redistribution/rules/rule') ) { 
+
+                    $OspfRuleCollection = $_ospf.redistribution.rules.rule
+
+                    foreach ( $rule in $OspfRuleCollection ) { 
+                        #We append the Edge-id to the associated rule config XML to enable pipeline workflows and 
+                        #consistent readable output
+                        Add-XmlElement -xmlRoot $rule -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+
+                        #Add the learner to be consistent with the view the UI gives
+                        Add-XmlElement -xmlRoot $rule -xmlElementName "learner" -xmlElementText "ospf"
+
+                    }
+
+                    if ( $PsBoundParameters.ContainsKey('Id')) {
+                        $OspfRuleCollection = $OspfRuleCollection | ? { $_.id -eq $Id }
+                    }
+
+                    $OspfRuleCollection
+                }
+            }
+        }
+
+        if ( ( -not $PsBoundParameters.ContainsKey('Learner')) -or ($PsBoundParameters.ContainsKey('Learner') -and $Learner -eq 'bgp')) {
+
+            $bgp = $EdgeRouting.SelectSingleNode('child::bgp')
+            if ( $bgp ) {
+
+                $_bgp = $bgp.CloneNode($True)
+                if ( $_bgp.SelectSingleNode('child::redistribution/rules') ) { 
+
+                    $BgpRuleCollection = $_bgp.redistribution.rules.rule
+
+                    foreach ( $rule in $BgpRuleCollection ) { 
+                        #We append the Edge-id to the associated rule config XML to enable pipeline workflows and 
+                        #consistent readable output
+                        Add-XmlElement -xmlRoot $rule -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
+
+                        #Add the learner to be consistent with the view the UI gives
+                        Add-XmlElement -xmlRoot $rule -xmlElementName "learner" -xmlElementText "bgp"
+                    }
+
+                    if ( $PsBoundParameters.ContainsKey('Id')) {
+                        $BgpRuleCollection = $BgpRuleCollection | ? { $_.id -eq $Id }
+                    }
+                    $BgpRuleCollection
+                }
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeRedistributionRule
+
+function Remove-NsxEdgeRedistributionRule {
+    
+    <#
+    .SYNOPSIS
+    Removes a route redistribution rule from the specified ESGs  configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The Remove-NsxEdgeRedistributionRule cmdlet removes a route redistribution
+    rule from the configuration of the specified Edge Services Gateway.
+
+    Interfaces to be removed can be constructed via a PoSH pipline filter 
+    outputing interface objects as produced by Get-NsxEdgeRedistributionRule and 
+    passing them on the pipeline to Remove-NsxEdgeRedistributionRule.
+  
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner ospf | Remove-NsxEdgeRedistributionRule
+
+    Remove all ospf redistribution rules from Edge01
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRedistributionRule $_ })]
+            [System.Xml.XmlElement]$RedistributionRule,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $RedistributionRule.edgeId
+        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+
+        #Remove the edgeId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('child::edgeId')) ) | out-null
+
+        #Validate the learner protocol node exists on the edge 
+        if ( -not $routing.SelectSingleNode("child::$($RedistributionRule.learner)")) {
+            throw "Rule learner protocol $($RedistributionRule.learner) is not enabled on ESG $edgeId.  Use Get-NsxEdge <this edge> | Get-NsxEdgerouting | Get-NsxEdgeRedistributionRule to get the rule you want to remove." 
+        }
+
+        #Make XPath do all the hard work... Wish I was able to just compare the from node, but id doesnt appear possible with xpath 1.0
+        $xpathQuery = "child::$($RedistributionRule.learner)/redistribution/rules/rule[action=`"$($RedistributionRule.action)`""
+        $xPathQuery += " and from/connected=`"$($RedistributionRule.from.connected)`" and from/static=`"$($RedistributionRule.from.static)`""
+        $xPathQuery += " and from/ospf=`"$($RedistributionRule.from.ospf)`" and from/bgp=`"$($RedistributionRule.from.bgp)`""
+        $xPathQuery += " and from/isis=`"$($RedistributionRule.from.isis)`""
+
+        if ( $RedistributionRule.SelectSingleNode('child::prefixName')) { 
+
+            $xPathQuery += " and prefixName=`"$($RedistributionRule.prefixName)`""
+        }
+        
+        $xPathQuery += "]"
+
+        write-debug "XPath query for rule node to remove is: $xpathQuery"
+        
+        $RuleToRemove = $routing.SelectSingleNode($xpathQuery)
+
+        if ( $RuleToRemove ) { 
+
+            write-debug "RuleToRemove Element is: `n $($RuleToRemove | format-xml) "
+            $routing.$($RedistributionRule.Learner).redistribution.rules.RemoveChild($RuleToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            }
+        }
+        else {
+            Throw "Rule Id $($RedistributionRule.Id) was not found in the $($RedistributionRule.Learner) routing configuration for Edge $edgeId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxEdgeRedistributionRule
+
+function New-NsxEdgeRedistributionRule {
+    
+    <#
+    .SYNOPSIS
+    Creates a new route redistribution rule and adds it to the specified ESGs 
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    ESGs perform ipv4 and ipv6 routing functions for connected networks and 
+    support both static and dynamic routing via OSPF, ISIS and BGP.
+
+    The New-NsxEdgeRedistributionRule cmdlet adds a new route redistribution 
+    rule to the configuration of the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName test -Learner ospf -FromConnected -FromStatic -Action permit
+
+    Create a new permit Redistribution Rule for prefix test (note, prefix must already exist, and is case sensistive) for ospf.
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [System.Xml.XmlElement]$EdgeRouting,    
+        [Parameter (Mandatory=$True)]
+            [ValidateSet("ospf","bgp",IgnoreCase=$false)]
+            [String]$Learner,
+        [Parameter (Mandatory=$false)]
+            [String]$PrefixName,    
+        [Parameter (Mandatory=$false)]
+            [switch]$FromConnected,
+        [Parameter (Mandatory=$false)]
+            [switch]$FromStatic,
+        [Parameter (Mandatory=$false)]
+            [switch]$FromOspf,
+        [Parameter (Mandatory=$false)]
+            [switch]$FromBgp,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("permit","deny",IgnoreCase=$false)]
+            [String]$Action="permit",  
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true  
+
+    )
+
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeRouting = $EdgeRouting.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeRouting.edgeId
+        $_EdgeRouting.RemoveChild( $($_EdgeRouting.SelectSingleNode('child::edgeId')) ) | out-null
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the protocol element,
+        #as it might not exist which wil cause PoSH to throw in stric mode.
+        $ProtocolElement = $_EdgeRouting.SelectSingleNode("child::$Learner")
+
+        if ( (-not $ProtocolElement) -or ($ProtocolElement.Enabled -ne 'true')) { 
+
+            throw "The $Learner protocol is not enabled on Edge $edgeId.  Enable it and try again."
+        }
+        else {
+        
+            #Create the new rule element. 
+            $Rule = $_EdgeRouting.ownerDocument.CreateElement('rule')
+            $ProtocolElement.selectSingleNode('child::redistribution/rules').AppendChild($Rule) | Out-Null
+
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "action" -xmlElementText $Action
+            if ( $PsBoundParameters.ContainsKey("PrefixName") ) { 
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "prefixName" -xmlElementText $PrefixName.ToString()
+            }
+
+
+            #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+            #If the user did not specify a given parameter, we dont want to modify from the existing value.
+            if ( $PsBoundParameters.ContainsKey('FromConnected') -or $PsBoundParameters.ContainsKey('FromStatic') -or
+                 $PsBoundParameters.ContainsKey('FromOspf') -or $PsBoundParameters.ContainsKey('FromBgp') ) {
+
+                $FromElement = $Rule.ownerDocument.CreateElement('from')
+                $Rule.AppendChild($FromElement) | Out-Null
+
+                if ( $PsBoundParameters.ContainsKey("FromConnected") ) { 
+                    Add-XmlElement -xmlRoot $FromElement -xmlElementName "connected" -xmlElementText $FromConnected.ToString().ToLower()
+                }
+
+                if ( $PsBoundParameters.ContainsKey("FromStatic") ) { 
+                    Add-XmlElement -xmlRoot $FromElement -xmlElementName "static" -xmlElementText $FromStatic.ToString().ToLower()
+                }
+    
+                if ( $PsBoundParameters.ContainsKey("FromOspf") ) { 
+                    Add-XmlElement -xmlRoot $FromElement -xmlElementName "ospf" -xmlElementText $FromOspf.ToString().ToLower()
+                }
+
+                if ( $PsBoundParameters.ContainsKey("FromBgp") ) { 
+                    Add-XmlElement -xmlRoot $FromElement -xmlElementName "bgp" -xmlElementText $FromBgp.ToString().ToLower()
+                }
+            }
+
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $_EdgeRouting.OuterXml 
+           
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+                (Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner $Learner)[-1]
+                
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxEdgeRedistributionRule
+
+#########
+#########
+# DLR Routing related functions
+
+function Set-NsxLogicalRouterRouting {
+    
+    <#
+    .SYNOPSIS
+    Configures global routing configuration of an existing NSX Logical Router
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Set-NsxLogicalRouterRouting cmdlet configures the global routing 
+    configuration of the specified LogicalRouter.
+    
+    .EXAMPLE
+    Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -DefaultGatewayVnic 0 -DefaultGatewayAddress 10.0.0.101
+    
+    Configure the default route of the LogicalRouter.
+    
+    .EXAMPLE
+    Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableECMP
+    
+    Enable ECMP
+
+    .EXAMPLE
+    Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableOSPF -RouterId 1.1.1.1 -ForwardingAddress 1.1.1.1 -ProtocolAddress 1.1.1.2
+
+    Enable OSPF
+
+    .EXAMPLE
+    Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBGP -RouterId 1.1.1.1 -LocalAS 1234
+
+    Enable BGP
+
+    .EXAMPLE
+    Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableOspfRouteRedistribution:$false -Confirm:$false
+
+    Disable OSPF Route Redistribution without confirmation.
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableOspf,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$ProtocolAddress,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$ForwardingAddress,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableBgp,
+        [Parameter (Mandatory=$False)]
+            [IpAddress]$RouterId,
+        [Parameter (MAndatory=$False)]
+            [ValidateRange(0,65535)]
+            [int]$LocalAS,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableEcmp,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableOspfRouteRedistribution,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableBgpRouteRedistribution,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableLogging,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
+            [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,200)]
+            [int]$DefaultGatewayVnic,        
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,9128)]
+            [int]$DefaultGatewayMTU,        
+        [Parameter (Mandatory=$False)]
+            [string]$DefaultGatewayDescription,       
+        [Parameter (Mandatory=$False)]
+            [ipAddress]$DefaultGatewayAddress,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,255)]
+            [int]$DefaultGatewayAdminDistance        
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('EnableOSPF') -or $PsBoundParameters.ContainsKey('EnableBGP') ) { 
+            $xmlGlobalConfig = $_LogicalRouterRouting.routingGlobalConfig
+            $xmlRouterId = $xmlGlobalConfig.SelectSingleNode('child::routerId')
+            if ( $EnableOSPF -or $EnableBGP ) {
+                if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
+                    #Existing config missing and no new value set...
+                    throw "RouterId must be configured to enable dynamic routing"
+                }
+
+                if ($PsBoundParameters.ContainsKey("RouterId")) {
+                    #Set Routerid...
+                    if ($xmlRouterId) {
+                        $xmlRouterId = $RouterId.IPAddresstoString
+                    }
+                    else{
+                        Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                    }
+                }
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('EnableOSPF')) { 
+            $ospf = $_LogicalRouterRouting.SelectSingleNode('child::ospf') 
+            if ( -not $ospf ) {
+                #ospf node does not exist.
+                [System.XML.XMLElement]$ospf = $_LogicalRouterRouting.ownerDocument.CreateElement("ospf")
+                $_LogicalRouterRouting.appendChild($ospf) | out-null
+            }
+
+            if ( $ospf.SelectSingleNode('child::enabled')) {
+                #Enabled element exists.  Update it.
+                $ospf.enabled = $EnableOSPF.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
+            }
+
+            if ( $EnableOSPF -and (-not ($ProtocolAddress -or ($ospf.SelectSingleNode('child::protocolAddress'))))) {
+                throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
+            }
+
+            if ( $EnableOSPF -and (-not ($ForwardingAddress -or ($ospf.SelectSingleNode('child::forwardingAddress'))))) {
+                throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
+            }
+
+            if ( $PsBoundParameters.ContainsKey('ProtocolAddress') ) { 
+                if ( $ospf.SelectSingleNode('child::protocolAddress')) {
+                    # element exists.  Update it.
+                    $ospf.protocolAddress = $ProtocolAddress.ToString().ToLower()
+                }
+                else {
+                    #Enabled element does not exist...
+                    Add-XmlElement -xmlRoot $ospf -xmlElementName "protocolAddress" -xmlElementText $ProtocolAddress.ToString().ToLower()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey('ForwardingAddress') ) { 
+                if ( $ospf.SelectSingleNode('child::forwardingAddress')) {
+                    # element exists.  Update it.
+                    $ospf.forwardingAddress = $ForwardingAddress.ToString().ToLower()
+                }
+                else {
+                    #Enabled element does not exist...
+                    Add-XmlElement -xmlRoot $ospf -xmlElementName "forwardingAddress" -xmlElementText $ForwardingAddress.ToString().ToLower()
+                }
+            }
+        
+        }
+
+        if ( $PsBoundParameters.ContainsKey('EnableBGP')) {
+
+            $bgp = $_LogicalRouterRouting.SelectSingleNode('child::bgp') 
+
+            if ( -not $bgp ) {
+                #bgp node does not exist.
+                [System.XML.XMLElement]$bgp = $_LogicalRouterRouting.ownerDocument.CreateElement("bgp")
+                $_LogicalRouterRouting.appendChild($bgp) | out-null
+
+            }
+
+            if ( $bgp.SelectSingleNode('child::enabled')) {
+                #Enabled element exists.  Update it.
+                $bgp.enabled = $EnableBGP.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("LocalAS")) { 
+                if ( $bgp.SelectSingleNode('child::localAS')) {
+                #LocalAS element exists, update it.
+                    $bgp.localAS = $LocalAS.ToString()
+                }
+                else {
+                    #LocalAS element does not exist...
+                    Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
+                }
+            }
+            elseif ( (-not ( $bgp.SelectSingleNode('child::localAS')) -and $EnableBGP  )) {
+                throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
+            }
+            
+
+        }
+
+        if ( $PsBoundParameters.ContainsKey("EnableECMP")) { 
+            $_LogicalRouterRouting.routingGlobalConfig.ecmp = $EnableECMP.ToString().ToLower()
+        }
+
+
+        if ( $PsBoundParameters.ContainsKey("EnableOspfRouteRedistribution")) { 
+
+            $_LogicalRouterRouting.ospf.redistribution.enabled = $EnableOspfRouteRedistribution.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("EnableBgpRouteRedistribution")) { 
+            if ( -not $_LogicalRouterRouting.SelectSingleNode('child::bgp/redistribution/enabled') ) {
+                throw "BGP must have been configured at least once to enable/disable BGP route redistribution.  Enable BGP and try again."
+            }
+
+            $_LogicalRouterRouting.bgp.redistribution.enabled = $EnableBgpRouteRedistribution.ToString().ToLower()
+        }
+
+
+        if ( $PsBoundParameters.ContainsKey("EnableLogging")) { 
+            $_LogicalRouterRouting.routingGlobalConfig.logging.enable = $EnableLogging.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("LogLevel")) { 
+            $_LogicalRouterRouting.routingGlobalConfig.logging.logLevel = $LogLevel.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("DefaultGatewayVnic") -or $PsBoundParameters.ContainsKey("DefaultGatewayAddress") -or 
+            $PsBoundParameters.ContainsKey("DefaultGatewayDescription") -or $PsBoundParameters.ContainsKey("DefaultGatewayMTU") -or
+            $PsBoundParameters.ContainsKey("DefaultGatewayAdminDistance") ) { 
+
+            #Check for and create if required the defaultRoute element. first.
+            if ( -not $_LogicalRouterRouting.staticRouting.SelectSingleNode('child::defaultRoute')) {
+                #defaultRoute element does not exist
+                $defaultRoute = $_LogicalRouterRouting.ownerDocument.CreateElement('defaultRoute')
+                $_LogicalRouterRouting.staticRouting.AppendChild($defaultRoute) | out-null
+            }
+            else {
+                #defaultRoute element exists
+                $defaultRoute = $_LogicalRouterRouting.staticRouting.defaultRoute
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayVnic") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('child::vnic')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "vnic" -xmlElementText $DefaultGatewayVnic.ToString()
+                }
+                else {
+                    #element exists
+                    $defaultRoute.vnic = $DefaultGatewayVnic.ToString()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayAddress") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('child::gatewayAddress')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "gatewayAddress" -xmlElementText $DefaultGatewayAddress.ToString()
+                }
+                else {
+                    #element exists
+                    $defaultRoute.gatewayAddress = $DefaultGatewayAddress.ToString()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayDescription") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('child::description')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "description" -xmlElementText $DefaultGatewayDescription
+                }
+                else {
+                    #element exists
+                    $defaultRoute.description = $DefaultGatewayDescription
+                }
+            }
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayMTU") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('child::mtu')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "mtu" -xmlElementText $DefaultGatewayMTU.ToString()
+                }
+                else {
+                    #element exists
+                    $defaultRoute.mtu = $DefaultGatewayMTU.ToString()
+                }
+            }
+            if ( $PsBoundParameters.ContainsKey("DefaultGatewayAdminDistance") ) { 
+                if ( -not $defaultRoute.SelectSingleNode('child::adminDistance')) {
+                    #element does not exist
+                    Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "adminDistance" -xmlElementText $DefaultGatewayAdminDistance.ToString()
+                }
+                else {
+                    #element exists
+                    $defaultRoute.adminDistance = $DefaultGatewayAdminDistance.ToString()
+                }
+            }
+        }
+
+
+        $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+        $body = $_LogicalRouterRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+            $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Set-NsxLogicalRouterRouting
+
+function Get-NsxLogicalRouterRouting {
+    
+    <#
+    .SYNOPSIS
+    Retreives routing configuration for the spcified NSX LogicalRouter.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Get-NsxLogicalRouterRouting cmdlet retreives the routing configuration of
+    the specified LogicalRouter.
+    
+    .EXAMPLE
+    Get routing configuration for the LogicalRouter LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LogicalRouter $_ })]
+            [System.Xml.XmlElement]$LogicalRouter
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the LogicalRouter-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_LogicalRouterRouting = $LogicalRouter.features.routing.CloneNode($True)
+        Add-XmlElement -xmlRoot $_LogicalRouterRouting -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouter.Id
+        $_LogicalRouterRouting
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterRouting 
+
+# Static Routing
+
+function Get-NsxLogicalRouterStaticRoute {
+    
+    <#
+    .SYNOPSIS
+    Retreives Static Routes from the spcified NSX LogicalRouter Routing 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Get-NsxLogicalRouterStaticRoute cmdlet retreives the static routes from the 
+    routing configuration specified.
+
+    .EXAMPLE
+    Get static routes defining on LogicalRouter LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$Network,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$NextHop       
+        
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        #We append the LogicalRouter-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_LogicalRouterStaticRouting = ($LogicalRouterRouting.staticRouting.CloneNode($True))
+        $LogicalRouterStaticRoutes = $_LogicalRouterStaticRouting.SelectSingleNode('child::staticRoutes')
+
+        #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called route.
+        If ( $LogicalRouterStaticRoutes.SelectSingleNode('child::route')) { 
+
+            $RouteCollection = $LogicalRouterStaticRoutes.route
+            if ( $PsBoundParameters.ContainsKey('Network')) {
+                $RouteCollection = $RouteCollection | ? { $_.network -eq $Network }
+            }
+
+            if ( $PsBoundParameters.ContainsKey('NextHop')) {
+                $RouteCollection = $RouteCollection | ? { $_.nextHop -eq $NextHop }
+            }
+
+            foreach ( $StaticRoute in $RouteCollection ) { 
+                Add-XmlElement -xmlRoot $StaticRoute -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+            }
+
+            $RouteCollection
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterStaticRoute
+
+function New-NsxLogicalRouterStaticRoute {
+    
+    <#
+    .SYNOPSIS
+    Creates a new static route and adds it to the specified ESGs routing
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The New-NsxLogicalRouterStaticRoute cmdlet adds a new static route to the routing
+    configuration of the specified LogicalRouter.
+
+    .EXAMPLE
+    Add a new static route to LogicalRouter LogicalRouter01 for 1.1.1.0/24 via 10.0.0.200
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterStaticRoute -Network 1.1.1.0/24 -NextHop 10.0.0.200
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,200)]
+            [int]$Vnic,        
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,9128)]
+            [int]$MTU,        
+        [Parameter (Mandatory=$False)]
+            [string]$Description,       
+        [Parameter (Mandatory=$True)]
+            [ipAddress]$NextHop,
+        [Parameter (Mandatory=$True)]
+            [string]$Network,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,255)]
+            [int]$AdminDistance        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        #Create the new route element.
+        $Route = $_LogicalRouterRouting.ownerDocument.CreateElement('route')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the static route element,
+        #as it might be empty, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
+        $StaticRoutes = $_LogicalRouterRouting.staticRouting.SelectSingleNode('child::staticRoutes')
+        $StaticRoutes.AppendChild($Route) | Out-Null
+
+        Add-XmlElement -xmlRoot $Route -xmlElementName "network" -xmlElementText $Network.ToString()
+        Add-XmlElement -xmlRoot $Route -xmlElementName "nextHop" -xmlElementText $NextHop.ToString()
+
+        if ( $PsBoundParameters.ContainsKey("Vnic") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("MTU") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "mtu" -xmlElementText $MTU.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("Description") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+    
+        if ( $PsBoundParameters.ContainsKey("AdminDistance") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "adminDistance" -xmlElementText $AdminDistance.ToString()
+        }
+
+
+        $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+        $body = $_LogicalRouterRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+            $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $Network -NextHop $NextHop
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxLogicalRouterStaticRoute
+
+function Remove-NsxLogicalRouterStaticRoute {
+    
+    <#
+    .SYNOPSIS
+    Removes a static route from the specified ESGs routing configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Remove-NsxLogicalRouterStaticRoute cmdlet removes a static route from the routing
+    configuration of the specified LogicalRouter.
+
+    Routes to be removed can be constructed via a PoSH pipline filter outputing
+    route objects as produced by Get-NsxLogicalRouterStaticRoute and passing them on the
+    pipeline to Remove-NsxLogicalRouterStaticRoute.
+
+    .EXAMPLE
+    Remove a route to 1.1.1.0/24 via 10.0.0.100 from LogicalRouter LogicalRouter01
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute | ? { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxLogicalRouterStaticRoute
+
+    .EXAMPLE
+    Remove all routes to 1.1.1.0/24 from LogicalRouter LogicalRouter01
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute | ? { $_.network -eq '1.1.1.0/24' } | Remove-NsxLogicalRouterStaticRoute
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterStaticRoute $_ })]
+            [System.Xml.XmlElement]$StaticRoute,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our LogicalRouter
+        $logicalrouterId = $StaticRoute.logicalrouterId
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+
+        #Remove the logicalrouterId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Need to do an xpath query here to query for a route that matches the one passed in.  
+        #Union of nextHop and network should be unique
+        $xpathQuery = "//staticRoutes/route[nextHop=`"$($StaticRoute.nextHop)`" and network=`"$($StaticRoute.network)`"]"
+        write-debug "XPath query for route nodes to remove is: $xpathQuery"
+        $RouteToRemove = $routing.staticRouting.SelectSingleNode($xpathQuery)
+
+        if ( $RouteToRemove ) { 
+
+            write-debug "RouteToRemove Element is: `n $($RouteToRemove.OuterXml | format-xml) "
+            $routing.staticRouting.staticRoutes.RemoveChild($RouteToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            }
+        }
+        else {
+            Throw "Route for network $($StaticRoute.network) via $($StaticRoute.nextHop) was not found in routing configuration for LogicalRouter $logicalrouterId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLogicalRouterStaticRoute
+
+# Prefixes
+
+function Get-NsxLogicalRouterPrefix {
+    
+    <#
+    .SYNOPSIS
+    Retreives IP Prefixes from the spcified NSX LogicalRouter Routing 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Get-NsxLogicalRouterPrefix cmdlet retreives IP prefixes from the 
+    routing configuration specified.
+    
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix
+
+    Retrieve prefixes from LogicalRouter LogicalRouter01
+
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -Network 1.1.1.0/24
+
+    Retrieve prefix 1.1.1.0/24 from LogicalRouter LogicalRouter01
+
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -Name CorpNet
+
+    Retrieve prefix CorpNet from LogicalRouter LogicalRouter01
+      
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$Network       
+        
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        #We append the LogicalRouter-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_GlobalRoutingConfig = ($LogicalRouterRouting.routingGlobalConfig.CloneNode($True))
+        $IpPrefixes = $_GlobalRoutingConfig.SelectSingleNode('child::ipPrefixes')
+
+        #IPPrefixes may not exist...
+        if ( $IPPrefixes ) { 
+            #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ipPrefix.
+            If ( $IpPrefixes.SelectSingleNode('child::ipPrefix')) { 
+
+                $PrefixCollection = $IPPrefixes.ipPrefix
+                if ( $PsBoundParameters.ContainsKey('Network')) {
+                    $PrefixCollection = $PrefixCollection | ? { $_.ipAddress -eq $Network }
+                }
+
+                if ( $PsBoundParameters.ContainsKey('Name')) {
+                    $PrefixCollection = $PrefixCollection | ? { $_.name -eq $Name }
+                }
+
+                foreach ( $Prefix in $PrefixCollection ) { 
+                    Add-XmlElement -xmlRoot $Prefix -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+                }
+
+                $PrefixCollection
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterPrefix
+
+function New-NsxLogicalRouterPrefix {
+    
+    <#
+    .SYNOPSIS
+    Creates a new IP prefix and adds it to the specified ESGs routing
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The New-NsxLogicalRouterPrefix cmdlet adds a new IP prefix to the routing
+    configuration of the specified LogicalRouter .
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullorEmpty()]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullorEmpty()]
+            [string]$Name,       
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullorEmpty()]
+            [string]$Network      
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the IP prefix element,
+        #as it might be empty or not exist, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
+        $ipPrefixes = $_LogicalRouterRouting.routingGlobalConfig.SelectSingleNode('child::ipPrefixes')
+        if ( -not $ipPrefixes ) { 
+            #Create the ipPrefixes element
+            $ipPrefixes = $_LogicalRouterRouting.ownerDocument.CreateElement('ipPrefixes')
+            $_LogicalRouterRouting.routingGlobalConfig.AppendChild($ipPrefixes) | Out-Null
+        }
+
+        #Create the new ipPrefix element.
+        $ipPrefix = $_LogicalRouterRouting.ownerDocument.CreateElement('ipPrefix')
+        $ipPrefixes.AppendChild($ipPrefix) | Out-Null
+
+        Add-XmlElement -xmlRoot $ipPrefix -xmlElementName "name" -xmlElementText $Name.ToString()
+        Add-XmlElement -xmlRoot $ipPrefix -xmlElementName "ipAddress" -xmlElementText $Network.ToString()
+
+
+        $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+        $body = $_LogicalRouterRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+            $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -Network $Network -Name $Name
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxLogicalRouterPrefix
+
+function Remove-NsxLogicalRouterPrefix {
+    
+    <#
+    .SYNOPSIS
+    Removes an IP prefix from the specified ESGs routing configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Remove-NsxLogicalRouterPrefix cmdlet removes a IP prefix from the routing
+    configuration of the specified LogicalRouter .
+
+    Prefixes to be removed can be constructed via a PoSH pipline filter outputing
+    prefix objects as produced by Get-NsxLogicalRouterPrefix and passing them on the
+    pipeline to Remove-NsxLogicalRouterPrefix.
+
+ 
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterPrefix $_ })]
+            [System.Xml.XmlElement]$Prefix,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our LogicalRouter
+        $logicalrouterId = $Prefix.logicalrouterId
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+
+        #Remove the logicalrouterId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Need to do an xpath query here to query for a prefix that matches the one passed in.  
+        #Union of nextHop and network should be unique
+        $xpathQuery = "/routingGlobalConfig/ipPrefixes/ipPrefix[name=`"$($Prefix.name)`" and ipAddress=`"$($Prefix.ipAddress)`"]"
+        write-debug "XPath query for prefix nodes to remove is: $xpathQuery"
+        $PrefixToRemove = $routing.SelectSingleNode($xpathQuery)
+
+        if ( $PrefixToRemove ) { 
+
+            write-debug "PrefixToRemove Element is: `n $($PrefixToRemove.OuterXml | format-xml) "
+            $routing.routingGlobalConfig.ipPrefixes.RemoveChild($PrefixToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            }
+        }
+        else {
+            Throw "Prefix $($Prefix.Name) for network $($Prefix.network) was not found in routing configuration for LogicalRouter $logicalrouterId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLogicalRouterPrefix
+
+
+# BGP
+
+function Get-NsxLogicalRouterBgp {
+    
+    <#
+    .SYNOPSIS
+    Retreives BGP configuration for the specified NSX LogicalRouter.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Get-NsxLogicalRouterBgp cmdlet retreives the bgp configuration of
+    the specified LogicalRouter.
+    
+    .EXAMPLE
+    Get the BGP configuration for LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgp   
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the LogicalRouter-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        if ( $LogicalRouterRouting.SelectSingleNode('child::bgp')) { 
+            $bgp = $LogicalRouterRouting.SelectSingleNode('child::bgp').CloneNode($True)
+            Add-XmlElement -xmlRoot $bgp -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+            $bgp
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterBgp
+
+function Set-NsxLogicalRouterBgp {
+    
+    <#
+    .SYNOPSIS
+    Manipulates BGP specific base configuration of an existing NSX LogicalRouter.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Set-NsxLogicalRouterBgp cmdlet allows manipulation of the BGP specific configuration
+    of a given ESG.
+    
+   
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableBGP,
+        [Parameter (Mandatory=$False)]
+            [IpAddress]$RouterId,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,65535)]
+            [int]$LocalAS,
+        [Parameter (Mandatory=$False)]
+            [switch]$GracefulRestart,
+        [Parameter (Mandatory=$False)]
+            [switch]$DefaultOriginate
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('EnableBGP') ) { 
+            $xmlGlobalConfig = $_LogicalRouterRouting.routingGlobalConfig
+            $xmlRouterId = $xmlGlobalConfig.SelectSingleNode('child::routerId')
+            if ( $EnableBGP ) {
+                if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
+                    #Existing config missing and no new value set...
+                    throw "RouterId must be configured to enable dynamic routing"
+                }
+
+                if ($PsBoundParameters.ContainsKey("RouterId")) {
+                    #Set Routerid...
+                    if ($xmlRouterId) {
+                        $xmlRouterId = $RouterId.IPAddresstoString
+                    }
+                    else{
+                        Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                    }
+                }
+            }
+
+            $bgp = $_LogicalRouterRouting.SelectSingleNode('child::bgp') 
+
+            if ( -not $bgp ) {
+                #bgp node does not exist.
+                [System.XML.XMLElement]$bgp = $_LogicalRouterRouting.ownerDocument.CreateElement("bgp")
+                $_LogicalRouterRouting.appendChild($bgp) | out-null
+            }
+
+            if ( $bgp.SelectSingleNode('child::enabled')) {
+                #Enabled element exists.  Update it.
+                $bgp.enabled = $EnableBGP.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("LocalAS")) { 
+                if ( $bgp.SelectSingleNode('child::localAS')) {
+                    #LocalAS element exists, update it.
+                    $bgp.localAS = $LocalAS.ToString()
+                }
+                else {
+                    #LocalAS element does not exist...
+                    Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
+                }
+            }
+            elseif ( (-not ( $bgp.SelectSingleNode('child::localAS')) -and $EnableBGP  )) {
+                throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
+            }
+
+            if ( $PsBoundParameters.ContainsKey("GracefulRestart")) { 
+                if ( $bgp.SelectSingleNode('child::gracefulRestart')) {
+                    #element exists, update it.
+                    $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
+                }
+                else {
+                    #element does not exist...
+                    Add-XmlElement -xmlRoot $bgp -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) { 
+                if ( $bgp.SelectSingleNode('child::defaultOriginate')) {
+                    #element exists, update it.
+                    $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+                }
+                else {
+                    #element does not exist...
+                    Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
+                }
+            }
+        }
+
+        $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+        $body = $_LogicalRouterRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+            $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgp
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Set-NsxLogicalRouterBgp
+
+function Get-NsxLogicalRouterBgpNeighbour {
+    
+    <#
+    .SYNOPSIS
+    Returns BGP neighbours from the spcified NSX LogicalRouter BGP 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Get-NsxLogicalRouterBgpNeighbour cmdlet retreives the BGP neighbours from the 
+    BGP configuration specified.
+
+    .EXAMPLE
+    Get all BGP neighbours defined on LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour
+    
+    .EXAMPLE
+    Get BGP neighbour 1.1.1.1 defined on LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress 1.1.1.1
+
+    .EXAMPLE
+    Get all BGP neighbours with Remote AS 1234 defined on LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour | ? { $_.RemoteAS -eq '1234' }
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$Network,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$IpAddress,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,65535)]
+            [int]$RemoteAS              
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        $bgp = $LogicalRouterRouting.SelectSingleNode('child::bgp')
+
+        if ( $bgp ) {
+
+            $_bgp = $bgp.CloneNode($True)
+            $BgpNeighbours = $_bgp.SelectSingleNode('child::bgpNeighbours')
+
+
+            #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called bgpNeighbour.
+            if ( $BgpNeighbours.SelectSingleNode('child::bgpNeighbour')) { 
+
+                $NeighbourCollection = $BgpNeighbours.bgpNeighbour
+                if ( $PsBoundParameters.ContainsKey('IpAddress')) {
+                    $NeighbourCollection = $NeighbourCollection | ? { $_.ipAddress -eq $IpAddress }
+                }
+
+                if ( $PsBoundParameters.ContainsKey('RemoteAS')) {
+                    $NeighbourCollection = $NeighbourCollection | ? { $_.remoteAS -eq $RemoteAS }
+                }
+
+                foreach ( $Neighbour in $NeighbourCollection ) { 
+                    #We append the LogicalRouter-id to the associated neighbour config XML to enable pipeline workflows and 
+                    #consistent readable output
+                    Add-XmlElement -xmlRoot $Neighbour -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+                }
+
+                $NeighbourCollection
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterBgpNeighbour
+
+function New-NsxLogicalRouterBgpNeighbour {
+    
+    <#
+    .SYNOPSIS
+    Creates a new BGP neighbour and adds it to the specified ESGs BGP
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The New-NsxLogicalRouterBgpNeighbour cmdlet adds a new BGP neighbour to the 
+    bgp configuration of the specified LogicalRouter.
+
+    .EXAMPLE
+    Add a new neighbour 1.2.3.4 with remote AS number 1234 with defaults.
+
+    PS C:\> Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress 1.2.3.4 -RemoteAS 1234 -ForwardingAddress 1.2.3.1 -ProtocolAddress 1.2.3.2
+
+    .EXAMPLE
+    Add a new neighbour 1.2.3.4 with remote AS number 22235 specifying weight, holddown and keepalive timers and dont prompt for confirmation.
+
+    PS C:\> Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress 1.2.3.4 -RemoteAS 22235 -ForwardingAddress 1.2.3.1 -ProtocolAddress 1.2.3.2 -Confirm:$false -Weight 90 -HoldDownTimer 240 -KeepAliveTimer 90 -confirm:$false
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$IpAddress,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(0,65535)]
+            [int]$RemoteAS,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$ForwardingAddress,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$ProtocolAddress,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,65535)]
+            [int]$Weight,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(2,65535)]
+            [int]$HoldDownTimer,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65534)]
+            [int]$KeepAliveTimer,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [string]$Password     
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Create the new bgpNeighbour element.
+        $Neighbour = $_LogicalRouterRouting.ownerDocument.CreateElement('bgpNeighbour')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the bgp element,
+        #as it might not exist which wil cause PoSH to throw in stric mode.
+        $bgp = $_LogicalRouterRouting.SelectSingleNode('child::bgp')
+        if ( $bgp ) { 
+            $bgp.selectSingleNode('child::bgpNeighbours').AppendChild($Neighbour) | Out-Null
+
+            Add-XmlElement -xmlRoot $Neighbour -xmlElementName "ipAddress" -xmlElementText $IpAddress.ToString()
+            Add-XmlElement -xmlRoot $Neighbour -xmlElementName "remoteAS" -xmlElementText $RemoteAS.ToString()
+            Add-XmlElement -xmlRoot $Neighbour -xmlElementName "forwardingAddress" -xmlElementText $ForwardingAddress.ToString()
+            Add-XmlElement -xmlRoot $Neighbour -xmlElementName "protocolAddress" -xmlElementText $ProtocolAddress.ToString()
+
+
+            #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+            #If the user did not specify a given parameter, we dont want to modify from the existing value.
+            if ( $PsBoundParameters.ContainsKey("Weight") ) { 
+                Add-XmlElement -xmlRoot $Neighbour -xmlElementName "weight" -xmlElementText $Weight.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("HoldDownTimer") ) { 
+                Add-XmlElement -xmlRoot $Neighbour -xmlElementName "holdDownTimer" -xmlElementText $HoldDownTimer.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("KeepAliveTimer") ) { 
+                Add-XmlElement -xmlRoot $Neighbour -xmlElementName "keepAliveTimer" -xmlElementText $KeepAliveTimer.ToString()
+            }
+
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $_LogicalRouterRouting.OuterXml 
+           
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+                Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
+            }
+        }
+        else {
+            throw "BGP is not enabled on logicalrouter $logicalrouterID.  Enable BGP using Set-NsxLogicalRouterRouting or Set-NsxLogicalRouterBGP first."
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxLogicalRouterBgpNeighbour
+
+function Remove-NsxLogicalRouterBgpNeighbour {
+    
+    <#
+    .SYNOPSIS
+    Removes a BGP neigbour from the specified ESGs BGP configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Remove-NsxLogicalRouterBgpNeighbour cmdlet removes a BGP neighbour route from the 
+    bgp configuration of the specified LogicalRouter Services Gateway.
+
+    Neighbours to be removed can be constructed via a PoSH pipline filter outputing
+    neighbour objects as produced by Get-NsxLogicalRouterBgpNeighbour and passing them on the
+    pipeline to Remove-NsxLogicalRouterBgpNeighbour.
+
+    .EXAMPLE
+    Remove the BGP neighbour 1.1.1.2 from the the logicalrouter LogicalRouter01's bgp configuration
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour | ? { $_.ipaddress -eq '1.1.1.2' } |  Remove-NsxLogicalRouterBgpNeighbour 
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterBgpNeighbour $_ })]
+            [System.Xml.XmlElement]$BgpNeighbour,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our LogicalRouter
+        $logicalrouterId = $BgpNeighbour.logicalrouterId
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+
+        #Remove the logicalrouterId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Validate the BGP node exists on the logicalrouter 
+        if ( -not $routing.SelectSingleNode('child::bgp')) { throw "BGP is not enabled on ESG $logicalrouterId.  Enable BGP and try again." }
+
+        #Need to do an xpath query here to query for a bgp neighbour that matches the one passed in.  
+        #Union of ipaddress and remote AS should be unique (though this is not enforced by the API, 
+        #I cant see why having duplicate neighbours with same ip and AS would be useful...maybe 
+        #different filters?)
+        #Will probably need to include additional xpath query filters here in the query to include 
+        #matching on filters to better handle uniquness amongst bgp neighbours with same ip and remoteAS
+
+        $xpathQuery = "//bgpNeighbours/bgpNeighbour[ipAddress=`"$($BgpNeighbour.ipAddress)`" and remoteAS=`"$($BgpNeighbour.remoteAS)`"]"
+        write-debug "XPath query for neighbour nodes to remove is: $xpathQuery"
+        $NeighbourToRemove = $routing.bgp.SelectSingleNode($xpathQuery)
+
+        if ( $NeighbourToRemove ) { 
+
+            write-debug "NeighbourToRemove Element is: `n $($NeighbourToRemove.OuterXml | format-xml) "
+            $routing.bgp.bgpNeighbours.RemoveChild($NeighbourToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            }
+        }
+        else {
+            Throw "Neighbour $($BgpNeighbour.ipAddress) with Remote AS $($BgpNeighbour.RemoteAS) was not found in routing configuration for LogicalRouter $logicalrouterId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLogicalRouterBgpNeighbour
+
+# OSPF
+
+function Get-NsxLogicalRouterOspf {
+    
+    <#
+    .SYNOPSIS
+    Retreives OSPF configuration for the spcified NSX LogicalRouter.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Get-NsxLogicalRouterOspf cmdlet retreives the OSPF configuration of
+    the specified LogicalRouter.
+    
+    .EXAMPLE
+    Get the OSPF configuration for LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspf
+    
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the LogicalRouter-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        if ( $LogicalRouterRouting.SelectSingleNode('child::ospf')) { 
+            $ospf = $LogicalRouterRouting.ospf.CloneNode($True)
+            Add-XmlElement -xmlRoot $ospf -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+            $ospf
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterOspf
+
+function Set-NsxLogicalRouterOspf {
+    
+    <#
+    .SYNOPSIS
+    Manipulates OSPF specific base configuration of an existing NSX 
+    LogicalRouter.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Set-NsxLogicalRouterOspf cmdlet allows manipulation of the OSPF specific 
+    configuration of a given ESG.
+    
+   
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableOSPF,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$ProtocolAddress,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullorEmpty()]
+            [ipAddress]$ForwardingAddress,
+        [Parameter (Mandatory=$False)]
+            [IpAddress]$RouterId,
+        [Parameter (Mandatory=$False)]
+            [switch]$GracefulRestart,
+        [Parameter (Mandatory=$False)]
+            [switch]$DefaultOriginate
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('EnableOSPF') ) { 
+            $xmlGlobalConfig = $_LogicalRouterRouting.routingGlobalConfig
+            $xmlRouterId = $xmlGlobalConfig.SelectSingleNode('child::routerId')
+            if ( $EnableOSPF ) {
+                if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
+                    #Existing config missing and no new value set...
+                    throw "RouterId must be configured to enable dynamic routing"
+                }
+
+                if ($PsBoundParameters.ContainsKey("RouterId")) {
+                    #Set Routerid...
+                    if ($xmlRouterId) {
+                        $xmlRouterId = $RouterId.IPAddresstoString
+                    }
+                    else{
+                        Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                    }
+                }
+            }
+
+
+            $ospf = $_LogicalRouterRouting.SelectSingleNode('child::ospf') 
+
+            if ( $EnableOSPF -and (-not ($ProtocolAddress -or ($ospf.SelectSingleNode('child::protocolAddress'))))) {
+                throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
+            }
+
+            if ( $EnableOSPF -and (-not ($ForwardingAddress -or ($ospf.SelectSingleNode('child::forwardingAddress'))))) {
+                throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
+            }
+
+            if ( $PsBoundParameters.ContainsKey('ProtocolAddress') ) { 
+                if ( $ospf.SelectSingleNode('child::protocolAddress')) {
+                    # element exists.  Update it.
+                    $ospf.protocolAddress = $ProtocolAddress.ToString().ToLower()
+                }
+                else {
+                    #Enabled element does not exist...
+                    Add-XmlElement -xmlRoot $ospf -xmlElementName "protocolAddress" -xmlElementText $ProtocolAddress.ToString().ToLower()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey('ForwardingAddress') ) { 
+                if ( $ospf.SelectSingleNode('child::forwardingAddress')) {
+                    # element exists.  Update it.
+                    $ospf.forwardingAddress = $ForwardingAddress.ToString().ToLower()
+                }
+                else {
+                    #Enabled element does not exist...
+                    Add-XmlElement -xmlRoot $ospf -xmlElementName "forwardingAddress" -xmlElementText $ForwardingAddress.ToString().ToLower()
+                }
+            }
+
+            if ( -not $ospf ) {
+                #ospf node does not exist.
+                [System.XML.XMLElement]$ospf = $_LogicalRouterRouting.ownerDocument.CreateElement("ospf")
+                $_LogicalRouterRouting.appendChild($ospf) | out-null
+            }
+
+            if ( $ospf.SelectSingleNode('child::enabled')) {
+                #Enabled element exists.  Update it.
+                $ospf.enabled = $EnableOSPF.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("GracefulRestart")) { 
+                if ( $ospf.SelectSingleNode('child::gracefulRestart')) {
+                    #element exists, update it.
+                    $ospf.gracefulRestart = $GracefulRestart.ToString().ToLower()
+                }
+                else {
+                    #element does not exist...
+                    Add-XmlElement -xmlRoot $ospf -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) { 
+                if ( $ospf.SelectSingleNode('child::defaultOriginate')) {
+                    #element exists, update it.
+                    $ospf.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+                }
+                else {
+                    #element does not exist...
+                    Add-XmlElement -xmlRoot $ospf -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
+                }
+            }
+        }
+
+        $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+        $body = $_LogicalRouterRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+            $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspf
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Set-NsxLogicalRouterOspf
+
+function Get-NsxLogicalRouterOspfArea {
+    
+    <#
+    .SYNOPSIS
+    Returns OSPF Areas defined in the spcified NSX LogicalRouter OSPF 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Get-NsxLogicalRouterOspfArea cmdlet retreives the OSPF Areas from the OSPF 
+    configuration specified.
+
+    .EXAMPLE
+    Get all areas defined on LogicalRouter01.
+
+    PS C:\> C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea 
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,4294967295)]
+            [int]$AreaId              
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        $ospf = $LogicalRouterRouting.SelectSingleNode('child::ospf')
+
+        if ( $ospf ) {
+
+            $_ospf = $ospf.CloneNode($True)
+            $OspfAreas = $_ospf.SelectSingleNode('child::ospfAreas')
+
+
+            #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ospfArea.
+            if ( $OspfAreas.SelectSingleNode('child::ospfArea')) { 
+
+                $AreaCollection = $OspfAreas.ospfArea
+                if ( $PsBoundParameters.ContainsKey('AreaId')) {
+                    $AreaCollection = $AreaCollection | ? { $_.areaId -eq $AreaId }
+                }
+
+                foreach ( $Area in $AreaCollection ) { 
+                    #We append the LogicalRouter-id to the associated Area config XML to enable pipeline workflows and 
+                    #consistent readable output
+                    Add-XmlElement -xmlRoot $Area -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+                }
+
+                $AreaCollection
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterOspfArea
+
+function Remove-NsxLogicalRouterOspfArea {
+    
+    <#
+    .SYNOPSIS
+    Removes an OSPF area from the specified ESGs OSPF configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Remove-NsxLogicalRouterOspfArea cmdlet removes a BGP neighbour route from the 
+    bgp configuration of the specified LogicalRouter.
+
+    Areas to be removed can be constructed via a PoSH pipline filter outputing
+    area objects as produced by Get-NsxLogicalRouterOspfArea and passing them on the
+    pipeline to Remove-NsxLogicalRouterOspfArea.
+    
+    .EXAMPLE
+    Remove area 51 from ospf configuration on LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId 51 | Remove-NsxLogicalRouterOspfArea
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterOspfArea $_ })]
+            [System.Xml.XmlElement]$OspfArea,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our LogicalRouter
+        $logicalrouterId = $OspfArea.logicalrouterId
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+
+        #Remove the logicalrouterId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Validate the OSPF node exists on the logicalrouter 
+        if ( -not $routing.SelectSingleNode('child::ospf')) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
+        if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
+
+        
+
+        $xpathQuery = "//ospfAreas/ospfArea[areaId=`"$($OspfArea.areaId)`"]"
+        write-debug "XPath query for area nodes to remove is: $xpathQuery"
+        $AreaToRemove = $routing.ospf.SelectSingleNode($xpathQuery)
+
+        if ( $AreaToRemove ) { 
+
+            write-debug "AreaToRemove Element is: `n $($AreaToRemove.OuterXml | format-xml) "
+            $routing.ospf.ospfAreas.RemoveChild($AreaToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            }
+        }
+        else {
+            Throw "Area $($OspfArea.areaId) was not found in routing configuration for LogicalRouter $logicalrouterId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLogicalRouterOspfArea
+
+function New-NsxLogicalRouterOspfArea {
+    
+    <#
+    .SYNOPSIS
+    Creates a new OSPF Area and adds it to the specified ESGs OSPF 
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The New-NsxLogicalRouterOspfArea cmdlet adds a new OSPF Area to the ospf
+    configuration of the specified LogicalRouter.
+
+    .EXAMPLE
+    Create area 50 as a normal type on ESG LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfArea -AreaId 50
+
+    .EXAMPLE
+    Create area 10 as a nssa type on ESG LogicalRouter01 with password authentication
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfArea -AreaId 10 -Type password -Password "Secret"
+
+
+   
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(0,4294967295)]
+            [uint32]$AreaId,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("normal","nssa",IgnoreCase = $false)]
+            [string]$Type,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("none","password","md5",IgnoreCase = $false)]
+            [string]$AuthenticationType="none",
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [string]$Password
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Create the new ospfArea element.
+        $Area = $_LogicalRouterRouting.ownerDocument.CreateElement('ospfArea')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
+        #as it might not exist which wil cause PoSH to throw in stric mode.
+        $ospf = $_LogicalRouterRouting.SelectSingleNode('child::ospf')
+        if ( $ospf ) { 
+            $ospf.selectSingleNode('child::ospfAreas').AppendChild($Area) | Out-Null
+
+            Add-XmlElement -xmlRoot $Area -xmlElementName "areaId" -xmlElementText $AreaId.ToString()
+
+            #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+            #If the user did not specify a given parameter, we dont want to modify from the existing value.
+            if ( $PsBoundParameters.ContainsKey("Type") ) { 
+                Add-XmlElement -xmlRoot $Area -xmlElementName "type" -xmlElementText $Type.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("AuthenticationType") -or $PsBoundParameters.ContainsKey("Password") ) { 
+                switch ($AuthenticationType) {
+
+                    "none" { 
+                        if ( $PsBoundParameters.ContainsKey('Password') ) { 
+                            throw "Authentication type must be other than none to specify a password."
+                        }
+                        #Default value - do nothing
+                    }
+
+                    default { 
+                        if ( -not ( $PsBoundParameters.ContainsKey('Password')) ) {
+                            throw "Must specify a password if Authentication type is not none."
+                        }
+                        $Authentication = $Area.ownerDocument.CreateElement("authentication")
+                        $Area.AppendChild( $Authentication ) | out-null
+
+                        Add-XmlElement -xmlRoot $Authentication -xmlElementName "type" -xmlElementText $AuthenticationType
+                        Add-XmlElement -xmlRoot $Authentication -xmlElementName "value" -xmlElementText $Password
+                    }
+                }
+            }
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $_LogicalRouterRouting.OuterXml 
+           
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+                Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $AreaId
+            }
+        }
+        else {
+            throw "OSPF is not enabled on logicalrouter $logicalrouterID.  Enable OSPF using Set-NsxLogicalRouterRouting or Set-NsxLogicalRouterOSPF first."
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxLogicalRouterOspfArea
+
+function Get-NsxLogicalRouterOspfInterface {
+    
+    <#
+    .SYNOPSIS
+    Returns OSPF Interface mappings defined in the spcified NSX LogicalRouter 
+    OSPF configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Get-NsxLogicalRouterOspfInterface cmdlet retreives the OSPF Area to interfaces 
+    mappings from the OSPF configuration specified.
+
+    .EXAMPLE
+    Get all OSPF Area to Interface mappings on LogicalRouter LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface
+   
+    .EXAMPLE
+    Get OSPF Area to Interface mapping for Area 10 on LogicalRouter LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId 10
+   
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,4294967295)]
+            [int]$AreaId,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,200)]
+            [int]$vNicId    
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        $ospf = $LogicalRouterRouting.SelectSingleNode('child::ospf')
+
+        if ( $ospf ) {
+
+            $_ospf = $ospf.CloneNode($True)
+            $OspfInterfaces = $_ospf.SelectSingleNode('child::ospfInterfaces')
+
+
+            #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ospfArea.
+            if ( $OspfInterfaces.SelectSingleNode('child::ospfInterface')) { 
+
+                $InterfaceCollection = $OspfInterfaces.ospfInterface
+                if ( $PsBoundParameters.ContainsKey('AreaId')) {
+                    $InterfaceCollection = $InterfaceCollection | ? { $_.areaId -eq $AreaId }
+                }
+
+                if ( $PsBoundParameters.ContainsKey('vNicId')) {
+                    $InterfaceCollection = $InterfaceCollection | ? { $_.vnic -eq $vNicId }
+                }
+
+                foreach ( $Interface in $InterfaceCollection ) { 
+                    #We append the LogicalRouter-id to the associated Area config XML to enable pipeline workflows and 
+                    #consistent readable output
+                    Add-XmlElement -xmlRoot $Interface -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+                }
+
+                $InterfaceCollection
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterOspfInterface
+
+function Remove-NsxLogicalRouterOspfInterface {
+    
+    <#
+    .SYNOPSIS
+    Removes an OSPF Interface from the specified ESGs OSPF configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Remove-NsxLogicalRouterOspfInterface cmdlet removes a BGP neighbour route from 
+    the bgp configuration of the specified LogicalRouter.
+
+    Interfaces to be removed can be constructed via a PoSH pipline filter 
+    outputing interface objects as produced by Get-NsxLogicalRouterOspfInterface and 
+    passing them on the pipeline to Remove-NsxLogicalRouterOspfInterface.
+    
+    .EXAMPLE
+    Remove Interface to Area mapping for area 51 from LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId 51 | Remove-NsxLogicalRouterOspfInterface
+
+    .EXAMPLE
+    Remove all Interface to Area mappings from LogicalRouter01 without confirmation.
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface | Remove-NsxLogicalRouterOspfInterface -confirm:$false
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterOspfInterface $_ })]
+            [System.Xml.XmlElement]$OspfInterface,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our LogicalRouter
+        $logicalrouterId = $OspfInterface.logicalrouterId
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+
+        #Remove the logicalrouterId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Validate the OSPF node exists on the logicalrouter 
+        if ( -not $routing.SelectSingleNode('child::ospf')) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
+        if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
+
+        
+
+        $xpathQuery = "//ospfInterfaces/ospfInterface[areaId=`"$($OspfInterface.areaId)`"]"
+        write-debug "XPath query for interface nodes to remove is: $xpathQuery"
+        $InterfaceToRemove = $routing.ospf.SelectSingleNode($xpathQuery)
+
+        if ( $InterfaceToRemove ) { 
+
+            write-debug "InterfaceToRemove Element is: `n $($InterfaceToRemove.OuterXml | format-xml) "
+            $routing.ospf.ospfInterfaces.RemoveChild($InterfaceToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            }
+        }
+        else {
+            Throw "Interface $($OspfInterface.areaId) was not found in routing configuration for LogicalRouter $logicalrouterId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLogicalRouterOspfInterface
+
+function New-NsxLogicalRouterOspfInterface {
+    
+    <#
+    .SYNOPSIS
+    Creates a new OSPF Interface to Area mapping and adds it to the specified 
+    LogicalRouters OSPF configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The New-NsxLogicalRouterOspfInterface cmdlet adds a new OSPF Area to Interface 
+    mapping to the ospf configuration of the specified LogicalRouter.
+
+    .EXAMPLE
+    Add a mapping for Area 10 to Interface 0 on ESG LogicalRouter01
+
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfInterface -AreaId 10 -Vnic 0
+   
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(0,4294967295)]
+            [uint32]$AreaId,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(0,200)]
+            [int]$Vnic,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,255)]
+            [int]$HelloInterval,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65535)]
+            [int]$DeadInterval,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,255)]
+            [int]$Priority,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65535)]
+            [int]$Cost,
+        [Parameter (Mandatory=$false)]
+            [switch]$IgnoreMTU
+
+    )
+
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Create the new ospfInterface element.
+        $Interface = $_LogicalRouterRouting.ownerDocument.CreateElement('ospfInterface')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
+        #as it might not exist which wil cause PoSH to throw in stric mode.
+        $ospf = $_LogicalRouterRouting.SelectSingleNode('child::ospf')
+        if ( $ospf ) { 
+            $ospf.selectSingleNode('child::ospfInterfaces').AppendChild($Interface) | Out-Null
+
+            Add-XmlElement -xmlRoot $Interface -xmlElementName "areaId" -xmlElementText $AreaId.ToString()
+            Add-XmlElement -xmlRoot $Interface -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
+
+            #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+            #If the user did not specify a given parameter, we dont want to modify from the existing value.
+            if ( $PsBoundParameters.ContainsKey("HelloInterval") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "helloInterval" -xmlElementText $HelloInterval.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("DeadInterval") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "deadInterval" -xmlElementText $DeadInterval.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("Priority") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "priority" -xmlElementText $Priority.ToString()
+            }
+            
+            if ( $PsBoundParameters.ContainsKey("Cost") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "cost" -xmlElementText $Cost.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("IgnoreMTU") ) { 
+                Add-XmlElement -xmlRoot $Interface -xmlElementName "mtuIgnore" -xmlElementText $IgnoreMTU.ToString().ToLower()
+            }
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $_LogicalRouterRouting.OuterXml 
+           
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+                Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId $AreaId
+            }
+        }
+        else {
+            throw "OSPF is not enabled on logicalrouter $logicalrouterID.  Enable OSPF using Set-NsxLogicalRouterRouting or Set-NsxLogicalRouterOSPF first."
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxLogicalRouterOspfInterface
+
+# Redistribution Rules
+
+function Get-NsxLogicalRouterRedistributionRule {
+    
+    <#
+    .SYNOPSIS
+    Returns dynamic route redistribution rules defined in the spcified NSX 
+    LogicalRouter routing configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+    The Get-NsxLogicalRouterRedistributionRule cmdlet retreives the route 
+    redistribution rules defined in the ospf and bgp configurations for the 
+    specified LogicalRouter.
+
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner ospf
+
+    Get all Redistribution rules for ospf on LogicalRouter LogicalRouter01
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("ospf","bgp")]
+            [string]$Learner,
+        [Parameter (Mandatory=$false)]
+            [int]$Id
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        #Rules can be defined in either ospf or bgp (isis as well, but who cares huh? :) )
+        if ( ( -not $PsBoundParameters.ContainsKey('Learner')) -or ($PsBoundParameters.ContainsKey('Learner') -and $Learner -eq 'ospf')) {
+
+            $ospf = $LogicalRouterRouting.SelectSingleNode('child::ospf')
+
+            if ( $ospf ) {
+
+                $_ospf = $ospf.CloneNode($True)
+                if ( $_ospf.SelectSingleNode('child::redistribution/rules/rule') ) { 
+
+                    $OspfRuleCollection = $_ospf.redistribution.rules.rule
+
+                    foreach ( $rule in $OspfRuleCollection ) { 
+                        #We append the LogicalRouter-id to the associated rule config XML to enable pipeline workflows and 
+                        #consistent readable output
+                        Add-XmlElement -xmlRoot $rule -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+
+                        #Add the learner to be consistent with the view the UI gives
+                        Add-XmlElement -xmlRoot $rule -xmlElementName "learner" -xmlElementText "ospf"
+
+                    }
+
+                    if ( $PsBoundParameters.ContainsKey('Id')) {
+                        $OspfRuleCollection = $OspfRuleCollection | ? { $_.id -eq $Id }
+                    }
+
+                    $OspfRuleCollection
+                }
+            }
+        }
+
+        if ( ( -not $PsBoundParameters.ContainsKey('Learner')) -or ($PsBoundParameters.ContainsKey('Learner') -and $Learner -eq 'bgp')) {
+
+            $bgp = $LogicalRouterRouting.SelectSingleNode('child::bgp')
+            if ( $bgp ) {
+
+                $_bgp = $bgp.CloneNode($True)
+                if ( $_bgp.SelectSingleNode('child::redistribution/rules') ) { 
+
+                    $BgpRuleCollection = $_bgp.redistribution.rules.rule
+
+                    foreach ( $rule in $BgpRuleCollection ) { 
+                        #We append the LogicalRouter-id to the associated rule config XML to enable pipeline workflows and 
+                        #consistent readable output
+                        Add-XmlElement -xmlRoot $rule -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
+
+                        #Add the learner to be consistent with the view the UI gives
+                        Add-XmlElement -xmlRoot $rule -xmlElementName "learner" -xmlElementText "bgp"
+                    }
+
+                    if ( $PsBoundParameters.ContainsKey('Id')) {
+                        $BgpRuleCollection = $BgpRuleCollection | ? { $_.id -eq $Id }
+                    }
+                    $BgpRuleCollection
+                }
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxLogicalRouterRedistributionRule
+
+function Remove-NsxLogicalRouterRedistributionRule {
+    
+    <#
+    .SYNOPSIS
+    Removes a route redistribution rule from the specified LogicalRouters
+    configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The Remove-NsxLogicalRouterRedistributionRule cmdlet removes a route 
+    redistribution rule from the configuration of the specified LogicalRouter.
+
+    Interfaces to be removed can be constructed via a PoSH pipline filter 
+    outputing interface objects as produced by 
+    Get-NsxLogicalRouterRedistributionRule and passing them on the pipeline to 
+    Remove-NsxLogicalRouterRedistributionRule.
+  
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner ospf | Remove-NsxLogicalRouterRedistributionRule
+
+    Remove all ospf redistribution rules from LogicalRouter01
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRedistributionRule $_ })]
+            [System.Xml.XmlElement]$RedistributionRule,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our LogicalRouter
+        $logicalrouterId = $RedistributionRule.logicalrouterId
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+
+        #Remove the logicalrouterId element from the XML as we need to post it...
+        $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Validate the learner protocol node exists on the logicalrouter 
+        if ( -not $routing.SelectSingleNode("child::$($RedistributionRule.learner)")) {
+            throw "Rule learner protocol $($RedistributionRule.learner) is not enabled on LogicalRouter $logicalrouterId.  Use Get-NsxLogicalRouter <this logicalrouter> | Get-NsxLogicalRouterrouting | Get-NsxLogicalRouterRedistributionRule to get the rule you want to remove." 
+        }
+
+        #Make XPath do all the hard work... Wish I was able to just compare the from node, but id doesnt appear possible with xpath 1.0
+        $xpathQuery = "child::$($RedistributionRule.learner)/redistribution/rules/rule[action=`"$($RedistributionRule.action)`""
+        $xPathQuery += " and from/connected=`"$($RedistributionRule.from.connected)`" and from/static=`"$($RedistributionRule.from.static)`""
+        $xPathQuery += " and from/ospf=`"$($RedistributionRule.from.ospf)`" and from/bgp=`"$($RedistributionRule.from.bgp)`""
+        $xPathQuery += " and from/isis=`"$($RedistributionRule.from.isis)`""
+
+        if ( $RedistributionRule.SelectSingleNode('child::prefixName')) { 
+
+            $xPathQuery += " and prefixName=`"$($RedistributionRule.prefixName)`""
+        }
+        
+        $xPathQuery += "]"
+
+        write-debug "XPath query for rule node to remove is: $xpathQuery"
+        
+        $RuleToRemove = $routing.SelectSingleNode($xpathQuery)
+
+        if ( $RuleToRemove ) { 
+
+            write-debug "RuleToRemove Element is: `n $($RuleToRemove | format-xml) "
+            $routing.$($RedistributionRule.Learner).redistribution.rules.RemoveChild($RuleToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $routing.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            }
+        }
+        else {
+            Throw "Rule Id $($RedistributionRule.Id) was not found in the $($RedistributionRule.Learner) routing configuration for LogicalRouter $logicalrouterId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLogicalRouterRedistributionRule
+
+function New-NsxLogicalRouterRedistributionRule {
+    
+    <#
+    .SYNOPSIS
+    Creates a new route redistribution rule and adds it to the specified 
+    LogicalRouters configuration. 
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers perform ipv4 and ipv6 routing functions for connected
+    networks and support both static and dynamic routing via OSPF and BGP.
+
+    The New-NsxLogicalRouterRedistributionRule cmdlet adds a new route 
+    redistribution rule to the configuration of the specified LogicalRouter.
+
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -PrefixName test -Learner ospf -FromConnected -FromStatic -Action permit
+
+    Create a new permit Redistribution Rule for prefix test (note, prefix must already exist, and is case sensistive) for ospf.
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [System.Xml.XmlElement]$LogicalRouterRouting,    
+        [Parameter (Mandatory=$True)]
+            [ValidateSet("ospf","bgp",IgnoreCase=$false)]
+            [String]$Learner,
+        [Parameter (Mandatory=$false)]
+            [String]$PrefixName,    
+        [Parameter (Mandatory=$false)]
+            [switch]$FromConnected,
+        [Parameter (Mandatory=$false)]
+            [switch]$FromStatic,
+        [Parameter (Mandatory=$false)]
+            [switch]$FromOspf,
+        [Parameter (Mandatory=$false)]
+            [switch]$FromBgp,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("permit","deny",IgnoreCase=$false)]
+            [String]$Action="permit",  
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true  
+
+    )
+
+    
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterRouting = $LogicalRouterRouting.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
+        $_LogicalRouterRouting.RemoveChild( $($_LogicalRouterRouting.SelectSingleNode('child::logicalrouterId')) ) | out-null
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the protocol element,
+        #as it might not exist which wil cause PoSH to throw in stric mode.
+        $ProtocolElement = $_LogicalRouterRouting.SelectSingleNode("child::$Learner")
+
+        if ( (-not $ProtocolElement) -or ($ProtocolElement.Enabled -ne 'true')) { 
+
+            throw "The $Learner protocol is not enabled on LogicalRouter $logicalrouterId.  Enable it and try again."
+        }
+        else {
+        
+            #Create the new rule element. 
+            $Rule = $_LogicalRouterRouting.ownerDocument.CreateElement('rule')
+            $ProtocolElement.selectSingleNode('child::redistribution/rules').AppendChild($Rule) | Out-Null
+
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "action" -xmlElementText $Action
+            if ( $PsBoundParameters.ContainsKey("PrefixName") ) { 
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "prefixName" -xmlElementText $PrefixName.ToString()
+            }
+
+
+            #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+            #If the user did not specify a given parameter, we dont want to modify from the existing value.
+            if ( $PsBoundParameters.ContainsKey('FromConnected') -or $PsBoundParameters.ContainsKey('FromStatic') -or
+                 $PsBoundParameters.ContainsKey('FromOspf') -or $PsBoundParameters.ContainsKey('FromBgp') ) {
+
+                $FromElement = $Rule.ownerDocument.CreateElement('from')
+                $Rule.AppendChild($FromElement) | Out-Null
+
+                if ( $PsBoundParameters.ContainsKey("FromConnected") ) { 
+                    Add-XmlElement -xmlRoot $FromElement -xmlElementName "connected" -xmlElementText $FromConnected.ToString().ToLower()
+                }
+
+                if ( $PsBoundParameters.ContainsKey("FromStatic") ) { 
+                    Add-XmlElement -xmlRoot $FromElement -xmlElementName "static" -xmlElementText $FromStatic.ToString().ToLower()
+                }
+    
+                if ( $PsBoundParameters.ContainsKey("FromOspf") ) { 
+                    Add-XmlElement -xmlRoot $FromElement -xmlElementName "ospf" -xmlElementText $FromOspf.ToString().ToLower()
+                }
+
+                if ( $PsBoundParameters.ContainsKey("FromBgp") ) { 
+                    Add-XmlElement -xmlRoot $FromElement -xmlElementName "bgp" -xmlElementText $FromBgp.ToString().ToLower()
+                }
+            }
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
+            $body = $_LogicalRouterRouting.OuterXml 
+           
+            
+            if ( $confirm ) { 
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+                (Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner $Learner)[-1]
+                
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxLogicalRouterRedistributionRule
 
 #########
 #########
@@ -3374,11 +10039,10 @@ function Get-NsxSecurityGroup {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Get-NsxSecurityGroup
 
-function New-NsxSecurityGroup  {
+function New-NsxSecurityGroup   {
 
     <#
     .SYNOPSIS
@@ -3442,8 +10106,8 @@ function New-NsxSecurityGroup  {
         [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("securitygroup")
         $xmlDoc.appendChild($xmlRoot) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         if ( $includeMember ) { 
         
             foreach ( $Member in $IncludeMember) { 
@@ -3453,9 +10117,9 @@ function New-NsxSecurityGroup  {
 
                 #This is probably not safe - need to review all possible input types to confirm.
                 if ($Member -is [System.Xml.XmlElement] ) {
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.objectId
+                    Add-XmlElement -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.objectId
                 } else { 
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.ExtensionData.MoRef.Value
+                    Add-XmlElement -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.ExtensionData.MoRef.Value
                 }
             }
         }   
@@ -3469,9 +10133,9 @@ function New-NsxSecurityGroup  {
 
                 #This is probably not safe - need to review all possible input types to confirm.
                 if ($Member -is [System.Xml.XmlElement] ) {
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.objectId
+                    Add-XmlElement -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.objectId
                 } else { 
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.ExtensionData.MoRef.Value
+                    Add-XmlElement -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.ExtensionData.MoRef.Value
                 }
             }
         }   
@@ -3484,7 +10148,6 @@ function New-NsxSecurityGroup  {
         Get-NsxSecuritygroup -objectId $response
     }
     end {}
-
 }
 Export-ModuleMember -Function New-NsxSecurityGroup
 
@@ -3560,7 +10223,6 @@ function Remove-NsxSecurityGroup {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Remove-NsxSecurityGroup
 
@@ -3622,7 +10284,6 @@ function Get-NsxIPSet {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Get-NsxIPSet
 
@@ -3675,10 +10336,10 @@ function New-NsxIPSet  {
         [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("ipset")
         $xmlDoc.appendChild($xmlRoot) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         if ( $IPAddresses ) {
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText $IPaddresses
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText $IPaddresses
         }
            
         #Do the post
@@ -3689,7 +10350,6 @@ function New-NsxIPSet  {
         Get-NsxIPSet -objectid $response
     }
     end {}
-
 }
 Export-ModuleMember -Function New-NsxIPSet
 
@@ -3761,7 +10421,6 @@ function Remove-NsxIPSet {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Remove-NsxIPSet
 
@@ -3854,10 +10513,10 @@ function Get-NsxService {
                             "^[\d,-]+$" { 
 
                                 [string[]]$valarray = $application.element.value.split(",") 
-                                $valarray | % { 
+                                foreach ($val in $valarray)  { 
 
-                                    write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $_"  
-                                    [int[]]$ports = invoke-expression ( $_ -replace '^(\d+)-(\d+)$','($1..$2)' ) 
+                                    write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"  
+                                    [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' ) 
                                     #Then test if the port int array contains what we are looking for...
                                     if ( $ports.contains($port) ) { 
                                         write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
@@ -3881,7 +10540,6 @@ function Get-NsxService {
     }
 
     end {}
-
 }
 
 Export-ModuleMember -Function Get-NsxService
@@ -3946,15 +10604,15 @@ function New-NsxService  {
         [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("application")
         $xmlDoc.appendChild($xmlRoot) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         
         #Create the 'element' element ??? :)
         [System.XML.XMLElement]$xmlElement = $XMLDoc.CreateElement("element")
         $xmlRoot.appendChild($xmlElement) | out-null
         
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlElement -xmlElementName "applicationProtocol" -xmlElementText $Protocol
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlElement -xmlElementName "value" -xmlElementText $Port
+        Add-XmlElement -xmlRoot $xmlElement -xmlElementName "applicationProtocol" -xmlElementText $Protocol
+        Add-XmlElement -xmlRoot $xmlElement -xmlElementName "value" -xmlElementText $Port
            
         #Do the post
         $body = $xmlroot.OuterXml
@@ -3964,7 +10622,6 @@ function New-NsxService  {
         Get-NsxService $response
     }
     end {}
-
 }
 Export-ModuleMember -Function New-NsxService
 
@@ -4030,7 +10687,6 @@ function Remove-NsxService {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Remove-NsxService
 
@@ -4078,9 +10734,9 @@ function New-NsxSourceDestNode {
             write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as xml element"
             #XML representation of NSX object passed - ipset, sec group or logical switch
             #get appropritate name, value.
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-            Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.objectTypeName
+            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
+            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
+            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.objectTypeName
             
         } else {
 
@@ -4091,22 +10747,22 @@ function New-NsxSourceDestNode {
                    
                 write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
                 #Naming based on DFW UI standard
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
 
                 #Getting the NIC identifier is a bit of hackery at the moment, if anyone can show me a more deterministic or simpler way, then im all ears. 
                 $nicIndex = [array]::indexof($item.parent.NetworkAdapters.name,$item.name)
                 if ( -not ($nicIndex -eq -1 )) { 
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
+                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
                 } else {
                     throw "Unable to determine nic index in parent object.  Make sure the NIC object is valid"
                 }
             }
             else {
                 #any other accepted PowerCLI object, we just need to grab details from the moref.
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.extensiondata.moref.type
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.extensiondata.moref.value 
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.extensiondata.moref.type
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.extensiondata.moref.value 
             }
         }
 
@@ -4138,9 +10794,9 @@ function New-NsxAppliedToListNode {
 
         [System.XML.XMLElement]$xmlAppliedTo = $XMLDoc.CreateElement("appliedTo")
         $xmlReturn.appendChild($xmlAppliedTo) | out-null
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliedTo -xmlElementName "name" -xmlElementText "DISTRIBUTED_FIREWALL"
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliedTo -xmlElementName "type" -xmlElementText "DISTRIBUTED_FIREWALL"
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlAppliedTo -xmlElementName "value" -xmlElementText "DISTRIBUTED_FIREWALL"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "name" -xmlElementText "DISTRIBUTED_FIREWALL"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "type" -xmlElementText "DISTRIBUTED_FIREWALL"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "value" -xmlElementText "DISTRIBUTED_FIREWALL"
 
     } else {
 
@@ -4155,9 +10811,9 @@ function New-NsxAppliedToListNode {
                 write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as xml element"
                 #XML representation of NSX object passed - ipset, sec group or logical switch
                 #get appropritate name, value.
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.objectTypeName
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.objectTypeName
                   
             } else {
 
@@ -4168,22 +10824,22 @@ function New-NsxAppliedToListNode {
                    
                     write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
                     #Naming based on DFW UI standard
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
+                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
+                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
 
                     #Getting the NIC identifier is a bit of hackery at the moment, if anyone can show me a more deterministic or simpler way, then im all ears. 
                     $nicIndex = [array]::indexof($item.parent.NetworkAdapters.name,$item.name)
                     if ( -not ($nicIndex -eq -1 )) { 
-                        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
+                        Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
                     } else {
                         throw "Unable to determine nic index in parent object.  Make sure the NIC object is valid"
                     }
                 }
                 else {
                     #any other accepted PowerCLI object, we just need to grab details from the moref.
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.extensiondata.moref.type
-                    Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.extensiondata.moref.value 
+                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
+                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.extensiondata.moref.type
+                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.extensiondata.moref.value 
                 }
             }
 
@@ -4213,7 +10869,7 @@ function Get-NsxFirewallSection {
 
     #>
 
-	[CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="Name")]
  
     param (
 
@@ -4224,8 +10880,8 @@ function Get-NsxFirewallSection {
         [Parameter (Mandatory=$false,Position=1,ParameterSetName="Name")]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-	        [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
-	        [string]$sectionType="layer3sections"
+            [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
+            [string]$sectionType="layer3sections"
 
     )
     
@@ -4241,7 +10897,7 @@ function Get-NsxFirewallSection {
             $URI = "/api/4.0/firewall/$scopeID/config"
             $response = invoke-nsxrestmethod -method "get" -uri $URI
 
-			$return = $response.firewallConfiguration.$sectiontype.section
+            $return = $response.firewallConfiguration.$sectiontype.section
 
             if ($name) {
                 $return | ? {$_.name -eq $name} 
@@ -4261,7 +10917,6 @@ function Get-NsxFirewallSection {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Get-NsxFirewallSection
 
@@ -4292,8 +10947,8 @@ function New-NsxFirewallSection  {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-        	[ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
-        	[string]$sectionType="layer3sections",
+            [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
+            [string]$sectionType="layer3sections",
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0"
     )
@@ -4307,20 +10962,19 @@ function New-NsxFirewallSection  {
         [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("section")
         $xmlDoc.appendChild($xmlRoot) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
            
         #Do the post
         $body = $xmlroot.OuterXml
         
-		$URI = "/api/4.0/firewall/$scopeId/config/$sectionType"
-		
+        $URI = "/api/4.0/firewall/$scopeId/config/$sectionType"
+        
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
 
         $response.section
         
     }
     end {}
-
 }
 Export-ModuleMember -Function New-NsxFirewallSection
 
@@ -4374,26 +11028,29 @@ function Remove-NsxFirewallSection {
         }
         else { $decision = 0 } 
         if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)"
+            if ( $Section.Name -match 'Default Section' ) {
+                write-warning "Will not delete $($Section.Name)."
             }
-            else {
-                
-                if ( $section |  get-member -MemberType Properties -Name rule ) { throw "Section $($section.name) contains rules.  Specify -force to delete this section" }
-                else {
+                else { 
+                if ( $force ) { 
                     $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)"
                 }
+                else {
+                    
+                    if ( $section |  get-member -MemberType Properties -Name rule ) { throw "Section $($section.name) contains rules.  Specify -force to delete this section" }
+                    else {
+                        $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)"
+                    }
+                }
+                
+                Write-Progress -activity "Remove Section $($Section.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+                write-progress -activity "Remove Section $($Section.Name)" -completed
             }
-            
-            Write-Progress -activity "Remove Section $($Section.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
-            write-progress -activity "Remove Section $($Section.Name)" -completed
-
         }
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Remove-NsxFirewallSection 
 
@@ -4436,7 +11093,7 @@ function Get-NsxFirewallRule {
             [string]$ScopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
-        	[string]$RuleType="layer3sections"
+            [string]$RuleType="layer3sections"
 
     )
     
@@ -4448,8 +11105,8 @@ function Get-NsxFirewallRule {
      
         if ( $PSCmdlet.ParameterSetName -eq "Section" ) { 
 
-			$URI = "/api/4.0/firewall/$scopeID/config/$ruletype/$($Section.Id)"
-			
+            $URI = "/api/4.0/firewall/$scopeID/config/$ruletype/$($Section.Id)"
+            
             $response = invoke-nsxrestmethod -method "get" -uri $URI
             if ( $response | get-member -name Section -Membertype Properties){
                 if ( $response.Section | get-member -name Rule -Membertype Properties ){
@@ -4460,9 +11117,9 @@ function Get-NsxFirewallRule {
         else { 
 
             #SpecificRule - returned xml is firewallconfig -> layer3sections -> section.  
-			#In our infinite wisdom, we use a different string here for the section type :|  
-			#Kinda considering searching each section type here and returning result regardless of section
-			#type if user specifies ruleid...   The I dont have to make the user specify the ruletype...
+            #In our infinite wisdom, we use a different string here for the section type :|  
+            #Kinda considering searching each section type here and returning result regardless of section
+            #type if user specifies ruleid...   The I dont have to make the user specify the ruletype...
             switch ($ruleType) {
 
                 "layer3sections" { $URI = "/api/4.0/firewall/$scopeID/config?ruleType=LAYER3&ruleId=$RuleId" }
@@ -4489,7 +11146,6 @@ function Get-NsxFirewallRule {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Get-NsxFirewallRule
 
@@ -4554,11 +11210,14 @@ function New-NsxFirewallRule  {
             [ValidateScript({ Validate-FirewallAppliedTo $_ })]
             [object[]]$AppliedTo,
         [Parameter (Mandatory=$false)]
-        	[ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
-        	[string]$RuleType="layer3sections",
-		[Parameter (Mandatory=$false)]
-			[ValidateSet("Top","Bottom")]
-			[string]$Position="Top",	
+            [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
+            [string]$RuleType="layer3sections",
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("Top","Bottom")]
+            [string]$Position="Top",    
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [string]$Tag,
         [Parameter (Mandatory=$false)]
             [string]$ScopeId="globalroot-0"
     )
@@ -4566,8 +11225,8 @@ function New-NsxFirewallRule  {
     begin {}
     process { 
 
-		
-		$generationNumber = $section.generationNumber           
+        
+        $generationNumber = $section.generationNumber           
 
         write-debug "$($MyInvocation.MyCommand.Name) : Preparing rule for section $($section.Name) with generationId $generationNumber"
         #Create the XMLRoot
@@ -4575,10 +11234,10 @@ function New-NsxFirewallRule  {
         [System.XML.XMLElement]$xmlRule = $XMLDoc.CreateElement("rule")
         $xmlDoc.appendChild($xmlRule) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlRule -xmlElementName "name" -xmlElementText $Name
-        #Add-XmlElement -xmlDoc $xmldoc -xmlRoot $xmlRule -xmlElementName "sectionId" -xmlElementText $($section.Id)
-        Add-XmlElement -xmlDoc $xmldoc -xmlRoot $xmlRule -xmlElementName "notes" -xmlElementText $Comment
-        Add-XmlElement -xmlDoc $xmldoc -xmlRoot $xmlRule -xmlElementName "action" -xmlElementText $action
+        Add-XmlElement -xmlRoot $xmlRule -xmlElementName "name" -xmlElementText $Name
+        #Add-XmlElement -xmlRoot $xmlRule -xmlElementName "sectionId" -xmlElementText $($section.Id)
+        Add-XmlElement -xmlRoot $xmlRule -xmlElementName "notes" -xmlElementText $Comment
+        Add-XmlElement -xmlRoot $xmlRule -xmlElementName "action" -xmlElementText $action
         if ( $EnableLogging ) {
             #Enable Logging attribute
             $xmlAttrLog = $xmlDoc.createAttribute("logged")
@@ -4609,7 +11268,7 @@ function New-NsxFirewallRule  {
                 #Services
                 [System.XML.XMLElement]$xmlService = $XMLDoc.CreateElement("service")
                 $xmlServices.appendChild($xmlService) | out-null
-                Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlService -xmlElementName "value" -xmlElementText $serviceItem.objectId   
+                Add-XmlElement -xmlRoot $xmlService -xmlElementName "value" -xmlElementText $serviceItem.objectId   
         
             }
         }
@@ -4622,20 +11281,26 @@ function New-NsxFirewallRule  {
             $xmlAppliedToList = New-NsxAppliedToListNode -itemlist $AppliedTo -xmlDoc $xmlDoc 
         }
         $xmlRule.appendChild($xmlAppliedToList) | out-null
-		
-		#Append the new rule to the section
-		$xmlrule = $Section.ownerDocument.ImportNode($xmlRule, $true)
-		switch ($Position) {
-			"Top" { $Section.prependchild($xmlRule) | Out-Null }
-			"Bottom" { $Section.appendchild($xmlRule) | Out-Null }
-		
-		}
+
+        #Tag
+        if ( $tag ) {
+
+            Add-XmlElement -xmlRoot $xmlRule -xmlElementName "tag" -xmlElementText $tag
+        }
+        
+        #Append the new rule to the section
+        $xmlrule = $Section.ownerDocument.ImportNode($xmlRule, $true)
+        switch ($Position) {
+            "Top" { $Section.prependchild($xmlRule) | Out-Null }
+            "Bottom" { $Section.appendchild($xmlRule) | Out-Null }
+        
+        }
         #Do the post
         $body = $Section.OuterXml
-		$URI = "/api/4.0/firewall/$scopeId/config/$ruletype/$($section.Id)"
-		
+        $URI = "/api/4.0/firewall/$scopeId/config/$ruletype/$($section.Id)"
+        
         #Need the IfMatch header to specify the current section generation id
-	
+    
         $IfMatchHeader = @{"If-Match"=$generationNumber}
         $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -extraheader $IfMatchHeader
 
@@ -4643,7 +11308,6 @@ function New-NsxFirewallRule  {
         
     }
     end {}
-
 }
 Export-ModuleMember -Function New-NsxFirewallRule
 
@@ -4695,10 +11359,10 @@ function Remove-NsxFirewallRule {
         }
         else { $decision = 0 } 
         if ($decision -eq 0) {
-		
-			$section = get-nsxFirewallSection $Rule.parentnode.name
-			$generationNumber = $section.generationNumber
-	        $IfMatchHeader = @{"If-Match"=$generationNumber}
+        
+            $section = get-nsxFirewallSection $Rule.parentnode.name
+            $generationNumber = $section.generationNumber
+            $IfMatchHeader = @{"If-Match"=$generationNumber}
             $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)/rules/$($Rule.id)"
           
             
@@ -4710,14 +11374,13 @@ function Remove-NsxFirewallRule {
     }
 
     end {}
-
 }
 Export-ModuleMember -Function Remove-NsxFirewallRule
 
 
 ########
 ########
-# ESG Load Balancing
+# Load Balancing
 
 
 function Get-NsxLoadBalancer {
@@ -4740,7 +11403,7 @@ function Get-NsxLoadBalancer {
     This cmdlet retrieves the LoadBalancer configuration from a specified Edge. 
     .EXAMPLE
    
-    PS C:\> Get-NsxEdgeServicesGateway TestESG | Get-NsxLoadBalancer
+    PS C:\> Get-NsxEdge TestESG | Get-NsxLoadBalancer
     
     #>
 
@@ -4755,11 +11418,113 @@ function Get-NsxLoadBalancer {
     begin {}
 
     process { 
-        $edge.features.loadBalancer        
-    }       
-}
 
+        #We append the Edge-id to the associated LB XML to enable pipeline workflows and 
+        #consistent readable output (PSCustom object approach results in 'edge and 
+        #LoadBalancer' props of the output which is not pretty for the user)
+
+        $_LoadBalancer = $Edge.features.loadBalancer.CloneNode($True)
+        Add-XmlElement -xmlRoot $_LoadBalancer -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_LoadBalancer
+
+    }      
+}
 Export-ModuleMember -Function Get-NsxLoadBalancer
+
+function Set-NsxLoadBalancer {
+
+    <#
+    .SYNOPSIS
+    Configures an NSX LoadBalancer.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    This cmdlet sets the basic LoadBalancer configuration of an NSX Load Balancer. 
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableAcceleration,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableLogging,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
+            [string]$LogLevel
+
+    )
+
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LoadBalancer = $LoadBalancer.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_LoadBalancer.edgeId
+        $_LoadBalancer.RemoveChild( $($_LoadBalancer.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled') ) {
+            if ( $Enabled ) { 
+                $_LoadBalancer.enabled = "true" 
+            } else { 
+                $_LoadBalancer.enabled = "false" 
+            } 
+        }
+
+        if ( $PsBoundParameters.ContainsKey('EnableAcceleration') ) {
+            if ( $EnableAcceleration ) { 
+                $_LoadBalancer.accelerationEnabled = "true" 
+            } else { 
+                $_LoadBalancer.accelerationEnabled = "false" 
+            } 
+        }
+
+        if ( $PsBoundParameters.ContainsKey('EnableLogging') ) {
+            if ( $EnableLogging ) { 
+                $_LoadBalancer.logging.enable = "true" 
+            } else { 
+                $_LoadBalancer.logging.enable = "false" 
+            } 
+        }
+
+        if ( $PsBoundParameters.ContainsKey('LogLevel') ) {
+            $_LoadBalancer.logging.logLevel = $LogLevel
+        }
+
+        $URI = "/api/4.0/edges/$($edgeId)/loadbalancer/config"
+        $body = $_LoadBalancer.OuterXml 
+
+        Write-Progress -activity "Update Edge Services Gateway $($edgeId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
+        Get-NsxEdge -objectId $($edgeId) | Get-NsxLoadBalancer
+    }
+
+    end{
+    }
+}
+Export-ModuleMember -Function Set-NsxLoadBalancer
 
 function Get-NsxLoadBalancerMonitor {
 
@@ -4795,7 +11560,7 @@ function Get-NsxLoadBalancerMonitor {
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateScript({ Validate-LoadBalancer $_ })]
-            [System.Xml.XmlElement]$LoadBalancer,
+            [PSCustomObject]$LoadBalancer,
         [Parameter (Mandatory=$true,ParameterSetName="monitorId")]
             [string]$monitorId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
@@ -4807,16 +11572,21 @@ function Get-NsxLoadBalancerMonitor {
     process { 
         
         if ( $Name) { 
-            $loadbalancer.monitor | ? { $_.name -eq $Name }
+            $Monitors = $loadbalancer.monitor | ? { $_.name -eq $Name }
         }
         elseif ( $monitorId ) { 
-            $loadbalancer.monitor | ? { $_.monitorId -eq $monitorId }
+            $Monitors = $loadbalancer.monitor | ? { $_.monitorId -eq $monitorId }
         }
         else { 
-            $loadbalancer.monitor 
+            $Monitors = $loadbalancer.monitor 
+        }
+
+        foreach ( $Monitor in $Monitors ) { 
+            $_Monitor = $Monitor.CloneNode($True)
+            Add-XmlElement -xmlRoot $_Monitor -xmlElementName "edgeId" -xmlElementText $LoadBalancer.edgeId
+            $_Monitor
         }
     }
-
     end{ }
 }
 Export-ModuleMember -Function Get-NsxLoadBalancerMonitor
@@ -4850,7 +11620,7 @@ function Get-NsxLoadBalancerApplicationProfile {
 
     .EXAMPLE
    
-    PS C:\> Get-NsxEdgeServicesGateway LoadBalancer | Get-NsxLoadBalancer | 
+    PS C:\> Get-NsxEdge LoadBalancer | Get-NsxLoadBalancer | 
         Get-NsxLoadBalancerApplicationProfile HTTP
     
     #>
@@ -4872,19 +11642,24 @@ function Get-NsxLoadBalancerApplicationProfile {
 
     process { 
         
-        if ( $Name) { 
-            $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
+        if ( $PsBoundParameters.ContainsKey('Name')) { 
+            $AppProfiles = $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
         }
-        elseif ( $monitorId ) { 
-            $loadbalancer.applicationProfile | ? { $_.monitorId -eq $applicationProfileId }
+        elseif ( $PsBoundParameters.ContainsKey('monitorId') ) { 
+            $AppProfiles = $loadbalancer.applicationProfile | ? { $_.monitorId -eq $applicationProfileId }
         }
         else { 
-            $loadbalancer.applicationProfile 
+            $AppProfiles = $loadbalancer.applicationProfile 
+        }
+
+        foreach ( $AppProfile in $AppProfiles ) { 
+            $_AppProfile = $AppProfile.CloneNode($True)
+            Add-XmlElement -xmlRoot $_AppProfile -xmlElementName "edgeId" -xmlElementText $LoadBalancer.edgeId
+            $_AppProfile
         }
     }
 
     end{ }
-
 }
 Export-ModuleMember -Function Get-NsxLoadBalancerApplicationProfile
 
@@ -4913,21 +11688,16 @@ function New-NsxLoadBalancerApplicationProfile {
     managing network traffic, and makes traffic‐management tasks easier and more
     efficient.
     
-    This cmdlet creates a new LoadBalancer Application Profiles on a specified 
-    Edge Services Gateway.
+    This cmdlet creates a new LoadBalancer Application Profile on a specified 
+    Load Balancer
 
-    .EXAMPLE
-    
-    PS C:\> $ESG | New-NsxLoadBalancerApplicationProfile -Name HTTP 
-        -Type HTTP -insertXForwardedFor
-    
     #>
 
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
-            [System.Xml.XmlElement]$Edge,
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
@@ -4939,62 +11709,63 @@ function New-NsxLoadBalancerApplicationProfile {
             [switch]$insertXForwardedFor=$false    
         
     )
-    # Lot more to do here - need persistence settings dependant on the type selected... as well as cookie serttings, and cert selection...
+    # Lot more to do here - need persistence settings dependant on the type selected... as well as cookie settings, and cert selection...
 
     begin {
     }
 
     process {
         
-        #Create the XMLDoc and import the LB node.
-        [System.XML.XMLDocument]$xmlDoc = new-object System.XML.XMLDocument
-        $import = $xmlDoc.ImportNode(($edge.features.loadBalancer), $true)
-        $xmlDoc.AppendChild($import) | out-null
-        
-        $loadbalancer = $xmlDoc.loadBalancer
+        #Create private xml element
+        $_LoadBalancer = $LoadBalancer.CloneNode($true)
 
-        if ( -not $loadBalancer.enabled -eq 'true' ) { throw "Load Balancer feature is not enabled on edge $($edge.Name).  Use Set-NsxEdgeServicesGateway -EnableLoadBalancing to enable."}
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_LoadBalancer.edgeId
+        $_LoadBalancer.RemoveChild( $($_LoadBalancer.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        if ( -not $_LoadBalancer.enabled -eq 'true' ) { 
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+        }
      
-        [System.XML.XMLElement]$xmlapplicationProfile = $xmlDoc.CreateElement("applicationProfile")
-        $loadbalancer.appendChild($xmlapplicationProfile) | out-null
+        [System.XML.XMLElement]$xmlapplicationProfile = $_LoadBalancer.OwnerDocument.CreateElement("applicationProfile")
+        $_LoadBalancer.appendChild($xmlapplicationProfile) | out-null
      
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlapplicationProfile -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlapplicationProfile -xmlElementName "template" -xmlElementText $Type
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlapplicationProfile -xmlElementName "insertXForwardedFor" -xmlElementText $insertXForwardedFor 
+        Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "template" -xmlElementText $Type
+        Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "insertXForwardedFor" -xmlElementText $insertXForwardedFor 
         
         
-        $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/loadbalancer/config"
-        $body = $loadbalancer.OuterXml 
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
+        $body = $_LoadBalancer.OuterXml 
     
-        Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)" -status "Load Balancing Config"
+        Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Config"
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
-        write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed
+        write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
-        $return = Get-NsxEdgeServicesGateway -objectId $($Edge.Edgesummary.ObjectId)
+        $updatedEdge = Get-NsxEdge -objectId $($edgeId)
         
-        $applicationProfiles = $return.features.loadbalancer.applicationProfile
+        $applicationProfiles = $updatedEdge.features.loadbalancer.applicationProfile
         foreach ($applicationProfile in $applicationProfiles) { 
 
-            #Stupid, Stupid, STUPID NSX API creates an object ID format _that it does not accept back when put FFS!!!_ We have to change on the fly to the 'correct format'
+            #6.1 Bug? NSX API creates an object ID format that it does not accept back when put. We have to change on the fly to the 'correct format'.
             write-debug "$($MyInvocation.MyCommand.Name) : Checking for stupidness in $($applicationProfile.applicationProfileId)"    
             $applicationProfile.applicationProfileId = 
                 $applicationProfile.applicationProfileId.replace("edge_load_balancer_application_profiles","applicationProfile-")
             
         }
 
-        $body = $return.features.loadbalancer.OuterXml
-        Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)" -status "Load Balancing Config"
+        $body = $updatedEdge.features.loadbalancer.OuterXml
+        Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Config"
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
-        write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed
-
-        $return = Get-NsxEdgeServicesGateway -objectId $($Edge.Edgesummary.ObjectId)
+        write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
         #filter output for our newly created app profile - name is safe as it has to be unique.
-        $return.features.loadbalancer.applicationProfile | ? { $_.name -eq $name }
+        $return = $updatedEdge.features.loadbalancer.applicationProfile | ? { $_.name -eq $name }
+        Add-XmlElement -xmlroot $return -xmlElementName "edgeId" -xmlElementText $edgeId
+        $return
     }
 
     end {}
-
 }
 Export-ModuleMember -Function New-NsxLoadBalancerApplicationProfile
 
@@ -5067,13 +11838,13 @@ function New-NsxLoadBalancerMemberSpec {
         [System.XML.XMLElement]$xmlMember = $XMLDoc.CreateElement("member")
         $xmlDoc.appendChild($xmlMember) | out-null
 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress   
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $port 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $port 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "minConn" -xmlElementText $MinimumConnections 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlMember -xmlElementName "maxConn" -xmlElementText $MaximumConnections 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress   
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $port 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $port 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "minConn" -xmlElementText $MinimumConnections 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "maxConn" -xmlElementText $MaximumConnections 
   
         $xmlMember
 
@@ -5081,7 +11852,6 @@ function New-NsxLoadBalancerMemberSpec {
 
     end {}
 }
-
 Export-ModuleMember -Function New-NsxLoadBalancerMemberSpec
 
 function New-NsxLoadBalancerPool {
@@ -5128,24 +11898,24 @@ function New-NsxLoadBalancerPool {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
-            [System.Xml.XmlElement]$Edge,
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$False)]
             [ValidateNotNull()]
             [string]$Description="",
-        [Parameter (Mandatory=$True)]
+        [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
-            [switch]$Transparent,
+            [switch]$Transparent=$false,
         [Parameter (Mandatory=$True)]
             [ValidateSet("round-robin", "ip-hash", "uri", "leastconn")]
             [string]$Algorithm,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$false)]
             [ValidateScript({ Validate-LoadBalancerMonitor $_ })]
             [System.Xml.XmlElement]$Monitor,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$false)]
             [ValidateScript({ Validate-LoadBalancerMemberSpec $_ })]
             [System.Xml.XmlElement[]]$MemberSpec
     )
@@ -5155,41 +11925,51 @@ function New-NsxLoadBalancerPool {
 
     process {
         
-        #Create the XMLDoc and import the LB node.
-        [System.XML.XMLDocument]$xmlDoc = new-object System.XML.XMLDocument
-        [System.XML.XMLElement]$loadbalancer = $xmlDoc.ImportNode(($edge.features.loadBalancer), $true)
+        #Create private xml element
+        $_LoadBalancer = $LoadBalancer.CloneNode($true)
 
-        if ( -not $loadBalancer.enabled -eq 'true' ) { throw "Load Balancer feature is not enabled on edge $($edge.Name).  Use Set-NsxEdgeServicesGateway -EnableLoadBalancing to enable."}
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_LoadBalancer.edgeId
+        $_LoadBalancer.RemoveChild( $($_LoadBalancer.SelectSingleNode('descendant::edgeId')) ) | out-null
 
-        [System.XML.XMLElement]$xmlPool = $xmlDoc.CreateElement("pool")
-        $loadbalancer.appendChild($xmlPool) | out-null
+        if ( -not $_LoadBalancer.enabled -eq 'true' ) { 
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+        }
+
+        [System.XML.XMLElement]$xmlPool = $_LoadBalancer.OwnerDocument.CreateElement("pool")
+        $_LoadBalancer.appendChild($xmlPool) | out-null
 
      
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlPool -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlPool -xmlElementName "description" -xmlElementText $Description
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlPool -xmlElementName "transparent" -xmlElementText $Transparent 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlPool -xmlElementName "algorithm" -xmlElementText $algorithm 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlPool -xmlElementName "monitorId" -xmlElementText $Monitor.monitorId 
-
-        foreach ( $Member in $MemberSpec ) { 
-            $xmlmember = $xmlPool.OwnerDocument.ImportNode($Member, $true)
-            $xmlPool.AppendChild($xmlmember) | out-null
+        Add-XmlElement -xmlRoot $xmlPool -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlPool -xmlElementName "description" -xmlElementText $Description
+        Add-XmlElement -xmlRoot $xmlPool -xmlElementName "transparent" -xmlElementText $Transparent 
+        Add-XmlElement -xmlRoot $xmlPool -xmlElementName "algorithm" -xmlElementText $algorithm 
+        
+        if ( $PsBoundParameters.ContainsKey('Monitor')) { 
+            Add-XmlElement -xmlRoot $xmlPool -xmlElementName "monitorId" -xmlElementText $Monitor.monitorId 
         }
-            
-        $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/loadbalancer/config"
-        $body = $loadbalancer.OuterXml 
+
+        if ( $PSBoundParameters.ContainsKey('MemberSpec')) {
+            foreach ( $Member in $MemberSpec ) { 
+                $xmlmember = $xmlPool.OwnerDocument.ImportNode($Member, $true)
+                $xmlPool.AppendChild($xmlmember) | out-null
+            }
+        }
+
+        $URI = "/api/4.0/edges/$EdgeId/loadbalancer/config"
+        $body = $_LoadBalancer.OuterXml 
     
-        Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)" -status "Load Balancing Config"
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Load Balancer Config"
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
-        write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
-        $edge = Get-NsxEdgeServicesGateway -objectId $($Edge.Edgesummary.ObjectId)
-        $edge.features.loadBalancer.pool | ? { $_.name -eq $Name }
-
+        $UpdatedEdge = Get-NsxEdge -objectId $($EdgeId)
+        $return = $UpdatedEdge.features.loadBalancer.pool | ? { $_.name -eq $Name }
+        Add-XmlElement -xmlroot $return -xmlElementName "edgeId" -xmlElementText $edgeId
+        $return
     }
 
     end {}
-
 }
 Export-ModuleMember -Function New-NsxLoadBalancerPool
 
@@ -5219,7 +11999,7 @@ function Get-NsxLoadBalancerPool {
 
     .EXAMPLE
    
-    PS C:\> Get-NsxEdgeServicesGateway | Get-NsxLoadBalancer | 
+    PS C:\> Get-NsxEdge | Get-NsxLoadBalancer | 
         Get-NsxLoadBalancerPool
     
     #>
@@ -5241,27 +12021,427 @@ function Get-NsxLoadBalancerPool {
 
     process { 
         
-        if ( $Name) { 
-            $loadbalancer.pool | ? { $_.name -eq $Name }
-        }
-        elseif ( $monitorId ) { 
-            $loadbalancer.pool | ? { $_.poolId -eq $PoolId }
-        }
-        else { 
-            $loadbalancer.pool 
+        if ( $loadbalancer.SelectSingleNode('child::pool')) { 
+            if ( $PsBoundParameters.ContainsKey('Name')) {  
+                $pools = $loadbalancer.pool | ? { $_.name -eq $Name }
+            }
+            elseif ( $PsBoundParameters.ContainsKey('PoolId')) {  
+                $pools = $loadbalancer.pool | ? { $_.poolId -eq $PoolId }
+            }
+            else { 
+                $pools = $loadbalancer.pool 
+            }
+
+            foreach ( $Pool in $Pools ) { 
+                $_Pool = $Pool.CloneNode($True)
+                Add-XmlElement -xmlRoot $_Pool -xmlElementName "edgeId" -xmlElementText $LoadBalancer.edgeId
+                $_Pool
+            }
         }
     }
 
     end{ }
-
 }
 Export-ModuleMember -Function Get-NsxLoadBalancerPool
 
-function New-NsxLoadBalancerVip {
+function Remove-NsxLoadBalancerPool {
 
     <#
     .SYNOPSIS
-    Creates a new LoadBalancer Virtual Server on the specified ESG.
+    Removes a Pool from the specified Load Balancer.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    A pool manages load balancer distribution methods and has a service monitor 
+    attached to it for health check parameters.  Each Pool has one or more 
+    members.
+    
+    This cmdlet removes the specified pool from the Load Balancer pool and returns
+    the updated LoadBalancer.
+   
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LoadBalancerPool $_ })]
+            [System.Xml.XmlElement]$LoadBalancerPool,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$True
+    )
+
+    begin {}
+    process { 
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $LoadBalancerPool.edgeId
+        $poolId = $LoadBalancerPool.poolId
+
+        #Get and remove the edgeId element
+        $LoadBalancer = Get-nsxEdge -objectId $edgeId | Get-NsxLoadBalancer
+        $LoadBalancer.RemoveChild( $($LoadBalancer.SelectSingleNode('child::edgeId')) ) | out-null
+
+        $PoolToRemove = $LoadBalancer.SelectSingleNode("child::pool[poolId=`"$poolId`"]")
+        if ( -not $PoolToRemove ) {
+            throw "Pool $poolId is not defined on Load Balancer $edgeid."
+        } 
+        
+        $LoadBalancer.RemoveChild( $PoolToRemove ) | out-null
+            
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
+        $body = $LoadBalancer.OuterXml 
+        
+        if ( $confirm ) { 
+            $message  = "Pool removal is permanent."
+            $question = "Proceed with removal of Pool $poolId"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing pool $poolId"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+
+            Get-NSxEdge -objectID $edgeId | Get-NsxLoadBalancer
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLoadBalancerPool
+
+function Get-NsxLoadBalancerPoolMember {
+
+    <#
+    .SYNOPSIS
+    Retrieves the members of the specified LoadBalancer Pool.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    A pool manages load balancer distribution methods and has a service monitor 
+    attached to it for health check parameters.  Each Pool has one or more 
+    members.  Prior to creating or updating a pool to add a member, a member
+    spec describing the member needs to be created.
+    
+    This cmdlet retrieves the members of the specified LoadBalancer Pool.
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LoadBalancerPool $_ })]
+            [System.Xml.XmlElement]$LoadBalancerPool,
+        [Parameter (Mandatory=$true,ParameterSetName="MemberId")]
+            [string]$MemberId,
+        [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            [string]$Name
+
+    )
+
+    begin {}
+
+    process { 
+        
+        
+
+        if ( $PsBoundParameters.ContainsKey('Name')) {  
+            $Members = $LoadBalancerPool.SelectNodes('descendant::member') | ? { $_.name -eq $Name }
+        }
+        elseif ( $PsBoundParameters.ContainsKey('MemberId')) {  
+            $Members = $LoadBalancerPool.SelectNodes('descendant::member') | ? { $_.memberId -eq $MemberId }
+        }
+        else { 
+            $Members = $LoadBalancerPool.SelectNodes('descendant::member') 
+        }
+
+        foreach ( $Member in $Members ) { 
+            $_Member = $Member.CloneNode($True)
+            Add-XmlElement -xmlRoot $_Member -xmlElementName "edgeId" -xmlElementText $LoadBalancerPool.edgeId
+            Add-XmlElement -xmlRoot $_Member -xmlElementName "poolId" -xmlElementText $LoadBalancerPool.poolId
+
+            $_Member
+        }
+    }
+
+    end{ }
+}
+Export-ModuleMember -Function Get-NsxLoadBalancerPoolMember
+
+function Add-NsxLoadBalancerPoolMember {
+
+    <#
+    .SYNOPSIS
+    Adds a new Pool Member to the specified Load Balancer Pool.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    A pool manages load balancer distribution methods and has a service monitor 
+    attached to it for health check parameters.  Each Pool has one or more 
+    members.
+    
+    This cmdlet adds a new member to the specified LoadBalancer Pool and
+    returns the updated Pool.
+   
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LoadBalancerPool $_ })]
+            [System.Xml.XmlElement]$LoadBalancerPool,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [IpAddress]$IpAddress,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [int]$Weight=1,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(1,65535)]
+            [int]$Port,   
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65535)]
+            [int]$MonitorPort=$port,   
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [int]$MinimumConnections=0,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [int]$MaximumConnections=0
+    )
+
+    begin {}
+    process { 
+
+
+        #Create private xml element
+        $_LoadBalancerPool = $LoadBalancerPool.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_LoadBalancerPool.edgeId
+        $_LoadBalancerPool.RemoveChild( $($_LoadBalancerPool.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        [System.XML.XMLElement]$xmlMember = $_LoadBalancerPool.OwnerDocument.CreateElement("member")
+        $_LoadBalancerPool.appendChild($xmlMember) | out-null
+
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress   
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $port 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $port 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "minConn" -xmlElementText $MinimumConnections 
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "maxConn" -xmlElementText $MaximumConnections 
+  
+            
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/pools/$($_LoadBalancerPool.poolId)"
+        $body = $_LoadBalancerPool.OuterXml 
+    
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Pool config for $($_LoadBalancerPool.poolId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        #Get updated pool
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/pools/$($_LoadBalancerPool.poolId)"
+        Write-Progress -activity "Retrieving Updated Pool for $($EdgeId)" -status "Pool $($_LoadBalancerPool.poolId)"
+        $return = invoke-nsxrestmethod -method "get" -uri $URI
+        $Pool = $return.pool
+        Add-XmlElement -xmlroot $Pool -xmlElementName "edgeId" -xmlElementText $edgeId
+        $Pool
+
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Add-NsxLoadBalancerPoolMember
+
+function Remove-NsxLoadBalancerPoolMember {
+
+    <#
+    .SYNOPSIS
+    Removes a Pool Member from the specified Load Balancer Pool.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    A pool manages load balancer distribution methods and has a service monitor 
+    attached to it for health check parameters.  Each Pool has one or more 
+    members.
+    
+    This cmdlet removes the specified member from the specified pool and returns
+     the updated Pool.
+   
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LoadBalancerPoolMember $_ })]
+            [System.Xml.XmlElement]$LoadBalancerPoolMember,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$True
+    )
+
+    begin {}
+    process { 
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $MemberId = $LoadBalancerPoolMember.memberId
+        $edgeId = $LoadBalancerPoolMember.edgeId
+        $poolId = $LoadBalancerPoolMember.poolId
+
+        #Get and remove the edgeId and poolId elements
+        $LoadBalancer = Get-nsxEdge -objectId $edgeId | Get-NsxLoadBalancer
+        $LoadBalancer.RemoveChild( $($LoadBalancer.SelectSingleNode('child::edgeId')) ) | out-null
+
+        $LoadBalancerPool = $loadbalancer.SelectSingleNode("child::pool[poolId=`"$poolId`"]")
+
+        $MemberToRemove = $LoadBalancerPool.SelectSingleNode("child::member[memberId=`"$MemberId`"]")
+        if ( -not $MemberToRemove ) {
+            throw "Member $MemberId is not a member of pool $PoolId."
+        } 
+        
+        $LoadBalancerPool.RemoveChild( $MemberToRemove ) | out-null
+            
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
+        $body = $LoadBalancer.OuterXml 
+        
+        if ( $confirm ) { 
+            $message  = "Pool Member removal is permanent."
+            $question = "Proceed with removal of Pool Member $memberId?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Pool config for $poolId"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+
+            Get-NSxEdge -objectID $edgeId | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -poolId $poolId
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLoadBalancerPoolMember
+
+function Get-NsxLoadBalancerVip {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Virtual Servers configured on the specified LoadBalancer.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    A Virtual Server binds an IP address (must already exist on an ESG iNterface as 
+    either a Primary or Secondary Address) and a port to a LoadBalancer Pool and 
+    Application Profile.
+
+    This cmdlet retrieves the configured Virtual Servers from the specified Load 
+    Balancer.
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
+        [Parameter (Mandatory=$true,ParameterSetName="VirtualServerId")]
+            [string]$VirtualServerId,
+        [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            [string]$Name
+    )
+
+    begin {}
+
+    process { 
+        
+
+        if ( $PsBoundParameters.ContainsKey('Name')) {  
+            $Vips = $LoadBalancer.SelectNodes('descendant::virtualServer') | ? { $_.name -eq $Name }
+        }
+        elseif ( $PsBoundParameters.ContainsKey('MemberId')) {  
+            $Vips = $LoadBalancer.SelectNodes('descendant::virtualServer') | ? { $_.virtualServerId -eq $VirtualServerId }
+        }
+        else { 
+            $Vips = $LoadBalancer.SelectNodes('descendant::virtualServer') 
+        }
+
+        foreach ( $Vip in $Vips ) { 
+            $_Vip = $VIP.CloneNode($True)
+            Add-XmlElement -xmlRoot $_Vip -xmlElementName "edgeId" -xmlElementText $LoadBalancer.edgeId
+            $_Vip
+        }
+    }
+
+    end{ }
+}
+Export-ModuleMember -Function Get-NsxLoadBalancerVip
+
+function Add-NsxLoadBalancerVip {
+
+    <#
+    .SYNOPSIS
+    Adds a new LoadBalancer Virtual Server to the specified ESG.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -5283,7 +12463,7 @@ function New-NsxLoadBalancerVip {
     .EXAMPLE
     Example1: Need to create member specs for each of the pool members first
 
-    PS C:\> $WebVip = Get-NsxEdgeServicesGateway DMZ_Edge_2 | 
+    PS C:\> $WebVip = Get-NsxEdge DMZ_Edge_2 | 
         New-NsxLoadBalancerVip -Name WebVip -Description "Test Creating a VIP" 
         -IpAddress $edge_uplink_ip -Protocol http -Port 80 
         -ApplicationProfile $AppProfile -DefaultPool $WebPool 
@@ -5294,8 +12474,8 @@ function New-NsxLoadBalancerVip {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
-            [System.Xml.XmlElement]$Edge,
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
@@ -5337,44 +12517,285 @@ function New-NsxLoadBalancerVip {
 
     process {
         
-        #Create the XMLDoc and import the LB node.
-        [System.XML.XMLDocument]$xmlDoc = new-object System.XML.XMLDocument
-        [System.XML.XMLElement]$loadbalancer = $xmlDoc.ImportNode(($edge.features.loadBalancer), $true)
 
-        if ( -not $loadBalancer.enabled -eq 'true' ) { throw "Load Balancer feature is not enabled on edge $($edge.Name).  Use Set-NsxEdgeServicesGateway -EnableLoadBalancing to enable."}
+        #Create private xml element
+        $_LoadBalancer = $LoadBalancer.CloneNode($true)
 
-        [System.XML.XMLElement]$xmlVIip = $xmlDoc.CreateElement("virtualServer")
-        $loadbalancer.appendChild($xmlVIip) | out-null
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_LoadBalancer.edgeId
+        $_LoadBalancer.RemoveChild( $($_LoadBalancer.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        if ( -not $_LoadBalancer.enabled -eq 'true' ) { 
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+        }
+
+        [System.XML.XMLElement]$xmlVIip = $_LoadBalancer.OwnerDocument.CreateElement("virtualServer")
+        $_LoadBalancer.appendChild($xmlVIip) | out-null
 
      
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "description" -xmlElementText $Description
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "enabled" -xmlElementText $Enabled 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "ipAddress" -xmlElementText $IpAddress 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "protocol" -xmlElementText $Protocol 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "port" -xmlElementText $Port 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "connectionLimit" -xmlElementText $ConnectionLimit 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "connectionRateLimit" -xmlElementText $ConnectionRateLimit 
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "applicationProfileId" -xmlElementText $ApplicationProfile.applicationProfileId
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "defaultPoolId" -xmlElementText $DefaultPool.poolId
-        Add-XmlElement -xmlDoc $xmlDoc -xmlRoot $xmlVIip -xmlElementName "accelerationEnabled" -xmlElementText $AccelerationEnabled
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "description" -xmlElementText $Description
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "enabled" -xmlElementText $Enabled 
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "ipAddress" -xmlElementText $IpAddress 
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "protocol" -xmlElementText $Protocol 
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "port" -xmlElementText $Port 
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "connectionLimit" -xmlElementText $ConnectionLimit 
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "connectionRateLimit" -xmlElementText $ConnectionRateLimit 
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "applicationProfileId" -xmlElementText $ApplicationProfile.applicationProfileId
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "defaultPoolId" -xmlElementText $DefaultPool.poolId
+        Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "accelerationEnabled" -xmlElementText $AccelerationEnabled
 
             
-        $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/loadbalancer/config"
-        $body = $loadbalancer.OuterXml 
+        $URI = "/api/4.0/edges/$($EdgeId)/loadbalancer/config"
+        $body = $_LoadBalancer.OuterXml 
     
-        Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)" -status "Load Balancing Config"
+        Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Load Balancer Config"
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
-        write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed
+        write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
-        $edge = Get-NsxEdgeServicesGateway -objectId $($Edge.Edgesummary.ObjectId)
-        $edge.features.loadbalancer.virtualServer | ? { $_.Name -eq $name }
+        $UpdatedLB = Get-NsxEdge -objectId $EdgeId | Get-NsxLoadBalancer
+        $UpdatedLB
+
     }
 
     end {}
-
 }
-Export-ModuleMember -Function New-NsxLoadBalancerVip
+Export-ModuleMember -Function Add-NsxLoadBalancerVip
+
+function Remove-NsxLoadBalancerVip {
+
+    <#
+    .SYNOPSIS
+    Removes a VIP from the specified Load Balancer.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    A Virtual Server binds an IP address (must already exist on an ESG iNterface as 
+    either a Primary or Secondary Address) and a port to a LoadBalancer Pool and 
+    Application Profile.
+
+    This cmdlet remove a VIP from the specified Load Balancer.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LoadBalancerVip $_ })]
+            [System.Xml.XmlElement]$LoadBalancerVip,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$True
+        
+    )
+
+    begin {
+    }
+
+    process {
+        
+
+
+        #Store the virtualserverid and edgeId and remove it from the LB XML as we need to post it...
+        $VipId = $LoadBalancerVip.VirtualServerId
+        $edgeId = $LoadBalancerVip.edgeId
+
+        $LoadBalancer = Get-nsxEdge -objectId $edgeId | Get-NsxLoadBalancer
+        $LoadBalancer.RemoveChild( $($LoadBalancer.SelectSingleNode('child::edgeId')) ) | out-null
+
+        $VIPToRemove = $LoadBalancer.SelectSingleNode("child::virtualServer[virtualServerId=`"$VipId`"]")
+        if ( -not $VIPToRemove ) {
+            throw "VIP $VipId is not defined on Edge $edgeId"
+        } 
+        $LoadBalancer.RemoveChild( $VIPToRemove ) | out-null
+            
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
+        $body = $LoadBalancer.OuterXml 
+    
+        if ( $confirm ) { 
+            $message  = "VIP removal is permanent."
+            $question = "Proceed with removal of VIP $VipID ob Edge $edgeId?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Removing VIP $VipId"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+            #Get updated loadbalancer
+            $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
+            Write-Progress -activity "Retrieving Updated Load Balancer for $($EdgeId)"
+            $return = invoke-nsxrestmethod -method "get" -uri $URI
+            $lb = $return.loadBalancer
+            Add-XmlElement -xmlroot $lb -xmlElementName "edgeId" -xmlElementText $edgeId
+            $lb
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLoadBalancerVip
+
+
+
+########
+########
+# Service Composer functions
+
+function Get-NsxSecurityPolicy {
+
+ <#
+    .SYNOPSIS
+    Retrieves NSX Security Policy
+
+    .DESCRIPTION
+    An NSX Security Policy is a set of Endpoint, firewall, and network 
+    introspection services that can be applied to a security group.
+
+    This cmdlet returns Security Policy objects.
+
+    .EXAMPLE
+    PS C:\> Get-NsxSecurityPolicy SecPolicy_WebServers
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+ 
+    param (
+
+        [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            [string]$ObjectId,
+        [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [switch]$ShowHidden=$False
+    )
+    
+    begin {}
+
+    process {
+     
+        if ( -not $objectId ) { 
+            #All Security Policies
+            $URI = "/api/2.0/services/policy/securitypolicy/all"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            if  ( $Name  ) { 
+                $FinalSecPol = $response.securityPolicies.securityPolicy | ? { $_.name -eq $Name }
+            } else {
+                $FinalSecPol = $response.securityPolicies.securityPolicy
+            }
+
+        }
+        else {
+
+            #Just getting a single Security group
+            $URI = "/api/2.0/services/policy/securitypolicy/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $FinalSecPol = $response.securityPolicy 
+        }
+
+        if ( -not $ShowHidden ) { 
+            foreach ( $CurrSecPol in $FinalSecPol ) { 
+                if ( $CurrSecPol.SelectSingleNode('child::extendedAttributes/extendedAttribute')) {
+                    $hiddenattr = $CurrSecPol.extendedAttributes.extendedAttribute | ? { $_.name -eq 'isHidden'}
+                    if ( -not ($hiddenAttr.Value -eq 'true')){
+                        $CurrSecPol
+                    }
+                }
+                else { 
+                    $CurrSecPol
+                }
+            }
+        }
+        else {
+            $FinalSecPol
+        }
+    }
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSecurityPolicy
+
+function Remove-NsxSecurityPolicy {
+
+    <#
+    .SYNOPSIS
+    Removes the specified NSX Security Policy.
+
+    .DESCRIPTION
+    An NSX Security Policy is a set of Endpoint, firewall, and network 
+    introspection services that can be applied to a security group.
+
+    This cmdlet removes the specified Security Policy object.
+
+
+    .EXAMPLE
+    Example1: Remove the SecurityPolicy TestSP
+    PS C:\> Get-NsxSecurityPolicy TestSP | Remove-NsxSecurityPolicy
+
+    Example2: Remove the SecurityPolicy $sp without confirmation.
+    PS C:\> $sp | Remove-NsxSecurityPolicy -confirm:$false
+
+    
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$force=$false
+    )
+    
+    begin {}
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Security Policy removal is permanent."
+            $question = "Proceed with removal of Security Policy $($SecurityPolicy.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            if ( $force ) { 
+                $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.objectId)?force=true"
+            }
+            else {
+                $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.ObjectId)?force=false"
+            }
+            
+            Write-Progress -activity "Remove Security Policy $($SecurityPolicy.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+            write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed
+
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxSecurityPolicy
 
 ########
 ########
@@ -5590,5 +13011,131 @@ function Where-NsxVMUsed {
 }
 Export-ModuleMember -Function Where-NsxVMUsed
 
+function Get-NsxBackingPortGroup{
 
+    <#
+    .SYNOPSIS
+    Gets the PortGroups backing an NSX Logical Switch.
+
+    .DESCRIPTION
+    NSX Logical switches are backed by one or more Virtual Distributed Switch 
+    portgroups that are the connection point in vCenter for VMs that connect to 
+    the logical switch.
+
+    In simpler environments, a logical switch may only be backed by a single 
+    portgroup on a single Virtual Distributed Switch, but the scope of a logical
+    switch is governed by the transport zone it is created in.  The transport 
+    zone may span multiple vSphere clusters that have hosts that belong to 
+    multiple different Virtual Distributed Switches and in this situation, a 
+    logical switch would be backed by a unique portgroup on each Virtual 
+    Distributed Switch.
+
+    This cmdlet requires an active and correct PowerCLI connection to the 
+    vCenter server that is registered to NSX.  It returns PowerCLI VDPortgroup 
+    objects for each backing portgroup.
+    
+    .EXAMPLE
+
+    
+    #>
+
+
+     param (
+        
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({Validate-LogicalSwitch $_ })]
+            [object]$LogicalSwitch
+    )
+
+    begin {
+
+        if ( -not ( $global:DefaultVIServer.IsConnected )) {
+            throw "This cmdlet requires a valid PowerCLI connection.  Use Connect-VIServer to connect to vCenter and try again."
+        }
+    }
+
+    process { 
+
+        $BackingVDS = $_.vdsContextWithBacking
+        foreach ( $vDS in $BackingVDS ) { 
+
+            write-debug "$($MyInvocation.MyCommand.Name) : Backing portgroup id $($vDS.backingValue)"
+
+            try {
+                Get-VDPortgroup -Id "DistributedVirtualPortgroup-$($vDS.backingValue)"
+            }
+            catch {
+                throw "VDPortgroup not found on connected vCenter $($global:DefaultVIServer.Name).  $_"
+            }
+        }
+    }
+
+    end {}
+
+}
+Export-ModuleMember -Function Get-NsxBackingPortGroup
+
+function Get-NsxBackingDVSwitch{
+
+    <#
+    .SYNOPSIS
+    Gets the Virtual Distributed Switches backing an NSX Logical Switch.
+
+    .DESCRIPTION
+    NSX Logical switches are backed by one or more Virtual Distributed Switch 
+    portgroups that are the connection point in vCenter for VMs that connect to 
+    the logical switch.
+
+    In simpler environments, a logical switch may only be backed by a single 
+    portgroup on a single Virtual Distributed Switch, but the scope of a logical
+    switch is governed by the transport zone it is created in.  The transport 
+    zone may span multiple vSphere clusters that have hosts that belong to 
+    multiple different Virtual Distributed Switches and in this situation, a 
+    logical switch would be backed by a unique portgroup on each Virtual 
+    Distributed Switch.
+
+    This cmdlet requires an active and correct PowerCLI connection to the 
+    vCenter server that is registered to NSX.  It returns PowerCLI VDSwitch 
+    objects for each backing VDSwitch.
+    
+    .EXAMPLE
+
+    
+    #>
+
+
+     param (
+        
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({Validate-LogicalSwitch $_ })]
+            [object]$LogicalSwitch
+    )
+
+    begin {
+
+        if ( -not ( $global:DefaultVIServer.IsConnected )) {
+            throw "This cmdlet requires a valid PowerCLI connection.  Use Connect-VIServer to connect to vCenter and try again."
+        }
+    }
+
+    process { 
+
+        $BackingVDS = $_.vdsContextWithBacking
+        foreach ( $vDS in $BackingVDS ) { 
+
+            write-debug "$($MyInvocation.MyCommand.Name) : Backing vDS id $($vDS.switch.objectId)"
+
+            try {
+                Get-VDSwitch -Id "VmwareDistributedVirtualSwitch-$($vDS.switch.objectId)"
+            }
+            catch {
+                throw "VDSwitch not found on connected vCenter $($global:DefaultVIServer.Name).  $_"
+            }
+        }
+    }
+
+    end {}
+
+}
+Export-ModuleMember -Function Get-NsxBackingDVSwitch
 

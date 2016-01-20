@@ -31,7 +31,7 @@ New-NsxLogicalRouter -Name $name -ManagementPortGroup $mgt -Interface $vnic0,$vn
 Get-NsxLogicalRouter $name | New-NsxLogicalRouterInterface -Name Test -Type internal -ConnectedTo $ls4 -PrimaryAddress 4.4.4.1 -SubnetPrefixLength 24
 
 #Update the LR vNic
-Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 | Set-NsxLogicalRouterInterface -type internal -Name TestSet -ConnectedTo $ls4
+Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 | Set-NsxLogicalRouterInterface -type internal -Name TestSet -ConnectedTo $ls4 -confirm:$false
 
 #Remove the LR vNic
 Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 | Remove-NsxLogicalRouterInterface -confirm:$false
