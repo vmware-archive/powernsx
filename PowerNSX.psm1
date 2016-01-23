@@ -1164,12 +1164,13 @@ Function Validate-SecurityGroupMember {
             switch ($argument.objectTypeName) {
 
                 "IPSet"{}
+                "MacSet"{}
                 "SecurityGroup" {}
                 "VirtualWire" {}
                 default { 
                     throw "Member is not a supported type.  Specify a Datacenter, Cluster, `
                          DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-                         IPSet, SecurityGroup or Logical Switch object." 
+                         IPSet, MacSet, SecurityGroup or Logical Switch object." 
                 }
             }
         }   
@@ -10424,6 +10425,191 @@ function Remove-NsxIPSet {
 }
 Export-ModuleMember -Function Remove-NsxIPSet
 
+function Get-NsxMacSet {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX MACSets
+
+    .DESCRIPTION
+    An NSX MACSet is a grouping construct that allows for grouping of
+    MAC Addresses in a sigle container that can 
+    be used either in DFW Firewall Rules or as members of a security 
+    group.
+
+    This cmdlet returns MAC Set objects.
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+ 
+    param (
+
+        [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            [string]$objectId,
+        [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [string]$scopeId="globalroot-0"
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+     
+        if ( -not $objectID ) { 
+            #All IPSets
+            $URI = "/api/2.0/services/macset/scope/$scopeId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            if ( $name ) {
+                $response.list.macset | ? { $_.name -eq $name }
+            } else {
+                $response.list.macset
+            }
+        }
+        else {
+
+            #Just getting a single named MACset
+            $URI = "/api/2.0/services/macset/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response.macset
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxMACSet
+
+function New-NsxMacSet  {
+    <#
+    .SYNOPSIS
+    Creates a new NSX MACSet.
+
+    .DESCRIPTION
+    An NSX MACSet is a grouping construct that allows for grouping of
+    MAC Addresses in a sigle container that can 
+    be used either in DFW Firewall Rules or as members of a security 
+    group.
+
+    This cmdlet creates a new MAC Set with the specified parameters.
+
+    MacAddresses is a string that can contain 1 or more MAC Addresses the following
+    separated by commas
+    Mac address: (eg, 00:00:00:00:00:00)
+    
+
+    #>
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description = "",
+        [Parameter (Mandatory=$false)]
+            [string]$MacAddresses,
+        [Parameter (Mandatory=$false)]
+            [string]$scopeId="globalroot-0"
+    )
+
+    begin {}
+    process { 
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("macset")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        if ( $MacAddresses ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText $MacAddresses
+        }
+           
+        #Do the post
+        $body = $xmlroot.OuterXml
+        $URI = "/api/2.0/services/macset/$scopeId"
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+
+        Get-NsxMacSet -objectid $response
+    }
+    end {}
+}
+Export-ModuleMember -Function New-NsxMacSet
+
+function Remove-NsxMacSet {
+
+    <#
+    .SYNOPSIS
+    Removes the specified NSX MacSet.
+
+    .DESCRIPTION
+    An NSX MacSet is a grouping construct that allows for grouping of
+    Mac Addresses in a sigle container that can 
+    be used either in DFW Firewall Rules or as members of a security 
+    group.
+
+    This cmdlet removes the specified MAC Set. If the object 
+    is currently in use the api will return an error.  Use -force to override
+    but be aware that the firewall rulebase will become invalid and will need
+    to be corrected before publish operations will succeed again.
+
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$MacSet,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$force=$false
+
+    )
+    
+    begin {
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "MACSet removal is permanent."
+            $question = "Proceed with removal of MAC Set $($MACSet.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            if ( $force ) { 
+                $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=true"
+            }
+            else {
+                $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=false"
+            }
+            
+            Write-Progress -activity "Remove MAC Set $($MACSet.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+            write-progress -activity "Remove MAC Set $($MACSet.Name)" -completed
+
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxMacSet
+
 function Get-NsxService {
 
     <#
@@ -10541,7 +10727,6 @@ function Get-NsxService {
 
     end {}
 }
-
 Export-ModuleMember -Function Get-NsxService
 
 function New-NsxService  {
@@ -10619,7 +10804,7 @@ function New-NsxService  {
         $URI = "/api/2.0/services/application/$scopeId"
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
 
-        Get-NsxService $response
+        Get-NsxService -objectId $response
     }
     end {}
 }
@@ -11086,6 +11271,9 @@ function Get-NsxFirewallRule {
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Section")]
         [ValidateNotNull()]
             [System.Xml.XmlElement]$Section,
+        [Parameter (Mandatory=$false, Position=1)]
+            [ValidateNotNullorEmpty()]
+            [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="RuleId")]
         [ValidateNotNullOrEmpty()]
             [string]$RuleId,
@@ -11110,7 +11298,12 @@ function Get-NsxFirewallRule {
             $response = invoke-nsxrestmethod -method "get" -uri $URI
             if ( $response | get-member -name Section -Membertype Properties){
                 if ( $response.Section | get-member -name Rule -Membertype Properties ){
-                    $response.section.rule
+                    if ( $PsBoundParameters.ContainsKey("Name") ) { 
+                        $response.section.rule | ? { $_.name -eq $Name }
+                    }
+                    else {
+                        $response.section.rule
+                    }
                 }
             }
         }
@@ -11134,15 +11327,24 @@ function Get-NsxFirewallRule {
 
             $response = invoke-nsxrestmethod -method "get" -uri $URI
             if ($response.firewallConfiguration) { 
-                $response.firewallConfiguration.layer3Sections.Section.rule
+                if ( $PsBoundParameters.ContainsKey("Name") ) { 
+                    $response.firewallConfiguration.layer3Sections.Section.rule | ? { $_.name -eq $Name }
+                }
+                else {
+                    $response.firewallConfiguration.layer3Sections.Section.rule
+                }
 
             } 
             elseif ( $response.filteredfirewallConfiguration ) { 
-                $response.filteredfirewallConfiguration.layer3Sections.Section.rule
+                if ( $PsBoundParameters.ContainsKey("Name") ) { 
+                    $response.filteredfirewallConfiguration.layer3Sections.Section.rule | ? { $_.name -eq $Name }
+                }
+                else {
+                    $response.filteredfirewallConfiguration.layer3Sections.Section.rule
+                }
             }
             else { throw "Invalid response from NSX API. $response"}
         }
-
     }
 
     end {}

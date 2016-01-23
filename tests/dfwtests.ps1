@@ -26,6 +26,8 @@ $testls = Get-NsxTransportZone | New-NsxLogicalSwitch $testlsname
 
 #Create Groupings
 $TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Test IP Set" -IpAddresses $testIPs 
+$TestMacSet = New-NsxMacSet -Name $testMacSetName -Description "Test MAC Set" -MacAddresses "$TestMac1,$TestMac2" 
+
 $TestSG1 = New-NsxSecurityGroup -Name $testSGName1 -Description "Test SG1" -IncludeMember $testVM1, $testVM2
 $TestSG2 = New-NsxSecurityGroup -Name $testSGName2 -Description "Test SG2" -IncludeMember $TestIpSet
 $TestService1 = New-NsxService -Name $TestServiceName1 -Protocol $TestServiceProto -port $testPort
@@ -34,10 +36,10 @@ $TestService2 = New-NsxService -Name $TestServiceName2 -Protocol $TestServicePro
 
 #Create Section
 $l3section = New-NsxFirewallSection $l3sectionname
-$l2section = New-NsxFirewallSection -Name $l2sectionname -layer2sections
+$l2section = New-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections
 
 #Create L3 rule source dest vm, service 1, applied to vm
-Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "TestRule1" -Source $testvm1 -destination $testvm1 -action allow -appliedTo $TestSG -service $testService1
+Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "TestRule1" -Source $testvm1 -destination $testvm1 -action allow -appliedTo $TestSG1 -service $testService1
 #Create new L3 rule with multiple members in source/dest/applied to
 Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "TestRule2" -Source $testvm1,$testvm2 -destination $testvm1,$testvm2 -action allow -appliedTo $TestSG1,$TestSG2 -position bottom -service $testService2
 
@@ -46,7 +48,7 @@ Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "TestRule3" -S
 
 
 #Create an L2 Rule...
-Get-NsxFirewallSection $l2sectionname | New-NsxFirewallRule -Name "TestL2Rule1" -Source $TestMac1 -Destination $TestMac1 -action allow -appliedto $testSG1 -RuleType "layer2sections"
+Get-NsxFirewallSection $l2sectionname | New-NsxFirewallRule -Name "TestL2Rule1" -Source $TestMacSet -Destination $TestMacSet -action allow -appliedto $testSG1 -RuleType "layer2sections"
 
 #Multiple members
 Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "TestL2Rule2" -Source $TestMac1,$testMac2 -Destination $TestMac1,$TestMac2 -action allow -appliedto $testSG1,$TestSG2 -RuleType "layer2sections"
@@ -58,9 +60,9 @@ Get-NsxFireWallSection $l2sectionname | Get-NsxFirewallRule "TestL2Rule1" | remo
 
 Get-NsxFireWallSection $l3sectionname | remove-nsxfirewallsection -force -confirm:$False
 Get-NsxFireWallSection $l2sectionname | remove-nsxfirewallsection -force -confirm:$False
-Get-NsxSecurityGroup $TestSG1 | remove-NsxSecurityGroup -confirm:$False
-Get-NsxSecurityGroup $TestSG2 | remove-NsxSecurityGroup -confirm:$False
-Get-NsxIPSet $TestIPSet | remove-NsxIPSet -confirm:$False
+Get-NsxSecurityGroup $TestSGName1 | remove-NsxSecurityGroup -confirm:$False
+Get-NsxSecurityGroup $TestSGName2 | remove-NsxSecurityGroup -confirm:$False
+Get-NsxIPSet $TestIPSetName | remove-NsxIPSet -confirm:$False
 Get-NsxService $TestServiceName1 | remove-nsxservice -confirm:$False
 Get-NsxService $TestServiceName2 | remove-nsxservice -confirm:$False
 
