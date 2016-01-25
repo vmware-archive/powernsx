@@ -23,6 +23,19 @@ $ip6 = "6.6.6.6"
 
 $vdswitch_name = "mgmt_transit"
 
+$dgaddress = "1.1.1.254"
+$staticroutenet = "20.20.20.0/24"
+$staticroutenexthop = "1.1.1.254"
+
+$OspfAreaId = "50"
+$RouterId = "1.1.1.1"
+$LocalAS = "1234"
+
+$bgpneighbour = "1.1.1.254"
+$RemoteAS = "2345"
+
+$PrefixName = "TestPrefix"
+$PrefixNetwork = "1.2.3.0/24"
 
 
 $ls1 = get-nsxtransportzone | new-nsxlogicalswitch $ls1_name
@@ -59,8 +72,71 @@ Get-NsxEdge $name | Get-NsxEdgeInterface "Vnic3" | Get-NsxEdgeSubInterface -Inde
 Get-NsxEdge $name | Get-NsxEdgeInterface -index 3 | Clear-NsxEdgeInterface -confirm:$false
 Get-NsxEdge $name | Get-NsxEdgeInterface "vNic4" | Clear-NsxEdgeInterface -confirm:$false
 
+#Static Routing
+####
 
-#Clean up
+#configure Default route
+Get-NsxEdge $name | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayVnic 1 -DefaultGatewayAddress $dgaddress -Confirm:$false
+
+#Add a static route
+Get-NsxEdge $name | Get-NsxEdgeRouting | New-NsxEdgeStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop -confirm:$false
+
+#Enable OSPF and define router id.
+Get-NsxEdge $Name | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableOspf -RouterId $routerId -Confirm:$false
+
+#Add an OSPF Area
+Get-NsxEdge $name | Get-NsxEdgeRouting | New-NsxEdgeOspfArea -AreaId $OspfAreaId -Confirm:$false
+
+#Add an OSPF Interface
+Get-NsxEdge $name | Get-NsxEdgeRouting | New-NsxEdgeOspfInterface -AreaId $OspfAreaId -Vnic 1 -confirm:$false
+
+
+#BGP
+###
+#Enable BGP and define router id.
+Get-NsxEdge $Name | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgp -RouterId $routerId -LocalAS $LocalAS -Confirm:$false
+
+#Add a BGP Neighbour
+Get-NsxEdge $name | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs -confirm:$false
+
+
+
+#Route redistribution
+###
+#Create a prefix 
+Get-NsxEdge $Name | Get-NsxEdgeRouting | New-NsxEdgePrefix -Name $PrefixName -Network $PrefixNetwork -confirm:$false
+
+#EnableRouteRedist from static / connected into Ospf
+Get-NsxEdge $Name | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName $PrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
+
+#EnableRouteRedist from static / connected and ospf into BGP
+Get-NsxEdge $Name | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName $PrefixName -Learner bgp -FromConnected -FromStatic -FromOspf -Action permit -confirm:$false
+
+#Routing Cleanup
+####
+
+#Get and Remove Route Redist Rules
+Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner ospf | Remove-NsxEdgeRedistributionRule -Confirm:$false
+Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner bgp | Remove-NsxEdgeRedistributionRule -Confirm:$false
+
+#Get and Remove a static route
+Get-NsxEdge $name | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop | Remove-NsxEdgeStaticRoute -Confirm:$false
+
+#Get and remove an OSPF Interface
+Get-NsxEdge $name | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface -AreaId $OspfAreaId -VnicId 1 | Remove-NsxEdgeOspfInterface -confirm:$false
+
+#Get and remove an OSPF Area
+Get-NsxEdge $name | Get-NsxEdgeRouting | Get-NsxEdgeOspfArea -AreaId $OspfAreaId | Remove-NsxEdgeOspfArea -confirm:$false
+
+
+#Get and remove a BGP Neighbour
+Get-NsxEdge $name | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs | Remove-NsxEdgeBgpNeighbour -confirm:$false
+
+#Disable BGP and OSPF
+Get-NsxEdge $Name | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgp:$false -EnableOspf:$false -Confirm:$false
+
+
+#General Clean up
 get-NsxEdge  $name | remove-NsxEdge -confirm:$false
 start-sleep 10
 get-nsxtransportzone | get-nsxlogicalswitch $ls1_name | remove-nsxlogicalswitch -confirm:$false
