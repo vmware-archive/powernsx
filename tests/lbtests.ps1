@@ -1,4 +1,4 @@
-##Spins up a test ESG and exercises all edge cmdlet functionality
+##Spins up a test ESG and exercises all LB cmdlet functionality
 
 $cl = get-cluster mgmt01
 $ds = get-datastore Data
@@ -24,29 +24,29 @@ $vnic0 = New-NsxEdgeInterfaceSpec -index 1 -Type uplink -Name "vNic1" -Connected
 $vnic1 = New-NsxEdgeInterfaceSpec -index 2 -Type internal -Name "vNic2" -ConnectedTo $ls2 -PrimaryAddress $ip2 -SubnetPrefixLength 24
 
 
-New-NsxEdgeServicesGateway -Name $name -Interface $vnic0,$vnic1,$vnic2 -Cluster $cl -Datastore $ds -password "VMware1!VMware1!"
+New-NsxEdge -Name $name -Interface $vnic0,$vnic1 -Cluster $cl -Datastore $ds -password "VMware1!VMware1!"
 
 #enable LB
-get-nsxedgeservicesgateway $name | Update-NsxEdgeServicesGateway -EnableLoadBalancing -EnableAcceleration
-$monitor = get-nsxedgeservicesgateway $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor default_http_monitor 
-$AppProfile = get-nsxedgeservicesgateway $name | New-NsxLoadBalancerApplicationProfile -Name HTTP -Type HTTP -insertXForwardedFor
+get-NsxEdge $name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled -EnableAcceleration
+$monitor = get-NsxEdge $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor default_http_monitor 
+$AppProfile = get-NsxEdge $name | Get-NsxLoadBalancer |New-NsxLoadBalancerApplicationProfile -Name HTTP -Type HTTP -insertXForwardedFor
 
 #Web Pool
 $WebMember1 = New-NsxLoadBalancerMemberSpec -name Web01 -IpAddress 192.168.200.11 -Port 80
 $WebMember2 = New-NsxLoadBalancerMemberSpec -name Web02 -IpAddress 192.168.200.12 -Port 80
-$WebPool = get-nsxedgeservicesgateway $name | New-NsxLoadBalancerPool -Name WebPool -Description "WebServer Pool" -Transparent:$false -Algorithm round-robin -Monitor $monitor -MemberSpec $WebMember1,$WebMember2
+$WebPool = get-NsxEdge $name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -Name WebPool -Description "WebServer Pool" -Transparent:$false -Algorithm round-robin -Monitor $monitor -MemberSpec $WebMember1,$WebMember2
 
 #WebVIP
-$WebVip = get-nsxedgeservicesgateway $name | New-NsxLoadBalancerVip -Name WebVip -Description testdesc -IpAddress $ip1 -Protocol http -Port 80 -ApplicationProfile $AppProfile -DefaultPool $WebPool -AccelerationEnabled
+$WebVip = get-NsxEdge $name | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -Name WebVip -Description testdesc -IpAddress $ip1 -Protocol http -Port 80 -ApplicationProfile $AppProfile -DefaultPool $WebPool -AccelerationEnabled
 
 #Remove Vip
-get-nsxedgeservicesgateway $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVip WebVip| Remove-nsxLoadbalancerVip -confirm:$false
+get-NsxEdge $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVip WebVip| Remove-nsxLoadbalancerVip -confirm:$false
 
 #Remove Pool
-get-nsxedgeservicesgateway $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool WebPool | remove-nsxLoadbalancerPool
+get-NsxEdge $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool WebPool | remove-nsxLoadbalancerPool -confirm:$false
 
 #Create empty pool
-$webPool = get-nsxedgeservicesgateway $name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -Name WebPool -Description "WebServer Pool" -Transparent:$false -Algorithm round-robin -Monitor $monitor
+$webPool = get-NsxEdge $name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -Name WebPool -Description "WebServer Pool" -Transparent:$false -Algorithm round-robin -Monitor $monitor
 #Add Member
 $WebPool = $WebPool | Add-NsxLoadBalancerPoolMember -Name Web01 -IpAddress 192.168.200.11 -port 80
 $WebPool = $WebPool | Add-NsxLoadBalancerPoolMember -Name Web02 -IpAddress 192.168.200.12 -port 80
@@ -62,13 +62,13 @@ $WebPool = $Webpool | Get-NsxLoadBalancerPoolMember Web02 | remove-nsxLoadbalanc
 #Still to do.
 
 #Remove LB ViP
-get-nsxedgeservicesgateway $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVip WebVip | remove-nsxLoadbalancerVip -confirm:$false
+get-NsxEdge $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVip WebVip | remove-nsxLoadbalancerVip -confirm:$false
 
 
 
 
 #Clean up
-get-nsxedgeservicesgateway  $name | remove-nsxedgeservicesgateway -confirm:$false
+get-NsxEdge  $name | remove-NsxEdge -confirm:$false
 start-sleep 10
 get-nsxtransportzone | get-nsxlogicalswitch $ls1_name | remove-nsxlogicalswitch -confirm:$false
 get-nsxtransportzone | get-nsxlogicalswitch $ls2_name | remove-nsxlogicalswitch -confirm:$false
