@@ -17,7 +17,7 @@ See [[Usage]] for how to get started.
 
 ## Contribution guidelines ##
 
-Feature requests are more than welcome, just dont get your hopes up.
+Feature requests are more than welcome, just dont get your hopes up. :)
 Patches are welcome for bugs/new functionality.
 
 ## Who do I talk to? ##
