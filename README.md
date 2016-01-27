@@ -15,11 +15,11 @@ See [[Setup]] for setup details.
 
 See [[Usage]] for how to get started.
 
-### Contribution guidelines ###
+## Contribution guidelines ##
 
 * Feature requests are more than welcome, just dont get your hopes up.
 * Patches are welcome for bugs/new functionality.
 
-### Who do I talk to? ###
+## Who do I talk to? ##
 
 * Im just one guy but feel free to contact me at nbradford@vmware.com.
