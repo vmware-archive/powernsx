@@ -11,7 +11,7 @@
 #     PowerShell extensions for NSX for vSphere
 #--------------------------------------------------
 
-## Note: The OvfConfiguration portion of this example relies on an internal VMware OVA. The securityGroup and Firewall configuration have a MANDATORY DEPENDANCY on this OVA being deployed at runtime. The script will fail if the conditions are not met. At a later time this will be addressed.
+## Note: The OvfConfiguration portion of this example relies on this OVA. The securityGroup and Firewall configuration have a MANDATORY DEPENDANCY on this OVA being deployed at runtime. The script will fail if the conditions are not met. This OVA can be found here http://goo.gl/oBAFgq
 
 # This paramter block defines global variables which a user can override with switches on execution.
 param (
