@@ -11,9 +11,7 @@ It is unlikely that it will ever expose 100% of the NSX API, but feature request
 
 PowerNSX is currently a work in progress and is not yet feature complete. 
 
-See [[Setup]] for setup details.
-
-See [[Usage]] for how to get started.
+See the Wiki for Setup and Usage instructions
 
 ## Contribution guidelines ##
 
