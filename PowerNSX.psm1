@@ -4995,7 +4995,9 @@ function Get-NsxEdgeNatRule {
             [System.Xml.XmlElement]$EdgeNat,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
-            [String]$RuleId    
+            [String]$RuleId,
+        [Parameter (Mandatory=$false)]
+            [switch]$ShowInternal=$false    
         
     )
     
@@ -5016,6 +5018,10 @@ function Get-NsxEdgeNatRule {
             $RuleCollection = $_EdgeNatRules.natRule
             if ( $PsBoundParameters.ContainsKey('RuleId')) {
                 $RuleCollection = $RuleCollection | ? { $_.ruleId -eq $RuleId }
+            }
+
+            if ( -not $ShowInternal ) {
+                $RuleCollection = $RuleCollection | ? { $_.ruleType -eq 'user' }
             }
 
             foreach ( $Rule in $RuleCollection ) { 
@@ -5067,7 +5073,7 @@ function New-NsxEdgeNatRule {
         [Parameter (Mandatory=$True)]
             [Validateset("dnat","snat",ignorecase=$false)]
             [string]$action,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$false)]
             [string]$Protocol,
         [Parameter (Mandatory=$False)]
             [string]$Description,   
@@ -5090,62 +5096,52 @@ function New-NsxEdgeNatRule {
     process {
 
         #Store the edgeId and remove it from the XML as we need to post it...
-        $edgeId = $EdgeNat.edgeId
+        $EdgeId = $EdgeNat.edgeId
        
         #Create the new rules + rule element.
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-        $Rules = $xmlDoc.CreateElement('natRules')
-        $Rule = $xmlDoc.CreateElement('natRule')
-        $xmlDoc.AppendChild($Rules)
-        $Rules.AppendChild($Rule) 
+        $Rules = $xmlDoc.CreateElement('natRules') 
+        $Rule = $xmlDoc.CreateElement('natRule') 
+        $xmlDoc.AppendChild($Rules) | out-null
+        $Rules.AppendChild($Rule)  | out-null
 
         #Append the mandatory props
-        Add-XmlElement -xmlRoot $Route -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
-        Add-XmlElement -xmlRoot $Route -xmlElementName "originalAddress" -xmlElementText $OriginalAddress.ToString()
-        Add-XmlElement -xmlRoot $Route -xmlElementName "translatedAddress" -xmlElementText $TranslatedAddress.ToString()
-        Add-XmlElement -xmlRoot $Route -xmlElementName "action" -xmlElementText $Action.ToString()
-        Add-XmlElement -xmlRoot $Route -xmlElementName "protocol" -xmlElementText $Protocol.ToString()
-        Add-XmlElement -xmlRoot $Route -xmlElementName "loggingEnabled" -xmlElementText $LoggingEnabled.ToString().tolower()
-        Add-XmlElement -xmlRoot $Route -xmlElementName "enabled" -xmlElementText $Enabled.ToString().tolower()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "originalAddress" -xmlElementText $OriginalAddress.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "translatedAddress" -xmlElementText $TranslatedAddress.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "action" -xmlElementText $Action.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "loggingEnabled" -xmlElementText $LoggingEnabled.ToString().tolower()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "enabled" -xmlElementText $Enabled.ToString().tolower()
 
         #Now the optional ones
+        if ( $PsBoundParameters.ContainsKey("Protocol") ) { 
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "protocol" -xmlElementText $Protocol.ToString()
+        }
+
         if ( $PsBoundParameters.ContainsKey("Description") ) { 
-            Add-XmlElement -xmlRoot $Route -xmlElementName "description" -xmlElementText $Description.ToString()
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "description" -xmlElementText $Description.ToString()
         }
 
         if ( $PsBoundParameters.ContainsKey("OriginalPort") ) { 
-            Add-XmlElement -xmlRoot $Route -xmlElementName "originalPort" -xmlElementText $OriginalPort.ToString()
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "originalPort" -xmlElementText $OriginalPort.ToString()
         }
 
         if ( $PsBoundParameters.ContainsKey("TranslatedPort") ) { 
-            Add-XmlElement -xmlRoot $Route -xmlElementName "translatedPort" -xmlElementText $TranslatedPort.ToString()
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "translatedPort" -xmlElementText $TranslatedPort.ToString()
         }
     
         if ( $PsBoundParameters.ContainsKey("IcmpType") ) { 
-            Add-XmlElement -xmlRoot $Route -xmlElementName "icmpType" -xmlElementText $IcmpTyle.ToString()
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "icmpType" -xmlElementText $IcmpType.ToString()
         }
 
 
-        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
-        $body = $_EdgeRouting.OuterXml 
-       
-        
-        if ( $confirm ) { 
-            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
-            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-        }    
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
-            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute -Network $Network -NextHop $NextHop
-        }
+        $URI = "/api/4.0/edges/$EdgeId/nat/config/rules"
+        $body = $Rules.OuterXml 
+   
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+        Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeNat | Get-NsxEdgeNatRule | select -last 1
     }
 
     end {}
