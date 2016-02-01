@@ -2326,7 +2326,97 @@ function Get-NsxCliDfwAddrSet {
 }
 Export-ModuleMember -Function Get-NsxCliDfwAddrSet
 
+function Get-NsxHostUvsmLogging {
 
+    <#
+    .SYNOPSIS
+    Retrieves the Uvsm Logging level from the specified host.
+
+    .DESCRIPTION
+
+    
+    .EXAMPLE
+
+    #>
+
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VMHostImpl]$VMHost
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        #UVSM Logging URI
+        $URI = "/api/1.0/usvmlogging/$($VMHost.Extensiondata.Moref.Value)/root"
+        try { 
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+           [PSCustomobject]@{
+                "LoggerName"=$response.LoggingLevel.LoggerName;
+                "LogLevel"=$response.LoggingLevel.Level;
+                "HostName"=$VMhost.Name;
+                "HostId"=$VMhost.Extensiondata.Moref.Value
+            }
+        }
+        catch {
+            write-warning "Error querying host $($VMhost.Name) for UVSM logging status.  Check Guest Introspection is enabled, and USVM is available." 
+        }
+
+    }
+
+    end {}
+}
+function Set-NsxHostUvsmLogging {
+
+    <#
+    .SYNOPSIS
+    Sets the Uvsm Logging on the specified host.
+
+    .DESCRIPTION
+
+    
+    .EXAMPLE
+
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VMHostImpl]$VMHost,
+        [Parameter (Mandatory=$true)]
+            [ValidateSet("OFF", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE",IgnoreCase=$false)]
+            [string]$LogLevel    
+    )
+
+
+    begin {}
+    process { 
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("logginglevel")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "loggerName" -xmlElementText "root"
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "level" -xmlElementText $LogLevel
+
+        # #Do the post
+        $body = $xmlroot.OuterXml
+        $URI = "/api/1.0/usvmlogging/$($VMhost.Extensiondata.Moref.Value)/changelevel"
+        Write-Progress -activity "Updating log level on host $($VMhost.Name)"    
+        invoke-nsxwebrequest -method "post" -uri $URI -body $body | out-null
+        Write-progress -activity "Updating log level on host $($VMhost.Name)" -completed
+
+    }
+    end {}
+}
 
 
 #########
