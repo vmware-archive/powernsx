@@ -1125,6 +1125,73 @@ Function Validate-EdgeSubInterface {
     $true
 }
 
+Function Validate-EdgeNat {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an EdgeNAT element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name version -Membertype Properties)) { 
+            throw "XML Element specified does not contain an version property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        if ( -not ( $argument | get-member -name natRules -Membertype Properties)) { 
+            throw "XML Element specified does not contain a natRules property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LoadBalancer object."
+    }
+}
+
+Function Validate-EdgeNatRule {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an EdgeNAT element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name ruleId -Membertype Properties)) { 
+            throw "XML Element specified does not contain a ruleId property."
+        }
+        if ( -not ( $argument | get-member -name ruleType -Membertype Properties)) { 
+            throw "XML Element specified does not contain a ruleType property."
+        }
+        if ( -not ( $argument | get-member -name action -Membertype Properties)) { 
+            throw "XML Element specified does not contain an action property."
+        }
+        if ( -not ( $argument | get-member -name vnic -Membertype Properties)) { 
+            throw "XML Element specified does not contain a vnic property."
+        }
+        if ( -not ( $argument | get-member -name translatedAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain a translatedAddress property."
+        }
+        if ( -not ( $argument | get-member -name originalAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain an originalAddress property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LoadBalancer object."
+    }
+}
+
 Function Validate-SecurityGroupMember { 
     
     Param (
@@ -4752,6 +4819,408 @@ function Remove-NsxEdge {
     end {}
 }
 Export-ModuleMember -Function Remove-NsxEdge
+
+#########
+#########
+# Edge NAT related functions
+function Set-NsxEdgeNat {
+    
+    <#
+    .SYNOPSIS
+    Configures global NAT configuration of an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    You can configure NAT rules to provide access to services running on 
+    privately addressed virtual machines.  There are two types of NAT rules that
+    can be configured: SNAT and DNAT. 
+
+    The Set-NsxEdgeNat cmdlet configures the global NAT configuration of
+    the specified Edge Services Gateway.
+    
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeNat $_ })]
+            [System.Xml.XmlElement]$EdgeNat,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled 
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeNat = $EdgeNat.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeNat.edgeId
+        $_EdgeNat.RemoveChild( $($_EdgeNat.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled') ) { 
+            if ( $Enabled ) { 
+                $_EdgeNat.enabled = 'true'
+            }
+            else {
+                $_EdgeNat.enabled = 'false'
+            }
+        }
+
+        $URI = "/api/4.0/edges/$($EdgeId)/nat/config"
+        $body = $_EdgeNat.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway NAT update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeNat
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Set-NsxEdgeNat
+
+function Get-NsxEdgeNat {
+    
+    <#
+    .SYNOPSIS
+    Gets global NAT configuration of an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    You can configure NAT rules to provide access to services running on 
+    privately addressed virtual machines.  There are two types of NAT rules that
+    can be configured: SNAT and DNAT. 
+
+    The Get-NsxEdgeNat cmdlet retreives the global NAT configuration of
+    the specified Edge Services Gateway.
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeNat = $Edge.features.nat.CloneNode($True)
+        Add-XmlElement -xmlRoot $_EdgeNat -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_EdgeNat
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeNat 
+
+function Get-NsxEdgeNatRule {
+    
+    <#
+    .SYNOPSIS
+    Retreives NAT rules from the spcified NSX Edge Services Gateway NAT 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    The Get-NsxEdgeNatRule cmdlet retreives the nat rules from the 
+    nat configuration specified.
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeNat $_ })]
+            [System.Xml.XmlElement]$EdgeNat,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$RuleId    
+        
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeNat = ($EdgeNat.CloneNode($True))
+        $_EdgeNatRules = $_EdgeNat.SelectSingleNode('descendant::natRules')
+
+        #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called natRule.
+        If ( $_EdgeNatRules.SelectSingleNode('descendant::natRule')) { 
+
+            $RuleCollection = $_EdgeNatRules.natRule
+            if ( $PsBoundParameters.ContainsKey('RuleId')) {
+                $RuleCollection = $RuleCollection | ? { $_.ruleId -eq $RuleId }
+            }
+
+            foreach ( $Rule in $RuleCollection ) { 
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "edgeId" -xmlElementText $EdgeNat.EdgeId
+            }
+
+            $RuleCollection
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeNatRule
+
+function New-NsxEdgeNatRule {
+    
+    <#
+    .SYNOPSIS
+    Creates a new NAT rule and adds it to the specified ESGs NAT configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    The New-NsxEdgeNatRule cmdlet creates a new NAT rule in the nat 
+    configuration specified.
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeNat $_ })]
+            [System.Xml.XmlElement]$EdgeNat,       
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,200)]
+            [int]$Vnic,                  
+        [Parameter (Mandatory=$True)]
+            [string]$OriginalAddress,
+        [Parameter (Mandatory=$True)]
+            [string]$TranslatedAddress,
+        [Parameter (Mandatory=$True)]
+            [Validateset("dnat","snat",ignorecase=$false)]
+            [string]$action,
+        [Parameter (Mandatory=$true)]
+            [string]$Protocol,
+        [Parameter (Mandatory=$False)]
+            [string]$Description,   
+        [Parameter (Mandatory=$False)]
+            [switch]$LoggingEnabled=$false,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled=$true, 
+        [Parameter (Mandatory=$false)]
+            [string]$OriginalPort,        
+        [Parameter (Mandatory=$false)]
+            [string]$TranslatedPort,
+        [Parameter (Mandatory=$false)]
+            [string]$IcmpType 
+        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $EdgeNat.edgeId
+       
+        #Create the new rules + rule element.
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        $Rules = $xmlDoc.CreateElement('natRules')
+        $Rule = $xmlDoc.CreateElement('natRule')
+        $xmlDoc.AppendChild($Rules)
+        $Rules.AppendChild($Rule) 
+
+        #Append the mandatory props
+        Add-XmlElement -xmlRoot $Route -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
+        Add-XmlElement -xmlRoot $Route -xmlElementName "originalAddress" -xmlElementText $OriginalAddress.ToString()
+        Add-XmlElement -xmlRoot $Route -xmlElementName "translatedAddress" -xmlElementText $TranslatedAddress.ToString()
+        Add-XmlElement -xmlRoot $Route -xmlElementName "action" -xmlElementText $Action.ToString()
+        Add-XmlElement -xmlRoot $Route -xmlElementName "protocol" -xmlElementText $Protocol.ToString()
+        Add-XmlElement -xmlRoot $Route -xmlElementName "loggingEnabled" -xmlElementText $LoggingEnabled.ToString().tolower()
+        Add-XmlElement -xmlRoot $Route -xmlElementName "enabled" -xmlElementText $Enabled.ToString().tolower()
+
+        #Now the optional ones
+        if ( $PsBoundParameters.ContainsKey("Description") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("OriginalPort") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "originalPort" -xmlElementText $OriginalPort.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("TranslatedPort") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "translatedPort" -xmlElementText $TranslatedPort.ToString()
+        }
+    
+        if ( $PsBoundParameters.ContainsKey("IcmpType") ) { 
+            Add-XmlElement -xmlRoot $Route -xmlElementName "icmpType" -xmlElementText $IcmpTyle.ToString()
+        }
+
+
+        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+        $body = $_EdgeRouting.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute -Network $Network -NextHop $NextHop
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function New-NsxEdgeNatRule
+
+function Remove-NsxEdgeNatRule {
+    
+    <#
+    .SYNOPSIS
+    Removes a NAT Rule from the specified ESGs NAT configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    The Remove-NsxEdgeNatRule cmdlet removes a specific NAT rule from the NAT
+    configuration of the specified Edge Services Gateway.
+
+    Rules to be removed can be constructed via a PoSH pipline filter outputing
+    rule objects as produced by Get-NsxEdgeNatRule and passing them on the
+    pipeline to Remove-NsxEdgeNatRule.
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeNatRule $_ })]
+            [System.Xml.XmlElement]$NatRule,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the rule config for our Edge
+        $edgeId = $NatRule.edgeId
+        $ruleId = $NatRule.ruleId
+
+    
+        $URI = "/api/4.0/edges/$EdgeId/nat/config/rules/$ruleId"
+       
+            
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway nat rule update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $EdgeId?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $EdgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI
+            write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxEdgeNatRule
+
 
 #########
 #########
