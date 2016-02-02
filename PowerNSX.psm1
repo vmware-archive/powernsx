@@ -1192,6 +1192,44 @@ Function Validate-EdgeNatRule {
     }
 }
 
+Function Validate-EdgeSslVpn {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name logging -Membertype Properties)) { 
+            throw "XML Element specified does not contain a logging property."
+        }
+        if ( -not ( $argument | get-member -name advancedConfig -Membertype Properties)) { 
+            throw "XML Element specified does not contain an advancedConfig property."
+        }
+        if ( -not ( $argument | get-member -name clientConfiguration -Membertype Properties)) { 
+            throw "XML Element specified does not contain a clientConfiguration property."
+        }
+        if ( -not ( $argument | get-member -name layoutConfiguration -Membertype Properties)) { 
+            throw "XML Element specified does not contain a layoutConfiguration property."
+        }
+        if ( -not ( $argument | get-member -name authenticationConfiguration -Membertype Properties)) { 
+            throw "XML Element specified does not contain a authenticationConfiguration property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN object."
+    }
+}
+
 Function Validate-SecurityGroupMember { 
     
     Param (
@@ -5216,6 +5254,401 @@ function Remove-NsxEdgeNatRule {
     end {}
 }
 Export-ModuleMember -Function Remove-NsxEdgeNatRule
+
+
+
+#########
+#########
+# Edge Certificate related functions
+
+function Get-NsxEdgeCsr {
+ 
+    <#
+    .SYNOPSIS
+    Gets SSL Certificate Signing Requests from an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    Certificate Signing Requests define the subject details to be included in
+    an SSL certificate and are the object that is signed by a Certificate 
+    Authority in order to provide a valid certificate
+
+    The Get-NsxEdgeCsr cmdlet retreives csr's definined on the specified Edge 
+    Services Gateway, or with the specified objectId
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Edge")]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+            [string]$objectId
+    )
+    
+    begin {}
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('objectId')) {
+
+            #Just getting a single named csr by id group
+            $URI = "/api/2.0/services/truststore/csr/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            if ( $response ) {
+                $response.csr
+            }
+            
+        }
+        else {
+
+            $URI = "/api/2.0/services/truststore/csr/scope/$($Edge.Id)"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+
+            if ( $response ) { 
+                $response.csrs.csr
+            }
+        }
+    }
+
+    end {}
+}
+
+Export-ModuleMember -function Get-NsxEdgeCsr
+
+
+function New-NsxEdgeCsr{
+
+    <#
+    .SYNOPSIS
+    Creates a new SSL Certificate Signing Requests on an existing NSX Edge 
+    Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    Certificate Signing Requests define the subject details to be included in
+    an SSL certificate and are the object that is signed by a Certificate 
+    Authority in order to provide a valid certificate
+
+    The New-NsxEdgeCsr cmdlet creates a new csr on the specified Edge Services 
+    Gateway.
+
+    
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,                              
+        [Parameter (Mandatory=$True)]
+            [string]$CommonName,   
+        [Parameter (Mandatory=$True)]
+            [string]$Organisation,   
+        [Parameter (Mandatory=$True)]
+            [string]$Country,   
+        [Parameter (Mandatory=$True)]
+            [string]$OrganisationalUnit, 
+        [Parameter (Mandatory=$False)]
+            [ValidateSet(2048,3072)]
+            [int]$Keysize=2048, 
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("RSA", "DSA", IgnoreCase=$false )]
+            [string]$Algorithm="RSA",
+        [Parameter (Mandatory=$False)]
+            [string]$Description, 
+        [Parameter (Mandatory=$False)]
+            [string]$Name
+    )
+    
+    begin {
+    }
+
+    process {
+
+
+        $edgeId = $Edge.Id
+
+        #Create the new csr element and subject child element.
+        [System.Xml.XmlDocument] $xmlDoc = New-Object System.Xml.XmlDocument
+        $csr = $xmlDoc.CreateElement('csr')
+        $subject = $xmlDoc.CreateElement('subject')
+        $csr.AppendChild($subject) | out-null
+
+        #Common Name
+        $CnAttribute = $xmlDoc.CreateElement('attribute') 
+        $subject.AppendChild($CnAttribute) | out-null
+        Add-XmlElement -xmlRoot $CnAttribute -xmlElementName "key" -xmlElementText "CN"
+        Add-XmlElement -xmlRoot $CnAttribute -xmlElementName "value" -xmlElementText $CommonName.ToString()
+
+        #Organisation
+        $OAttribute = $xmlDoc.CreateElement('attribute') 
+        $subject.AppendChild($OAttribute) | out-null
+        Add-XmlElement -xmlRoot $OAttribute -xmlElementName "key" -xmlElementText "O"
+        Add-XmlElement -xmlRoot $OAttribute -xmlElementName "value" -xmlElementText $Organisation.ToString()
+
+        #OU
+        $OuAttribute = $xmlDoc.CreateElement('attribute') 
+        $subject.AppendChild($OuAttribute) | out-null
+        Add-XmlElement -xmlRoot $OuAttribute -xmlElementName "key" -xmlElementText "OU"
+        Add-XmlElement -xmlRoot $OuAttribute -xmlElementName "value" -xmlElementText $OrganisationalUnit.ToString()
+
+        #Country
+        $CAttribute = $xmlDoc.CreateElement('attribute') 
+        $subject.AppendChild($CAttribute) | out-null
+        Add-XmlElement -xmlRoot $CAttribute -xmlElementName "key" -xmlElementText "C"
+        Add-XmlElement -xmlRoot $CAttribute -xmlElementName "value" -xmlElementText $Country.ToString()
+
+        #Algo
+        Add-XmlElement -xmlRoot $csr -xmlElementName "algorithm" -xmlElementText $Algorithm.ToString()
+
+        #KeySize
+        Add-XmlElement -xmlRoot $csr -xmlElementName "keySize" -xmlElementText $Keysize.ToString()
+       
+        #Name
+        if ( $PsBoundParameters.ContainsKey('Name')) { 
+            Add-XmlElement -xmlRoot $csr -xmlElementName "name" -xmlElementText $Name.ToString()
+        }
+
+        #Description
+        if ( $PsBoundParameters.ContainsKey('Description')) { 
+            Add-XmlElement -xmlRoot $csr -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+
+
+        $URI = "/api/2.0/services/truststore/csr/$edgeId"
+        $body = $csr.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $EdgeId"
+        $response = Invoke-NsxRestMethod -method "post" -uri $URI -body $body
+        write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+        $response.csr
+        
+    }
+
+    end {}
+
+}
+Export-ModuleMember -function New-NsxEdgeCrl
+
+function Remove-NsxEdgeCrl{
+
+}
+Export-ModuleMember -function Remove-NsxEdgeCrl
+
+function Get-NsxEdgeCertificate{
+
+}
+Export-ModuleMember -function Get-NsxEdgeCertificate
+
+function New-NsxEdgeCertificate{
+
+}
+Export-ModuleMember -function New-NsxEdgeCertificate
+
+function Remove-NsxEdgeCertificate{
+
+}
+Export-ModuleMember -function Remove-NsxEdgeCertificate
+
+
+#########
+#########
+# Edge SSL VPN related functions
+
+function Get-NsxEdgeSslVpn {
+  
+    <#
+    .SYNOPSIS
+    Gets global SSLVPN configuration of an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL VPN allows remote users to connect securely to private networks behind an
+    NSX Edge Services gateway and access servers and applications 
+    in the private networks.
+
+    The Get-NsxEdgeSsslVpn cmdlet retreives the global SSLVPN configuration of
+    the specified Edge Services Gateway.
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $Edge.features.sslvpnConfig.CloneNode($True)
+        Add-XmlElement -xmlRoot $_EdgeSslVpn -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_EdgeSslVpn
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeSslVpn
+
+function Set-NsxEdgeSslVpn {
+
+    #To do, portal customisation, server ip config...
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$EdgeSslVpn,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableCompression,
+        [Parameter (Mandatory=$False)]
+            [switch]$ForceVirtualKeyboard,
+        [Parameter (Mandatory=$False)]
+            [switch]$RandomizeVirtualkeys,
+        [Parameter (Mandatory=$False)]
+            [switch]$PreventMultipleLogon,
+        [Parameter (Mandatory=$False)]
+            [string]$ClientNotification,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnablePublicUrlAccess,
+        [Parameter (Mandatory=$False)]
+            [int]$ForcedTimeout,
+        [Parameter (Mandatory=$False)]
+            [int]$SessionIdleTimeout,
+        [Parameter (Mandatory=$False)]
+            [switch]$ClientAutoReconnect,
+        [Parameter (Mandatory=$False)]
+            [switch]$ClientUpgradeNotification,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableLogging,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
+            [string]$LogLevel  
+
+
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+         #Create private xml element
+        $_EdgeSslVpn = $EdgeSslVpn.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeSslVpn.edgeId
+        $_EdgeSslVpn.RemoveChild( $($_EdgeSslVpn.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled')) { 
+            $_EdgeSslVpn.enabled = $EnableCompression.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('EnableCompression')) { 
+            $_EdgeSslVpn.advancedConfig.enableCompression = $EnableCompression.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('ForceVirtualKeyboard')) { 
+            $_EdgeSslVpn.advancedConfig.ForceVirtualKeyboard = $ForceVirtualKeyboard.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('RandomizeVirtualkeys')) { 
+            $_EdgeSslVpn.advancedConfig.RandomizeVirtualkeys = $RandomizeVirtualkeys.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('PreventMultipleLogon')) { 
+            $_EdgeSslVpn.advancedConfig.PreventMultipleLogon = $PreventMultipleLogon.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('EnablePublicUrlAccess')) { 
+            $_EdgeSslVpn.advancedConfig.EnablePublicUrlAccess = $EnablePublicUrlAccess.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('ClientNotification')) { 
+            $_EdgeSslVpn.advancedConfig.ClientNotification = $ClientNotification.toString()
+        }
+        if ( $PsBoundParameters.ContainsKey('ForcedTimeout')) { 
+            $_EdgeSslVpn.advancedConfig.timeout.ForcedTimeout = $ForcedTimeout.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('SessionIdleTimeout')) { 
+            $_EdgeSslVpn.advancedConfig.timeout.SessionIdleTimeout = $SessionIdleTimeout.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('ClientAutoReconnect')) { 
+            $_EdgeSslVpn.clientConfiguration.AutoReconnect = $ClientAutoReconnect.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('ClientUpgradeNotification')) { 
+            $_EdgeSslVpn.clientConfiguration.UpgradeNotification = $ClientUpgradeNotification.ToString().tolower()
+        }
+        if ( $PsBoundParameters.ContainsKey("EnableLogging")) { 
+            $_EdgeSslVpn.logging.enable = $EnableLogging.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey("LogLevel")) { 
+            $_EdgeSslVpn.logging.logLevel = $LogLevel.ToString().ToLower()
+        }
+
+        $URI = "/api/4.0/edges/$EdgeId/sslvpn/config"
+        $body = $_EdgeSslVpn.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway SSL VPN update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $EdgeId?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeSslVpn
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Set-NsxEdgeSsslVpn
+
+
 
 
 #########
