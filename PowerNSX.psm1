@@ -1230,6 +1230,64 @@ Function Validate-EdgeSslVpn {
     }
 }
 
+Function Validate-EdgeCsr { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name subject -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subject property."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a name property."
+        }
+        if ( -not ( $argument | get-member -name algorithm -Membertype Properties)) { 
+            throw "XML Element specified does not contain an algorithm property."
+        }
+        if ( -not ( $argument | get-member -name keysize -Membertype Properties)) { 
+            throw "XML Element specified does not contain a keysize property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge CSR object."
+    }
+}
+
+Function Validate-EdgeCertificate { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name issuerCn -Membertype Properties)) { 
+            throw "XML Element specified does not contain an issuerCn property."
+        }
+        if ( -not ( $argument | get-member -name subjectCn -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subjectCn property."
+        }
+        if ( -not ( $argument | get-member -name certificateType -Membertype Properties)) { 
+            throw "XML Element specified does not contain a certificateType property."
+        }
+        if ( -not ( $argument | get-member -name x509Certificate -Membertype Properties)) { 
+            throw "XML Element specified does not contain an x509Certificate property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge Certificate object."
+    }
+}
+
 Function Validate-SecurityGroupMember { 
     
     Param (
@@ -5307,7 +5365,9 @@ function Get-NsxEdgeCsr {
             $URI = "/api/2.0/services/truststore/csr/$objectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI
             if ( $response ) {
-                $response.csr
+                if ( $response.SelectSingleNode('descendant::csr')) {
+                    $response.csr
+                }
             }
             
         }
@@ -5317,16 +5377,16 @@ function Get-NsxEdgeCsr {
             $response = invoke-nsxrestmethod -method "get" -uri $URI
 
             if ( $response ) { 
-                $response.csrs.csr
+                if ( $response.SelectSingleNode('descendant::csrs/csr')) {
+                    $response.csrs.csr
+                }
             }
         }
     }
 
     end {}
 }
-
 Export-ModuleMember -function Get-NsxEdgeCsr
-
 
 function New-NsxEdgeCsr{
 
@@ -5445,27 +5505,267 @@ function New-NsxEdgeCsr{
     }
 
     end {}
-
 }
-Export-ModuleMember -function New-NsxEdgeCrl
+Export-ModuleMember -function New-NsxEdgeCsr
 
-function Remove-NsxEdgeCrl{
+function Remove-NsxEdgeCsr{
 
+    <#
+    .SYNOPSIS
+    Remvoves the specificed SSL Certificate Signing Request from an existing NSX
+    Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    Certificate Signing Requests define the subject details to be included in
+    an SSL certificate and are the object that is signed by a Certificate 
+    Authority in order to provide a valid certificate
+
+    The Remove-NsxEdgeCsr cmdlet removes a csr from the specified Edge Services 
+    Gateway.
+
+    CSRs to be removed can be constructed via a PoSH pipline filter outputing
+    csr objects as produced by Get-NsxEdgeCsr and passing them on the
+    pipeline to Remove-NsxEdgeCsr.
+
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeCsr $_ })]
+            [System.Xml.XmlElement]$Csr,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "CSR removal is permanent."
+            $question = "Proceed with removal of CSR $($Csr.objectId)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/2.0/services/truststore/csr/$($csr.objectId)"
+            
+            Write-Progress -activity "Remove CSR $($Csr.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+            write-progress -activity "Remove CSR $($Csr.Name)" -completed
+
+        }
+    }
+
+    end {}
 }
-Export-ModuleMember -function Remove-NsxEdgeCrl
+Export-ModuleMember -Function Remove-NsxEdgeCrl
 
 function Get-NsxEdgeCertificate{
+    
+    <#
+    .SYNOPSIS
+    Gets SSL Certificate from an existing NSX Edge Services 
+    Gateway.
 
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    SSL Certificates are used to provide encyption and trust validation for the 
+    services that use them.
+
+    The Get-NsxEdgeCertificate cmdlet retreives certificates definined on the 
+    specified Edge Services Gateway, or with the specified objectId
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Edge")]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+            [string]$objectId
+    )
+    
+    begin {}
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('objectId')) {
+
+            #Just getting a single named csr by id group
+            $URI = "/api/2.0/services/truststore/certificate/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            if ( $response ) {
+                if ( $response.SelectSingleNode('descendant::certificate')) {
+                    $response.certificate
+                }
+            }
+            
+        }
+        else {
+
+            $URI = "/api/2.0/services/truststore/certificate/scope/$($Edge.Id)"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+
+            if ( $response ) { 
+                if ( $response.SelectSingleNode('descendant::certificates/certificate')) {
+                    $response.certificates.certificate
+                }
+            }
+        }
+    }
+
+    end {}
 }
 Export-ModuleMember -function Get-NsxEdgeCertificate
 
-function New-NsxEdgeCertificate{
+function New-NsxEdgeSelfSignedCertificate{
 
+    <#
+    .SYNOPSIS
+    Signs an NSX Edge Certificate Signing Request on an existing NSX Edge 
+    Services Gateway to create a new Self Signed Certificate
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    Certificate Signing Requests define the subject details to be included in
+    an SSL certificate and are the object that is signed by a Certificate 
+    Authority in order to provide a valid certificate.
+
+    The New-NsxEdgeCertificate cmdlet signs an existing csr on the specified 
+    Edge Services Gateway to create a Self Signed Certificate.
+    
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeCSR $_ })]
+            [System.Xml.XmlElement]$CSR,                              
+        [Parameter (Mandatory=$False)]
+            [int]$NumberOfDays=365
+    )
+    
+    begin {
+    }
+
+    process {
+
+
+        $edgeId = $Csr.Scope.Id
+
+
+        $URI = "/api/2.0/services/truststore/csr/$($csr.objectId)?noOfDays=$NumberOfDays"
+       
+        Write-Progress -activity "Update Edge Services Gateway $EdgeId"
+        $response = Invoke-NsxRestMethod -method "Put" -uri $URI
+        write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+        $response.Certificate
+        
+    }
+
+    end {}
 }
 Export-ModuleMember -function New-NsxEdgeCertificate
 
 function Remove-NsxEdgeCertificate{
+    
+    <#
+    .SYNOPSIS
+    Remvoves the specificed SSL Certificate from an existing NSX Edge Services 
+    Gateway.
 
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    SSL Certificates are used to provide encyption and trust validation for the 
+    services that use them.
+
+    The Remove-NsxEdgeCertificate cmdlet removes a certificate from the 
+    specified Edge Services Gateway.
+
+    Certificates to be removed can be constructed via a PoSH pipeline filter 
+    outputing certificate objects as produced by Get-NsxEdgeCertificate and 
+    passing them on the pipeline to Remove-NsxEdgeCertificate.
+
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeCertificate $_ })]
+            [System.Xml.XmlElement]$Certificate,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Certificate removal is permanent."
+            $question = "Proceed with removal of Certificate $($Certificate.objectId)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/2.0/services/truststore/certificate/$($certificate.objectId)"
+            
+            Write-Progress -activity "Remove Certificate $($Csr.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+            write-progress -activity "Remove Certificate $($Csr.Name)" -completed
+
+        }
+    }
+
+    end {}
 }
 Export-ModuleMember -function Remove-NsxEdgeCertificate
 
@@ -5560,9 +5860,19 @@ function Set-NsxEdgeSslVpn {
             [switch]$EnableLogging,
         [Parameter (Mandatory=$False)]
             [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
-            [string]$LogLevel  
-
-
+            [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            [ipaddress]$ServerAddress,
+        [Parameter (Mandatory=$False)]
+            [int]$ServerPort,
+        [Parameter (Mandatory=$False)]
+            [string]$CertificateID,    
+        [Parameter (Mandatory=$False)]
+            [switch]$Enable_AES128_SHA,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enable_AES256_SHA,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enable_DES_CBC3_SHA
 
     )
     
@@ -5577,6 +5887,7 @@ function Set-NsxEdgeSslVpn {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeSslVpn.edgeId
+
         $_EdgeSslVpn.RemoveChild( $($_EdgeSslVpn.SelectSingleNode('descendant::edgeId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
@@ -5622,13 +5933,103 @@ function Set-NsxEdgeSslVpn {
             $_EdgeSslVpn.logging.logLevel = $LogLevel.ToString().ToLower()
         }
 
+
+        if ( $PsBoundParameters.ContainsKey("ServerAddress") -or
+            $PsBoundParameters.ContainsKey("ServerPort") -or
+            $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") -or
+            $PsBoundParameters.ContainsKey("Enable_AES128_SHA") -or
+            $PsBoundParameters.ContainsKey("Enable_AES256_SHA")) 
+        {
+            
+            if ( -not $_EdgeSslVpn.SelectSingleNode('descendant::serverSettings') ) {
+                $serverSettings = $_EdgeSslVpn.ownerDocument.CreateElement('serverSettings') 
+                $_EdgeSslVpn.AppendChild($serverSettings) | out-null
+            }
+
+            if ( $PsBoundParameters.ContainsKey("ServerAddress")) { 
+                #Set ServerAddress
+                if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::serverAddresses') ) {
+                    $serverAddresses = $_EdgeSslVpn.ownerDocument.CreateElement('serverSettings') 
+                    $_EdgeSslVpn.serverSettings.AppendChild($serverAddresses) | out-null
+                }
+
+                if ( -not $_EdgeSslVpn.serverSettings.serverAddresses.SelectSingleNode('descendant::ipAddress') ) {
+                    Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings.serverAddresses -xmlElementName "ipAddress" -xmlElementText [string]$ServerAddress.IPAddresstoString
+                }
+                else {
+                    $_EdgeSslVpn.serverSettings.serverAddresses.ipAddress = [string]$ServerAddress.IPAddresstoString
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("ServerPort")) { 
+                
+                if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::port') ) {
+                    Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings -xmlElementName "port" -xmlElementText $ServerPort.ToString()
+                }
+                else {
+                    $_EdgeSslVpn.serverSettings.port = $ServerPort.ToString()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("CertificateID")) { 
+
+                if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::certificateId') ) {
+                    Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings -xmlElementName "certificateId" -xmlElementText $CertificateID
+                }
+                else {
+                    $_EdgeSslVpn.serverSettings.certificateId = $CertificateID
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") -or
+                $PsBoundParameters.ContainsKey("Enable_AES128_SHA") -or
+                $PsBoundParameters.ContainsKey("Enable_AES256_SHA")) { 
+
+                if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::cipherList') ) {
+                    $cipherList = $_EdgeSslVpn.ownerDocument.CreateElement('ciperList') 
+                    $_EdgeSslVpn.serverSettings.AppendChild($cipherList) | out-null
+                }
+
+                if ( $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") ) { 
+                    $cipher = $_EdgeSslVpn.serverSettings.cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'DES-CBC3-SHA'}
+                    if ( ( -not $cipher ) -and $Enable_DES_CBC3_SHA ) {
+                        Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings.cipherList -xmlElementName "cipher" -xmlElementText "DES-CBC3-SHA"
+                    }
+                    elseif ( $cipher -and ( -not $Enable_DES_CBC3_SHA )) { 
+                        $_EdgeSslVpn.serverSettings.cipherList.RemoveChild( $cipher )| out-null
+                    }
+                }
+
+
+                if ( $PsBoundParameters.ContainsKey("Enable_AES128_SHA") ) { 
+                    $cipher = $_EdgeSslVpn.serverSettings.cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'AES128-SHA'}
+                    if ( ( -not $cipher ) -and $Enable_AES128_SHA ) {
+                        Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings.cipherList -xmlElementName "cipher" -xmlElementText "AES128-SHA"
+                    }
+                    elseif ( $cipher -and ( -not $Enable_AES128_SHA )) { 
+                        $_EdgeSslVpn.serverSettings.CipherList.RemoveChild( $cipher )| out-null
+                    }
+                }
+
+                if ( $PsBoundParameters.ContainsKey("Enable_AES256_SHA") ) { 
+                    $cipher = $_EdgeSslVpn.serverSettings.cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'AES256-SHA'}
+                    if ( ( -not $cipher ) -and $Enable_AES256_SHA ) {
+                        Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings.cipherList -xmlElementName "cipher" -xmlElementText "AES256-SHA"
+                    }
+                    elseif ( $cipher -and ( -not $Enable_AES256_SHA )) { 
+                        $_EdgeSslVpn.serverSettings.CipherList.RemoveChild( $cipher ) | out-null
+                    }
+                }
+            }
+        }
+
         $URI = "/api/4.0/edges/$EdgeId/sslvpn/config"
         $body = $_EdgeSslVpn.OuterXml 
        
         
         if ( $confirm ) { 
             $message  = "Edge Services Gateway SSL VPN update will modify existing Edge configuration."
-            $question = "Proceed with Update of Edge Services Gateway $EdgeId?"
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
