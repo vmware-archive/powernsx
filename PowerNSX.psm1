@@ -1288,6 +1288,99 @@ Function Validate-EdgeCertificate {
     }
 }
 
+Function Validate-EdgeSslVpnUser { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name userId -Membertype Properties)) { 
+            throw "XML Element specified does not contain a userId property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeID property."
+        }
+
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN User object."
+    }
+}
+
+Function Validate-EdgeSslVpnIpPool { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name ipRange -Membertype Properties)) { 
+            throw "XML Element specified does not contain a userId property."
+        }
+        if ( -not ( $argument | get-member -name netmask -Membertype Properties)) { 
+            throw "XML Element specified does not contain a netmask property."
+        }
+        if ( -not ( $argument | get-member -name gateway -Membertype Properties)) { 
+            throw "XML Element specified does not contain a gateway property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeID property."
+        }
+
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN Ip Pool object."
+    }
+}
+
+Function Validate-EdgeSslVpnPrivateNetwork { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name network -Membertype Properties)) { 
+            throw "XML Element specified does not contain a network property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeID property."
+        }
+
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN Private Network object."
+    }
+}
+
 Function Validate-SecurityGroupMember { 
     
     Param (
@@ -1867,13 +1960,10 @@ function Get-PowerNsxVersion {
     [PSCustomobject]@{
         "Version" = "1.0 RC1";
         "Major" = 1 ;
-        "Minor" = 0;
-
+        "Minor" = 0
     }
 }
-Export-ModuleMember -function Get-PowerNsxVersion {
-    
-}
+Export-ModuleMember -function Get-PowerNsxVersion 
 
 #########
 #########
@@ -5774,7 +5864,7 @@ Export-ModuleMember -function Remove-NsxEdgeCertificate
 #########
 # Edge SSL VPN related functions
 
-function Get-NsxEdgeSslVpn {
+function Get-NsxSslVpn {
   
     <#
     .SYNOPSIS
@@ -5792,7 +5882,7 @@ function Get-NsxEdgeSslVpn {
     NSX Edge Services gateway and access servers and applications 
     in the private networks.
 
-    The Get-NsxEdgeSsslVpn cmdlet retreives the global SSLVPN configuration of
+    The Get-NsxSslVpn cmdlet retreives the global SSLVPN configuration of
     the specified Edge Services Gateway.
 
     
@@ -5821,9 +5911,9 @@ function Get-NsxEdgeSslVpn {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeSslVpn
+Export-ModuleMember -Function Get-NsxSslVpn
 
-function Set-NsxEdgeSslVpn {
+function Set-NsxSslVpn {
 
     #To do, portal customisation, server ip config...
 
@@ -5831,7 +5921,7 @@ function Set-NsxEdgeSslVpn {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateScript({ Validate-EdgeSslVpn $_ })]
-            [System.Xml.XmlElement]$EdgeSslVpn,
+            [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
@@ -5883,7 +5973,7 @@ function Set-NsxEdgeSslVpn {
     process {
 
          #Create private xml element
-        $_EdgeSslVpn = $EdgeSslVpn.CloneNode($true)
+        $_EdgeSslVpn = $SslVpn.CloneNode($true)
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeSslVpn.edgeId
@@ -5894,7 +5984,7 @@ function Set-NsxEdgeSslVpn {
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('Enabled')) { 
-            $_EdgeSslVpn.enabled = $EnableCompression.ToString().ToLower()
+            $_EdgeSslVpn.enabled = $Enabled.ToString().ToLower()
         }
         if ( $PsBoundParameters.ContainsKey('EnableCompression')) { 
             $_EdgeSslVpn.advancedConfig.enableCompression = $EnableCompression.ToString().ToLower()
@@ -5942,42 +6032,48 @@ function Set-NsxEdgeSslVpn {
         {
             
             if ( -not $_EdgeSslVpn.SelectSingleNode('descendant::serverSettings') ) {
-                $serverSettings = $_EdgeSslVpn.ownerDocument.CreateElement('serverSettings') 
+                [System.Xml.XmlElement]$serverSettings = $_EdgeSslVpn.ownerDocument.CreateElement('serverSettings') 
                 $_EdgeSslVpn.AppendChild($serverSettings) | out-null
+            }
+            else { 
+                [System.Xml.XmlElement]$ServerSettings = $_EdgeSslVpn.serverSettings
             }
 
             if ( $PsBoundParameters.ContainsKey("ServerAddress")) { 
                 #Set ServerAddress
-                if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::serverAddresses') ) {
-                    $serverAddresses = $_EdgeSslVpn.ownerDocument.CreateElement('serverSettings') 
-                    $_EdgeSslVpn.serverSettings.AppendChild($serverAddresses) | out-null
+                if ( -not $serverSettings.SelectSingleNode('descendant::serverAddresses') ) {
+                    [System.Xml.XmlElement]$serverAddresses = $_EdgeSslVpn.ownerDocument.CreateElement('serverAddresses') 
+                    $serverSettings.AppendChild($serverAddresses) | out-null
+                }
+                else { 
+                    [System.Xml.XmlElement]$serverAddresses = $serverSettings.serverAddresses
                 }
 
-                if ( -not $_EdgeSslVpn.serverSettings.serverAddresses.SelectSingleNode('descendant::ipAddress') ) {
-                    Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings.serverAddresses -xmlElementName "ipAddress" -xmlElementText [string]$ServerAddress.IPAddresstoString
+                if ( -not $serverAddresses.SelectSingleNode('descendant::ipAddress') ) {
+                    Add-XmlElement -xmlRoot $serverAddresses -xmlElementName "ipAddress" -xmlElementText $($ServerAddress.IPAddresstoString)
                 }
                 else {
-                    $_EdgeSslVpn.serverSettings.serverAddresses.ipAddress = [string]$ServerAddress.IPAddresstoString
+                    $serverAddresses.ipAddress = [string]$ServerAddress.IPAddresstoString
                 }
             }
 
             if ( $PsBoundParameters.ContainsKey("ServerPort")) { 
                 
-                if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::port') ) {
-                    Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings -xmlElementName "port" -xmlElementText $ServerPort.ToString()
+                if ( -not $serverSettings.SelectSingleNode('descendant::port') ) {
+                    Add-XmlElement -xmlRoot $serverSettings -xmlElementName "port" -xmlElementText $ServerPort.ToString()
                 }
                 else {
-                    $_EdgeSslVpn.serverSettings.port = $ServerPort.ToString()
+                    $serverSettings.port = $ServerPort.ToString()
                 }
             }
 
             if ( $PsBoundParameters.ContainsKey("CertificateID")) { 
 
-                if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::certificateId') ) {
-                    Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings -xmlElementName "certificateId" -xmlElementText $CertificateID
+                if ( -not $serverSettings.SelectSingleNode('descendant::certificateId') ) {
+                    Add-XmlElement -xmlRoot $serverSettings -xmlElementName "certificateId" -xmlElementText $CertificateID
                 }
                 else {
-                    $_EdgeSslVpn.serverSettings.certificateId = $CertificateID
+                    $serverSettings.certificateId = $CertificateID
                 }
             }
 
@@ -5986,38 +6082,41 @@ function Set-NsxEdgeSslVpn {
                 $PsBoundParameters.ContainsKey("Enable_AES256_SHA")) { 
 
                 if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::cipherList') ) {
-                    $cipherList = $_EdgeSslVpn.ownerDocument.CreateElement('ciperList') 
-                    $_EdgeSslVpn.serverSettings.AppendChild($cipherList) | out-null
+                    [System.Xml.XmlElement]$cipherList = $serverSettings.ownerDocument.CreateElement('cipherList') 
+                    $serverSettings.AppendChild($cipherList) | out-null
+                }
+                else { 
+                    [System.Xml.XmlElement]$cipherList = $serversSettings.cipherList
                 }
 
                 if ( $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") ) { 
-                    $cipher = $_EdgeSslVpn.serverSettings.cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'DES-CBC3-SHA'}
+                    $cipher = $cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'DES-CBC3-SHA'}
                     if ( ( -not $cipher ) -and $Enable_DES_CBC3_SHA ) {
-                        Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings.cipherList -xmlElementName "cipher" -xmlElementText "DES-CBC3-SHA"
+                        Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "DES-CBC3-SHA"
                     }
                     elseif ( $cipher -and ( -not $Enable_DES_CBC3_SHA )) { 
-                        $_EdgeSslVpn.serverSettings.cipherList.RemoveChild( $cipher )| out-null
+                        $cipherList.RemoveChild( $cipher )| out-null
                     }
                 }
 
 
                 if ( $PsBoundParameters.ContainsKey("Enable_AES128_SHA") ) { 
-                    $cipher = $_EdgeSslVpn.serverSettings.cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'AES128-SHA'}
+                    $cipher = $cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'AES128-SHA'}
                     if ( ( -not $cipher ) -and $Enable_AES128_SHA ) {
-                        Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings.cipherList -xmlElementName "cipher" -xmlElementText "AES128-SHA"
+                        Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "AES128-SHA"
                     }
                     elseif ( $cipher -and ( -not $Enable_AES128_SHA )) { 
-                        $_EdgeSslVpn.serverSettings.CipherList.RemoveChild( $cipher )| out-null
+                        $CipherList.RemoveChild( $cipher )| out-null
                     }
                 }
 
                 if ( $PsBoundParameters.ContainsKey("Enable_AES256_SHA") ) { 
-                    $cipher = $_EdgeSslVpn.serverSettings.cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'AES256-SHA'}
+                    $cipher = $cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'AES256-SHA'}
                     if ( ( -not $cipher ) -and $Enable_AES256_SHA ) {
-                        Add-XmlElement -xmlRoot $_EdgeSslVpn.serverSettings.cipherList -xmlElementName "cipher" -xmlElementText "AES256-SHA"
+                        Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "AES256-SHA"
                     }
                     elseif ( $cipher -and ( -not $Enable_AES256_SHA )) { 
-                        $_EdgeSslVpn.serverSettings.CipherList.RemoveChild( $cipher ) | out-null
+                        $CipherList.RemoveChild( $cipher ) | out-null
                     }
                 }
             }
@@ -6041,16 +6140,676 @@ function Set-NsxEdgeSslVpn {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeSslVpn
+            Get-NsxEdge -objectId $EdgeId | Get-NsxSslVpn
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeSsslVpn
+Export-ModuleMember -Function Set-NsxSslVpn
+
+function New-NsxSslVpnAuthServer {
 
 
 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMinLength=1,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMaxLength=63,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMinAlphabet=0,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMinDigit=0,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMinSpecialChar=0,
+        [Parameter (Mandatory=$False)]
+            [switch]$PasswordAllowUsernameInPassword=$false,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordLifetime=30,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordExpiryNotificationTime=25,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordLockoutRetryCount=3,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordLockoutRetryDuration=2,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordLockoutDuration=2,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("Local")]
+            [string]$ServerType="Local"
+
+    )
+
+    Begin{}
+
+    Process {
+
+        #Create private xml element
+        $_EdgeSslVpn = $SslVpn.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeSslVpn.edgeId
+
+        $_EdgeSslVpn.RemoveChild( $($_EdgeSslVpn.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Get the AuthServers node, and create a new PrimaryAuthServer in it.
+        $PrimaryAuthServers = $_EdgeSslVpn.SelectSingleNode('descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers')
+        
+        Switch ( $ServerType ) { 
+
+            "Local" { 
+
+                #Like highlander, there can be only one! :)
+
+                if ( $PrimaryAuthServers.SelectsingleNode('descendant::com.vmware.vshield.edge.sslvpn.dto.LocalAuthServerDto') ) { 
+
+                    throw "Local Authentication source already exists.  Use Set-NsxEdgeSslVpnAuthServer to modify and existing server."
+                }
+                else { 
+
+                    #Construct the Local Server XML Element.  
+                    $AuthServer = $PrimaryAuthServers.ownerDocument.CreateElement('com.vmware.vshield.edge.sslvpn.dto.LocalAuthServerDto')
+                    $PrimaryAuthServers.AppendChild($AuthServer) | out-null
+
+                    $PasswordPolicy = $AuthServer.ownerDocument.CreateElement('passwordPolicy')
+                    $AccountLockoutPolicy = $AuthServer.ownerDocument.CreateElement('accountLockoutPolicy')
+                    $AuthServer.AppendChild($PasswordPolicy) | out-null
+                    $AuthServer.AppendChild($AccountLockoutPolicy) | out-null
+
+                    #No need to check if user specified as we are defaulting to the documented defaults for all props as per API guide.
+
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "minLength" -xmlElementText $PasswordMinLength.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "maxLength" -xmlElementText $PasswordMaxLength.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "minAlphabets" -xmlElementText $PasswordMinAlphabet.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "minDigits" -xmlElementText $PasswordMinDigit.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "minSpecialChar" -xmlElementText $PasswordMinSpecialChar.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "allowUserIdWithinPassword" -xmlElementText $PasswordAllowUsernameInPassword.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "passwordLifeTime" -xmlElementText $PasswordLifetime.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "expiryNotification" -xmlElementText $PasswordExpiryNotificationTime.ToString()
+                    Add-XmlElement -xmlRoot $AccountLockoutPolicy -xmlElementName "retryCount" -xmlElementText $PasswordLockoutRetryCount.ToString()
+                    Add-XmlElement -xmlRoot $AccountLockoutPolicy -xmlElementName "retryDuration" -xmlElementText $PasswordLockoutRetryDuration.ToString()
+                    Add-XmlElement -xmlRoot $AccountLockoutPolicy -xmlElementName "lockoutDuration" -xmlElementText $PasswordLockoutDuration.ToString()
+                }
+            }
+            default { Throw "Server type not supported." }
+        }
+
+        $URI = "/api/4.0/edges/$EdgeId/sslvpn/config"
+        $body = $_EdgeSslVpn.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        #Totally cheating here while we only support local auth server. Will have to augment this later...
+        Get-NsxEdge -objectId $EdgeId | Get-NsxSslVpn | Get-NsxSslVpnAuthServer -Servertype local
+    }
+
+    end{}
+}
+Export-ModuleMember -Function New-NsxSslVpnAuthServer
+
+function Get-NsxSslVpnAuthServer {
+  
+    <#
+    .SYNOPSIS
+    Gets SSLVPN Authentication Servers from an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL VPN allows remote users to connect securely to private networks behind an
+    NSX Edge Services gateway and access servers and applications 
+    in the private networks.
+
+    Authentication Servers define how the SSL VPN server authenticates user
+    connections
+
+    The Get-NsxSslVpnAuthServer cmdlet retreives the SSL VPN authentication 
+    sources configured on the specified Edge Services Gateway.
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [ValidateSet("local",IgnoreCase=$false)]
+            [string]$ServerType
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+        $PrimaryAuthenticationServers = $_EdgeSslVpn.SelectSingleNode('descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers/*')
+        if ( $PrimaryAuthenticationServers ) { 
+
+            foreach ( $Server in $PrimaryAuthenticationServers ) { 
+                Add-XmlElement -xmlRoot $Server -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('ServerType')) { 
+                    $Server | ? { $_.authServerType -eq $ServerType }
+                } else {
+                    $Server
+                }
+            }
+        }
+        $SecondaryAuthenticationServers = $_EdgeSslVpn.SelectSingleNode('descendant::authenticationConfiguration/passwordAuthentication/secondaryAuthServers/*')
+        if ( $SecondaryAuthenticationServers ) { 
+
+            foreach ( $Server in $SecondaryAuthenticationServers ) { 
+                Add-XmlElement -xmlRoot $Server -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                $Server
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSslVpnAuthServer
+
+function New-NsxSslVpnUser{
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$UserName,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Password,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$FirstName,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$LastName,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,
+        [Parameter (Mandatory=$False)]
+            [switch]$DisableUser=$False,
+        [Parameter (Mandatory=$False)]
+            [switch]$PasswordNeverExpires=$False,
+        [Parameter (Mandatory=$False)]
+            [switch]$AllowPasswordChange=$True,
+        [Parameter (Mandatory=$False)]
+            [switch]$ForcePasswordChangeOnNextLogin
+
+    )
+
+    Begin{}
+
+    Process {
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $SslVpn.edgeId
+
+        #Create the user element
+        $User = $SslVpn.ownerDocument.CreateElement('user')
+
+        #Mandatory and defaults
+        Add-XmlElement -xmlRoot $User -xmlElementName "userId" -xmlElementText $UserName.ToString()
+        Add-XmlElement -xmlRoot $User -xmlElementName "password" -xmlElementText $Password.ToString()
+        Add-XmlElement -xmlRoot $User -xmlElementName "disableUserAccount" -xmlElementText $DisableUser.ToString().ToLower()
+        Add-XmlElement -xmlRoot $User -xmlElementName "passwordNeverExpires" -xmlElementText $PasswordNeverExpires.ToString().ToLower()
+        if ( $AllowPasswordChange ) {
+            $xmlAllowChangePassword = $User.OwnerDocument.CreateElement('allowChangePassword')
+            $User.AppendChild($xmlAllowChangePassword) | out-null
+            Add-XmlElement -xmlRoot $xmlAllowChangePassword -xmlElementName "changePasswordOnNextLogin" -xmlElementText $AllowPasswordChange.ToString().ToLower()
+        }
+        elseif ( $ForcePasswordChangeOnNextLogin ) { 
+            throw "Must enable allow password change to force user to change on next logon."
+        }
+
+        # Optionals...
+        if ( $PsBoundParameters.ContainsKey('FirstName')) {
+            Add-XmlElement -xmlRoot $User -xmlElementName "firstName" -xmlElementText $FirstName.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('LastName')) {
+            Add-XmlElement -xmlRoot $User -xmlElementName "lastName" -xmlElementText $LastName.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('Description')) {
+            Add-XmlElement -xmlRoot $User -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/auth/localserver/users/"
+        $body = $User.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        Get-NsxEdge -objectId $EdgeId | Get-NsxSslVpn | Get-NsxSslVpnUser -UserName $UserName
+    }
+}
+Export-ModuleMember -Function New-NsxSslVpnUser
+
+function Get-NsxSslVpnUser {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [string]$UserName
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+
+        $Users = $_EdgeSslVpn.SelectNodes('descendant::users/*')
+        if ( $Users ) { 
+            foreach ( $User in $Users ) { 
+                Add-XmlElement -xmlRoot $User -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('UserName')) { 
+                    $User | ? { $_.UserId -eq $UserName }
+                } 
+                else {
+                    $User
+                }
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSslVpnUser
+
+function Remove-NsxSslVpnUser {
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpnUser $_ })]
+            [System.Xml.XmlElement]$SslVpnUser,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $SslVpnUser.edgeId
+        $userId = $SslVpnUser.objectId
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/auth/localserver/users/$userId"
+   
+        if ( $confirm ) { 
+            $message  = "User deletion is permanent."
+            $question = "Proceed with deletion of user $($SslVpnUser.UserId) ($($userId)) from edge $($edgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI
+            write-progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId" -completed
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxSslVpnUser
+
+
+function New-NsxSslVpnIpPool {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$IpRange,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$Netmask,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$Gateway,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$PrimaryDnsServer,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$SecondaryDnsServer,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$DnsSuffix,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$WinsServer,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled=$True
+    )
+
+    Begin{}
+
+    Process {
+
+        #Store the edgeId.
+        $edgeId = $SslVpn.edgeId
+
+        #Create the ipAddressPool element
+        $IpAddressPool = $SslVpn.ownerDocument.CreateElement('ipAddressPool')
+
+        #Mandatory and defaults
+        Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "ipRange" -xmlElementText $IpRange.ToString()
+        Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "netmask" -xmlElementText $($NetMask.IpAddressToString)
+        Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "gateway" -xmlElementText $($Gateway.IpAddressToString)
+
+        # Optionals...
+        if ( $PsBoundParameters.ContainsKey('Description')) {      
+                Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('PrimaryDNSServer')) {
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "primaryDns" -xmlElementText $($PrimaryDnsServer.IpAddressToString)
+        }
+        if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer')) {
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "secondaryDns" -xmlElementText $($SecondaryDNSServer.IpAddressToString)
+        }
+        if ( $PsBoundParameters.ContainsKey('DnsSuffix')) {
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "dnsSuffix" -xmlElementText $DnsSuffix.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('WinsServer')) {
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "winsServer" -xmlElementText $($WinsServer.IpAddressToString)
+        }
+
+        if ( -not $Enabled ) { 
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "enabled" -xmlElementText "false"
+        }
+
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/ippools/"
+        $body = $IpAddressPool.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        Get-NsxEdge -objectId $EdgeId | Get-NsxSslVpn | Get-NsxSslVpnIpPool -IpRange $IpRange
+    }
+}
+Export-ModuleMember -Function New-NsxSslVpnIpPool
+
+function Get-NsxSslVpnIpPool {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [string]$IpRange
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+
+        $IpPools = $_EdgeSslVpn.SelectNodes('descendant::ipAddressPools/*')
+        if ( $IpPools ) { 
+            foreach ( $IpPool in $IpPools ) { 
+                Add-XmlElement -xmlRoot $IpPool -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('IpRange')) { 
+                    $IpPool | ? { $_.ipRange -eq $IpRange }
+                } 
+                else {
+                    $IpPool
+                }
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSslVpnIpPool
+
+function Remove-NsxSslVpnIpPool {
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpnIpPool $_ })]
+            [System.Xml.XmlElement]$SslVpnIpPool,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        $edgeId = $SslVpnIpPool.edgeId
+        $poolId = $SslVpnIpPool.objectId
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/ippools/$poolId"
+   
+        if ( $confirm ) { 
+            $message  = "Ip Pool deletion is permanent."
+            $question = "Proceed with deletion of pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $($edgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI
+            write-progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId" -completed
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxSslVpnIpPool
+
+function New-NsxSslVpnPrivateNetwork {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Network,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Ports,
+        [Parameter (Mandatory=$False)]
+            [switch]$BypassTunnel=$False,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,
+        [Parameter (Mandatory=$False)]
+            [switch]$OptimiseTcp=$True,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled=$True
+    )
+
+    Begin{}
+
+    Process {
+
+        #Store the edgeId.
+        $edgeId = $SslVpn.edgeId
+
+        #Create the ipAddressPool element
+        $PrivateNetwork = $SslVpn.ownerDocument.CreateElement('privateNetwork')
+
+        #Mandatory and defaults
+        Add-XmlElement -xmlRoot $PrivateNetwork -xmlElementName "network" -xmlElementText $Network.ToString()
+        
+        # Optionals...
+        if ( $PsBoundParameters.ContainsKey('Description')) {      
+                Add-XmlElement -xmlRoot $PrivateNetwork -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+        if ( -not $BypassTunnel ) {
+            [system.Xml.XmlElement]$sendOverTunnel = $PrivateNetwork.ownerDocument.CreateElement('sendOverTunnel')
+            $PrivateNetwork.AppendChild($SendOverTunnel) | out-null
+            Add-XmlElement -xmlRoot $SendOverTunnel -xmlElementName "optimize" -xmlElementText $OptimiseTcp.ToString().ToLower()
+            if ( $PsBoundParameters.ContainsKey('Ports')) { 
+                Add-XmlElement -xmlRoot $SendOverTunnel -xmlElementName "ports" -xmlElementText $Ports.ToString()
+            }
+        }
+        elseif ( $OptimiseTcp ) { 
+            write-warning "TCP Optimisation is not applicable when tunnel bypass is enabled."
+        }
+        elseif ( $PsBoundParameters.ContainsKey('Ports') ) { 
+            throw "Unable to specify ports when tunnel bypass is enabled."
+        }
+
+        if ( -not $Enabled ) { 
+            Add-XmlElement -xmlRoot $PrivateNetwork -xmlElementName "enabled" -xmlElementText "false"
+        }
+
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/privatenetworks"
+        $body = $PrivateNetwork.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        Get-NsxEdge -objectId $EdgeId | Get-NsxSslVpn | Get-NsxSslVpnPrivateNetwork -Network $Network
+    }
+}
+Export-ModuleMember -Function New-NsxSslVpnPrivateNetwork
+
+function Get-NsxSslVpnPrivateNetwork {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [string]$Network
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+
+        $Networks = $_EdgeSslVpn.SelectNodes('descendant::privateNetworks/*')
+        if ( $Networks ) { 
+            foreach ( $Net in $Networks ) { 
+                Add-XmlElement -xmlRoot $Net -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('Network')) { 
+                    $Net | ? { $_.Network -eq $Network }
+                } 
+                else {
+                    $Net
+                }
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSslVpnPrivateNetwork
+
+function Remove-NsxSslVpnPrivateNetwork {
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpnPrivateNetwork $_ })]
+            [System.Xml.XmlElement]$SslVpnPrivateNetwork,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        $edgeId = $SslVpnPrivateNetwork.edgeId
+        $networkId = $SslVpnPrivateNetwork.objectId
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/privatenetworks/$networkId"
+   
+        if ( $confirm ) { 
+            $message  = "Private network deletion is permanent."
+            $question = "Proceed with deletion of network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $($edgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI
+            write-progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId" -completed
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxSslVpnPrivateNetwork
 
 #########
 #########
