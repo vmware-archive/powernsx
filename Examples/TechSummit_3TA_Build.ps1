@@ -11,6 +11,31 @@
 #     PowerShell extensions for NSX for vSphere
 #--------------------------------------------------
 
+#Permission is hereby granted, free of charge, to any person obtaining a copy of
+#this software and associated documentation files (the "Software"), to deal in 
+#the Software without restriction, including without limitation the rights to 
+#use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+#of the Software, and to permit persons to whom the Software is furnished to do 
+#so, subject to the following conditions:
+
+#The above copyright notice and this permission notice shall be included in all 
+#copies or substantial portions of the Software.
+
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+#SOFTWARE.
+
+### Note
+#This powershell module should be considered entirely experimental and dangerous
+#and is likely to kill babies, cause war and pestilence and permanently block all 
+#your toilets.  Seriously - It's still in development,  not tested beyond lab 
+#scenarios, and its recommended you dont use it for any production environment 
+#without testing extensively!
+
 ## Note: The OvfConfiguration portion of this example relies on this OVA. The securityGroup and Firewall configuration have a MANDATORY DEPENDANCY on this OVA being deployed at runtime. The script will fail if the conditions are not met. This OVA can be found here http://goo.gl/oBAFgq
 
 # This paramter block defines global variables which a user can override with switches on execution.
