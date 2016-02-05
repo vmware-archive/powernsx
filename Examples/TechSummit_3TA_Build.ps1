@@ -1,8 +1,8 @@
 ## Tech Summit Build - 3 Tier App ##
 ## Author: Anthony Burke t:@pandom_ b:networkinferno.net
 ## Revisions: Nick Bradford
-## version 1.2
-## January 2015
+## version 1.3
+## February 2015
 #-------------------------------------------------- 
 # ____   __   _  _  ____  ____  __ _  ____  _  _ 
 # (  _ \ /  \ / )( \(  __)(  _ \(  ( \/ ___)( \/ )
@@ -30,7 +30,7 @@
 #SOFTWARE.
 
 ### Note
-#This powershell module should be considered entirely experimental and dangerous
+#This powershell scrip should be considered entirely experimental and dangerous
 #and is likely to kill babies, cause war and pestilence and permanently block all 
 #your toilets.  Seriously - It's still in development,  not tested beyond lab 
 #scenarios, and its recommended you dont use it for any production environment 
@@ -108,6 +108,9 @@ param (
     $WebAppProfileName = "WebAppProfile",
     $AppAppProfileName = "AppAppProfile",
     $VipProtocol = "http",
+    ##Edge NAT
+    $SourceTestNetwork = "192.168.100.0/24",
+
     ## Securiry Groups
     $WebSgName = "SGTSWeb",
     $WebSgDescription = "Web Security Group",
@@ -227,6 +230,15 @@ function Set-EdgeFwDefaultAccept {
     $TsEdge1 = get-nsxedge $TsEdge1.name
     $TsEdge1.features.firewall.defaultPolicy.action = "accept"
     $TsEdge1 | Set-NsxEdge -confirm:$false | out-null
+
+}
+
+function Set-Edge-Db-Nat {
+    write-host -foregroundcolor "Green" "Using the devils technology - NAT - to expose access to the Database VM"
+    $SrcNatPort = 3306
+    $TranNatPort = 3306
+    Get-NsxEdge $TsEdgeName | Get-NsxEdgeNat | Set-NsxEdgeNat -enabled -confirm:$false | out-null
+    $DbNat = get-NsxEdge $TsEdgeName | Get-NsxEdgeNat | New-NsxEdgeNatRule -vNic 0 -OriginalAddress $SourceTestNetwork -TranslatedAddress $Db01Ip -action dnat -Protocol tcp -OriginalPort $SrcNatPort -TranslatedPort $TranNatPort -LoggingEnabled -Enabled -Description "Open SSH on port $SrcNatPort to $TranNatPort"
 
 }
 
@@ -361,6 +373,7 @@ function Apply-Microsegmentation {
     #
     $AppVIP_IpSet = New-NsxIPSet -Name AppVIP_IpSet -IPAddresses $EdgeInternalSecondaryAddress
     $InternalESG_IpSet = New-NsxIPSet -name InternalESG_IpSet -IPAddresses $EdgeInternalPrimaryAddress
+    $SourceNATnetwork = new-NsxIpSet -name "Source_Network" -IpAddresses $SourceTestNetwork
 
     write-host -foregroundcolor "Green" "Creating Security Groups"
     #Creates the Web SecurityGroup and creates a static includes based on VMname Web0 which will match Web01 and Web02
@@ -380,6 +393,8 @@ function Apply-Microsegmentation {
     #Actions
     $AllowTraffic = "allow"
     $DenyTraffic = "deny"
+    #Allows Test network via NAT to reach DB VM
+    get-NsxFirewallSection $FirewallSectionName | New-NsxFirewallRule -Name "$SourceTestNetwork to $DbSgName" -Source $SourceNatNetwork -Destination $DbSg -service $MySqlService -Action $Allowtraffic -AppliedTo $DbSg -position bottom
 
     #Allows Web VIP to reach WebTier
     write-host -foregroundcolor "Green" "Creating Web Tier rule"
@@ -393,7 +408,7 @@ function Apply-Microsegmentation {
     $AppToDb = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "$AppSgName to $DbSgName" -Source $AppSg -Destination $DbSg -Service $MySqlService -Action $AllowTraffic -AppliedTo $AppSg,$DbSG -position bottom
     write-host -foregroundcolor "Green" "Creating deny all applied to $BooksSgName"
     #Default rule that wraps around all VMs within the topolgoy - application specific DENY ALL
-    $BooksDenyAll = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "Deny All Books" -Action $DenyTraffic -AppliedTo $BooksSg -position bottom -EnableLogging
+    $BooksDenyAll = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "Deny All Books" -Action $DenyTraffic -AppliedTo $BooksSg -position bottom -EnableLogging -tag "$BooksSG"
     write-host -foregroundcolor "Green" "Segmentation Complete - Application Secure"
 }
 if ( $BuildTopology ) {
@@ -403,6 +418,7 @@ if ( $BuildTopology ) {
     Configure-DlrDefaultRoute
     Build-Edge
     Set-EdgeFwDefaultAccept
+    Set-Edge-Db-Nat
     Build-LoadBalancer
     switch ( $TopologyType ) {
         "static"  {
