@@ -1,4 +1,4 @@
-#Creates a test ESG, configures NAT and cretes and removes som NAT rules.
+#Creates a test ESG, configures NAT and creates and removes some NAT rules.
 
 
 $cl = get-cluster mgmt01
