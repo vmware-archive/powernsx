@@ -14352,20 +14352,23 @@ function Get-NsxSecurityGroup {
         if ( -not $objectId ) { 
             #All Security GRoups
             $URI = "/api/2.0/services/securitygroup/scope/$scopeId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if  ( $Name  ) { 
-                $response.list.securitygroup | ? { $_.name -eq $name }
-            } else {
-                $response.list.securitygroup
+            [system.xml.xmlElement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::list.securityGroup')) {
+                if  ( $Name  ) { 
+                    $response.list.securitygroup | ? { $_.name -eq $name }
+                } else {
+                    $response.list.securitygroup
+                }
             }
-
         }
         else {
 
             #Just getting a single Security group
             $URI = "/api/2.0/services/securitygroup/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            $response.securitygroup 
+            [system.xml.xmlElement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::securityGroup')) {
+                $response.securitygroup 
+            }
         }
     }
 
@@ -14563,7 +14566,7 @@ function Remove-NsxSecurityGroup {
 }
 Export-ModuleMember -Function Remove-NsxSecurityGroup
 
-function Get-NsxIPSet {
+function Get-NsxIpSet {
 
     <#
     .SYNOPSIS
@@ -14607,27 +14610,31 @@ function Get-NsxIPSet {
         if ( -not $objectID ) { 
             #All IPSets
             $URI = "/api/2.0/services/ipset/scope/$scopeId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( $name ) {
-                $response.list.ipset | ? { $_.name -eq $name }
-            } else {
-                $response.list.ipset
+            [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::list.ipset')) {
+                if ( $name ) {
+                    $response.list.ipset | ? { $_.name -eq $name }
+                } else {
+                    $response.list.ipset
+                }
             }
         }
         else {
 
             #Just getting a single named Security group
             $URI = "/api/2.0/services/ipset/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            $response.ipset
+            [system.xml.xmlelement]response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::ipset')) {
+                $response.ipset
+            }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxIPSet
+Export-ModuleMember -Function Get-NsxIpSet
 
-function New-NsxIPSet  {
+function New-NsxIpSet  {
     <#
     .SYNOPSIS
     Creates a new NSX IPSet.
@@ -14694,9 +14701,9 @@ function New-NsxIPSet  {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxIPSet
+Export-ModuleMember -Function New-NsxIpSet
 
-function Remove-NsxIPSet {
+function Remove-NsxIpSet {
 
     <#
     .SYNOPSIS
@@ -14768,7 +14775,7 @@ function Remove-NsxIPSet {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxIPSet
+Export-ModuleMember -Function Remove-NsxIpSet
 
 function Get-NsxMacSet {
 
@@ -14811,25 +14818,29 @@ function Get-NsxMacSet {
         if ( -not $objectID ) { 
             #All IPSets
             $URI = "/api/2.0/services/macset/scope/$scopeId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( $name ) {
-                $response.list.macset | ? { $_.name -eq $name }
-            } else {
-                $response.list.macset
+            [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::list.macset')) {
+                if ( $name ) {
+                    $response.list.macset | ? { $_.name -eq $name }
+                } else {
+                    $response.list.macset
+                }
             }
         }
         else {
 
             #Just getting a single named MACset
             $URI = "/api/2.0/services/macset/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            $response.macset
+            [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::macset')) {
+                $response.macset
+            }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxMACSet
+Export-ModuleMember -Function Get-NsxMacSet
 
 function New-NsxMacSet  {
     <#
@@ -15020,18 +15031,22 @@ function Get-NsxService {
 
                   #Just getting a single named service group
                 $URI = "/api/2.0/services/application/$objectId"
-                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                $response.application
+                [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( $response.SelectSingleNode('descendant::application')) {
+                    $response.application
+                }
             }
 
             "Name" { 
                 #All Services
                 $URI = "/api/2.0/services/application/scope/$scopeId"
-                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if  ( $name ) { 
-                    $response.list.application | ? { $_.name -eq $name }
-                } else {
-                    $response.list.application
+                [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( $response.SelectSingleNode('descendant::list.application')) {
+                    if  ( $name ) { 
+                        $response.list.application | ? { $_.name -eq $name }
+                    } else {
+                        $response.list.application
+                    }
                 }
             }
 
@@ -15040,42 +15055,44 @@ function Get-NsxService {
                 # Service by port
 
                 $URI = "/api/2.0/services/application/scope/$scopeId"
-                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                foreach ( $application in $response.list.application ) {
+                [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( $response.SelectSingleNode('descendant::list.application')) {        
+                    foreach ( $application in $response.list.application ) {
 
-                    if ( $application | get-member -memberType Properties -name element ) {
-                        write-debug "$($MyInvocation.MyCommand.Name) : Testing service $($application.name) with ports: $($application.element.value)"
+                        if ( $application | get-member -memberType Properties -name element ) {
+                            write-debug "$($MyInvocation.MyCommand.Name) : Testing service $($application.name) with ports: $($application.element.value)"
 
-                        #The port configured on a service is stored in element.value and can be
-                        #either an int, range (expressed as inta-intb, or a comma separated list of ints and/or ranges
-                        #So we split the value on comma, the replace the - with .. in a range, and wrap parentheses arount it
-                        #Then, lean on PoSH native range handling to force the lot into an int array... 
-                        
-                        switch -regex ( $application.element.value ) {
+                            #The port configured on a service is stored in element.value and can be
+                            #either an int, range (expressed as inta-intb, or a comma separated list of ints and/or ranges
+                            #So we split the value on comma, the replace the - with .. in a range, and wrap parentheses arount it
+                            #Then, lean on PoSH native range handling to force the lot into an int array... 
+                            
+                            switch -regex ( $application.element.value ) {
 
-                            "^[\d,-]+$" { 
+                                "^[\d,-]+$" { 
 
-                                [string[]]$valarray = $application.element.value.split(",") 
-                                foreach ($val in $valarray)  { 
+                                    [string[]]$valarray = $application.element.value.split(",") 
+                                    foreach ($val in $valarray)  { 
 
-                                    write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"  
-                                    [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' ) 
-                                    #Then test if the port int array contains what we are looking for...
-                                    if ( $ports.contains($port) ) { 
-                                        write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
-                                        $application
-                                        break
+                                        write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"  
+                                        [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' ) 
+                                        #Then test if the port int array contains what we are looking for...
+                                        if ( $ports.contains($port) ) { 
+                                            write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
+                                            $application
+                                            break
+                                        }
                                     }
                                 }
-                            }
 
-                            default { #do nothing, port number is not numeric.... 
-                                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                default { #do nothing, port number is not numeric.... 
+                                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                }
                             }
                         }
-                    }
-                    else {
-                        write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - element not defined"                           
+                        else {
+                            write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - element not defined"                           
+                        }
                     }
                 }
             }
