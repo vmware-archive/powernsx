@@ -1,6 +1,6 @@
 
 $cluster = "mgmt01"
-$testvm = "evil-vm"
+$testvm = "app01"
 $testlsname = "TestLs1"
 
 Get-Cluster $cluster | Get-NsxClusterStatus

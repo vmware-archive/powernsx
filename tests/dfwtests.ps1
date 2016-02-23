@@ -3,8 +3,8 @@
 #Setup
 $l3sectionname = "DfwTestL3Section"
 $l2sectionname = "DfwTestL2Section"
-$testVMName1 = "evil-vm"
-$testVMName2 = "custa-vcsa"
+$testVMName1 = "app01"
+$testVMName2 = "app02"
 $testSGName1 = "testSG1"
 $testSGName2 = "testSG2"
 $testIPSetName = "testIpSet"
