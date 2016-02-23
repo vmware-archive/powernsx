@@ -14818,8 +14818,8 @@ function Get-NsxMacSet {
         if ( -not $objectID ) { 
             #All IPSets
             $URI = "/api/2.0/services/macset/scope/$scopeId"
-            [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( $response.SelectSingleNode('descendant::list.macset')) {
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::list/macset')) {
                 if ( $name ) {
                     $response.list.macset | ? { $_.name -eq $name }
                 } else {
@@ -14831,7 +14831,7 @@ function Get-NsxMacSet {
 
             #Just getting a single named MACset
             $URI = "/api/2.0/services/macset/$objectId"
-            [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::macset')) {
                 $response.macset
             }
@@ -15031,7 +15031,7 @@ function Get-NsxService {
 
                   #Just getting a single named service group
                 $URI = "/api/2.0/services/application/$objectId"
-                [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( $response.SelectSingleNode('descendant::application')) {
                     $response.application
                 }
@@ -15040,8 +15040,8 @@ function Get-NsxService {
             "Name" { 
                 #All Services
                 $URI = "/api/2.0/services/application/scope/$scopeId"
-                [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( $response.SelectSingleNode('descendant::list.application')) {
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( $response.SelectSingleNode('descendant::list/application')) {
                     if  ( $name ) { 
                         $response.list.application | ? { $_.name -eq $name }
                     } else {
@@ -15055,8 +15055,8 @@ function Get-NsxService {
                 # Service by port
 
                 $URI = "/api/2.0/services/application/scope/$scopeId"
-                [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( $response.SelectSingleNode('descendant::list.application')) {        
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( $response.SelectSingleNode('descendant::list/application')) {        
                     foreach ( $application in $response.list.application ) {
 
                         if ( $application | get-member -memberType Properties -name element ) {
