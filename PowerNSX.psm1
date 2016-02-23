@@ -14623,7 +14623,7 @@ function Get-NsxIpSet {
 
             #Just getting a single named Security group
             $URI = "/api/2.0/services/ipset/$objectId"
-            [system.xml.xmlelement]response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            [system.xml.xmlelement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::ipset')) {
                 $response.ipset
             }
