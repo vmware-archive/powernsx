@@ -2057,7 +2057,9 @@ function Connect-NsxServer {
             [string]$VIPassword,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]    
-            [PSCredential]$VICred
+            [PSCredential]$VICred,
+        [Parameter (Mandatory=$false)]    
+            [switch]$VIForce=$false
     )
 
     if ($PSCmdlet.ParameterSetName -eq "userpass") {      
@@ -2150,7 +2152,7 @@ function Connect-NsxServer {
                     write-host 
                     write-warning "Enter credentials for vCenter $RegisteredvCenterIP"
                     $VICred = get-credential
-                    $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection)
+                    $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection) -Force:$VIForce
 
                 }
                 else {
@@ -2163,10 +2165,10 @@ function Connect-NsxServer {
                 write-host "Creating PowerCLI connection to vCenter server $RegisteredvCenterIP"
 
                 if ( $VICred ) { 
-                    $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection)
+                    $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection) -Force:$VIForce
                 }
                 else {
-                    $connection.VIConnection = Connect-VIServer -User $VIUserName -Password $VIPassword $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection)
+                    $connection.VIConnection = Connect-VIServer -User $VIUserName -Password $VIPassword $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection) -Force:$VIForce
                 }
             }
         }
