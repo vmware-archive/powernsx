@@ -2060,7 +2060,7 @@ function Connect-NsxServer {
             [PSCredential]$VICred,
         [Parameter (Mandatory=$false)]
             [ValidateSet("Continue","Ignore")]
-            [switch]$ViWarningAction="Continue"   
+            [string]$ViWarningAction="Continue"   
     )
 
     if ($PSCmdlet.ParameterSetName -eq "userpass") {      
@@ -3565,7 +3565,7 @@ function Get-NsxVdsContext {
     if ( $PsBoundParameters.ContainsKey('ObjectId')) { 
 
         $URI = "/api/2.0/vdn/switches/$ObjectId"
-        [system.xml.xmlElement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         If ( $response | get-member -memberType properties vdsContext ) { 
             $response.vdsContext
         }
@@ -3573,7 +3573,7 @@ function Get-NsxVdsContext {
     else { 
 
         $URI = "/api/2.0/vdn/switches"
-        [system.xml.xmlElement]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         If ( $PsBoundParameters.ContainsKey("Name")) { 
 
             If ( $response | get-member -memberType properties vdsContexts ) { 
