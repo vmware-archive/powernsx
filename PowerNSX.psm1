@@ -178,7 +178,9 @@ function Invoke-NsxRestMethod {
         [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
             [psObject]$connection,
         [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [System.Collections.Hashtable]$extraheader   
+            [System.Collections.Hashtable]$extraheader,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            [int]$Timeout=600
     )
 
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
@@ -239,9 +241,9 @@ function Invoke-NsxRestMethod {
     
     try { 
         if ( $PsBoundParameters.ContainsKey('Body')) { 
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
         } else {
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
         }
     }
     catch {
@@ -314,7 +316,10 @@ function Invoke-NsxWebRequest {
         [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
             [psObject]$connection,
         [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [System.Collections.Hashtable]$extraheader   
+            [System.Collections.Hashtable]$extraheader,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            [int]$Timeout=600
+           
     )
 
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
@@ -375,9 +380,9 @@ function Invoke-NsxWebRequest {
     
     try { 
         if (( $method -eq "put" ) -or ( $method -eq "post" )) { 
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body
+            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
         } else {
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI
+            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
         }
     }
     catch {
@@ -424,102 +429,6 @@ function Add-XmlElement {
     $xmlRoot.AppendChild($xmlNode) | out-null
 }
 Export-ModuleMember -function Add-XmlElement
-
-function Get-EasterEgg {
-
-$OhCaptainMyCaptain = @"                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                         `                                       
-                                 `;;###',.`                                      
-                               `'#++##@#+#+@;'`                                  
-                             `;#++++@#++####+@#+'                                
-                             +##+#+###+++@###@#@#;..                             
-                            :#+#'++##+''+##@+###@@#:                             
-                           ,'+''+##++#+++##+######'+:                            
-                         `'+'+;''#'##++'+##+#@@@+#+'#`                           
-                         +;;+;#'#'++@@##@'+#@#@#@##:'+                           
-                        ;';:+#++++'#+####@#'+#@@@@+#++@                          
-                        ;++@@+#'++@@##+###+++#####;+###.                         
-                       .+++@#+#'+##+###@@#+';;'++###,'++`                        
-                       +#'##+#+##@+'+@##@+;:::;;'+####@+;                        
-                       +;+@'@+@###+''+++':::,,,:;'+#+#@#+                        
-                      `#'@'@;#@##''';;;;:,,,,,,,:;'+#+#@@`                       
-                       +#;@+'@#+#+';;;;::,,,,,,,,,:;+###@,                       
-                      +#+;;;'+,++''';;:::,,,,,,.,,,,;+#@@:                       
-                      +'#;';',.::'';;:;;:,,,,,,,..,,,;+##;                       
-                      #+'#'';::::;;;;::::,:,,,,,,,,,,,;:#@                       
-                      ###'+''::,:;;;::::::,,,,,.,,.,,,;;+;                       
-                     `;#+''+'::::::;;;:::,,,,,,,,,,,,::#+                        
-                     .;+#;#+::;:,,''''''':,,::::::::,,:#'` `                     
-                     :'+'##',:;,'++####+#+::;+'#+''';::@+                        
-                     ;.;++#:,::+@#@@###+++::'#####+#++:@#+                       
-                     ;,;;+'.,'+####+#+++'';:;'+####+++:'+'                       
-                     '+';#;,:+++####@##+++;::;+##@+'';;;#;                       
-                     ;+''#,,;+++@+#'@,##++;,:'+##+:#+:,;',                       
-                     ;;`';,,;+++++'+;;++++;.,:+'#+:'::,:;:                       
-                     ,,'+.:::'''+++''''+++;,,::;'';:,,:;;;                       
-                     :'';,::::;;'''''''+++;,,,::;;:::,,:;;                       
-                     :'+:::::::;;;;;;;'''+':,,,,:,,,,,,;,:                       
-                     ::#':::::;;:;::;;''++':,,,,,,,,,,,;:;                       
-                     :;;';;::;:;:::::;'+++':,,,,,,,,,,:;:'                       
-                     ::,;:;:;;;;;:::;;'+++;:.,:,,,,,,,:;:'                       
-                     ,,.+:;;;;''';;:;'+''';,.,:;:,,,,::;:'                       
-                      ::+:;;;+''';;;;'+''';:.,,;;:,,,::;:'                       
-                      ;'':;:;++'''';''++++'';;;,;;::,::;:;                       
-                         :;;;+++''''''++##+''+,,,:;::::;;                        
-                         :;;;+++''''+++#++++;::,,,;:::;'                         
-                         :;;;'+''''''++++''':,:::::::;;;                         
-                         :;;;++'''''+'''':::,,:;;;::::;:                         
-                          ;;;+++'''+##++++''++';+';::;;                          
-                          ;';+++'''''+++'+#+';':;';:;;;                          
-                          `'''++'''''''+';:::::,,:;;;;,                          
-                          .;''++''''''+''';;;::,::;;;'                           
-                         .:,''+++''''''+++++';:::;;;;                            
-                         `#,;'''+++'''''''''::::;;;;                             
-                        .`#,:'+''++''';;;:;;:::;:;;',                            
-                         `@,:'++''+++';;;:::::::';++.`                           
-                       . `@,;'+'+''+++';;;;;::;'';#+:`                           
-                        ``#':;++'+''++++'++'';''':++;`,                          
-                      .```:+;'''''''''++++++++'';:++;.`                          
-                       ```.@'''''''''''''''''+';::++;,`:                         
-                     ,````.#+'''''''''''''''';;;:;+';,```                        
-                    . ````.,#+'''''''''''';;;:;::;#';:``.`:                      
-                  .`.````...#+'''''''''';;;:;;;::++;::``````..                   
-                .`..``````..,#'''''''';'';;;:;:::+'::,`````````:                 
-              .``.,,``````...'#''''''';'';;;:::::+'::,````.``````,.              
-           `.`..`.,.``````.`.,#+'';;;';';;;::::::+'::,`````.````````:            
-         ,`````:.`. ````......:#';;;;;;;;;;:::::;,':::````````````..``:          
-       ,```,`,:,...`````..`....++;;;;;;;;;;:::::+`:,:,+':`.`.`````.....`,        
-     :``....:,:,..,`````........'+;;;;;;;;;:::,;`.,,,.'';..````````.`.....,      
-   :``....:,.,::,.,`````.........,.';;;;;;:::::``:,,.'';;,..,.``````...``...`    
- .``.`.,:..,.,::,,,`````......`.,.,..````..`````.:,,';;;;:,.`:.``````.````.`.,   
-,``,.```....,,:,,,:`````..````,':::....````````...;;;;;;;;:.``:.`````````.``..   
-.`....````...,,,,,:````....`.';::::;.......`````:,:::::;;;;,```:`````````.``..;  
-........,......,,,,````..`.;;;;,:;:,:,..```````.`,,,,:::::;:.`````````````.```.  
-``.....,.,,,..,,,,.```` `,;,,::;.,,:::..``````......,,,,,,,:.`````````````..`.`. 
-```.......,.,,,,,,.`` .:;,,,,,:::;..,::``````..,,..........,.`````````````...`., 
-```.........,,,:::..,,,:::,,,,,,::::,,:,````..,:,`..``````...`````````````..```. 
-.```........,,,:::,,,,,,,,,,,,,,,,,:;,,:`.``...,,.`````````````````````````````.:
-:,.``.....,,,,,:::,,,,,,,,,,,,,,,,,,,:;:,:```,..`````````````````````````````````
-::,.`.....,,,,,:::,,,,,,,,.,,,,,,,,,,,.,;:,,....````````````````````````````````,
-.::,..````..,,,:::,,,,,,,,....,...,,,,,,.`::,..````````````````````````````````.:
-.,::...`````.,,,,,,,,.,,..............,,,,``;.`````````````````````````````.````,
-,,,::..```````..,,,....................`....,.`````````````````````````````````..
-`,,::,...`...```....................``````.,,.``````````````````````````````````,
-..,:::.........``.`...............````````.,.```````````````````````````````````,
-..,,::,..````....................``````.``.:``````````````````````````````````..,
-"@
-
-    $OhCaptainMyCaptain
-}
-Export-ModuleMember -function Get-EasterEgg
 
 function Get-FeatureStatus { 
 
@@ -14568,6 +14477,142 @@ function Remove-NsxSecurityGroup {
     end {}
 }
 Export-ModuleMember -Function Remove-NsxSecurityGroup
+
+function Add-NsxSecurityGroupMember {
+    
+    <#
+    .SYNOPSIS
+    Adds a new member to an existing NSX Security Group.
+
+    .DESCRIPTION
+    An NSX Security Group is a grouping construct that provides a powerful
+    grouping function that can be used in DFW Firewall Rules and the NSX
+    Service Composer.
+
+    This cmdlet adds a new member to an existing NSX Security Group.
+
+    A Security Group can consist of Static Includes and Excludes as well as 
+    dynamic matching properties.  At this time, this cmdlet supports only static 
+    include/exclude members.
+
+    A valid PowerCLI session is required to pass certain types of objects 
+    supported by the IncludeMember and ExcludeMember parameters.
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            [switch]$FailIfExists=$false,
+        [Parameter (Mandatory=$true)]
+            [ValidateScript({ Validate-SecurityGroupMember $_ })]
+            [object[]]$Member,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+    }
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('Member') ) { 
+            foreach ( $_Member in $Member) { 
+
+                #This is probably not safe - need to review all possible input types to confirm.
+                if ($_Member -is [System.Xml.XmlElement] ) {
+                    $MemberMoref = $_Member.objectId
+                } else { 
+                    $MemberMoref = $_Member.ExtensionData.MoRef.Value
+                }
+
+                $URI = "/api/2.0/services/securitygroup/$($securityGroup.objectId)/members/$($MemberMoref)?failIfExists=$($FailIfExists.ToString().ToLower())"
+                Write-Progress -activity "Adding member $MemberMoref to Security Group $($securityGroup.objectId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+                write-progress -activity "Adding member $MemberMoref to Security Group $($securityGroup.objectId)" -completed   
+            }
+        }   
+        Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Add-NsxSecurityGroupMember
+
+function Remove-NsxSecurityGroupMember {
+    
+    <#
+    .SYNOPSIS
+    Removes a member from an existing NSX Security Group.
+
+    .DESCRIPTION
+    An NSX Security Group is a grouping construct that provides a powerful
+    grouping function that can be used in DFW Firewall Rules and the NSX
+    Service Composer.
+
+    This cmdlet removes a member from an existing NSX Security Group.
+
+    A Security Group can consist of Static Includes and Excludes as well as 
+    dynamic matching properties.  At this time, this cmdlet supports only static 
+    include/exclude members.
+
+    A valid PowerCLI session is required to pass certain types of objects 
+    supported by the IncludeMember and ExcludeMember parameters.
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            [switch]$FailIfAbsent=$true,
+        [Parameter (Mandatory=$true)]
+            [ValidateScript({ Validate-SecurityGroupMember $_ })]
+            [object[]]$Member,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+    }
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('Member') ) { 
+            foreach ( $_Member in $Member) { 
+
+                #This is probably not safe - need to review all possible input types to confirm.
+                if ($_Member -is [System.Xml.XmlElement] ) {
+                    $MemberMoref = $_Member.objectId
+                } else { 
+                    $MemberMoref = $_Member.ExtensionData.MoRef.Value
+                }
+
+                $URI = "/api/2.0/services/securitygroup/$($securityGroup.objectId)/members/$($MemberMoref)?failIfAbsent=$($FailIfAbsent.ToString().ToLower())"
+                Write-Progress -activity "Deleting member $MemberMoref from Security Group $($securityGroup.objectId)"
+                $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+                write-progress -activity "Deleting member $MemberMoref from Security Group $($securityGroup.objectId)" -completed   
+            }
+        }   
+        Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxSecurityGroupMember
+
+
 
 function Get-NsxIpSet {
 
