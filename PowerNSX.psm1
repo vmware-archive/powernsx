@@ -3791,6 +3791,10 @@ function New-NsxClusterVxlanConfig {
             }
         }
 
+        Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
+        Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed
+        Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed
+        Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed
         Write-Progress -id 1 -activity "Configuring VXLAN on cluster $($Cluster.Name)." -completed
         $cluster | get-NsxClusterStatus -connection $connection
         
@@ -3899,6 +3903,9 @@ function Install-NsxCluster {
                 $Timer = 0            }
         }
 
+        Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
+        Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed
+        Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed
         Write-Progress -id 1 -activity "Preparing cluster $($Cluster.Name)." -status "In Progress..." -completed
         $cluster | get-NsxClusterStatus -connection $connection
     }
@@ -4033,6 +4040,9 @@ function Remove-NsxCluster {
                     $Timer = 0            }
             }
 
+            Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
+            Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed
+            Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed
             Write-Progress -id 1 -activity "Unpreparing cluster $($Cluster.Name)." -status "In Progress..." -completed
             $cluster | get-NsxClusterStatus -connection $connection
         }
@@ -4148,7 +4158,8 @@ function Remove-NsxClusterVxlanConfig {
                     $Timer = 0   
                 }
             }
-
+            
+            Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed
             Write-Progress -id 1 -activity "Unconfiguring VXLAN on $($Cluster.Name)." -status "In Progress..." -completed
             $cluster | get-NsxClusterStatus -connection $connection | ? { $_.featureId -eq "com.vmware.vshield.vsm.vxlan" }
         }
