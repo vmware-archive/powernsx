@@ -6356,35 +6356,42 @@ function Remove-NsxEdgeSubInterface {
 
     )
 
-    if ( $confirm ) { 
+    Begin {}
 
-        $message  = "Interface ($Subinterface.Name) will be removed."
-        $question = "Proceed with interface reconfiguration for interface $($Subinterface.index)?"
+    Process { 
+        if ( $confirm ) { 
 
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $message  = "Interface ($Subinterface.Name) will be removed."
+            $question = "Proceed with interface reconfiguration for interface $($Subinterface.index)?"
 
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-        if ( $decision -eq 1 ) {
-            return
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            if ( $decision -eq 1 ) {
+                return
+            }
         }
+
+        #Get the vnic xml
+        $ParentVnic = $(Get-NsxEdge -connection $connection -objectId $SubInterface.edgeId).vnics.vnic | ? { $_.index -eq $subInterface.vnicId }
+
+        #Remove the node using xpath query.
+        $NodeToRemove = $ParentVnic.subInterfaces.SelectSingleNode("descendant::subInterface[index=$($subInterface.Index)]")
+        write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
+        $ParentVnic.Subinterfaces.RemoveChild($NodeToRemove) | out-null
+
+        #Put the modified VNIC xml
+        $body = $ParentVnic.OuterXml
+        $URI = "/api/4.0/edges/$($SubInterface.edgeId)/vnics/$($ParentVnic.Index)"
+        Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)."
+        invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." -completed
+
     }
-
-    #Get the vnic xml
-    $ParentVnic = $(Get-NsxEdge -connection $connection -objectId $SubInterface.edgeId).vnics.vnic | ? { $_.index -eq $subInterface.vnicId }
-
-    #Remove the node using xpath query.
-    $NodeToRemove = $ParentVnic.subInterfaces.SelectSingleNode("descendant::subInterface[index=$($subInterface.Index)]")
-    write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
-    $ParentVnic.Subinterfaces.RemoveChild($NodeToRemove) | out-null
-
-    #Put the modified VNIC xml
-    $body = $ParentVnic.OuterXml
-    $URI = "/api/4.0/edges/$($SubInterface.edgeId)/vnics/$($ParentVnic.Index)"
-    Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)."
-    invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
-    Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." -completed
+    End {}
+    
 }
 Export-ModuleMember -Function Remove-NsxEdgeSubInterface
 
