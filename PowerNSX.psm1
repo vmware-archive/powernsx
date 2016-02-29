@@ -15276,9 +15276,9 @@ function Remove-NsxService {
     This cmdlet removes the NSX service specified.
 
     .EXAMPLE
-    PS C:\> New-NsxService -Name TestService -Description "Test creation of a
-     service" -Protocol TCP -port 1234
+    Get-NsxService -Name TestService | Remove-NsxService
 
+    Removes the service TestService
     #>    
  
     param (
