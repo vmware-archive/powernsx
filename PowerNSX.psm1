@@ -1856,6 +1856,7 @@ function Format-XML () {
 
     param ( 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,Position=1) ]
+            [ValidateNotNullorEmpty()]
             $xml="", 
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
@@ -1880,7 +1881,7 @@ function Format-XML () {
     }
     else{
 
-        throw "Unknown data type specified as xml."
+        throw "Unknown data type specified as xml to Format-Xml."
     }
 
 
@@ -6269,10 +6270,12 @@ function New-NsxEdgeSubInterface {
 
     #Store the edgeId and remove it from the XML as we need to post it...
     $edgeId = $_Interface.edgeId
-    $_Interface.RemoveChild( $($_Interface.SelectSingleNode('descendant::edgeId')) ) | out-null
+    $NodetoRemove = $($_Interface.SelectSingleNode('descendant::edgeId'))
+    write-debug "Node to remove parent: $($nodetoremove.ParentNode | format-xml)"
+
+    $_Interface.RemoveChild( $NodeToRemove ) | out-null
     
-    write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
-    
+
     #Get or create the subinterfaces node. 
     [System.XML.XMLDocument]$xmlDoc = $_Interface.OwnerDocument
     if ( $_Interface | get-member -memberType Properties -Name subInterfaces) { 
@@ -6447,27 +6450,31 @@ function Get-NsxEdgeSubInterface {
             if ($PsBoundParameters.ContainsKey("Index")) { 
 
                 $subint = $Interface.subInterfaces.subinterface | ? { $_.index -eq $Index }
+
                 if ( $subint ) {
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
-                    $subint
+                    $_subint = $subint.CloneNode($true)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
+                    $_subint
                 }
             }
             elseif ( $PsBoundParameters.ContainsKey("name")) {
                     
                 $subint = $Interface.subInterfaces.subinterface | ? { $_.name -eq $name }
                 if ($subint) { 
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
-                    $subint
+                    $_subint = $subint.CloneNode($true)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
+                    $_subint
                 }
             } 
             else {
                 #All Subinterfaces on interface
                 foreach ( $subint in $Interface.subInterfaces.subInterface ) {
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
-                    $subInt
+                    $_subint = $subint.CloneNode($true)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
+                    $_subint
                 }
             }
         }
