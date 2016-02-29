@@ -6264,20 +6264,23 @@ function New-NsxEdgeSubInterface {
         throw "Specified interface $($interface.Name) is of type $($interface.type) but must be of type trunk to host a subinterface. "
     }
 
-    #Remove our crap so the put doesnt barf later.
-    $EdgeId = $interface.edgeId
-    $NodeToRemove = $interface.SelectSingleNode("descendant::edgeId")
-    write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
-    $interface.RemoveChild($NodeToRemove) | out-null
+    #Create private xml element
+    $_Interface = $Interface.CloneNode($true)
 
+    #Store the edgeId and remove it from the XML as we need to post it...
+    $edgeId = $_Interface.edgeId
+    $_Interface.RemoveChild( $($_Interface.SelectSingleNode('descendant::edgeId')) ) | out-null
+    
+    write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
+    
     #Get or create the subinterfaces node. 
-    [System.XML.XMLDocument]$xmlDoc = $interface.OwnerDocument
-    if ( $interface | get-member -memberType Properties -Name subInterfaces) { 
-        [System.XML.XMLElement]$xmlSubInterfaces = $interface.subInterfaces
+    [System.XML.XMLDocument]$xmlDoc = $_Interface.OwnerDocument
+    if ( $_Interface | get-member -memberType Properties -Name subInterfaces) { 
+        [System.XML.XMLElement]$xmlSubInterfaces = $_Interface.subInterfaces
     }
     else {
         [System.XML.XMLElement]$xmlSubInterfaces = $xmlDoc.CreateElement("subInterfaces")
-        $interface.AppendChild($xmlSubInterfaces) | out-null
+        $_Interface.AppendChild($xmlSubInterfaces) | out-null
     }
 
     #generate the vnic XML 
@@ -6307,11 +6310,11 @@ function New-NsxEdgeSubInterface {
     $xmlSubInterfaces.AppendChild($import) | out-null
 
     # #Do the post
-    $body = $Interface.OuterXml
-    $URI = "/api/4.0/edges/$($EdgeId)/vnics/$($Interface.Index)"
-    Write-Progress -activity "Updating Edge Services Gateway interface configuration for $($interface.Name)."
+    $body = $_Interface.OuterXml
+    $URI = "/api/4.0/edges/$($EdgeId)/vnics/$($_Interface.Index)"
+    Write-Progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)."
     invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
-    Write-progress -activity "Updating Edge Services Gateway interface configuration for $($interface.Name)." -completed
+    Write-progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)." -completed
 }
 Export-ModuleMember -Function New-NsxEdgeSubInterface
 
@@ -6361,7 +6364,7 @@ function Remove-NsxEdgeSubInterface {
     Process { 
         if ( $confirm ) { 
 
-            $message  = "Interface ($Subinterface.Name) will be removed."
+            $message  = "Interface $($Subinterface.Name) will be removed."
             $question = "Proceed with interface reconfiguration for interface $($Subinterface.index)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
@@ -6391,7 +6394,7 @@ function Remove-NsxEdgeSubInterface {
 
     }
     End {}
-    
+
 }
 Export-ModuleMember -Function Remove-NsxEdgeSubInterface
 
