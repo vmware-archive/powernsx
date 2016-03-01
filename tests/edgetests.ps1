@@ -38,10 +38,7 @@ $PrefixName = "TestPrefix"
 $PrefixNetwork = "1.2.3.0/24"
 
 $Password = "VMware1!VMware1!"
-$DNS1 = "11.11.11.11"
-$DNS2 = "22.22.22.22"
-$DNSDomain = "corp.local"
-
+$tenant = "testtenant"
 
 $ls1 = get-nsxtransportzone | new-nsxlogicalswitch $ls1_name
 $ls2 = get-nsxtransportzone | new-nsxlogicalswitch $ls2_name
@@ -56,7 +53,7 @@ $vnic0 = New-NsxEdgeInterfaceSpec -index 1 -Type uplink -Name "vNic1" -Connected
 $vnic1 = New-NsxEdgeInterfaceSpec -index 2 -Type internal -Name "vNic2" -ConnectedTo $ls2 -PrimaryAddress $ip2 -SubnetPrefixLength 24
 $vnic2 = New-NsxEdgeInterfaceSpec -index 3 -Type trunk -Name "vNic3" -ConnectedTo $pg1
 
-New-NsxEdge -Name $name -Interface $vnic0,$vnic1,$vnic2 -Cluster $cl -Datastore $ds -password $password -primarydnsserver $dns1 -secondarydnsserver $dns2 -dnsdomainname $dnsdomain -enablessh
+New-NsxEdge -Name $name -Interface $vnic0,$vnic1,$vnic2 -Cluster $cl -Datastore $ds -password $password -tenant $testtenant -enablessh
 
 
 #Add a vnic 

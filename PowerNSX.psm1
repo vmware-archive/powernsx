@@ -6704,15 +6704,9 @@ function New-NsxEdge {
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [String]$Tenant,
-         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
-            [String]$PrimaryDNSServer,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [String]$SecondaryDNSServer,
-        [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
-            [String]$DNSDomainName,
+            [String]$Hostname=$Name,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [switch]$EnableSSH=$false,
@@ -6759,6 +6753,8 @@ function New-NsxEdge {
         $xmlDoc.appendChild($xmlRoot) | out-null
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "fqdn" -xmlElementText $Hostname
+
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
         if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant }
 
@@ -6870,7 +6866,7 @@ function New-NsxEdge {
             if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "secondaryDns" -xmlElementText $SecondaryDNSServer }
             if ( $PsBoundParameters.ContainsKey('DNSDomainName') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "domainName" -xmlElementText $DNSDomainName }
         }
-        
+
         #Nics
         [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("vnics")
         $xmlRoot.appendChild($xmlVnics) | out-null
