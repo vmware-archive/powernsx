@@ -6691,6 +6691,9 @@ function New-NsxEdge {
             [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$Datastore,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
+            [String]$Username="admin",
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
             [String]$Password,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
@@ -6852,7 +6855,11 @@ function New-NsxEdge {
             [System.XML.XMLElement]$xmlCliSettings = $XMLDoc.CreateElement("cliSettings")
             $xmlRoot.appendChild($xmlCliSettings) | out-null
             
-            if ( $PsBoundParameters.ContainsKey('Password') ) { Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "password" -xmlElementText $Password }
+            if ( $PsBoundParameters.ContainsKey('Password') ) { 
+                Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "userName" -xmlElementText $UserName
+                Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "password" -xmlElementText $Password
+
+            }
             if ( $PsBoundParameters.ContainsKey('EnableSSH') ) { Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "remoteAccess" -xmlElementText $EnableSsh.ToString().ToLower() }
         }
 
