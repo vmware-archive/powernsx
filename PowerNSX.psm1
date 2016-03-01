@@ -1508,6 +1508,36 @@ Function Validate-EdgeSslVpnPrivateNetwork {
     }
 }
 
+Function Validate-EdgeSslVpnClientPackage { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name profileName -Membertype Properties)) { 
+            throw "XML Element specified does not contain a profileName property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeID property."
+        }
+
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN Client Installation Package object."
+    }
+}
+
 Function Validate-SecurityGroupMember { 
     
     Param (
@@ -8839,6 +8869,208 @@ function Remove-NsxSslVpnPrivateNetwork {
     end {}
 }
 Export-ModuleMember -Function Remove-NsxSslVpnPrivateNetwork
+
+function New-NsxSslVpnClientInstallationPackage {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$True)]
+            [string]$Name,
+        [Parameter (Mandatory=$True)]
+            [ipAddress[]]$Gateway,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,65535)]
+            [Int]$Port,
+        [Parameter (Mandatory=$False)]
+            [switch]$CreateLinuxClient,
+        [Parameter (Mandatory=$False)]
+            [switch]$CreateMacClient,
+        [Parameter (Mandatory=$False)]
+            [string]$Description, 
+        [Parameter (Mandatory=$False)]
+            [switch]$StartClientOnLogon,
+        [Parameter (Mandatory=$False)]
+            [switch]$HideSystrayIcon,
+        [Parameter (Mandatory=$False)]
+            [switch]$RememberPassword,
+        [Parameter (Mandatory=$False)]
+            [switch]$SilentModeOperation,
+        [Parameter (Mandatory=$False)]
+            [switch]$SilentModeInstallation,
+        [Parameter (Mandatory=$False)]
+            [switch]$HideNetworkAdaptor,
+        [Parameter (Mandatory=$False)]
+            [switch]$CreateDesktopIcon,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnforceServerSecurityCertValidation,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled=$true,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    Begin{}
+
+    Process {
+
+        #Store the edgeId.
+        $edgeId = $SslVpn.edgeId
+
+        #Create the ipAddressPool element
+        $clientInstallPackage = $SslVpn.ownerDocument.CreateElement('clientInstallPackage')
+ 
+        #gatewayList element
+        [system.Xml.XmlElement]$gatewayList = $clientInstallPackage.ownerDocument.CreateElement('gatewayList')
+        $clientInstallPackage.AppendChild($gatewayList) | out-null
+        foreach ($gatewayitem in $gateway) { 
+            [system.Xml.XmlElement]$gatewayNode = $gatewayList.ownerDocument.CreateElement('gateway')
+            $gatewayList.AppendChild($gatewayNode) | out-null
+            Add-XmlElement -xmlRoot $gatewayNode -xmlElementName "hostName" -xmlElementText $gatewayitem
+            if ( $PSBoundParameters.ContainsKey('port')) { 
+                Add-XmlElement -xmlRoot $gatewayNode -xmlElementName "port" -xmlElementText $Port
+            }
+        }
+
+
+        #Mandatory and defaults
+        Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "profileName" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "enabled" -xmlElementText $Enabled.ToString().ToLower()
+
+        # Optionals...
+        if ( $PsBoundParameters.ContainsKey('StartClientOnLogon')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "startClientOnLogon" -xmlElementText $StartClientOnLogon.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('hideSystrayIcon')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "hideSystrayIcon" -xmlElementText $hideSystrayIcon.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('rememberPassword')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "rememberPassword" -xmlElementText $rememberPassword.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('silentModeOperation')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "silentModeOperation" -xmlElementText $silentModeOperation.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('silentModeInstallation')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "silentModeInstallation" -xmlElementText $silentModeInstallation.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('hideNetworkAdaptor')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "hideNetworkAdaptor" -xmlElementText $hideNetworkAdaptor.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('createDesktopIcon')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "createDesktopIcon" -xmlElementText $createDesktopIcon.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('enforceServerSecurityCertValidation')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "enforceServerSecurityCertValidation" -xmlElementText $enforceServerSecurityCertValidation.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('createLinuxClient')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "createLinuxClient" -xmlElementText $createLinuxClient.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('createMacClient')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "createMacClient" -xmlElementText $createMacClient.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('description')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "description" -xmlElementText $description.ToString().ToLower()
+        }
+
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/installpackages/"
+        $body = $clientInstallPackage.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnClientInstallationPackage -Name $Name
+    }
+}
+Export-ModuleMember -Function New-NsxSslVpnClientInstallationPackage
+
+function Get-NsxSslVpnClientInstallationPackage {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [string]$Name
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+
+        $Packages = $_EdgeSslVpn.SelectNodes('descendant::clientInstallPackages/*')
+        if ( $Packages ) { 
+            foreach ( $Package in $Packages ) { 
+                Add-XmlElement -xmlRoot $Package -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('Name')) { 
+                    $Package | ? { $_.ProfileName -eq $Name }
+                } 
+                else {
+                    $Package
+                }
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSslVpnClientInstallationPackage
+
+function Remove-NsxSslVpnClientInstallationPackage {
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpnClientPackage $_ })]
+            [System.Xml.XmlElement]$EdgeSslVpnClientPackage,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection 
+    )
+    
+    begin {
+    }
+
+    process {
+
+        $edgeId = $EdgeSslVpnClientPackage.edgeId
+        $packageId = $EdgeSslVpnClientPackage.objectId
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/installpackages/$packageId"
+   
+        if ( $confirm ) { 
+            $message  = "Installation Package deletion is permanent."
+            $question = "Proceed with deletion of installation package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $($edgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId" -completed
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxSslVpnClientInstallationPackage
 
 #########
 #########
