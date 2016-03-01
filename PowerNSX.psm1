@@ -6689,7 +6689,7 @@ function New-NsxEdge {
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$Datastore,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [String]$Password,
         [Parameter (Mandatory=$false)]
@@ -6760,9 +6760,9 @@ function New-NsxEdge {
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
-        if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant}
+        if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant }
 
-
+        #Appliances element
         [System.XML.XMLElement]$xmlAppliances = $XMLDoc.CreateElement("appliances")
         $xmlRoot.appendChild($xmlAppliances) | out-null
         
@@ -6842,7 +6842,36 @@ function New-NsxEdge {
             Add-XmlElement -xmlRoot $xmlDefaultPolicy -xmlElementName "action" -xmlElementText "deny"
         }            
 
+        #Rule Autoconfiguration
+        if ( $AutoGenerateRules ) { 
+            [System.XML.XMLElement]$xmlAutoConfig = $XMLDoc.CreateElement("autoConfiguration")
+            $xmlRoot.appendChild($xmlAutoConfig) | out-null
+            Add-XmlElement -xmlRoot $xmlAutoConfig -xmlElementName "enabled" -xmlElementText $AutoGenerateRules.ToString().ToLower()
+
+        }
+
+        #CLI Settings
+        if ( $PsBoundParameters.ContainsKey('EnableSSH') -or $PSBoundParameters.ContainsKey('Password') ) {
+
+            [System.XML.XMLElement]$xmlCliSettings = $XMLDoc.CreateElement("cliSettings")
+            $xmlRoot.appendChild($xmlCliSettings) | out-null
+            
+            if ( $PsBoundParameters.ContainsKey('Password') ) { Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "password" -xmlElementText $Password }
+            if ( $PsBoundParameters.ContainsKey('EnableSSH') ) { Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "remoteAccess" -xmlElementText $EnableSsh.ToString().ToLower() }
+        }
+
+        #DNS Settings
+        if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') -or $PSBoundParameters.ContainsKey('SecondaryDNSServer') -or $PSBoundParameters.ContainsKey('DNSDomainName') ) {
+
+            [System.XML.XMLElement]$xmlDnsClient = $XMLDoc.CreateElement("dnsClient")
+            $xmlRoot.appendChild($xmlDnsClient) | out-null
+            
+            if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "primaryDns" -xmlElementText $PrimaryDnsServer }
+            if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "secondaryDns" -xmlElementText $SecondaryDNSServer }
+            if ( $PsBoundParameters.ContainsKey('DNSDomainName') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "domainName" -xmlElementText $DNSDomainName }
+        }
         
+        #Nics
         [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("vnics")
         $xmlRoot.appendChild($xmlVnics) | out-null
         foreach ( $VnicSpec in $Interface ) {
