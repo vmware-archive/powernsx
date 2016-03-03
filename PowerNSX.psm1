@@ -6900,6 +6900,69 @@ function New-NsxEdge {
 }
 Export-ModuleMember -Function New-NsxEdge
 
+function Redeploy-NsxEdge {
+
+    <#
+    .SYNOPSIS
+    Redploys the specified NSX Edge Services Gateway appliances.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The Redploy-NsxEdge cmdlet triggers redployment of the specified Edges 
+    appliances.
+
+    
+    #>
+
+    [CmdletBinding()]
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        $URI = "/api/4.0/edges/$($Edge.Id)?action=redeploy"
+               
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway reployment is disruptive to Edge services."
+            $question = "Proceed with Redeploy of Edge Services Gateway $($Edge.Name)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Redeploying Edge Services Gateway $($Edge.Name)"
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+            write-progress -activity "Redeploying Edge Services Gateway $($Edge.Name)" -completed
+            Get-NsxEdge -objectId $($Edge.Id) -connection $connection
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Redeploy-NsxEdge
+
 function Set-NsxEdge {
 
     <#
