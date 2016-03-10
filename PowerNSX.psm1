@@ -1401,7 +1401,7 @@ Function Validate-SecurityGroupMember {
 
             throw "Member is not a supported type.  Specify a Datacenter, Cluster, `
             DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-            IPSet, SecurityGroup or Logical Switch object."      
+            IPSet, SecurityGroup, SecurityTag or Logical Switch object."      
     } 
     else {
 
@@ -1423,10 +1423,11 @@ Function Validate-SecurityGroupMember {
                 "MacSet"{}
                 "SecurityGroup" {}
                 "VirtualWire" {}
+                "SecurityTag" {}
                 default { 
                     throw "Member is not a supported type.  Specify a Datacenter, Cluster, `
                          DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-                         IPSet, MacSet, SecurityGroup or Logical Switch object." 
+                         IPSet, MacSet, SecurityGroup, SecurityTag or Logical Switch object." 
                 }
             }
         }   
@@ -12375,6 +12376,195 @@ function Remove-NsxSecurityGroup {
 }
 Export-ModuleMember -Function Remove-NsxSecurityGroup
 
+#set-strictmode -latest
+
+function New-NsxSecurityTag {
+
+    <#
+    .SYNOPSIS
+    Creates a new NSX Security Tag
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of NSX such as Security Groups
+    match criteria. Security Tags are applied to a Virtual Machine.
+
+    This cmdlet creates a new NSX Security Tag
+
+    .EXAMPLE
+    PS C:\> New-NSXSecurityTag -name ST-Web-DMZ -description Security Tag for the Web Tier
+
+    #>
+param (
+
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [string]$Description
+    )
+
+ begin {
+
+    }
+    process { 
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("securityTag")
+        [System.XML.XMLElement]$XmlNodes = $Xmldoc.CreateElement("type")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+        $xmlRoot.appendChild($xmlnodes) | out-null
+        
+    
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "objectTypeName" -xmlElementText "SecurityTag"
+        Add-XmlElement -xmlRoot $xmlnodes -xmlElementName "typeName" -xmlElementText "SecurityTag"
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        #Need to make the Description parameter
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText "$Description"
+
+
+  #Do the post
+        $body = $xmlroot.OuterXml
+        $URI = "/api/2.0/services/securitytags/tag"
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+
+        Get-NsxSecurityTag -name $Name
+    }
+        end {}
+}
+Export-ModuleMember -Function New-NsxSecurityTag
+
+function Get-NsxSecurityTag {
+
+    <#
+    .SYNOPSIS
+    Retrieves a new NSX Security Tag
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of NSX such as Security Groups
+    match criteria. Security Tags are applied to a Virtual Machine.
+
+    This cmdlet retrieves NSX Security Tag
+
+    .EXAMPLE
+    PS C:\> Get-NSXSecurityTag -name ST-Web-DMZ 
+
+    #>
+
+   param (
+
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [string]$Description
+
+    ) 
+
+ 
+
+
+    process {
+     
+        if ( -not $Description ) { 
+            #All Security GRoups
+            $URI = "/api/2.0/services/securitytags/tag"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            if  ( $Name  ) { 
+                $response.securitytags.securitytag | ? { $_.name -eq $name }
+            } else {
+                $response.securitytags.securitytag
+            }
+
+        }
+        else {
+
+            #Just getting a single Security group
+            $URI = "/api/2.0/services/securitytags/tag"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response.securitytags.securitytag
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSecurityTag
+
+function Remove-NsxSecurityTag {
+
+    <#
+    .SYNOPSIS
+    Removes the specified NSX Security Tag.
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of NSX such as Security Groups
+    match criteria. Security Tags are applied to a Virtual Machine.
+
+    This cmdlet retrieves NSX Security Tag
+
+    This cmdlet removes the specified NSX Security Tag. If the object 
+    is currently in use the api will return an error.  Use -force to override
+    but be aware that the firewall rulebase will become invalid and will need
+    to be corrected before publish operations will succeed again.
+
+    .EXAMPLE
+    PS C:\> Get-NsxSecurityTag TestIPSet | Remove-NsxSecurity Tag
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$response,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$force=$false
+
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Removal of Security Tags may impact desired Security Posture and expose your infrastructure. Please understand the impact of this change"
+            $question = "Proceed with removal of Security Tag $($Response.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            if ( $force ) { 
+                $URI = "/api/2.0/services/securitytags/tag/$($response.objectId)?force=true"
+            }
+            else {
+                $URI = "/api/2.0/services/securitytags/tag/$($response.objectId)?force=false"
+            }
+            
+            Write-Progress -activity "Remove Security Tag $($response.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+            write-progress -activity "Remove Security Tag $($response.Name)" -completed
+
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxSecurityTag
+
+
+
+
+
 function Get-NsxIPSet {
 
     <#
@@ -15488,4 +15678,3 @@ function Get-NsxBackingDVSwitch{
 
 }
 Export-ModuleMember -Function Get-NsxBackingDVSwitch
-
