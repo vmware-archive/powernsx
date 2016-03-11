@@ -21,10 +21,21 @@ $TestMacSetName2 = "testMacSet2"
 $TestMac1 = "00:50:56:00:00:00"
 $TestMac2 = "00:50:56:00:00:01"
 
+$dfwedgename = "dfwesgtest"
+$dfwedgeIp1 = "1.1.1.1"
+
 $testvm1 = get-vm $testVMName1
 $testvm2 = get-vm $testVMName2
+$cl = get-cluster mgmt01
+$ds = get-datastore Data
+$Password = "VMware1!VMware1!"
+$tenant = "testtenant"
 
 $testls = Get-NsxTransportZone | New-NsxLogicalSwitch $testlsname
+
+#Create Edge
+$vnic0 = New-NsxEdgeInterfaceSpec -index 1 -Type uplink -Name "vNic1" -ConnectedTo $testls -PrimaryAddress $dfwedgeIp1 -SubnetPrefixLength 24
+New-NsxEdge -Name $dfwedgename -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh
 
 #Create Groupings
 $TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Test IP Set" -IpAddresses $testIPs 
@@ -49,12 +60,16 @@ Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "TestRule2" -S
 #Create a FW rule with different element types...
 Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "TestRule3" -Source $testvm1,$testsg1 -destination $testvm1,$testsg1 -action allow -appliedTo $TestSG1,$TestVM1 -tag "Test MultiType"
 
+#Create some different applied to rules...
+Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "TestRule4" -Source $testvm1,$testsg1 -destination $testvm1,$testsg1 -action allow -ApplyToDfw -ApplyToAllEdges
 
 #Create an L2 Rule...
 Get-NsxFirewallSection $l2sectionname | New-NsxFirewallRule -Name "TestL2Rule1" -Source $TestMacSet1 -Destination $TestMacSet1 -action allow -appliedto $testSG1 -RuleType "layer2sections"
 
 #Multiple members
 Get-NsxFirewallSection $l2sectionname | New-NsxFirewallRule -Name "TestL2Rule2" -Source $TestMacSet1,$TestMacSet2 -Destination $TestMacSet1,$TestMacSet2 -action allow -appliedto $testSG1,$TestSG2 -RuleType "layer2sections"
+
+read-host "Hit any key to tear down"
 
 #Tear Down
 Get-NsxFireWallSection $l3sectionname | Get-NsxFirewallRule "TestRule1" | remove-NsxFirewallRule -confirm:$False
@@ -70,7 +85,9 @@ Get-NsxMacSet $TestMacSetName2 | remove-nsxmacset -confirm:$false
 Get-NsxIPSet $TestIPSetName | remove-NsxIPSet -confirm:$False
 Get-NsxService $TestServiceName1 | remove-nsxservice -confirm:$False
 Get-NsxService $TestServiceName2 | remove-nsxservice -confirm:$False
-
+Get-NSxEdge $dfwedgename | remove-nsxedge -confirm:$false
+start-sleep 10
+Get-NsxTransportZone | get-nsxLogicalSwitch $testlsname | remove-nsxlogicalswitch -confirm:$false
 #Missing
 
 #Modify IPSet

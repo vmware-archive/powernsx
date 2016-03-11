@@ -15749,7 +15749,8 @@ function New-NsxAppliedToListNode {
 
         [object[]]$itemlist,
         [System.XML.XMLDocument]$xmlDoc,
-        [switch]$ApplyToDFW
+        [switch]$ApplyToDFW,
+        [switch]$ApplyToAllEdges
 
     )
 
@@ -15758,14 +15759,6 @@ function New-NsxAppliedToListNode {
     #Iterate the appliedTo passed and build appliedTo nodes.
     #$xmlRoot.appendChild($xmlReturn) | out-null
 
-    if ( $ApplyToDFW ) {
-
-        [System.XML.XMLElement]$xmlAppliedTo = $XMLDoc.CreateElement("appliedTo")
-        $xmlReturn.appendChild($xmlAppliedTo) | out-null
-        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "name" -xmlElementText "DISTRIBUTED_FIREWALL"
-        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "type" -xmlElementText "DISTRIBUTED_FIREWALL"
-        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "value" -xmlElementText "DISTRIBUTED_FIREWALL"
-    }
 
     foreach ($item in $itemlist) {
         write-debug "$($MyInvocation.MyCommand.Name) : Building appliedTo node for $($item.name)"
@@ -15778,12 +15771,25 @@ function New-NsxAppliedToListNode {
             
             if ( $item.SelectSingleNode('descendant::edgeSummary')) { 
 
+                write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is an edge object"
+
+                if ( $ApplyToAllEdges ) {
+                    #Apply to all edges is default off, so this means the user asked for something stupid
+                    throw "Cant specify Edge Object in applied to list and ApplyToAllEdges simultaneously."
+                }
+
                 #We have an edge, and edges have the details we need in their EdgeSummary element:
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.edgeSummary.objectId
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.edgeSummary.name
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.edgeSummary.objectTypeName
+
+
             }
             else {
+
+                #Something specific passed in applied to list, turn off Apply to DFW.
+                $ApplyToDFW = $false
+
                 #XML representation of NSX object passed - ipset, sec group or logical switch
                 #get appropritate name, value.
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
@@ -15821,6 +15827,25 @@ function New-NsxAppliedToListNode {
 
         $xmlReturn.appendChild($xmlItem) | out-null
     }
+
+    if ( $ApplyToDFW ) {
+
+        [System.XML.XMLElement]$xmlAppliedTo = $XMLDoc.CreateElement("appliedTo")
+        $xmlReturn.appendChild($xmlAppliedTo) | out-null
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "name" -xmlElementText "DISTRIBUTED_FIREWALL"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "type" -xmlElementText "DISTRIBUTED_FIREWALL"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "value" -xmlElementText "DISTRIBUTED_FIREWALL"
+    }
+
+    if ( $ApplyToAllEdges ) {
+    
+        [System.XML.XMLElement]$xmlAppliedTo = $XMLDoc.CreateElement("appliedTo")
+        $xmlReturn.appendChild($xmlAppliedTo) | out-null
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "name" -xmlElementText "ALL_EDGES"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "type" -xmlElementText "ALL_EDGES"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "value" -xmlElementText "ALL_EDGES"
+    }
+    
     $xmlReturn
 }
 
@@ -16215,6 +16240,8 @@ function New-NsxFirewallRule  {
         [Parameter (Mandatory=$false)]
             [switch]$ApplyToDfw=$true,
         [Parameter (Mandatory=$false)]
+            [switch]$ApplyToAllEdges=$false,
+        [Parameter (Mandatory=$false)]
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$false)]
@@ -16283,10 +16310,10 @@ function New-NsxFirewallRule  {
 
         #Applied To
         if ( -not $PsBoundParameters.ContainsKey('AppliedTo')) { 
-            $xmlAppliedToList = New-NsxAppliedToListNode -xmlDoc $xmlDoc -ApplyToDFW 
+            $xmlAppliedToList = New-NsxAppliedToListNode -xmlDoc $xmlDoc -ApplyToDFW:$ApplyToDfw -ApplyToAllEdges:$ApplyToAllEdges 
         }
         else {
-            $xmlAppliedToList = New-NsxAppliedToListNode -itemlist $AppliedTo -xmlDoc $xmlDoc -ApplyToDFW:$ApplyToDfw
+            $xmlAppliedToList = New-NsxAppliedToListNode -itemlist $AppliedTo -xmlDoc $xmlDoc -ApplyToDFW:$ApplyToDfw -ApplyToAllEdges:$ApplyToAllEdges
         }
         $xmlRule.appendChild($xmlAppliedToList) | out-null
 
