@@ -147,6 +147,7 @@ namespace PKI {
     }  
 }  
 
+
 function Invoke-NsxRestMethod {
 
     #Internal method to construct the REST call headers including auth as expected by NSX.
@@ -245,7 +246,7 @@ function Invoke-NsxRestMethod {
 
     if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
         if ( $connection.DebugLogging ) { 
-            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager: Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager via invoke-restmethod : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
         }
     }
 
@@ -413,7 +414,7 @@ function Invoke-NsxWebRequest {
     
     if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
         if ( $connection.DebugLogging ) { 
-            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager: Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager via invoke-webrequest : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
         }
     }
 
@@ -456,27 +457,51 @@ function Invoke-NsxWebRequest {
         
 
     }
-    switch ( $response.content ) {
-        { $_ -is [System.String] } { 
+
+    #Output the response header dictionary
+    foreach ( $key in $response.Headers.Keys) {
+        write-debug "$($MyInvocation.MyCommand.Name) : Response header item : $Key = $($Response.Headers.Item($key))"
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+            if ( $connection.DebugLogging ) { 
+                Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response header item : $Key = $($Response.Headers.Item($key))"
+            }
+        }
+    } 
+
+    #And if there is response content...
+    if ( $response.content ) {
+        switch ( $response.content ) {
+            { $_ -is [System.String] } { 
+                
+                write-debug "$($MyInvocation.MyCommand.Name) : Response Body: $($response.content)" 
             
-            write-debug "$($MyInvocation.MyCommand.Name) : Response Body: $($response.content), Response Headers: $($response.Headers)" 
-        
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) { 
-                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response Body: $($response.content), Response Headers: $($response.Headers)"
+                if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                    if ( $connection.DebugLogging ) { 
+                        Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response Body: $($response.content)"
+                    }
+                }
+            }
+            default { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown"
+
+                if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                    if ( $connection.DebugLogging ) { 
+                        Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response type unknown ( $($Response.Content.gettype()) )."
+                    } 
                 }
             }
         }
-        default { 
-            write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown"
+    }
+    else { 
+        write-debug "$($MyInvocation.MyCommand.Name) : No response content"
 
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
-                if ( $connection.DebugLogging ) { 
-                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response type unknown."
-                } 
-            }
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+            if ( $connection.DebugLogging ) { 
+                Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  No response content."
+            } 
         }
     }
+
     $response
 }
 
@@ -2103,8 +2128,9 @@ function Connect-NsxServer {
     $connection | add-member -memberType NoteProperty -name "DebugLogging" -force -Value $DebugLogging
     
     #Debug log will contain all rest calls, request and response bodies, and response headers.
-    if ( $DebugLogging -and (-not $PsBoundParameters.ContainsKey('DebugLogFile' ))) {
+    if ( -not $PsBoundParameters.ContainsKey('DebugLogFile' )) {
 
+        #Generating logfile name regardless of initial user pref on debug.  They can just flip the prop on the connection object at a later date to start logging...
         $dtstring = get-date -format "yyyy_MM_dd_HH_mm_ss"
         $DebugLogFile = "$($env:TEMP)\PowerNSXLog-$($Credential.UserName)@$Server-$dtstring.log"
 
