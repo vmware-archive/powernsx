@@ -232,13 +232,24 @@ function Invoke-NsxRestMethod {
     if ( $extraHeader ) {
         foreach ($header in $extraHeader.GetEnumerator()) {
             write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Extra Header being added to following REST call.  Key: $($Header.Key), Value: $($Header.Value)"
+                }
+            }
             $headerDictionary.add($header.Key, $header.Value)
         }
     }
     $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
     write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager: Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+        }
+    }
+
     #do rest call
-    
     try { 
         if ( $PsBoundParameters.ContainsKey('Body')) { 
             $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
@@ -255,19 +266,37 @@ function Invoke-NsxRestMethod {
             $reader = New-Object system.io.streamreader($responseStream)
             $responseBody = $reader.readtoend()
             $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
+            
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString"
+                }
+            }
+    
             throw $ErrorString
         }
         else { 
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)"
+                }
+            }
             throw $_ 
         } 
         
 
     }
     switch ( $response ) {
-        { $_ -is [xml] } { write-debug "$($MyInvocation.MyCommand.Name) : Response: `n$($response.outerxml | Format-Xml)" } 
-        { $_ -is [System.String] } { write-debug "$($MyInvocation.MyCommand.Name) : Response: $($response)" }
-        default { write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown" }
+        { $_ -is [xml] } { $FormattedResponse = "`n$($response.outerxml | Format-Xml)" } 
+        { $_ -is [System.String] } { $FormattedResponse = $response }
+        default { $formattedResponse = "Response type unknown" }
+    }
 
+    write-debug "$($MyInvocation.MyCommand.Name) : Response: $FormattedResponse"  
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response: $FormattedResponse"
+        }
     }
 
     #Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
@@ -371,11 +400,23 @@ function Invoke-NsxWebRequest {
     if ( $extraHeader ) {
         foreach ($header in $extraHeader.GetEnumerator()) {
             write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Extra Header being added to following REST call.  Key: $($Header.Key), Value: $($Header.Value)"
+                }
+            }
             $headerDictionary.add($header.Key, $header.Value)
         }
     }
     $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
     write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+    
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager: Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+        }
+    }
+
     #do rest call
     
     try { 
@@ -394,18 +435,47 @@ function Invoke-NsxWebRequest {
             $reader = New-Object system.io.streamreader($responseStream)
             $responseBody = $reader.readtoend()
             $ErrorString = "invoke-nsxwebrequest : Exception occured calling invoke-restmethod. $($response.StatusCode) : $($response.StatusDescription) : Response Body: $($responseBody)"
+            
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString"
+                }
+            }
+
             throw $ErrorString
         }
         else { 
+
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)"
+                }
+            }
             throw $_ 
         } 
         
 
     }
     switch ( $response.content ) {
-        { $_ -is [System.String] } { write-debug "$($MyInvocation.MyCommand.Name) : Response Body: $($response.content), Response Headers: $($response.Headers)" }
-        default { write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown" }
+        { $_ -is [System.String] } { 
+            
+            write-debug "$($MyInvocation.MyCommand.Name) : Response Body: $($response.content), Response Headers: $($response.Headers)" 
+        
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response Body: $($response.content), Response Headers: $($response.Headers)"
+                }
+            }
+        }
+        default { 
+            write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown"
 
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response type unknown."
+                } 
+            }
+        }
     }
     $response
 }
@@ -1999,6 +2069,10 @@ function Connect-NsxServer {
         [Parameter (ParameterSetName="userpass")]    
             [PSCredential]$VICred,
         [Parameter (Mandatory=$false)]
+            [switch]$DebugLogging=$false,
+        [Parameter (Mandatory=$false)]    
+            [string]$DebugLogFile,
+        [Parameter (Mandatory=$false)]
             [ValidateSet("Continue","Ignore")]
             [string]$ViWarningAction="Continue"   
     )
@@ -2026,13 +2100,29 @@ function Connect-NsxServer {
     $connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
     $connection | add-member -memberType NoteProperty -name "ValidateCertificate" -value $ValidateCertificate -force
     $connection | add-member -memberType NoteProperty -name "VIConnection" -force -Value ""
-
+    $connection | add-member -memberType NoteProperty -name "DebugLogging" -force -Value $DebugLogging
     
+    #Debug log will contain all rest calls, request and response bodies, and response headers.
+    if ( $DebugLogging -and (-not $PsBoundParameters.ContainsKey('DebugLogFile' ))) {
+
+        $dtstring = get-date -format "yyyy_MM_dd_HH_mm_ss"
+        $DebugLogFile = "$($env:TEMP)\PowerNSXLog-$($Credential.UserName)@$Server-$dtstring.log"
+
+    }
+
+    #If debug is on, need to test we can create the debug file first and throw if not... 
+    if ( $DebugLogging -and (-not ( new-item -path $DebugLogFile -Type file ))) { Throw "Unable to create logfile $DebugLogFile.  Disable debugging or specify a valid DebugLogFile name."}
+
+    $connection | add-member -memberType NoteProperty -name "DebugLogFile" -force -Value $DebugLogFile    
+
     #More and more functionality requires PowerCLI connection as well, so now pushing the user in that direction.  Will establish connection to vc the NSX manager 
     #is registered against.
 
     $vcInfo = Invoke-NsxRestMethod -method get -URI "/api/2.0/services/vcconfig" -connection $connection
+    if ( $DebugLogging ) { Add-Content -Path $DebugLogfile -Value "$(Get-Date -format s)  New PowerNSX Connection to $($credential.UserName)@$($Protocol)://$($Server):$port, version $($Connection.Version)" }
+
     if ( -not $vcInfo.SelectSingleNode('descendant::vcInfo/ipAddress')) { 
+        if ( $DebugLogging ) { Add-Content -Path $DebugLogfile -Value "$(Get-Date -format s)  NSX Manager $Server is not currently connected to any vCenter..." }
         write-warning "NSX Manager does not currently have a vCenter registration.  Use Set-NsxManager to register a vCenter server."
     }
     else {
@@ -2113,7 +2203,10 @@ function Connect-NsxServer {
                 }
             }
         }
+
+        if ( $DebugLogging ) { Add-Content -Path $DebugLogfile -Value "$(Get-Date -format s)  NSX Manager $Server is registered against vCenter server $RegisteredvCenterIP.  PowerCLI connection established to registered vCenter : $($connection.VIConnection.IsConnected)" }
     }
+
 
     #Set the default connection is required.
     if ( $DefaultConnection) { set-variable -name DefaultNSXConnection -value $connection -scope Global }
