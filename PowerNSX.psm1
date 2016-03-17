@@ -17023,7 +17023,8 @@ function Get-NsxLoadBalancerApplicationProfile {
             [ValidateScript({ Validate-LoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$true,ParameterSetName="applicationProfileId")]
-            [string]$applicationProfileId,
+            [alias("applicationProfileId")]
+            [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
             [string]$Name
 
@@ -17036,8 +17037,8 @@ function Get-NsxLoadBalancerApplicationProfile {
         if ( $PsBoundParameters.ContainsKey('Name')) { 
             $AppProfiles = $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
         }
-        elseif ( $PsBoundParameters.ContainsKey('monitorId') ) { 
-            $AppProfiles = $loadbalancer.applicationProfile | ? { $_.monitorId -eq $applicationProfileId }
+        elseif ( $PsBoundParameters.ContainsKey('objectId') ) { 
+            $AppProfiles = $loadbalancer.applicationProfile | ? { $_.applicationProfileId -eq $objectId }
         }
         else { 
             $AppProfiles = $loadbalancer.applicationProfile 
@@ -17162,6 +17163,80 @@ function New-NsxLoadBalancerApplicationProfile {
     end {}
 }
 Export-ModuleMember -Function New-NsxLoadBalancerApplicationProfile
+
+function Remove-NsxLoadBalancerApplicationProfile {
+
+    <#
+    .SYNOPSIS
+    Removes the specified LoadBalancer Application Profile.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    Application profiles define the behavior of a particular type of network 
+    traffic. After configuring a profile, you associate the profile with a 
+    virtual server. The virtual server then processes traffic according to the 
+    values specified in the profile. Using profiles enhances your control over 
+    managing network traffic, and makes traffic‐management tasks easier and more
+    efficient.
+    
+    This cmdlet removes the specified LoadBalancer Application Profile.
+   
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LoadBalancerApplicationProfile $_ })]
+            [System.Xml.XmlElement]$ApplicationProfile,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$True,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $ApplicationProfile.edgeId
+        $AppProfileId = $ApplicationProfile.applicationProfileId
+
+            
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/applicationprofiles/$AppProfileId" 
+        
+        if ( $confirm ) { 
+            $message  = "Application Profile removal is permanent."
+            $question = "Proceed with removal of Application Profile $AppProfileId"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Application Profile $AppProfileId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+
+            Get-NSxEdge -objectID $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxLoadBalancerApplicationProfile
 
 function New-NsxLoadBalancerMemberSpec {
 
@@ -18006,35 +18081,22 @@ function Remove-NsxLoadBalancerVip {
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-        
     )
 
     begin {
     }
 
     process {
-        
 
-
-        #Store the virtualserverid and edgeId and remove it from the LB XML as we need to post it...
+        #Store the virtualserverid and edgeId
         $VipId = $LoadBalancerVip.VirtualServerId
         $edgeId = $LoadBalancerVip.edgeId
 
-        $LoadBalancer = Get-nsxEdge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer
-        $LoadBalancer.RemoveChild( $($LoadBalancer.SelectSingleNode('child::edgeId')) ) | out-null
-
-        $VIPToRemove = $LoadBalancer.SelectSingleNode("child::virtualServer[virtualServerId=`"$VipId`"]")
-        if ( -not $VIPToRemove ) {
-            throw "VIP $VipId is not defined on Edge $edgeId"
-        } 
-        $LoadBalancer.RemoveChild( $VIPToRemove ) | out-null
-            
-        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
-        $body = $LoadBalancer.OuterXml 
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/virtualservers/$VipId"
     
         if ( $confirm ) { 
             $message  = "VIP removal is permanent."
-            $question = "Proceed with removal of VIP $VipID ob Edge $edgeId?"
+            $question = "Proceed with removal of VIP $VipID on Edge $($edgeId)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -18045,16 +18107,8 @@ function Remove-NsxLoadBalancerVip {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Removing VIP $VipId"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-
-            #Get updated loadbalancer
-            $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
-            Write-Progress -activity "Retrieving Updated Load Balancer for $($EdgeId)"
-            $return = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            $lb = $return.loadBalancer
-            Add-XmlElement -xmlroot $lb -xmlElementName "edgeId" -xmlElementText $edgeId
-            $lb
         }
     }
 
