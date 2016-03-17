@@ -1,4 +1,4 @@
-$testvm = "evil-vm"
+$testvm = "app01"
 
 #Basic CCLI output
 invoke-nsxcli "show cluster all"
