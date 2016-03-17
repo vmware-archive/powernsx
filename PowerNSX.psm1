@@ -2260,7 +2260,7 @@ function Connect-NsxServer {
             }
         }
 
-        if ( $DebugLogging ) { Add-Content -Path $DebugLogfile -Value "$(Get-Date -format s)  NSX Manager $Server is registered against vCenter server $RegisteredvCenterIP.  PowerCLI connection established to registered vCenter : $($connection.VIConnection.IsConnected)" }
+        if ( $DebugLogging ) { Add-Content -Path $DebugLogfile -Value "$(Get-Date -format s)  NSX Manager $Server is registered against vCenter server $RegisteredvCenterIP.  PowerCLI connection established to registered vCenter : $(if ($Connection.ViConnection ) { $connection.VIConnection.IsConnected } else { "False" })" }
     }
 
 
@@ -17034,20 +17034,22 @@ function Get-NsxLoadBalancerApplicationProfile {
 
     process { 
         
-        if ( $PsBoundParameters.ContainsKey('Name')) { 
-            $AppProfiles = $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
-        }
-        elseif ( $PsBoundParameters.ContainsKey('objectId') ) { 
-            $AppProfiles = $loadbalancer.applicationProfile | ? { $_.applicationProfileId -eq $objectId }
-        }
-        else { 
-            $AppProfiles = $loadbalancer.applicationProfile 
-        }
+        if ( $LoadBalancer.SelectSingleNode('descendant::applicationProfile')) { 
+            if ( $PsBoundParameters.ContainsKey('Name')) { 
+                $AppProfiles = $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
+            }
+            elseif ( $PsBoundParameters.ContainsKey('objectId') ) { 
+                $AppProfiles = $loadbalancer.applicationProfile | ? { $_.applicationProfileId -eq $objectId }
+            }
+            else { 
+                $AppProfiles = $loadbalancer.applicationProfile 
+            }
 
-        foreach ( $AppProfile in $AppProfiles ) { 
-            $_AppProfile = $AppProfile.CloneNode($True)
-            Add-XmlElement -xmlRoot $_AppProfile -xmlElementName "edgeId" -xmlElementText $LoadBalancer.edgeId
-            $_AppProfile
+            foreach ( $AppProfile in $AppProfiles ) { 
+                $_AppProfile = $AppProfile.CloneNode($True)
+                Add-XmlElement -xmlRoot $_AppProfile -xmlElementName "edgeId" -xmlElementText $LoadBalancer.edgeId
+                $_AppProfile
+            }
         }
     }
 
@@ -17098,13 +17100,33 @@ function New-NsxLoadBalancerApplicationProfile {
             [string]$Type,  
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
-            [switch]$insertXForwardedFor=$false,
+            [switch]$InsertXForwardedFor=$false,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [switch]$SslPassthrough=$false,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("ssl_sessionid", "cookie", "sourceip",  "msrdp", IgnoreCase=$false)]
+            [string]$PersistenceMethod,
+        [Parameter (Mandatory=$False)]
+            [int]$PersistenceExpiry,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$CookieName,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("insert", "prefix", "app")]
+            [string]$CookieMode,           
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
     )
-    # Lot more to do here - need persistence settings dependant on the type selected... as well as cookie settings, and cert selection...
+    # Still a bit to do here - need cert selection...
+    # Also - There are many combinations of valid (and invalid) options.  Unfortunately.
+    # the NSX API does not perform the validation of these combinations (It will
+    # accept combinations of params that the UI will not), the NSX UI does
+    # So I need to be doing validation in here as well - this is still to be done, but required
+    # so user has sane experience...
+
 
     begin {
     }
@@ -17125,10 +17147,27 @@ function New-NsxLoadBalancerApplicationProfile {
         [System.XML.XMLElement]$xmlapplicationProfile = $_LoadBalancer.OwnerDocument.CreateElement("applicationProfile")
         $_LoadBalancer.appendChild($xmlapplicationProfile) | out-null
      
+        #Mandatory Params and those with Default values
         Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "template" -xmlElementText $Type
         Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "insertXForwardedFor" -xmlElementText $insertXForwardedFor 
-        
+        Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "sslPassthrough" -xmlElementText $SslPassthrough 
+
+        #Optionals.
+        If ( $PsBoundParameters.ContainsKey('PersistenceMethod')) {
+            [System.XML.XMLElement]$xmlPersistence = $_LoadBalancer.OwnerDocument.CreateElement("persistence")
+            $xmlapplicationProfile.appendChild($xmlPersistence) | out-null
+            Add-XmlElement -xmlRoot $xmlPersistence -xmlElementName "method" -xmlElementText $PersistenceMethod 
+            If ( $PsBoundParameters.ContainsKey('CookieName')) {
+                Add-XmlElement -xmlRoot $xmlPersistence -xmlElementName "cookieName" -xmlElementText $CookieName 
+            }
+            If ( $PsBoundParameters.ContainsKey('CookieMode')) {
+                Add-XmlElement -xmlRoot $xmlPersistence -xmlElementName "cookieMode" -xmlElementText $CookieMode 
+            }
+            If ( $PsBoundParameters.ContainsKey('PersistenceExpiry')) {
+                Add-XmlElement -xmlRoot $xmlPersistence -xmlElementName "expire" -xmlElementText $PersistenceExpiry 
+            }
+        }
         
         $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
         $body = $_LoadBalancer.OuterXml 
@@ -17230,7 +17269,6 @@ function Remove-NsxLoadBalancerApplicationProfile {
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
-            Get-NSxEdge -objectID $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile
         }
     }
 
