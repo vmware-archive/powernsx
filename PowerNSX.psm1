@@ -17096,7 +17096,14 @@ function New-NsxLoadBalancerMonitor {
         [Parameter (Mandatory=$false, ParameterSetName="ICMP")]
         [Parameter (Mandatory=$false, ParameterSetName="UDP")]
             [ValidateNotNullOrEmpty()]
-            [string]$Extension
+            [string]$Extension,
+        [Parameter (Mandatory=$false, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$false, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$false, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$false, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$false, ParameterSetName="UDP")]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {
