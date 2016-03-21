@@ -17241,7 +17241,7 @@ function Remove-NsxLoadBalancerMonitor {
         
         if ( $confirm ) { 
             $message  = "Monitor removal is permanent."
-            $question = "Proceed with removal of Load Balancer Monitor $MonitorId"
+            $question = "Proceed with removal of Load Balancer Monitor $($MonitorId)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -17535,7 +17535,7 @@ function Remove-NsxLoadBalancerApplicationProfile {
         
         if ( $confirm ) { 
             $message  = "Application Profile removal is permanent."
-            $question = "Proceed with removal of Application Profile $AppProfileId"
+            $question = "Proceed with removal of Application Profile $($AppProfileId)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -17895,7 +17895,7 @@ function Remove-NsxLoadBalancerPool {
         
         if ( $confirm ) { 
             $message  = "Pool removal is permanent."
-            $question = "Proceed with removal of Pool $poolId"
+            $question = "Proceed with removal of Pool $($poolId)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -18150,7 +18150,7 @@ function Remove-NsxLoadBalancerPoolMember {
         
         if ( $confirm ) { 
             $message  = "Pool Member removal is permanent."
-            $question = "Proceed with removal of Pool Member $memberId?"
+            $question = "Proceed with removal of Pool Member $($memberId)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
