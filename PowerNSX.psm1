@@ -770,6 +770,59 @@ Function Validate-EdgeInterfaceSpec {
     $true
 }
 
+Function Validate-EdgeInterfaceAddress {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name primaryAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain a primaryAddress property."
+        }
+        if ( -not ( $argument | get-member -name subnetPrefixLength -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subnetPrefixLength property."
+        }
+        if ( -not ( $argument | get-member -name subnetMask -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subnetMask property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        if ( -not ( $argument | get-member -name interfaceIndex -Membertype Properties)) { 
+            throw "XML Element specified does not contain an interfaceIndex property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge Interface Address."
+    }
+}
+
+Function Validate-AddressGroupSpec {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name primaryAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain a primaryAddress property."
+        }
+        if ( -not ( $argument | get-member -name subnetPrefixLength -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subnetPrefixLength property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Interface Spec."
+    }
+}
+
 Function Validate-LogicalRouter {
 
     Param (
@@ -5097,14 +5150,13 @@ function New-NsxLogicalRouterInterfaceSpec {
             [System.XML.XMLElement]$xmlAddressGroups = $XMLDoc.CreateElement("addressGroups")
             $xmlVnic.appendChild($xmlAddressGroups) | out-null
             $AddressGroupParameters = @{
-                xmldoc = $xmlDoc 
                 xmlAddressGroups = $xmlAddressGroups
             }
 
             if ( $PsBoundParameters.ContainsKey("PrimaryAddress" )) { $AddressGroupParameters.Add("PrimaryAddress",$PrimaryAddress) }
             if ( $PsBoundParameters.ContainsKey("SubnetPrefixLength" )) { $AddressGroupParameters.Add("SubnetPrefixLength",$SubnetPrefixLength) }
              
-            New-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
         
         }
         $xmlVnic
@@ -5796,7 +5848,7 @@ Export-ModuleMember -Function Get-NsxLogicalRouterInterface
 
 ###Private functions
 
-function New-NsxEdgeVnicAddressGroup {
+function PrivateAdd-NsxEdgeVnicAddressGroup {
 
     #Private function that Edge (ESG and LogicalRouter) VNIC creation leverages
     #To create valid address groups (primary and potentially secondary address) 
@@ -5807,9 +5859,6 @@ function New-NsxEdgeVnicAddressGroup {
     param (
         [Parameter (Mandatory=$true)]
             [System.XML.XMLElement]$xmlAddressGroups,
-        [Parameter (Mandatory=$true)]
-            [ValidateNotNullorEmpty()]
-            [System.XML.XMLDocument]$xmlDoc,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
             [string]$PrimaryAddress,
@@ -5825,6 +5874,7 @@ function New-NsxEdgeVnicAddressGroup {
 
     process {
 
+        [System.XML.XMLDocument]$xmlDoc = $xmlAddressGroups.OwnerDocument
         [System.XML.XMLElement]$xmlAddressGroup = $xmlDoc.CreateElement("addressGroup")
         $xmlAddressGroups.appendChild($xmlAddressGroup) | out-null
         Add-XmlElement -xmlRoot $xmlAddressGroup -xmlElementName "primaryAddress" -xmlElementText $PrimaryAddress
@@ -5842,6 +5892,61 @@ function New-NsxEdgeVnicAddressGroup {
 }
 
 ###End Private functions
+
+function New-NsxAddressSpec {
+ 
+    <#
+    .SYNOPSIS
+    Creates a new NSX Address Group Spec.
+
+    .DESCRIPTION
+    NSX ESGs and DLRs interfaces can be configured with multiple 'Address 
+    Groups'.  This allows a single interface to have IP addresses defined in 
+    different subnets, each complete with their own Primary Address, Netmask and
+    zero or more Secondary Addresses.  
+
+    In order to configure an interface in this way with PowerNSX, multiple 
+    'AddressGroupSpec' objects can be created using New-NsxAddressSpec,
+    and then specified when calling New/Set cmdlets for the associated 
+    interfaces. 
+    
+
+    #>
+  
+    param (
+         [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$PrimaryAddress,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [int]$SubnetPrefixLength,       
+        [Parameter (Mandatory=$false)]
+            [string[]]$SecondaryAddresses=@()
+
+    )
+
+    begin {}
+
+    process {
+
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlAddressGroup = $xmlDoc.CreateElement("addressGroup")
+        Add-XmlElement -xmlRoot $xmlAddressGroup -xmlElementName "primaryAddress" -xmlElementText $PrimaryAddress
+        Add-XmlElement -xmlRoot $xmlAddressGroup -xmlElementName "subnetPrefixLength" -xmlElementText $SubnetPrefixLength.ToString()
+        if ( $SecondaryAddresses ) { 
+            [System.XML.XMLElement]$xmlSecondaryAddresses = $XMLDoc.CreateElement("secondaryAddresses")
+            $xmlAddressGroup.appendChild($xmlSecondaryAddresses) | out-null
+            foreach ($Address in $SecondaryAddresses) { 
+                Add-XmlElement -xmlRoot $xmlSecondaryAddresses -xmlElementName "ipAddress" -xmlElementText $Address
+            }
+        }
+
+        $xmlAddressGroup
+    }
+
+    end{}
+}
+Export-ModuleMember -Function New-NsxAddressSpec
 
 function New-NsxEdgeInterfaceSpec {
 
@@ -5950,12 +6055,12 @@ function New-NsxEdgeInterfaceSpec {
             Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "portgroupId" -xmlElementText $PortGroupID
         }
 
+        [System.XML.XMLElement]$xmlAddressGroups = $XMLDoc.CreateElement("addressGroups")
+        $xmlVnic.appendChild($xmlAddressGroups) | out-null
         if ( $PsBoundParameters.ContainsKey("PrimaryAddress")) {
-            #For now, only supporting one addressgroup - will refactor later
-            [System.XML.XMLElement]$xmlAddressGroups = $XMLDoc.CreateElement("addressGroups")
-            $xmlVnic.appendChild($xmlAddressGroups) | out-null
+            #Only supporting one addressgroup - User must use New-NsxAddressSpec to specify multiple.
+
             $AddressGroupParameters = @{
-                xmldoc = $xmlDoc 
                 xmlAddressGroups = $xmlAddressGroups
             }
 
@@ -5964,7 +6069,7 @@ function New-NsxEdgeInterfaceSpec {
             if ( $PsBoundParameters.ContainsKey("SecondaryAddresses" )) { $AddressGroupParameters.Add("SecondaryAddresses",$SecondaryAddresses) }
              
 
-            New-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
         }
 
         $xmlVnic
@@ -6067,7 +6172,6 @@ function New-NsxEdgeSubInterfaceSpec {
             [System.XML.XMLElement]$xmlAddressGroups = $XMLDoc.CreateElement("addressGroups")
             $xmlVnic.appendChild($xmlAddressGroups) | out-null
             $AddressGroupParameters = @{
-                xmldoc = $xmlDoc 
                 xmlAddressGroups = $xmlAddressGroups
             }
 
@@ -6075,7 +6179,7 @@ function New-NsxEdgeSubInterfaceSpec {
             if ( $PsBoundParameters.ContainsKey("SubnetPrefixLength" )) { $AddressGroupParameters.Add("SubnetPrefixLength",$SubnetPrefixLength) }
             if ( $PsBoundParameters.ContainsKey("SecondaryAddresses" )) { $AddressGroupParameters.Add("SecondaryAddresses",$SecondaryAddresses) }
              
-            New-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
         }
 
         $xmlVnic
@@ -6093,62 +6197,84 @@ function Set-NsxEdgeInterface {
     Conigures an NSX Edge Services Gateway Interface.
 
     .DESCRIPTION
-    NSX ESGs can host up to 10 interfaces and up to 200 subinterfaces, each of which 
-    can be configured with multiple properties.  
+    NSX ESGs can host up to 10 interfaces and up to 200 subinterfaces, each of 
+    which can be configured with multiple properties.  
 
     ESGs support interfaces connected to either VLAN backed port groups or NSX
     Logical Switches.
 
-    Use Set-NsxEdgeInterface to change (including overwriting) the configuration of an
-    interface.
+    Use Set-NsxEdgeInterface to change (including overwriting) the configuration
+    of an interface.
 
     .EXAMPLE
-    Get an interface, then update it.
-    
-    PS C:\>$interface = Get-NsxEdge testesg | Get-NsxEdgeInterface -Index 4
-
-    PS C:\> $interface | Set-NsxEdgeInterface -Name "vNic4" -Type internal 
+    $interface = Get-NsxEdge testesg | Get-NsxEdgeInterface -Index 4
+    $interface | Set-NsxEdgeInterface -Name "vNic4" -Type internal 
         -ConnectedTo $ls4 -PrimaryAddress $ip4 -SubnetPrefixLength 24
 
+    Get an interface, then update it.
+    
+    .EXAMPLE
+    $add1 = New-NsxAddressSpec -PrimaryAddress 11.11.11.11 -SubnetPrefixLength 24 -SecondaryAddresses 11.11.11.12, 11.11.11.13
+    $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
+
+    Get-NsxEdge testesg | Get-NsxEdgeInterface -index 5 | Set-NSxEdgeInterface -ConnectedTo $ls4 -AddressSpec $add1,$add2
+
+    Adds two addresses, precreated via New-AddressSpec to ESG testesg vnic 5
+    
     #>
 
+    [CmdLetBinding(DefaultParameterSetName="SingleAddressGroup")]
+
     param (
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateScript({ Validate-EdgeInterface $_ })]
             [System.Xml.XmlElement]$Interface,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateSet ("internal","uplink","trunk")]
             [string]$Type,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ConnectedTo,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [ValidateNotNullOrEmpty()]
             [string]$PrimaryAddress,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [ValidateNotNullOrEmpty()]
             [string]$SubnetPrefixLength,       
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [string[]]$SecondaryAddresses=@(),
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
+            [ValidateScript({ Validate-AddressGroupSpec $_ })]
+            [System.Xml.XmlElement[]]$AddressSpec,
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateRange(1,9128)]
             [int]$MTU=1500,       
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [switch]$EnableProxyArp=$false,       
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [switch]$EnableSendICMPRedirects=$true,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [switch]$Connected=$true,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
-        [Parameter (Mandatory=$False)]
+        [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6193,19 +6319,30 @@ function Set-NsxEdgeInterface {
         $VnicSpec = New-NsxEdgeInterfaceSpec @vNicSpecParams
         write-debug "$($MyInvocation.MyCommand.Name) : vNic Spec is $($VnicSpec.outerxml | format-xml) "
 
-        #Construct the XML
-        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-        [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("vnics")
-        $import = $xmlDoc.ImportNode(($VnicSpec), $true)
-        $xmlVnics.AppendChild($import) | out-null
+
+        #Construct the vnics XML Element
+        [System.XML.XMLElement]$xmlVnics = $VnicSpec.OwnerDocument.CreateElement("vnics")
+        $xmlVnics.AppendChild($VnicSpec) | out-null
+
+        #Import any user specified address groups.
+        if ( $PsBoundParameters.ContainsKey('AddressSpec')) { 
+
+            [System.Xml.XmlElement]$AddressGroups = $VnicSpec.SelectSingleNode('descendant::addressGroups') 
+            foreach ( $spec in $AddressSpec ) { 
+                $import = $VnicSpec.OwnerDocument.ImportNode(($spec), $true)
+                $AddressGroups.AppendChild($import) | out-null
+            }
+        }
 
         # #Do the post
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($Interface.edgeId)/vnics/?action=patch"
         Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)."
-        invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)." -completed
 
+        write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
+        Get-NsxEdge -objectId $($Interface.edgeId) | Get-NsxEdgeInterface -index "$($Interface.Index)"
     }
 
     end {}
@@ -6340,10 +6477,18 @@ function Get-NsxEdgeInterface {
             $URI = "/api/4.0/edges/$($Edge.Id)/vnics/"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $PsBoundParameters.ContainsKey("name") ) {
+
+               write-debug "$($MyInvocation.MyCommand.Name) : Getting vNic by Name"
+
                 $return = $response.vnics.vnic | ? { $_.name -eq $name }
-                Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "edgeId" -xmlElementText $($Edge.Id)
+                if ( $return ) {
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "edgeId" -xmlElementText $($Edge.Id)
+                }
             } 
             else {
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Getting all vNics"
+
                 $return = $response.vnics.vnic
                 foreach ( $vnic in $return ) { 
                     Add-XmlElement -xmlDoc ([system.xml.xmldocument]$vnic.OwnerDocument) -xmlRoot $vnic -xmlElementName "edgeId" -xmlElementText $($Edge.Id)
@@ -6352,7 +6497,9 @@ function Get-NsxEdgeInterface {
         }
         else {
 
-            #Just getting a single named vNic
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting vNic by Index"
+
+            #Just getting a single vNic by index
             $URI = "/api/4.0/edges/$($Edge.Id)/vnics/$Index"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $return = $response.vnic
@@ -6576,7 +6723,6 @@ function Remove-NsxEdgeSubInterface {
 
     }
     End {}
-
 }
 Export-ModuleMember -Function Remove-NsxEdgeSubInterface
 
@@ -6661,6 +6807,260 @@ function Get-NsxEdgeSubInterface {
     end {}
 }
 Export-ModuleMember -Function Get-NsxEdgeSubInterface
+
+function Get-NsxEdgeInterfaceAddress {
+    
+    <#
+   .SYNOPSIS
+    Retrieves the addressgroup configuration for the specified interface
+
+    .DESCRIPTION
+    NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
+    allows a single interface to have IP addresses defined in different subnets,
+    each complete with their own Primary Address, Netmask and zero or more 
+    Secondary Addresses.  
+
+    The Get-NsxEdgeInterfaceAddress cmdlet retrieves the addressgroups for
+    the specific interface.
+    
+    .EXAMPLE
+    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress
+
+    Retrieves all the address groups defined on vNic 9 of the ESG esgtest.
+
+    .EXAMPLE
+    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4
+
+    Retrieves the address group with primary address 1.2.3.4 defined on vNic 9 of the ESG esgtest.
+    
+    #>
+
+    param (
+
+         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [System.Xml.XmlElement]$Interface,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$PrimaryAddress  
+        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        $_Interface = ($Interface.CloneNode($True))
+        [System.Xml.XmlElement]$AddressGroups = $_Interface.SelectSingleNode('descendant::addressGroups')
+
+        #Need to use an xpath query here, as dot notation will throw in strict mode if there is no childnode.
+        If ( $AddressGroups.SelectSingleNode('descendant::addressGroup')) { 
+
+            $GroupCollection = $AddressGroups.addressGroup
+            if ( $PsBoundParameters.ContainsKey('PrimaryAddress')) {
+                $GroupCollection = $GroupCollection | ? { $_.primaryAddress -eq $PrimaryAddress }
+            }
+
+            foreach ( $AddressGroup in $GroupCollection ) { 
+                Add-XmlElement -xmlRoot $AddressGroup -xmlElementName "edgeId" -xmlElementText $Interface.EdgeId
+                Add-XmlElement -xmlRoot $AddressGroup -xmlElementName "interfaceIndex" -xmlElementText $Interface.Index
+
+            }
+
+            $GroupCollection
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxEdgeInterfaceAddress
+
+function Add-NsxEdgeInterfaceAddress {
+    
+    <#
+   .SYNOPSIS
+    Adds a new addressgroup to the specified ESG interface
+
+    .DESCRIPTION
+    NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
+    allows a single interface to have IP addresses defined in different subnets,
+    each complete with their own Primary Address, Netmask and zero or more 
+    Secondary Addresses.  
+
+    The Add-NsxEdgeInterfaceAddress cmdlet adds a new Addressgroup to an
+    existing ESG interface.
+    
+    .EXAMPLE
+    get-nsxedge esgtest | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -PrimaryAddress 44.44.44.44 -SubnetPrefixLength 24  -SecondaryAddresses 44.44.44.45,44.44.44.46
+    
+    Adds a new primary address and multiple secondary addresses to vNic 9 on edge esgtest
+    
+    .EXAMPLE
+    $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
+    $add3 = New-NsxAddressSpec -PrimaryAddress 33.33.33.33 -SubnetPrefixLength 24 -SecondaryAddresses 33.33.33.34
+
+    get-nsxedge testesg | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -AddressGroupSpec $add2,$add3
+
+    Adds two new addresses to testesg's vnic9 using address specs.
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="AddressGroupSpec")]
+            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [System.Xml.XmlElement]$Interface,
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+            [ValidateNotNullOrEmpty()]
+            [string]$PrimaryAddress,
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+            [ValidateNotNullOrEmpty()]
+            [string]$SubnetPrefixLength,       
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+            [string[]]$SecondaryAddresses=@(),
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
+            [ValidateScript({ Validate-AddressGroupSpec $_ })]
+            [System.Xml.XmlElement[]]$AddressSpec,
+        [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {}
+    process { 
+
+        [System.Xml.XmlElement]$_Interface = $Interface.CloneNode($True)
+
+        #Store the edgeId and remove it from the XML as we need to put it...
+        $edgeId = $_Interface.edgeId
+        $NodetoRemove = $($_Interface.SelectSingleNode('descendant::edgeId'))
+        $_Interface.RemoveChild( $NodeToRemove ) | out-null
+
+        [System.Xml.XmlElement]$AddressGroups = $_Interface.SelectSingleNode('descendant::addressGroups')
+
+        if ( $PSCmdlet.ParameterSetName -eq "DirectAddress") { 
+            if ( $PsBoundParameters.ContainsKey('SecondaryAddresses')) { 
+                PrivateAdd-NsxEdgeVnicAddressGroup -xmlAddressGroups $AddressGroups -PrimaryAddress $PrimaryAddress -SubnetPrefixLength $SubnetPrefixLength -SecondaryAddresses $SecondaryAddresses 
+            }
+            else {
+                PrivateAdd-NsxEdgeVnicAddressGroup -xmlAddressGroups $AddressGroups -PrimaryAddress $PrimaryAddress -SubnetPrefixLength $SubnetPrefixLength -SecondaryAddresses $SecondaryAddresses 
+            }
+        }
+
+        else { 
+            #Import any user specified address groups.
+            foreach ( $spec in $AddressSpec ) { 
+                $import = $_Interface.OwnerDocument.ImportNode(($spec), $true)
+                $AddressGroups.AppendChild($import) | out-null
+            }
+        }
+
+        #Do the post
+        $body = $_Interface.OuterXml
+        $URI = "/api/4.0/edges/$($edgeId)/vnics/$($_Interface.Index)"
+        Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)."
+        $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)." -completed
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
+        Get-NsxEdge -objectId $($edgeId) | Get-NsxEdgeInterface -index "$($_Interface.Index)"
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Add-NsxEdgeInterfaceAddress
+
+function Remove-NsxEdgeInterfaceAddress {
+    
+    <#
+   .SYNOPSIS
+    Removes the specified addressgroup configuration for the specified interface
+
+    .DESCRIPTION
+    NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
+    allows a single interface to have IP addresses defined in different subnets,
+    each complete with their own Primary Address, Netmask and zero or more 
+    Secondary Addresses.  
+
+    The Remove-NsxEdgeInterfaceAddress cmdlet removes the addressgroup specified
+    from the specified interface.
+    
+    .EXAMPLE
+    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4 | Remove-NsxEdgeInterfaceAddress
+
+    Removes the address group with primary address 1.2.3.4 defined on vNic 9 of the ESG esgtest.
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeInterfaceAddress $_ })]
+            [System.Xml.XmlElement]$InterfaceAddress,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $InterfaceAddress.edgeId
+        $InterfaceIndex = $InterfaceAddress.interfaceIndex
+        $Edge = Get-NsxEdge -objectId $edgeId -connection $connection 
+        $Interface = $Edge | Get-NsxEdgeInterface -index $InterfaceIndex -connection $connection
+        if ( -not $Interface ) { Throw "Interface index $InterfaceIndex was not found on edge $edgeId."}
+
+        #Remove the edgeId and interfaceIndex elements from the XML as we need to post it...
+        $Interface.RemoveChild( $($Interface.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Need to do an xpath query here to query for an address that matches the one passed in.  
+        $xpathQuery = "//addressGroups/addressGroup[primaryAddress=`"$($InterfaceAddress.primaryAddress)`"]"
+        write-debug "$($MyInvocation.MyCommand.Name) : XPath query for addressgroup nodes to remove is: $xpathQuery"
+        $addressGroupToRemove = $Interface.SelectSingleNode($xpathQuery)
+
+        if ( $addressGroupToRemove ) { 
+
+            write-debug "$($MyInvocation.MyCommand.Name) : addressGroupToRemove Element is: `n $($addressGroupToRemove.OuterXml | format-xml) "
+            $Interface.AddressGroups.RemoveChild($addressGroupToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($EdgeId)/vnics/$InterfaceIndex"
+            $body = $Interface.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            }
+        }
+        else {
+            Throw "Address $($InterfaceAddress.PrimaryAddress) was not found in the configuration for interface $InterfaceIndex on Edge $edgeId"
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxEdgeInterfaceAddress
 
 function Get-NsxEdge {
 
