@@ -17183,10 +17183,10 @@ function New-NsxLoadBalancerMonitor {
         $body = $xmlmonitor.OuterXml 
     
         Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Monitor Config"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
-        get-nsxedge $edgeId | Get-NsxLoadBalancerMonitor -name $Name
+        get-nsxedge $edgeId -connection $connection | Get-NsxLoadBalancerMonitor -name $Name -connection $connection
     }
 
     end {}
