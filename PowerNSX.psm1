@@ -1697,7 +1697,7 @@ function Get-PowerNsxVersion {
     .EXAMPLE
     Get-PowerNsxVersion
 
-    Get the instaled version of PowerNSX
+    Get the installed version of PowerNSX
 
     #>
 
@@ -1708,9 +1708,7 @@ function Get-PowerNsxVersion {
 
     }
 }
-Export-ModuleMember -function Get-PowerNsxVersion {
-    
-}
+Export-ModuleMember -function Get-PowerNsxVersion 
 
 #########
 #########
