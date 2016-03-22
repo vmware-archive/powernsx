@@ -44,8 +44,8 @@ $dotNet_45_Download="https://download.microsoft.com/download/E/2/1/E21644B5-2DF2
 #Minimum version of PS required.
 $PSMinVersion = "3"
 
-#PowerNSX (current)
-$PowerNSX = "https://bitbucket.org/nbradford/powernsx/raw/85e2e83ff5121b87ab13a8c3f460977d5980508a/PowerNSX.psm1"
+#PowerNSX (v1 head)
+$PowerNSX = "https://bitbucket.org/nbradford/powernsx/raw/ef2cf83c78c6d4f356dc9e9485169f47a4a61c71/PowerNSX.psm1"
 
 #Module Path
 $ModulePath = "$($env:ProgramFiles)\Common Files\Modules\PowerNSX\PowerNSX.psm1"
