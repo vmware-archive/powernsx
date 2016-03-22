@@ -6812,7 +6812,7 @@ function Get-NsxEdgeInterfaceAddress {
     
     <#
    .SYNOPSIS
-    Retrieves the addressgroup configuration for the specified interface
+    Retrieves the address configuration for the specified interface
 
     .DESCRIPTION
     NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
@@ -6820,7 +6820,7 @@ function Get-NsxEdgeInterfaceAddress {
     each complete with their own Primary Address, Netmask and zero or more 
     Secondary Addresses.  
 
-    The Get-NsxEdgeInterfaceAddress cmdlet retrieves the addressgroups for
+    The Get-NsxEdgeInterfaceAddress cmdlet retrieves the addresses for
     the specific interface.
     
     .EXAMPLE
@@ -6831,7 +6831,7 @@ function Get-NsxEdgeInterfaceAddress {
     .EXAMPLE
     Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4
 
-    Retrieves the address group with primary address 1.2.3.4 defined on vNic 9 of the ESG esgtest.
+    Retrieves the address config with primary address 1.2.3.4 defined on vNic 9 of the ESG esgtest.
     
     #>
 
@@ -6880,7 +6880,7 @@ function Add-NsxEdgeInterfaceAddress {
     
     <#
    .SYNOPSIS
-    Adds a new addressgroup to the specified ESG interface
+    Adds a new address to the specified ESG interface
 
     .DESCRIPTION
     NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
@@ -6888,7 +6888,7 @@ function Add-NsxEdgeInterfaceAddress {
     each complete with their own Primary Address, Netmask and zero or more 
     Secondary Addresses.  
 
-    The Add-NsxEdgeInterfaceAddress cmdlet adds a new Addressgroup to an
+    The Add-NsxEdgeInterfaceAddress cmdlet adds a new address to an
     existing ESG interface.
     
     .EXAMPLE
@@ -6900,7 +6900,7 @@ function Add-NsxEdgeInterfaceAddress {
     $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
     $add3 = New-NsxAddressSpec -PrimaryAddress 33.33.33.33 -SubnetPrefixLength 24 -SecondaryAddresses 33.33.33.34
 
-    get-nsxedge testesg | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -AddressGroupSpec $add2,$add3
+    get-nsxedge testesg | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -AddressSpec $add2,$add3
 
     Adds two new addresses to testesg's vnic9 using address specs.
     #>
@@ -6966,7 +6966,7 @@ function Add-NsxEdgeInterfaceAddress {
         Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)." -completed
 
         write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
-        Get-NsxEdge -objectId $($edgeId) | Get-NsxEdgeInterface -index "$($_Interface.Index)"
+        Get-NsxEdge -objectId $($edgeId) -connection $connection | Get-NsxEdgeInterface -index "$($_Interface.Index)" -connection $connection
     }
 
     end {}
@@ -6977,7 +6977,7 @@ function Remove-NsxEdgeInterfaceAddress {
     
     <#
    .SYNOPSIS
-    Removes the specified addressgroup configuration for the specified interface
+    Removes the specified address configuration for the specified interface
 
     .DESCRIPTION
     NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
@@ -6985,7 +6985,7 @@ function Remove-NsxEdgeInterfaceAddress {
     each complete with their own Primary Address, Netmask and zero or more 
     Secondary Addresses.  
 
-    The Remove-NsxEdgeInterfaceAddress cmdlet removes the addressgroup specified
+    The Remove-NsxEdgeInterfaceAddress cmdlet removes the address specified
     from the specified interface.
     
     .EXAMPLE
