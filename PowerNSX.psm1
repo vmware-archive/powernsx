@@ -609,6 +609,43 @@ Function Validate-LogicalSwitchOrDistributedPortGroup {
     $true
 }
 
+Function Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )      
+
+    if (-not (
+        ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
+        ($argument -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) -or
+        ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.VirtualPortGroupImpl] ) -or
+        ($argument -is [System.Xml.XmlElement] )))
+    { 
+        throw "Must specify a distributed port group, logical switch or standard port group" 
+    } 
+
+
+    #Do we Look like XML describing a Logical Switch
+    if ($argument -is [System.Xml.XmlElement] ) {
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "Object specified does not contain an objectId property.  Specify a Distributed PortGroup, Standard PortGroup or Logical Switch object."
+        }
+        if ( -not ( $argument | get-member -name objectTypeName -Membertype Properties)) { 
+            throw "Object specified does not contain a type property.  Specify a Distributed PortGroup, Standard PortGroup or Logical Switch object."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "Object specified does not contain a name property.  Specify a Distributed PortGroup, Standard PortGroup or Logical Switch object."
+        }
+        switch ($argument.objectTypeName) {
+            "VirtualWire" { }
+            default { throw "Object specified is not a supported type.  Specify a Distributed PortGroup, Standard PortGroup or Logical Switch object." }
+        }
+    }
+
+    $true
+}
+
 Function Validate-IpPool {
 
     Param (
@@ -2071,36 +2108,43 @@ function Format-XML () {
             [int]$indent=2
     ) 
 
-    if ( ($xml -is [System.Xml.XmlElement]) -or ( $xml -is [System.Xml.XmlDocument] ) ) { 
-        try {
-            [xml]$_xml = $xml.OuterXml 
-        }
-        catch {
-            throw "Specified XML element cannot be cast to an XML document."
-        }
-    }
-    elseif ( $xml -is [string] ) {
-        try { 
-            [xml]$_xml = $xml
-        }
-        catch {
-            throw "Specified string cannot be cast to an XML document."
-        } 
-    }
-    else{
+    begin {}
 
-        throw "Unknown data type specified as xml to Format-Xml."
+    process {
+        if ( ($xml -is [System.Xml.XmlElement]) -or ( $xml -is [System.Xml.XmlDocument] ) ) { 
+            try {
+                [xml]$_xml = $xml.OuterXml 
+            }
+            catch {
+                throw "Specified XML element cannot be cast to an XML document."
+            }
+        }
+        elseif ( $xml -is [string] ) {
+            try { 
+                [xml]$_xml = $xml
+            }
+            catch {
+                throw "Specified string cannot be cast to an XML document."
+            } 
+        }
+        else{
+
+            throw "Unknown data type specified as xml to Format-Xml."
+        }
+
+
+        $StringWriter = New-Object System.IO.StringWriter 
+        $XmlWriter = New-Object System.XMl.XmlTextWriter $StringWriter 
+        $xmlWriter.Formatting = "indented" 
+        $xmlWriter.Indentation = $Indent 
+        $_xml.WriteContentTo($XmlWriter) 
+        $XmlWriter.Flush() 
+        $StringWriter.Flush() 
+        Write-Output $StringWriter.ToString() 
     }
 
+    end{}
 
-    $StringWriter = New-Object System.IO.StringWriter 
-    $XmlWriter = New-Object System.XMl.XmlTextWriter $StringWriter 
-    $xmlWriter.Formatting = "indented" 
-    $xmlWriter.Indentation = $Indent 
-    $_xml.WriteContentTo($XmlWriter) 
-    $XmlWriter.Flush() 
-    $StringWriter.Flush() 
-    Write-Output $StringWriter.ToString() 
 }
 Export-ModuleMember -function Format-Xml
 
@@ -2135,7 +2179,7 @@ function Connect-NsxServer {
  
     param (
         [Parameter (Mandatory=$true,ParameterSetName="cred",Position=1)]
-        [Parameter (ParameterSetName="userpass")]
+        [Parameter (Mandatory=$true,ParameterSetName="userpass",Position=1)]
             [ValidateNotNullOrEmpty()]
             [string]$Server,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
@@ -5048,6 +5092,263 @@ function Remove-NsxLogicalSwitch {
     end {}
 }
 Export-ModuleMember -Function Remove-NsxLogicalSwitch
+
+#########
+#########
+# Spoofguard related functions
+
+function Get-NsxSpoofguardPolicy {
+    
+    <#
+    .SYNOPSIS
+    Retreives Spoofguard policy objects from NSX.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Get-NsxSpoofguardPolicy cmdlet to retreive existing SpoofGuard 
+    Policy objects from NSX.
+
+    
+    #>
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+ 
+    param (
+
+        [Parameter (Mandatory=$false, ParameterSetName="Name", Position=1)]
+            [ValidateNotNullorEmpty()]
+            [String]$Name,
+        [Parameter (Mandatory=$false, ParameterSetName="ObjectId")]
+            [ValidateNotNullorEmpty()]
+            [string]$objectId,
+        [Parameter (Mandatory=$false, ParameterSetName="ObjectId")]
+        [Parameter (Mandatory=$false, ParameterSetName="Name")]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {}
+
+    process {
+     
+        if ( $PsCmdlet.ParameterSetName -eq 'Name' ) { 
+            #All SG Policies
+            $URI = "/api/4.0/services/spoofguard/policies/"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response ) { 
+                if  ( $Name  ) { 
+                    $response.spoofguardPolicies.spoofguardPolicy | ? { $_.name -eq $Name }
+                } else {
+                    $response.spoofguardPolicies.spoofguardPolicy
+                }
+            }
+        }
+        else {
+
+            #Just getting a single SG Policy
+            $URI = "/api/4.0/services/spoofguard/policies/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response ) {
+                $response.spoofguardPolicy
+            } 
+        }
+    }
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSpoofguardPolicy
+
+function New-NsxSpoofguardPolicy {
+
+    <#
+    .SYNOPSIS
+    Creates a new Spoofguard policy in NSX.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the New-NsxSpoofguardPolicy cmdlet to create a new SpoofGuard 
+    Policy in NSX.
+
+    
+    #>
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,
+        [Parameter (Mandatory=$true)]
+            [ValidateSet("tofu","manual","disable")]
+            [string]$OperationMode,
+        [Parameter (Mandatory=$false)]
+            [switch]$AllowLocalIps,
+        [Parameter (Mandatory=$true)]
+            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup $_ })]
+            [object[]]$Network,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("spoofguardPolicy")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "operationMode" -xmlElementText $OperationMode.ToUpper()
+        if ( $PSBoundParameters.ContainsKey('description')) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        }
+        if ( $PSBoundParameters.ContainsKey('AllowLocalIps')) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "allowLocalIPs" -xmlElementText $AllowLocalIps.ToString().ToLower()
+        }
+
+        foreach ( $Net in $Network) { 
+
+            [System.XML.XMLElement]$xmlEnforcementPoint = $XMLDoc.CreateElement("enforcementPoint")
+            $xmlroot.appendChild($xmlEnforcementPoint) | out-null
+
+            switch ( $Net ) { 
+
+                { $_ -is [System.Xml.XmlElement]  } {
+                    
+                    $id = $_.objectId
+                }
+
+                { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
+                     ($_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) } {
+                    
+                    $id = $_.ExtensionData.MoRef.Value
+                }
+
+                { $_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.VirtualPortGroupImpl] } {
+                    
+                    #Standard Port Group specified... Hope you appreciate this, coz the vSphere API and PowerCLI niceness dissapear a bit here.
+                    #and it took me a while to work out how to get around it.
+                    #You dont seem to be able to get a standard Moref outa the PowerCLI network object that represents a VSS PG.
+                    #You also dont seem to be able to do a get-view on it :|
+                    #So, I have get a hasthtable of all morefs that represent VSS based PGs and search it for the name of the PG the user specified.  Im fairly (not 100%) sure this is safe as networkname should be unique at least within VSS portgroups...
+
+                    $StandardPgHash = Get-View -ViewType Network -Property Name | ? { $_.Moref.Type -match 'Network' } | select name, moref | Sort-Object -Property Name -Unique | Group-Object -AsHashTable -Property Name
+
+                    $Item = $StandardPgHash.Item($_.name)
+                    if ( -not $item ) { throw "PortGroup $($_.name) not found." }
+
+                    $id = $Item.MoRef.Value
+                }
+            }
+
+            Add-XmlElement -xmlRoot $xmlEnforcementPoint -xmlElementName "id" -xmlElementText $id
+        }
+    
+        #Do the post
+        $body = $xmlroot.OuterXml
+        $URI = "/api/4.0/services/spoofguard/policies/"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        Get-NsxSpoofguardPolicy -objectId $response -connection $connection
+        
+    }
+    end {}
+   
+}
+Export-ModuleMember -Function New-NsxSpoofguardPolicy
+
+function Remove-NsxSpoofguardPolicy {
+    
+    <#
+    .SYNOPSIS
+    Removes the specified Spoofguard policy object from NSX.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Remnove-NsxSpoofguardPolicy cmdlet to remove the specified
+    SpoofGuard Policy from NSX.
+
+    
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SpoofguardPolicy,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $SpoofguardPolicy.defaultPolicy -eq 'true') {
+            write-warning "Cant delete the default Spoofguard policy"
+        }
+        else { 
+            if ( $confirm ) { 
+                $message  = "Spoofguard Policy removal is permanent."
+                $question = "Proceed with removal of Spoofguard Policy $($SpoofguardPolicy.Name)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                $URI = "/api/4.0/services/spoofguard/policies/$($SpoofguardPolicy.policyId)"
+                
+                Write-Progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)" -completed
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Remove-NsxSpoofguardPolicy
+
 
 #########
 ######### 
