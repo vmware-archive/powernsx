@@ -11,13 +11,15 @@ It is unlikely that it will ever expose 100% of the NSX API, but feature request
 
 PowerNSX is currently a work in progress and is not yet feature complete. 
 
-See the Wiki for Setup and Usage instructions
+See the Wiki for Setup and Usage instructions.
 
 ## Contribution guidelines ##
 
-Feature requests are more than welcome, just dont get your hopes up. :)
-Patches are welcome for bugs/new functionality.
-
+Contribution and feature requests are more than welcome, please use the following methods:
+ * For bugs and issues, please use the issues register with details of the problem.
+ * For Feature Requests, please use the issues register with details of what's required.
+ * For code contribution (bug fixes, or feature request), please request write access to the dev branch or supply a patch.
+ 
 ## Who do I talk to? ##
 
 Im just one guy but feel free to contact me at nbradford@vmware.com.
