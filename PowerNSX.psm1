@@ -9293,7 +9293,7 @@ function Get-NsxSslVpnAuthServer {
         #consistent readable output
 
         $_EdgeSslVpn = $SslVpn.CloneNode($True)
-        $PrimaryAuthenticationServers = $_EdgeSslVpn.SelectSingleNode('descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers/*')
+        $PrimaryAuthenticationServers = $_EdgeSslVpn.SelectNodes('descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers/*')
         if ( $PrimaryAuthenticationServers ) { 
 
             foreach ( $Server in $PrimaryAuthenticationServers ) { 
@@ -9305,7 +9305,7 @@ function Get-NsxSslVpnAuthServer {
                 }
             }
         }
-        $SecondaryAuthenticationServers = $_EdgeSslVpn.SelectSingleNode('descendant::authenticationConfiguration/passwordAuthentication/secondaryAuthServers/*')
+        $SecondaryAuthenticationServers = $_EdgeSslVpn.SelectNodes('descendant::authenticationConfiguration/passwordAuthentication/secondaryAuthServers/*')
         if ( $SecondaryAuthenticationServers ) { 
 
             foreach ( $Server in $SecondaryAuthenticationServers ) { 
