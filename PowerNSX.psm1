@@ -9070,7 +9070,7 @@ function Set-NsxSslVpn {
                     $serverSettings.AppendChild($cipherList) | out-null
                 }
                 else { 
-                    [System.Xml.XmlElement]$cipherList = $serversSettings.cipherList
+                    [System.Xml.XmlElement]$cipherList = $serverSettings.cipherList
                 }
 
                 if ( $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") ) { 
