@@ -9191,16 +9191,16 @@ function New-NsxSslVpnAuthServer {
 
         #Get the AuthServers node, and create a new PrimaryAuthServer in it.
         $PrimaryAuthServers = $_EdgeSslVpn.SelectSingleNode('descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers')
-        
+
         Switch ( $ServerType ) { 
 
             "Local" { 
 
                 #Like highlander, there can be only one! :)
 
-                if ( $PrimaryAuthServers.SelectsingleNode('descendant::com.vmware.vshield.edge.sslvpn.dto.LocalAuthServerDto') ) { 
+                if ( $PrimaryAuthServers.SelectsingleNode('descendant::localAuthServer') ) { 
 
-                    throw "Local Authentication source already exists.  Use Set-NsxEdgeSslVpnAuthServer to modify and existing server."
+                    throw "Local Authentication source already exists.  Use Set-NsxEdgeSslVpnAuthServer to modify an existing server."
                 }
                 else { 
 
