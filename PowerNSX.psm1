@@ -2090,6 +2090,61 @@ Function Validate-SecurityTag {
     }
 }
 
+Function Validate-SpoofguardPolicy {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    
+    #Check if it looks like Security Tag element
+    if ($_ -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name policyId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an policyId property."
+        }
+        if ( -not ( $argument | get-member -name Name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a Name property."
+        }
+        if ( -not ( $argument | get-member -name operationMode -Membertype Properties)) { 
+            throw "XML Element specified does not contain an OperationMode property."
+        }
+        if ( -not ( $argument | get-member -name defaultPolicy -Membertype Properties)) { 
+            throw "XML Element specified does not contain a defaultPolicy property."
+        }
+        $True
+    }
+    else { 
+        throw "Specify a valid Spoofguard Policy object."
+    }
+}
+
+Function Validate-SpoofguardNic {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    
+    #Check if it looks like Security Tag element
+    if ($_ -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name id -Membertype Properties)) { 
+            throw "XML Element specified does not contain an id property."
+        }
+        if ( -not ( $argument | get-member -name vnicUuid -Membertype Properties)) { 
+            throw "XML Element specified does not contain a vnicUuid property."
+        }
+        if ( -not ( $argument | get-member -name policyId -Membertype Properties)) { 
+            throw "XML Element specified does not contain a policyId property."
+        }
+        $True
+    }
+    else { 
+        throw "Specify a valid Spoofguard Nic object."
+    }
+}
+
 ##########
 ##########
 # Helper functions
@@ -2147,6 +2202,53 @@ function Format-XML () {
 
 }
 Export-ModuleMember -function Format-Xml
+
+
+function Check-PowerCliAsemblies {
+
+    #Checks for known assemblies loaded by PowerCLI.
+    #PowerNSX uses a variety of types, and full operation requires 
+    #extensive PowerCLI usage.  
+    #As of v2, we now _require_ PowerCLI assemblies to be available.
+    #This method works for both PowerCLI 5.5 and 6 (snapin vs module), 
+    #shouldnt be as heavy as loading each required type explicitly to check 
+    #and should function in a modified PowerShell env, as well as normal 
+    #PowerCLI.
+    
+    $RequiredAsm = (
+        "VMware.VimAutomation.ViCore.Cmdlets", 
+        "VMware.Vim",
+        "VMware.VimAutomation.Sdk.Util10Ps",
+        "VMware.VimAutomation.Sdk.Util10",
+        "VMware.VimAutomation.Sdk.Interop",
+        "VMware.VimAutomation.Sdk.Impl",
+        "VMware.VimAutomation.Sdk.Types",
+        "VMware.VimAutomation.ViCore.Types",
+        "VMware.VimAutomation.ViCore.Interop",
+        "VMware.VimAutomation.ViCore.Util10",
+        "VMware.VimAutomation.ViCore.Util10Ps",
+        "VMware.VimAutomation.ViCore.Impl",
+        "VMware.VimAutomation.Vds.Commands",
+        "VMware.VimAutomation.Vds.Impl",
+        "VMware.VimAutomation.Vds.Interop",
+        "VMware.VimAutomation.Vds.Types",
+        "VMware.VimAutomation.Storage.Commands",
+        "VMware.VimAutomation.Storage.Impl",
+        "VMware.VimAutomation.Storage.Types",
+        "VMware.VimAutomation.Storage.Interop",
+        "VMware.DeployAutomation",
+        "VMware.ImageBuilder"
+    )
+
+
+    $CurrentAsmName = foreach( $asm in ([AppDomain]::CurrentDomain.GetAssemblies())) { $asm.getName() } 
+    $CurrentAsmDict = $CurrentAsmName | Group-Object -AsHashTable -Property Name
+
+    foreach( $req in $RequiredAsm ) { 
+
+        if ( -not $CurrentAsmDict.Contains($req) ) { throw "Assembly $req not found.  Some required PowerCli types are not available in this PowerShell session.  Please ensure you are running PowerNSX in a PowerCLI session, or have manually loaded the required assemblies."}
+    }
+}
 
 
 ##########
@@ -2228,6 +2330,9 @@ function Connect-NsxServer {
             [ValidateSet("Continue","Ignore")]
             [string]$ViWarningAction="Continue"   
     )
+
+    #Check required PowerCLI assemblies are loaded.
+    Check-PowerCliAsemblies
 
     if ($PSCmdlet.ParameterSetName -eq "userpass") {      
         $Credential = new-object System.Management.Automation.PSCredential($Username, $(ConvertTo-SecureString $Password -AsPlainText -Force))
@@ -5116,6 +5221,16 @@ function Get-NsxSpoofguardPolicy {
     Use the Get-NsxSpoofguardPolicy cmdlet to retreive existing SpoofGuard 
     Policy objects from NSX.
 
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy
+
+    Get all Spoofguard policies
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy Test
+
+    Get a specific Spoofguard policy
+
     
     #>
     [CmdLetBinding(DefaultParameterSetName="Name")]
@@ -5143,16 +5258,33 @@ function Get-NsxSpoofguardPolicy {
             $URI = "/api/4.0/services/spoofguard/policies/"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response ) { 
-                if  ( $Name  ) { 
-                    $response.spoofguardPolicies.spoofguardPolicy | ? { $_.name -eq $Name }
-                } else {
-                    $response.spoofguardPolicies.spoofguardPolicy
+                if ( $response.SelectSingleNode('descendant::spoofguardPolicies/spoofguardPolicy')) { 
+                    if  ( $Name  ) { 
+                        $polcollection = $response.spoofguardPolicies.spoofguardPolicy | ? { $_.name -eq $Name }
+                    } else {
+                        $polcollection = $response.spoofguardPolicies.spoofguardPolicy
+                    }
+                    foreach ($pol in $polcollection ) { 
+                        #Note that when you use the objectid URI, the NSX API actually reutrns additional information (statistics element),
+                        #so, without doing this, to the PowerNSX users, get-nsxsgpolicy <name> would return a subset of info compared to 
+                        #get-nsxsgpolicy which I dont like.
+
+                        $URI = "/api/4.0/services/spoofguard/policies/$($pol.policyId)"
+                        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                        if ( $response ) {
+                            $response.spoofguardPolicy
+                        } 
+                        else {
+                            throw "Unable to retreive SpoofGuard policy $($pol.policyId)."
+                        }
+                    }
                 }
             }
         }
         else {
 
             #Just getting a single SG Policy
+
             $URI = "/api/4.0/services/spoofguard/policies/$objectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response ) {
@@ -5183,7 +5315,43 @@ function New-NsxSpoofguardPolicy {
     Use the New-NsxSpoofguardPolicy cmdlet to create a new SpoofGuard 
     Policy in NSX.
 
+    Policies are not published (enforced) automatically.  Use the -publish 
+    switch to automatically publish a newly created policy.  Note that this 
+    could impact VM communications depending on the policy settings.
+
+    .EXAMPLE
+    $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch LSTemp
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode tofu -Network $ls
     
+    Create a new Trust on First Use Spoofguard policy protecting the Logical 
+    Switch LSTemp
+
+    .EXAMPLE
+    $vss_pg = Get-VirtualPortGroup -Name "VM Network" | select -First 1
+    $vds_pg = Get-VDPortgroup -Name "Internet"
+    $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch -Name LSTemp
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode manual -Network $vss_pg, $vds_pg, $ls
+
+    Create a new manual approval policy for three networks (a VSS PG, VDS PG and
+    Logical switch)
+
+    .EXAMPLE 
+    $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch LSTemp
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode tofu -Network $ls -publish
+    
+    Create a new Trust on First Use Spoofguard policy protecting the Logical 
+    Switch LSTemp and publish it immediately.  
+    Publishing causes the policy to be enforced on the data plane immediately 
+    (and potentially block all communication, so use with care!) 
+
+    .EXAMPLE 
+    $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch LSTemp
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode tofu -Network $ls -AllowLocalIps
+    
+    Create a new Trust on First Use Spoofguard policy protecting the Logical 
+    Switch LSTemp and allow local IPs to be approved (169.254/16 and fe80::/64)
+
+
     #>
 
 
@@ -5204,6 +5372,8 @@ function New-NsxSpoofguardPolicy {
         [Parameter (Mandatory=$true)]
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup $_ })]
             [object[]]$Network,
+        [Parameter (Mandatory=$False)]
+            [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
@@ -5267,8 +5437,15 @@ function New-NsxSpoofguardPolicy {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/4.0/services/spoofguard/policies/"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        Get-NsxSpoofguardPolicy -objectId $response -connection $connection
+        $policyId = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        
+        #Now we Publish...
+        if ( $publish ) { 
+            $URI = "/api/4.0/services/spoofguard/$($policyId)?action=publish"
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+        }
+
+        Get-NsxSpoofguardPolicy -objectId $policyId -connection $connection
         
     }
     end {}
@@ -5295,7 +5472,22 @@ function Remove-NsxSpoofguardPolicy {
     Use the Remnove-NsxSpoofguardPolicy cmdlet to remove the specified
     SpoofGuard Policy from NSX.
 
-    
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Remove-NsxSpoofguardPolicy
+
+    Remove the policy Test.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy | Remove-NsxSpoofguardPolicy
+
+    Remove all policies.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Remove-NsxSpoofguardPolicy -confirm:$false
+
+    Remove the policy Test without confirmation.
+
+
     #>
 
     param (
@@ -5306,17 +5498,12 @@ function Remove-NsxSpoofguardPolicy {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
-            [switch]$force=$false,
-        [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
-
     )
     
-    begin {
-
-    }
+    begin {}
 
     process {
 
@@ -5348,6 +5535,524 @@ function Remove-NsxSpoofguardPolicy {
     end {}
 }
 Export-ModuleMember -Function Remove-NsxSpoofguardPolicy
+
+function Publish-NsxSpoofguardPolicy {
+    
+    <#
+    .SYNOPSIS
+    Publishes the specified Spoofguard policy object.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Publish-NsxSpoofguardPolicy cmdlet to publish the specified
+    SpoofGuard Policy.  This causes it to be enforced.
+
+    .EXAMPLE
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode manual -Network $vss_pg, $vds_pg, $ls
+    Get-NsxSpoofguardPolicy test | Publish-NsxSpoofguardPolicy
+
+    Create and then separately publish a new policy.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-Vm TestVm | get-NetworkAdapter | select -first 1) | Grant-NsxSpoofguardNicApproval -IpAddress 1.2.3.4
+    Get-NsxSpoofguardPolicy test | Publish-NsxSpoofguardPolicy
+
+    Grant an approval to the first nic on the VM TestVM for ip 1.2.3.4 and publish it
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SpoofguardPolicy,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {}
+
+    process {
+
+
+        if ( $confirm ) { 
+            $message  = "Spoofguard Policy publishing will cause the current policy to be enforced."
+            $question = "Proceed with publish operation on Spoofguard Policy $($SpoofguardPolicy.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/services/spoofguard/$($SpoofguardPolicy.policyId)?action=publish"
+            
+            Write-Progress -activity "Publish Spoofguard Policy $($SpoofguardPolicy.Name)"
+            invoke-nsxrestmethod -method "post" -uri $URI -connection $connection | out-null
+            write-progress -activity "Publish Spoofguard Policy $($SpoofguardPolicy.Name)" -completed
+
+            Get-NsxSpoofguardPolicy -objectId $($SpoofguardPolicy.policyId) -connection $connection
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Publish-NsxSpoofguardPolicy
+
+function Get-NsxSpoofguardNic {
+    
+    <#
+    .SYNOPSIS
+    Retreives Spoofguard NIC details for the specified Spoofguard policy.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Get-NsxSpoofguardNic cmdlet to retreive Spoofguard NIC details for 
+    the specified Spoofguard policy
+
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1)
+
+    Get the Spoofguard settings for the first NIC on vM Evil-Vm
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -VirtualMachine (Get-vm evil-vm)
+
+    Get the Spoofguard settings for all nics on vM Evil-Vm
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -MacAddress 00:50:56:81:04:28
+    
+    Get the Spoofguard settings for the MAC address 00:50:56:81:04:28
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -Filter Inactive
+
+    Get all Inactive spoofguard Nics
+
+    
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="Default")]
+ 
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Default")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "MAC")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VM")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "NIC")]
+            [ValidateScript( { Validate-SpoofguardPolicy $_ } )]
+            [System.xml.xmlElement]$SpoofguardPolicy,
+        [Parameter (Mandatory=$false, ParameterSetName = "Default")]
+        [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
+        [Parameter (Mandatory=$false, ParameterSetName = "VM")]
+        [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
+            [Validateset("Active", "Inactive", "Published", "Unpublished", "Review_Pending", "Duplicate")]
+            [string]$Filter,
+        [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
+            [ValidateScript({
+                if ( $_ -notmatch "[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}" ) {
+                    throw "Specify a valid MAC address (0 must be specified as 00)"
+                }
+                $true
+                })]
+            [string]$MacAddress,
+        [Parameter (Mandatory=$false, ParameterSetName = "VM")]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
+        [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter]$NetworkAdapter,            
+        [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
+        [Parameter (Mandatory=$false, ParameterSetName = "VM")]
+        [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {}
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('Filter')) {
+            $URI = "/api/4.0/services/spoofguard/$($SpoofguardPolicy.policyId)?list=$($Filter.ToUpper())" 
+        }
+        else {
+
+            #Not documented in the API guide but appears to work ;)
+            $URI = "/api/4.0/services/spoofguard/$($SpoofguardPolicy.policyId)?list=ALL"
+        }
+
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+ 
+        if ( $response.SelectsingleNode('descendant::spoofguardList/spoofguard')) {
+        
+            switch ( $PsCmdlet.ParameterSetName  ) { 
+
+                "MAC" { $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress } }
+                "NIC" { 
+                    $MacAddress = $NetworkAdapter.MacAddress
+                    $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress } 
+                }
+
+                "VM" { 
+                    foreach ( $Nic in ($virtualmachine | Get-NetworkAdapter )) { 
+                        $MacAddress = $Nic.MacAddress
+                        $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress }
+                    }
+                }
+                default { $outcollection = $response.spoofguardList.Spoofguard }
+            }
+
+            #Add the policyId to the XML so we can pipline to grant/revoke cmdlets.
+            foreach ( $out in $outcollection ) {
+
+                Add-XmlElement -xmlRoot $out -xmlElementName "policyId" -xmlElementText $($SpoofguardPolicy.policyId)
+            }
+            $outcollection
+        }
+        else { 
+            write-debug "$($MyInvocation.MyCommand.Name) : No results found."
+        }
+    }
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSpoofguardNic
+
+function Grant-NsxSpoofguardNicApproval { 
+
+    <#
+    .SYNOPSIS
+    Approves a new IP for the specified Spoofguard NIC.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Grant-NsxSpoofguardNicApproval cmdlet to add the specified IP
+    to the list of approved IPs for the specified Spoofguard NIC.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1) | Grant-NsxSpoofguardNicApproval -IpAddress 1.2.3.4 -Publish
+    
+    Grant approval for the first NIC on VM Evil-VM to use the IP 1.2.3.4 and 
+    publish immediately
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1) | Grant-NsxSpoofguardNicApproval --ApproveAllDetectedIps -Publish
+    
+    Grant approval for the first NIC on VM Evil-VM to use all IPs detected by 
+    whatever IP detction methods are available and publish immediately.
+    
+    Note:  This *may* include 'local' IPs (such as fe80::/64) which may not be 
+    allowed if the policy is not enabled with 'AllowLocalIps'.  In this case
+    this operation will throw a cryptic error (Valid values are {2}) and not 
+    succeed.  In this case you must either change the policy to allow local IPs,
+    or manually approve the specific IPs you want.  This issue affects the NSX 
+    UI as well.
+
+    
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="ipAddress")]
+
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateScript( { Validate-SpoofguardNic $_ } )]
+            [System.xml.xmlElement]$SpoofguardNic,
+        [Parameter (Mandatory=$True, ParameterSetName="ipAddress")]
+            [ValidateNotNullOrEmpty()]
+            [string[]]$IpAddress,
+        [Parameter (Mandatory=$True, ParameterSetName="ApproveAll")]
+            [ValidateNotNullOrEmpty()]
+            [switch]$ApproveAllDetectedIps=$False,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$True,
+        [Parameter (Mandatory=$False)]
+            [switch]$Publish=$false,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #We need to modify the spoofguardNic XML element, so we need to clone it.
+        $_SpoofguardNic = $SpoofguardNic.CloneNode($true)
+
+        [System.XML.XMLDocument]$xmlDoc = $_SpoofguardNic.OwnerDocument
+        [System.XML.XMLElement]$spoofguardList = $XMLDoc.CreateElement("spoofguardList")
+        $spoofguardList.appendChild($_SpoofguardNic) | out-null
+
+        #Get and Remove the policyId element we put there...
+        $policyId = $_SpoofguardNic.policyId
+        $_SpoofguardNic.RemoveChild($_SpoofguardNic.SelectSingleNode('descendant::policyId')) | out-null
+
+        #if approvedIpAddress element does not exist, create it
+        [system.xml.xmlElement]$approvedIpAddressNode = $_SpoofguardNic.SelectsingleNode('descendant::approvedIpAddress')
+        if ( -not $approvedIpAddressNode ) { 
+
+            [System.XML.XMLElement]$approvedIpAddressNode = $XMLDoc.CreateElement("approvedIpAddress")
+            $_SpoofguardNic.appendChild($approvedIpAddressNode) | out-null
+        }
+
+        #If they are, Add the ip(s) specified
+        if ( $PsBoundParameters.ContainsKey('ipAddress') ) {
+            foreach ( $ip in $ipAddress ) { 
+
+                if ( $approvedIpAddressNode.selectNodes("descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {                            
+                    write-warning "Not adding duplicate IP Address $ip as it is already added."
+                }
+                else { 
+                    Add-XmlElement -xmlRoot $approvedIpAddressNode -xmlElementName "ipAddress" -xmlElementText $ip
+                }
+            }
+        }
+
+        #If there are IPs detected, and approve all is on, ensure user understands consequence.
+        If ( $ApproveAllDetectedIps -and ( $_SpoofguardNic.SelectSingleNode('descendant::detectedIpAddress/ipAddress'))) { 
+
+            If ($confirm ) { 
+
+                $message  = "Do you want to automatically approve all IP Addresses detected on the NIC $($_SpoofguardNic.nicName)?."
+                $question = "Validate the detected IP addresses before continuing.  Proceed?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+
+                foreach ( $ip in $_SpoofguardNic.detectedIpAddress.ipAddress )  {
+                    #Have to ensure we dont add a duplicate here...
+                    
+                    if ( $approvedIpAddressNode.selectNodes("descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {                            
+                        write-warning "Not adding duplicate IP Address $ip as it is already added."
+                    }
+                    else { 
+                        Add-XmlElement -xmlRoot $approvedIpAddressNode -xmlElementName "ipAddress" -xmlElementText $ip
+                    }
+                }
+            }
+        }
+
+        # Had bad thoughts about allowing manual specification of MAC.  I might come back to this...
+
+        # if ( $PsCmdlet.ParameterSetName -eq "ManualMac" ) { 
+        #     if ( -not ( $_SpoofguardNic.SelectsingleNode('descendant::approvedMacAddress'))){
+        #         Add-XmlElement -xmlRoot $_SpoofguardNic -xmlElementName "approvedMacAddress" -xmlElementText $MacAddress
+        #     }
+        #     else { 
+
+        #         #Assume user wants to overwrite... should we confirm on this?
+        #         $_SpoofguardNic.approvedMacAddress = $MacAddress
+
+        #     }
+
+        # }
+        # else { 
+        #     if ( -not ( $_SpoofguardNic.SelectsingleNode('descendant::approvedMacAddress'))){
+        #        Add-XmlElement -xmlRoot $_SpoofguardNic -xmlElementName "approvedMacAddress" -xmlElementText $_SpoofguardNic.detectedMacAddress
+        #     }
+        #     else { 
+
+        #         #Assume user wants to overwrite... should we confirm on this?
+        #         $_SpoofguardNic.approvedMacAddress = $MacAddress
+        #     }
+        # }
+
+        #Do the post
+        $body = $spoofguardList.OuterXml
+        $URI = "/api/4.0/services/spoofguard/$($policyId)?action=approve"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+
+        #Now we Publish...
+        if ( $publish ) { 
+            $URI = "/api/4.0/services/spoofguard/$($policyId)?action=publish"
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+        }
+        
+        Get-NsxSpoofguardPolicy -objectId $policyId -connection $connection | Get-NsxSpoofguardNic -MAC $_SpoofguardNic.detectedMacAddress -connection $connection
+        
+    }
+    end {}
+}
+Export-ModuleMember -Function Grant-NsxSpoofguardNicApproval
+
+function Revoke-NsxSpoofguardNicApproval { 
+
+    <#
+    .SYNOPSIS
+    Removes an approved IP from the specified Spoofguard NIC.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Revoke-NsxSpoofguardNicApproval cmdlet to remove the specified IP
+    from the list of approved IPs for the specified Spoofguard NIC.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1) | Revoke-NsxSpoofguardNicApproval -RevokeAllApprovedIps -publish
+    
+    Revoke all approved IPs for vm evil-vm and immediately publish the policy.
+    
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1) | Revoke-NsxSpoofguardNicApproval -IpAddress 1.2.3.4
+
+    Revoke the approval for IP 1.2.3.4 from the first nic on vm evil-vm.
+
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="IpList")]
+
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateScript( { Validate-SpoofguardNic $_ } )]
+            [System.xml.xmlElement]$SpoofguardNic,
+        [Parameter (Mandatory=$True, ParameterSetName="IpList")]
+            [ValidateNotNullOrEmpty()]
+            [string[]]$IpAddress,
+        [Parameter (Mandatory=$True, ParameterSetName="RevokeAll")]
+            [ValidateNotNullOrEmpty()]
+            [switch]$RevokeAllApprovedIps,
+        [Parameter (Mandatory=$False)]
+            [switch]$Confirm=$True,        
+        [Parameter (Mandatory=$False)]
+            [switch]$Publish=$false,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #We need to modify the spoofguardNic XML element, so we need to clone it.
+        $_SpoofguardNic = $SpoofguardNic.CloneNode($true)
+
+        [System.XML.XMLDocument]$xmlDoc = $_SpoofguardNic.OwnerDocument
+        [System.XML.XMLElement]$spoofguardList = $XMLDoc.CreateElement("spoofguardList")
+        $spoofguardList.appendChild($_SpoofguardNic) | out-null
+
+        #Get and Remove the policyId element we put there...
+        $policyId = $_SpoofguardNic.policyId
+        $_SpoofguardNic.RemoveChild($_SpoofguardNic.SelectSingleNode('descendant::policyId')) | out-null
+
+        #if approvedIpAddress element does not exist, bail
+        [system.xml.xmlElement]$approvedIpAddressNode = $_SpoofguardNic.SelectsingleNode('descendant::approvedIpAddress')
+        if ( -not $approvedIpAddressNode -or (-not ($approvedIpAddressNode.SelectSingleNode('descendant::ipAddress')))) { 
+
+            Write-Warning "Nic $($_SpoofguardNic.NicName) has no approved IPs"
+        }
+        else {
+        
+            [system.xml.xmlElement]$publishedIpAddressNode = $_SpoofguardNic.SelectsingleNode('descendant::publishedIpAddress')
+
+            $approvedIpCollection = $approvedIpAddressNode.selectNodes("descendant::ipAddress")
+            $publishedIpCollection = $publishedIpAddressNode.selectNodes("descendant::ipAddress")
+
+            #If there are IPs detected, and revoke all is on, kill em all...
+            If ( $PSCmdlet.ParameterSetName -eq "RevokeAll" ) {
+                
+                foreach ( $node in $approvedIpCollection ) { 
+                    $approvedIpAddressNode.RemoveChild($node) | out-null
+                }                
+            } 
+
+            else {
+                #$IPAddress is mandatory...
+                foreach ( $ip in $ipAddress ) { 
+
+                    $currentApprovedIpNode = $approvedIpCollection | ? { $_.'#Text' -eq $ip }
+                    $currentPublishedIpNode = $publishedIpCollection | ? { $_.'#Text' -eq $ip }
+
+                    if ( -not $currentApprovedIpNode ) {                            
+                        write-warning "IP Address $ip is not currently approved on Nic $($_SpoofguardNic.NicName)."
+                    }
+                    else { 
+                        $approvedIpAddressNode.RemoveChild($currentApprovedIpNode) | out-null
+                        if ( $currentPublishedIpNode ) { 
+
+                            $publishedIpAddressNode.RemoveChild($currentPublishedIpNode) | out-null
+                        }
+                    }
+                }
+            }
+
+            If ($confirm ) { 
+
+                $message  = "Do you want to remove the specified IP Addresses from the approved list of the NIC $($_SpoofguardNic.nicName)?."
+                $question = "Removal is permenant.  Proceed?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+
+                #Do the post
+                $body = $spoofguardList.OuterXml
+                $URI = "/api/4.0/services/spoofguard/$($policyId)?action=approve"
+                $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+
+                #Now we Publish...
+                if ( $publish) { 
+                    $URI = "/api/4.0/services/spoofguard/$($policyId)?action=publish"
+                    $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+                }
+
+                Get-NsxSpoofguardPolicy -objectId $policyId -connection $connection | Get-NsxSpoofguardNic -MAC $_SpoofguardNic.detectedMacAddress -connection $connection
+            }
+        }
+    }
+    end {}
+}
+Export-ModuleMember -Function Revoke-NsxSpoofguardNicApproval
 
 
 #########
@@ -5465,7 +6170,6 @@ function New-NsxLogicalRouterInterfaceSpec {
     end {}
 }
 Export-ModuleMember -Function New-NsxLogicalRouterInterfaceSpec
-
 
 function Get-NsxLogicalRouter {
 
