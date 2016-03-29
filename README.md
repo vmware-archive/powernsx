@@ -16,9 +16,9 @@ See the Wiki for Setup and Usage instructions.
 ## Contribution guidelines ##
 
 Contribution and feature requests are more than welcome, please use the following methods:
- * For bugs and issues, please use the issues register with details of the problem.
- * For Feature Requests, please use the issues register with details of what's required.
- * For code contribution (bug fixes, or feature request), please request write access to the dev branch or supply a patch.
+  - For bugs and issues, please use the issues register with details of the problem.
+  -  For Feature Requests, please use the issues register with details of what's required.
+  - For code contribution (bug fixes, or feature request), please request write access to the dev branch or supply a patch.
  
 ## Who do I talk to? ##
 
