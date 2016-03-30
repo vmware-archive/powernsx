@@ -7349,7 +7349,7 @@ function Set-NsxEdgeInterface {
         Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)." -completed
 
         write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
-        Get-NsxEdge -objectId $($Interface.edgeId) | Get-NsxEdgeInterface -index "$($Interface.Index)"
+        Get-NsxEdge -objectId $($Interface.edgeId) -connection $connection | Get-NsxEdgeInterface -index "$($Interface.Index)" -connection $connection
     }
 
     end {}
