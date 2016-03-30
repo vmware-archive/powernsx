@@ -24,6 +24,8 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 #SOFTWARE.
 
+#Control which branch is installed.  Latest commit in this branch is used.
+$Branch = "Dev"
 
 #PowerCLI 6.0 R3 
 $PowerCLI_Download="https://my.vmware.com/group/vmware/get-download?downloadGroup=PCLI600R3"
@@ -44,8 +46,9 @@ $dotNet_45_Download="https://download.microsoft.com/download/E/2/1/E21644B5-2DF2
 #Minimum version of PS required.
 $PSMinVersion = "3"
 
-#PowerNSX (v1)
-$PowerNSX = "https://bitbucket.org/nbradford/powernsx/raw/f8b81533fbcf024b88d540c589fbe61078fff1a1/PowerNSX.psm1"
+
+#PowerNSX (branch latest)
+$PowerNSX = "https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSX.psm1"
 
 #Module Path
 $ModulePath = "$($env:ProgramFiles)\Common Files\Modules\PowerNSX\PowerNSX.psm1"
