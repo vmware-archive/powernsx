@@ -24,6 +24,11 @@
 #OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
 #SOFTWARE.
 
+
+param (
+    [switch]$Upgrade
+    )
+
 #Control which branch is installed.  Latest commit in this branch is used.
 $Branch = "Dev"
 
@@ -48,10 +53,12 @@ $PSMinVersion = "3"
 
 
 #PowerNSX (branch latest)
-$PowerNSX = "https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSX.psm1"
+$PowerNSXMod = "https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSX.psm1"
+$PowerNSXManifest = "https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSX.psd1"
 
 #Module Path
 $ModulePath = "$($env:ProgramFiles)\Common Files\Modules\PowerNSX\PowerNSX.psm1"
+$ManifestPath = "$($env:ProgramFiles)\Common Files\Modules\PowerNSX\PowerNSX.psd1"
 
 
 
@@ -361,16 +368,23 @@ function check-PowerNSX {
 
     write-host -NoNewline "Checking for PowerNSX Module..."
     
-    if (-not (Test-Path $ModulePath)) { 
-        write-host -ForegroundColor Yellow "Failed."
-        $message  = "PowerNSX module not found."
-        $question = "Download and install PowerNSX?"
+    if (-not (Test-Path $ModulePath) -or ( $Upgrade )) { 
+        if ( -not $upgrade) { 
+            write-host -ForegroundColor Yellow "Failed."
+            $message  = "PowerNSX module not found."
+            $question = "Download and install PowerNSX?"
 
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else {
+            write-host -ForegroundColor Yellow "Upgrading."
+            $decision = 0
+
+        }
         write-host
 
         if ( $decision -ne 0 ) { 
@@ -387,8 +401,9 @@ function check-PowerNSX {
                 write-host -ForegroundColor Green "Ok."
             }
             write-host -NoNewline "Installing PowerNSX..."
-            Download-File $PowerNSX $ModulePath
-            if (-not (Test-Path $ModulePath)) { 
+            Download-File $PowerNSXManifest $ManifestPath
+            Download-File $PowerNSXMod $ModulePath
+            if (-not (Test-Path $ModulePath -and test-path $ManifestPath )) { 
                 write-host -ForegroundColor Yellow "Failed."
                 write-host 
                 throw "Unable to download/install PowerNSX."
