@@ -1,7 +1,7 @@
 #Powershell NSX module
 #Nick Bradford
 #nbradford@vmware.com
-#Version 1.0 RC 1
+#Version - See Manifest for versiond details.
 
 
 
@@ -41,6 +41,8 @@
 # - Update Edge (LB? ) validation cmdlets with edgeId
 
 #Requires -Version 3.0
+#More sophisticated requirement checking done at module load time.
+
 
 
 set-strictmode -version Latest
@@ -2494,15 +2496,12 @@ function Get-PowerNsxVersion {
     .EXAMPLE
     Get-PowerNsxVersion
 
-    Get the instaled version of PowerNSX
+    Get the installed version of PowerNSX
 
     #>
 
-    [PSCustomobject]@{
-        "Version" = "1.0 RC1";
-        "Major" = 1 ;
-        "Minor" = 0
-    }
+    #Updated to take advantage of Manifest info.
+    Get-Module PowerNsx | select version, path, author, companyName 
 }
 Export-ModuleMember -function Get-PowerNsxVersion 
 

@@ -368,7 +368,7 @@ function check-PowerNSX {
 
     write-host -NoNewline "Checking for PowerNSX Module..."
     
-    if (-not (Test-Path $ModulePath) -or ( $Upgrade )) { 
+    if (-not ((Test-Path $ModulePath) -and (test-path $ManifestPath )) -or ( $Upgrade )) { 
         if ( -not $upgrade) { 
             write-host -ForegroundColor Yellow "Failed."
             $message  = "PowerNSX module not found."
@@ -403,7 +403,7 @@ function check-PowerNSX {
             write-host -NoNewline "Installing PowerNSX..."
             Download-File $PowerNSXManifest $ManifestPath
             Download-File $PowerNSXMod $ModulePath
-            if (-not (Test-Path $ModulePath -and test-path $ManifestPath )) { 
+            if (-not ((Test-Path $ModulePath) -and (test-path $ManifestPath ))) { 
                 write-host -ForegroundColor Yellow "Failed."
                 write-host 
                 throw "Unable to download/install PowerNSX."
