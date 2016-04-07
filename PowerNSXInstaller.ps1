@@ -506,11 +506,9 @@ function init {
 
     #Perform environment check, and guided dependancy installation for PowerNSX.
 
-    clear-host
-
     #UserIntro:
     write-host 
-    write-host -ForegroundColor Green "PowerNSX Installation Tool"
+    write-host -ForegroundColor Green "`nPowerNSX Installation Tool"
     write-host 
     write-host "PowerNSX is a PowerShell module for VMware NSX (NSX for vSphere)."
     write-host
