@@ -195,6 +195,9 @@ namespace PKI {
         }  
         $chain.Reset()  
         [Net.ServicePointManager]::ServerCertificateValidationCallback = $null  
+        $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($ConnectString)
+        $ServicePoint.CloseConnectionGroup("") | out-null
+        write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $ConnectString."
     } else {  
         Write-Error $Error[0]  
     }  
