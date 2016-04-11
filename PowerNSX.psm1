@@ -3709,7 +3709,7 @@ function New-NsxController {
                 while ( $Controller.status -ne 'RUNNING' ) {
 
                     #Loop while the controller is deploying (not RUNNING)
-                    Write-Progress "Waiting for NSX controller enter a running state. (Current state: $($Controller.Status)) "
+                    Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) "
                     start-sleep $WaitStep
                     $Timer += $WaitStep
 
