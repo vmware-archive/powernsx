@@ -3319,7 +3319,7 @@ function New-NsxManager{
         [Parameter ( Mandatory=$True )]
             [ValidateNotNullOrEmpty()]
             [ipAddress]$NtpServer,
-        [Paramater ( Mandatory=$False)]
+        [Parameter ( Mandatory=$False)]
             [ValidateRange(8,16)]
             [int]$ManagerMemoryGB,
         [Parameter ( Mandatory=$True, ParameterSetName = "StartVM" )]
