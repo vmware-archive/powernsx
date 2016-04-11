@@ -3726,13 +3726,13 @@ function New-NsxController {
                            $timer = 0
                         }
                         else {
-                            throw "Timeout waiting for controller $($i+1) to become available."
+                            throw "Timeout waiting for controller $($controller.id) to become available."
                         }  
                     }
 
                     $Controller = Get-Nsxcontroller -connection $connection -objectId ($controller.id)
                 }
-                write-host "   -> Controller $($i+1) online." 
+                Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed
             }
             $controller
         }
