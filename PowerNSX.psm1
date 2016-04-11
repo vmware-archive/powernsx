@@ -3264,6 +3264,9 @@ function New-NsxManager{
 
     #>
 
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
+
     param (
 
         [Parameter ( Mandatory=$True )]
@@ -3316,10 +3319,21 @@ function New-NsxManager{
         [Parameter ( Mandatory=$True )]
             [ValidateNotNullOrEmpty()]
             [ipAddress]$NtpServer,
+        [Paramater ( Mandatory=$False)]
+            [ValidateRange(8,16)]
+            [int]$ManagerMemoryGB,
+        [Parameter ( Mandatory=$True, ParameterSetName = "StartVM" )]
+            [ValidateSet($true)]
+            [switch]$StartVM=$false,
+        [Parameter ( Mandatory=$False, ParamaterSetName = "StartVM")]
+            [ValidateScript({
+                If ( -not $StartVM ) { throw "Cant wait for Manager API unless -StartVM is enabled."}
+                $true
+                })]
+            [switch]$Wait=$false,
         [Parameter ( Mandatory=$False )]
-            [switch]$EnableSsh=$false,
-        [Parameter ( Mandatory=$False )]
-            [switch]$StartVM=$false
+            [switch]$EnableSsh=$false
+
 
     )
 
@@ -3362,13 +3376,63 @@ function New-NsxManager{
         write-progress -Activity "Moving NSX Manager VM to $folderName folder" -completed
     }  
 
+    if ( $PSBoundParameters.ContainsKey('ManagerMemoryGB') ) {
+        #Hack VM to reduce Ram for constrained environments.  This is NOT SUITABLE FOR PRODUCTION!!!
+        write-warning "Changing Memory configuration of NSX Manager VM to $ManagerMemoryGB GB.  Not supported for Production Use!"
+        get-Vm $Name | set-vm -MemoryGB $ManagerMemoryGB -confirm:$false | Get-VMResourceConfiguration | Set-VMResourceConfiguration -MemReservationMB 0 -CpuReservationMhz 0 | out-null
+    }
+
+    write-progress -Activity "Deploying NSX Manager OVA" -completed
+
     if ( $StartVM )  { 
         write-progress -Activity "Starting NSX Manager"
         $VM | Start-VM
         write-progress -Activity "Starting NSX Manager" -completed
     } 
 
-    write-progress -Activity "Deploying NSX Manager OVA" -completed
+    if ( $PSBoundParameters.ContainsKey('Wait')) {
+        #User wants to wait for Manager API to start.
+        $waitStep = 30
+        $WaitTimeout = 600
+
+        $Timer = 0
+        Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
+
+        do {
+
+            #sleep a while, the VM will take time to start fully..
+            start-sleep $WaitStep
+            $Timer += $WaitStep
+            try { 
+                Connect-NsxServer -server $IpAddress -Username 'admin' -password $CliPassword -DisableViAutoConnect -DefaultConnection $false | out-null
+                break
+            }
+            catch { 
+                Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
+            }
+
+            if ( $Timer -ge $WaitTimeout ) { 
+
+                #We exceeded the timeout - what does the user want to do? 
+                $message  = "Waited more than $WaitTimeout seconds for NSX Manager API to become available.  Recommend checking boot process, network config etc."
+                $question = "Continue waiting for NSX Manager?"
+                $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                if ($decision -eq 0) {
+                   #User waits...
+                   $Timer = 0
+                }
+                else {
+                    throw "Timeout waiting for NSX Manager appliance API to become available."
+                }
+            }
+        } while ( $true )
+
+        Write-Progress -Activity "Waiting for NSX Manager api to become available" -Completed
+
+    } 
 
 } 
 Export-ModuleMember -Function New-NsxManager
@@ -3579,6 +3643,8 @@ function New-NsxController {
             [object]$PortGroup,
         [Parameter (Mandatory=$True)]
             [string]$Password,
+        [Parameter ( Mandatory=$False)]
+            [switch]$Wait=$false,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
@@ -3632,7 +3698,44 @@ function New-NsxController {
             Write-Progress -activity "Deploying NSX Controller"
             $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
             write-progress -activity "Deploying NSX Controller" -completed
-            Get-NsxController -connection $connection | Sort-Object -Property id | Select-Object -last 1
+            $Controller = Get-NsxController -connection $connection | Sort-Object -Property id | Select-Object -last 1
+            
+            if ( $Wait ) {
+                
+                #User wants to wait for Controller API to start.
+                $waitStep = 30
+                $WaitTimeout = 600
+                
+                $Timer = 0
+                while ( $Controller.status -ne 'RUNNING' ) {
+
+                    #Loop while the controller is deploying (not RUNNING)
+                    Write-Progress "Waiting for NSX controller enter a running state. (Current state: $($Controller.Status)) "
+                    start-sleep $WaitStep
+                    $Timer += $WaitStep
+
+                    if ( $Timer -ge $WaitTimeout ) { 
+                        #We exceeded the timeout - what does the user want to do? 
+                        $message  = "Waited more than $WaitTimeout seconds for controller to become available.  Recommend checking boot process, network config etc."
+                        $question = "Continue waiting for Controller?"
+                        $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                        $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                        if ($decision -eq 0) {
+                           #User waits...
+                           $timer = 0
+                        }
+                        else {
+                            throw "Timeout waiting for controller $($i+1) to become available."
+                        }  
+                    }
+
+                    $Controller = Get-Nsxcontroller -connection $connection -objectId ($controller.id)
+                }
+                write-host "   -> Controller $($i+1) online." 
+            }
+            $controller
         }
     }
 
