@@ -3323,7 +3323,6 @@ function New-NsxManager{
             [ValidateRange(8,16)]
             [int]$ManagerMemoryGB,
         [Parameter ( Mandatory=$True, ParameterSetName = "StartVM" )]
-            [ValidateSet($true)]
             [switch]$StartVM=$false,
         [Parameter ( Mandatory=$False, ParameterSetName = "StartVM")]
             [ValidateScript({
