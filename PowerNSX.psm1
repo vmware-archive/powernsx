@@ -3325,7 +3325,7 @@ function New-NsxManager{
         [Parameter ( Mandatory=$True, ParameterSetName = "StartVM" )]
             [ValidateSet($true)]
             [switch]$StartVM=$false,
-        [Parameter ( Mandatory=$False, ParamaterSetName = "StartVM")]
+        [Parameter ( Mandatory=$False, ParameterSetName = "StartVM")]
             [ValidateScript({
                 If ( -not $StartVM ) { throw "Cant wait for Manager API unless -StartVM is enabled."}
                 $true
