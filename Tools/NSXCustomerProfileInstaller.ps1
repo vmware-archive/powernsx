@@ -35,7 +35,7 @@
 $temppath = "$env:temp\VMware\VMware NSX Support Utility Installer"
 $InstallPath = "$($env:ProgramData)\VMware\VMware NSX Support Utility"
 $targetPNSXVersion = New-Object System.Version("2.0.0")
-$repo = "https://bitbucket.org/nbradford/PowerNSX/raw/Dev"
+$repo = "https://bitbucket.org/nbradford/powernsx/raw/Dev"
 $CuProfilingScript = "$repo/Tools/NSXCustomerProfile.ps1"
 $PowerNSXInstaller = "$repo/PowerNSXInstaller.ps1"
 
@@ -52,6 +52,7 @@ function Download-TextFile {
     
     $wc = new-object Net.WebClient
 
+    write-debug "Download: $source, $destination"
     try {
         write-progress -Activity "Download $source -> $destination"
         [string]$text = $wc.DownloadString($source)
