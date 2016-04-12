@@ -2201,6 +2201,20 @@ Function Validate-SpoofguardNic {
     }
 }
 
+Function Validate-VirtualMachine {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if (-not ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop] )) {
+            throw "Object is not a supported type.  Specify a VirtualMachine object."
+    }
+
+    $true
+}
+
 ##########
 ##########
 # Helper functions
@@ -16829,6 +16843,346 @@ function Remove-NsxSecurityTag {
     end {}
 }
 Export-ModuleMember -Function Remove-NsxSecurityTag
+
+function Get-NsxSecurityTagAssignment {
+
+    <#
+    .SYNOPSIS
+    This cmdlet is used to retrive a list of virtual machines assigned a
+    particular NSX Security Tag.
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of
+    NSX such as Security Groups match criteria. Security Tags are applied to a
+    Virtual Machine.
+
+    This cmdlet is used to retrive a list of virtual machines assigned a
+    particular NSX Security Tag.
+
+    .EXAMPLE
+
+    PS C:\> Get-NsxSecurityTag ST-Web-DMZ | Get-NsxSecurityTagAssignment
+    Specify a single security tag to find all virtual machines the tag is assigned to.
+
+
+    .EXAMPLE
+
+    PS C:\> Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | Get-NsxSecurityTagAssignment
+    Retrieve all virtual machines that are assigned a security tag containing 'dmz' in the security tag name
+
+
+    .EXAMPLE
+
+    PS C:\> Get-VM Web-01 | Get-NsxSecurityTagAssignment
+    Speficy a virtual machine to retrieve all the assigned security tags
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Standard")]
+
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Standard")]
+            [ValidateScript( { Validate-SecurityTag $_ })]
+            [System.Xml.XmlElement]$tag,
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Advanced")]
+            [ValidateScript( { Validate-VirtualMachine $_ })]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$vmobject,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+    process {
+
+        switch ( $PSCmdlet.ParameterSetName ) {
+
+            'Standard' {
+
+                $URI = "/api/2.0/services/securitytags/tag/$($Tag.objectId)/vm"
+                [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+                if ( $response.SelectSingleNode('descendant::basicinfolist/basicinfo') ) {
+                    $nodes = $response.SelectNodes('descendant::basicinfolist/basicinfo')
+
+                    foreach ($node in $nodes) {
+
+                        $node.AppendChild($response.CreateElement('securityTagName')) | out-null
+                        $node.AppendChild($response.CreateElement('securityTagObjectId')) | out-null
+
+                        $securityTagNameElement = $node.SelectSingleNode('securityTagName')
+                        $SecurityTagNameElement.AppendChild($response.CreateTextNode($($tag.name))) | out-null
+
+                        $SecurityTagObjectIdElement = $node.SelectSingleNode('securityTagObjectId')
+                        $SecurityTagObjectIdElement.AppendChild($response.CreateTextNode($($tag.objectId))) | out-null
+                    }
+
+                    $response.basicinfolist.basicinfo | sort-object name
+                }
+            }
+
+            'Advanced' {
+                $vmMoid = $vmobject.ExtensionData.MoRef.Value
+                Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)"
+                Get-NsxSecurityTag | Get-NsxSecurityTagAssignment | Where-Object {$_.objectId -eq $($vmMoid)}
+            }
+        }
+    }
+
+    end {}
+}
+Export-ModuleMember -Function Get-NsxSecurityTagAssignment
+
+function New-NsxSecurityTagAssignment {
+
+    <#
+    .SYNOPSIS
+    This cmdlet assigns is used to assign NSX Security Tags to a virtual machine.
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of
+    NSX such as Security Groups match criteria. Security Tags are applied to a
+    Virtual Machine.
+
+    This cmdlet assigns is used to assign NSX Security Tags to a virtual machine.
+
+    .EXAMPLE
+
+    PS C:\> Get-VM Web-01 | New-NsxSecurityTagAssignment -tag (Get-NsxSecurityTag ST-Web-DMZ)
+    Assign a single security tag to a virtual machine
+
+    .EXAMPLE
+
+    PS C:\> Get-NsxSecurityTag ST-Web-DMZ | New-NsxSecurityTagAssignment -vm (Get-VM Web-01)
+    Assign a single security tag to a virtual machine
+
+    .EXAMPLE
+
+    PS C:\> Get-VM Web-01 | New-NsxSecurityTagAssignment -tag $( Get-NsxSecurityTag | ? {$_.name -like "*prod*"} )
+    Assign all security tags containing "prod" in the name to a virtual machine
+
+    .EXAMPLE
+
+    PS C:\> Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | New-NsxSecurityTagAssignment -vm (Get-VM web01,app01,db01)
+    Assign all security tags containing "DMZ" in the name to multiple virtual machines
+
+    .EXAMPLE
+
+    PS C:\> New-NsxSecurityTagAssignment -csv -path test.csv
+    Use a csv file to assign security tags to virtual machines.
+
+    The csv MUST contain a header row. A Sample csv file format is shown below:
+
+    name,securityTagName
+    Web-01,ST-Web-DMZ
+
+    The following command will export a csv file through PowerNSX that can be directly imported via New-NsxSecurityTagAssignment.
+
+    PS C:\> Get-VM Web-01 | Get-NsxSecurityTagAssignment | export-csv -path test.csv
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="VirtualMachine")]
+
+    param (
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
+            [ValidateScript( { Validate-VirtualMachine $_ })]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$vmobject,
+        [Parameter (Mandatory=$true, ParameterSetName = "VirtualMachine")]
+            [ValidateScript( { Validate-SecurityTag $_ })]
+            [object[]]$tag,
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "SecurityTag")]
+            [ValidateScript( { Validate-SecurityTag $_ })]
+            [System.Xml.XmlElement]$tagobject,
+        [Parameter (Mandatory=$true, ParameterSetName = "SecurityTag")]
+            [ValidateScript( { Validate-VirtualMachine $_ })]
+            [object[]]$vm,
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "CsvInput")]
+            [switch]$csv,
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "CsvInput")]
+            [ValidateScript({ if ( -not (test-path $_)) { throw "Path or File not found: $_." } $true })]
+            [string]$path,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        switch ( $PSCmdlet.ParameterSetName ) {
+
+            'VirtualMachine' {
+                $TagIdentifierStrings = $tag.objectid
+                $vmMoid = $vmobject.ExtensionData.MoRef.Value
+
+                foreach ($TagIdentifierString in $TagIdentifierStrings) {
+                    $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
+                    Write-Progress -activity "Adding Security Tag $($TagIdentifierString) to Virtual Machine $($vmMoid)"
+                    $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+                    Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed
+                }
+
+            }
+
+            'SecurityTag' {
+                $TagIdentifierString = $tagobject.objectid
+                $vmMoids = $vm.ExtensionData.MoRef.Value
+
+                foreach ($vmMoid in $vmMoids) {
+                    $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
+                    Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)"
+                    $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+                    Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed
+
+                }
+            }
+
+            'CsvInput' {
+                $file = Import-Csv $path
+
+                foreach ( $line in $file ) {
+                    $TagIdentifierString = Get-NsxSecurityTag -name $($line.securityTagName)
+                    # Making a huge assumption here that there is only a single VM with that name that we are looking up.
+                    # Will probably need to re-visit this to handle when 2 VMs exist with the same name.
+                    $vmMoid = Get-VM $line.name
+                    $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString.objectId)/vm/$($vmMoid.ExtensionData.MoRef.Value)"
+                    Write-Progress -activity "Adding Security Tag $($TagIdentifierString.objectId) to Virtual Machine $($vmMoid.ExtensionData.MoRef.Value)"
+                    $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+                    Write-Progress -activity "Adding Security Tag $($TagIdentifierString.objectId) to Virtual Machine $($vmMoid.ExtensionData.MoRef.Value)" -completed
+                }
+
+            }
+
+        }
+
+    }
+
+    end{}
+}
+Export-ModuleMember -Function New-NsxSecurityTagAssignment
+
+function Remove-NsxSecurityTagAssignment {
+
+    <#
+    .SYNOPSIS
+    This cmdlet is used to remove NSX Security Tags assigned to a virtual machine
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of
+    NSX such as Security Groups match criteria. Security Tags are applied to a
+    Virtual Machine.
+
+    This cmdlet assigns is used to remove NSX Security Tags assigned to a virtual machine
+
+    .EXAMPLE
+
+    PS C:\> Get-NsxSecurityTag ST-WEB-DMZ | Remove-NsxSecurityTagAssignment -vm (Get-VM Web-01)
+    Removes a security tag assigned to a virtual machine.
+
+    .EXAMPLE
+
+    PS C:\> Get-VM Web01 | Remove-NsxSecurityTagAssignment -tag (Get-NsxSecurityTag ST-WEB-DMZ)
+    Removes a security tag assigned to a virtual machine.
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="VirtualMachine")]
+
+    param (
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$vmobject,
+        [Parameter (Mandatory=$true, ParameterSetName = "VirtualMachine")]
+            [ValidateScript( { Validate-SecurityTag $_ })]
+            [object[]]$tag,
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "SecurityTag")]
+            [ValidateScript( { Validate-SecurityTag $_ })]
+            [System.Xml.XmlElement]$tagobject,
+        [Parameter (Mandatory=$true, ParameterSetName = "SecurityTag")]
+            [ValidateScript( { Validate-VirtualMachine $_ })]
+            [object[]]$vm,
+        [Parameter (Mandatory=$false)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        switch ( $PSCmdlet.ParameterSetName ) {
+
+            'VirtualMachine' {
+                $TagIdentifierStrings = $tag.objectid
+                $vmMoid = $vmobject.ExtensionData.MoRef.Value
+
+                foreach ($TagIdentifierString in $TagIdentifierStrings) {
+
+                    if ( $confirm ) { 
+                        $message  = "Removing Security Tag $($tag.Name) from $($vmobject.name) may impact desired Security Posture and expose your infrastructure."
+                        $question = "Proceed with removal of Security Tag $($tag.Name) from $($vmobject.name)?"
+
+                        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+
+                    } else { $decision = 0 }
+
+                    if ($decision -eq 0) {
+
+                        $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
+                        Write-Progress -activity "Removing Security Tag $($TagIdentifierString) from Virtual Machine $($vmMoid)"
+                        $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+                        Write-Progress -activity "Removing Security Tag $TagIdentifierString from Virtual Machine $($vmMoid)" -completed
+
+                    }
+
+                }
+
+            }
+
+            'SecurityTag' {
+                $TagIdentifierString = $tagobject.objectid
+                $vmMoids = $vm.ExtensionData.MoRef.Value
+
+                foreach ($vmMoid in $vmMoids) {
+
+                    if ( $confirm ) {
+                        $message  = "Removing Security Tag $($tagobject.Name) from $($vm.name) may impact desired Security Posture and expose your infrastructure."
+                        $question = "Proceed with removal of Security Tag $($tagobject.Name) from $($vm.name)?"
+
+                        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+
+                    } else { $decision = 0 }
+
+                    if ($decision -eq 0) {
+
+                        $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
+                        Write-Progress -activity "Removing Security Tag $TagIdentifierString from Virtual Machine $($vmMoid)"
+                        $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+                        Write-Progress -activity "Removing Security Tag $TagIdentifierString from Virtual Machine $($vmMoid)" -completed
+                    }
+
+                }
+
+            }
+
+        }
+
+    }
+
+    end{}
+}
+Export-ModuleMember -Function Remove-NsxSecurityTagAssignment
 
 function Get-NsxIpSet {
 
