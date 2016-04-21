@@ -31,16 +31,6 @@ param (
 
     [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
         [switch]$Interactive=$True,
-    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
-        [string]$NSXManager,
-    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
-        [string]$NSXUserName="admin",
-    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
-        [string]$NSXPassword,
-    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
-        [string]$VIUserName="administrator@vsphere.local",
-    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
-        [string]$VIPassword,
     [Parameter (Mandatory=$true, ParameterSetName = "Setup")]
         [switch]$Setup
 
@@ -57,6 +47,20 @@ function new-config {
     #Creates and populates the Config File
 
     write-host "VMware NSX Customer Profiling Tool Setup`n"
+
+    if ( test-path $configFile ) { 
+        write-warning "Configuration file $configfile already exists.  Proceeding will overwrite existing configuration."
+        if ( ( read-host "Continue?" ) -ne "y" ) {
+            throw "Setup cancelled"
+        }
+    }
+    write-host "Configuring NSX and vSphere settings"
+    $NSXManager = Read-Host "NSX Manager IP or FQDN"
+    $NSXUserName = Read-Host "NSX Manager API username (Note:  This is not a vSphere login, and is usually just 'admin')"
+    $NSXPassword = Read-Host -AsSecureString "NSX Manager Password"
+    $VIUserName = Read-Host "vCenter Username"
+    $VIPassword = Read-Host -AsSecureString "vCenter Password"
+
 
     write-host "Configuring Email settings"
     $Smtpserver = Read-Host "  SMTP Server (must allow unauthenticated relay, or credentials of user running script must be allowed to authenticate)"
@@ -82,8 +86,14 @@ function new-config {
         }
     }
 
-    [pscustomobject]@{ 
+    
+    $outobj = [pscustomobject]@{ 
 
+        "nsxmanager" = $NSXManager;
+        "nsxusername" = $NSXUserName;
+        "nsxpassword" = ($NSXPassword | ConvertFrom-SecureString);
+        "viusername" = $VIUserName;
+        "vipassword" = ($VIPassword | ConvertFrom-SecureString);
         "smtpserver" = $smtpserver;
         "from" = $from;
         "to" = @(
@@ -91,6 +101,32 @@ function new-config {
             $VMwareRecipient
         )
     }
+
+    $outobj | ConvertTo-Json | set-content $configFile
+
+}
+
+function Get-Config {
+
+    $inobj = Get-Content $configFile | ConvertFrom-Json
+    if ( -not 
+        ( $_ | Get-Member -MemberType Property -Name nsxmanager) -and
+        ( $_ | Get-Member -MemberType Property -Name smtpserver) -and
+        ( $_ | Get-Member -MemberType Property -Name from) -and
+        ( $_ | Get-Member -MemberType Property -Name to) -and
+        ( $_ | Get-Member -MemberType Property -Name nsxusername) -and
+        ( $_ | Get-Member -MemberType Property -Name nsxpassword) -and
+        ( $_ | Get-Member -MemberType Property -Name viusername) -and
+        ( $_ | Get-Member -MemberType Property -Name vipassword)
+    ) { Throw "Config File content is invalid.  Rerun script with -setup switch to correct."}
+
+    $global:NSXManager = $inobj.nsxmanager
+    $global:Smtpserver = $inobj.smtpserver
+    $global:From = $inobj.from
+    $global:To = $inobj.to
+    $global:NsxCredential = new-object -typename System.Management.Automation.PSCredential -argumentlist $inobj.nsxusername, ($inobj.nsxpassword | ConvertTo-SecureString)
+    $global:ViCredential = new-object -typename System.Management.Automation.PSCredential -argumentlist $inobj.viusername, ($inobj.vipassword | ConvertTo-SecureString)
+
 }
 
 function get-answers {
@@ -225,7 +261,7 @@ function Get-CustomerProfile {
 
                 switch ( $inkey ) {
 
-#You broke this shite!
+    #You broke this shite!
                     "y" { 
                         $results = get-answers
                         
@@ -571,14 +607,20 @@ if ( $PSCmdlet.ParameterSetName -eq "Setup" ) {
 }
 else {
 
-    if ( -not $defaultNsxConnection ) {
+    if ( -not (test-path $configFile )) {
+        write-warning "Configuration file missing.  Setup required."
+        new-config
+    }
 
-        try { 
-            Connect-NsxServer -Server $NSXManager -UserName $NSXUserName -Password $NSXPassword -VIUserName $VIUserName -VIPassword $VIPassword
-        }
-        catch {
-            Throw "Unable to connect to NSX.  $_"
-        }
+    try {
+        Get-Config 
+        $connection = Connect-NsxServer -Server $NSXManager -Credentials $NsxCredential -VICred $ViCredential
+    }
+    catch {
+        Throw "Unable to connect to NSX.  $_"
     }
     Get-CustomerProfile
+    disconnect-VIServer $connection.ViConnection
+    disconnect-nsxserver
+     
 }
