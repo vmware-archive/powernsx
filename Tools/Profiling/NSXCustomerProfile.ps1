@@ -29,18 +29,70 @@
 
 param (
 
-    [switch]$Interactive=$True,
-    [string]$NSXManager,
-    [string]$NSXUserName="admin",
-    [string]$NSXPassword,
-    [string]$VIUserName="administrator@vsphere.local",
-    [string]$VIPassword
+    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
+        [switch]$Interactive=$True,
+    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
+        [string]$NSXManager,
+    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
+        [string]$NSXUserName="admin",
+    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
+        [string]$NSXPassword,
+    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
+        [string]$VIUserName="administrator@vsphere.local",
+    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
+        [string]$VIPassword,
+    [Parameter (Mandatory=$true, ParameterSetName = "Setup")]
+        [switch]$Setup
 
 
 )
 
-$answerfile = "$($env:temp)\NSXCustomerProfileAnswers.csv"
-    
+$InstallPath = "$($env:ProgramData)\VMware\VMware NSX Support Utility"
+$answerfile = "$InstallPath\NSXCustomerProfileAnswers.csv"
+$configFile = "$InstallPath\Config.json"
+$VMwareRecipient = "nbradford@vmware.com"
+
+function new-config { 
+
+    #Creates and populates the Config File
+
+    write-host "VMware NSX Customer Profiling Tool Setup`n"
+
+    write-host "Configuring Email settings"
+    $Smtpserver = Read-Host "  SMTP Server (must allow unauthenticated relay, or credentials of user running script must be allowed to authenticate)"
+    $From = Read-Host "  From Address"
+    $To = Read-Host "  Additional recipients (optional)"
+
+    if ( ( read-host "`nSend test email? (y/n)") -eq "y" ) { 
+        try {
+            send-mailmessage -From $From -To $to, $VMwareRecipient -Smtpserver $Smtpserver -Subject "VMware NSX Customer Profiling Tool Test Email" -Body "Your email settings have been successfully configured."
+        
+        }
+        catch {
+            write-warning "Test email failed to send ($_)."
+            if ( (read-host "Try again?(y/n)" ) -eq "y" ) {
+
+                $Smtpserver = Read-Host "SMTP Server (must allow unauthenticated relay, or credentials of user running script must be allowed to authenticate)"
+                $From = Read-Host "From Address"
+                $To = Read-Host "Additional recipients (optional)"
+            }
+            else {
+                write-warning "Test email failed to send.  Settings may be incorrect."
+            }
+        }
+    }
+
+    [pscustomobject]@{ 
+
+        "smtpserver" = $smtpserver;
+        "from" = $from;
+        "to" = @(
+            $To,
+            $VMwareRecipient
+        )
+    }
+}
+
 function get-answers {
 
 
@@ -141,6 +193,12 @@ function Get-CustomerProfile {
     $dlrSyslog = 0
     $dlrDhcp = 0
     $dlrBridge = 0
+
+    if ( (-not (test-path $configFile ))){
+
+        new-config
+
+    }
 
     if (-not (test-path $answerfile )) {
 
@@ -506,13 +564,21 @@ function Get-CustomerProfile {
 }
 
 
-if ( -not $defaultNsxConnection ) {
 
-    try { 
-        Connect-NsxServer -Server $NSXManager -UserName $NSXUserName -Password $NSXPassword -VIUserName $VIUserName -VIPassword $VIPassword
-    }
-    catch {
-        Throw "Unable to connect to NSX.  $_"
-    }
+if ( $PSCmdlet.ParameterSetName -eq "Setup" ) {
+    new-config
+    
 }
-Get-CustomerProfile
+else {
+
+    if ( -not $defaultNsxConnection ) {
+
+        try { 
+            Connect-NsxServer -Server $NSXManager -UserName $NSXUserName -Password $NSXPassword -VIUserName $VIUserName -VIPassword $VIPassword
+        }
+        catch {
+            Throw "Unable to connect to NSX.  $_"
+        }
+    }
+    Get-CustomerProfile
+}

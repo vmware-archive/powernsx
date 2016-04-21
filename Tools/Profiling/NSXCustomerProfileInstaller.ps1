@@ -134,7 +134,7 @@ function Check-PowerCliAsemblies {
 clear-host
 
 write-host -foregroundcolor green "`n##################################################"
-write-host -foregroundcolor green "Vmware Customer Profiling Tool installation script`n"
+write-host -foregroundcolor green "VMware Customer Profiling Tool installation script`n"
 write-host -foregroundcolor green "Checking environment.`n"
 
 #Check for Admin privs

@@ -203,366 +203,6 @@ namespace PKI {
     }  
 }  
 
-
-function Invoke-NsxRestMethod {
-
-    #Internal method to construct the REST call headers including auth as expected by NSX.
-    #Accepts either a connection object as produced by connect-nsxserver or explicit
-    #parameters.
-
-    [CmdletBinding(DefaultParameterSetName="ConnectionObj")]
-  
-    param (
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [System.Management.Automation.PSCredential]$cred,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [string]$server,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [int]$port,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [string]$protocol,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [bool]$ValidateCertificate,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$method,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$URI,
-        [Parameter (Mandatory=$false,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$body = "",
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [psObject]$connection,
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [System.Collections.Hashtable]$extraheader,
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [int]$Timeout=600
-    )
-
-    Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
-
-    if ($pscmdlet.ParameterSetName -eq "Parameter") {
-        if ( -not $ValidateCertificate) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-    }
-    else {
-
-        #ensure we were either called with a connection or there is a defaultConnection (user has 
-        #called connect-nsxserver) 
-        #Little Grr - $connection is a defined variable with no value so we cant use test-path
-        if ( $connection -eq $null) {
-            
-            #Now we need to assume that defaultnsxconnection does not exist...
-            if ( -not (test-path variable:global:DefaultNSXConnection) ) { 
-                throw "Not connected.  Connect to NSX manager with Connect-NsxServer first." 
-            }
-            else { 
-                Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
-                $connection = $DefaultNSXConnection
-            }       
-        }
-
-        
-        if ( -not $connection.ValidateCertificate ) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-
-        $cred = $connection.credential
-        $server = $connection.Server
-        $port = $connection.Port
-        $protocol = $connection.Protocol
-
-    }
-
-    $headerDictionary = @{}
-    $base64cred = [system.convert]::ToBase64String(
-        [system.text.encoding]::ASCII.Getbytes(
-            "$($cred.GetNetworkCredential().username):$($cred.GetNetworkCredential().password)"
-        )
-    )
-    $headerDictionary.add("Authorization", "Basic $Base64cred")
-
-    if ( $extraHeader ) {
-        foreach ($header in $extraHeader.GetEnumerator()) {
-            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) { 
-                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Extra Header being added to following REST call.  Key: $($Header.Key), Value: $($Header.Value)"
-                }
-            }
-            $headerDictionary.add($header.Key, $header.Value)
-        }
-    }
-    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
-
-    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-        if ( $connection.DebugLogging ) { 
-            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager via invoke-restmethod : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
-        }
-    }
-
-    #do rest call
-    try { 
-        if ( $PsBoundParameters.ContainsKey('Body')) { 
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
-        } else {
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
-        }
-    }
-    catch {
-        
-        #Get response from the exception
-        $response = $_.exception.response
-        if ($response) {  
-            $responseStream = $_.exception.response.GetResponseStream()
-            $reader = New-Object system.io.streamreader($responseStream)
-            $responseBody = $reader.readtoend()
-            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
-            
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) { 
-                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString"
-                }
-            }
-    
-            throw $ErrorString
-        }
-        else { 
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) { 
-                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)"
-                }
-            }
-            throw $_ 
-        } 
-        
-
-    }
-    switch ( $response ) {
-        { $_ -is [xml] } { $FormattedResponse = "`n$($response.outerxml | Format-Xml)" } 
-        { $_ -is [System.String] } { $FormattedResponse = $response }
-        default { $formattedResponse = "Response type unknown" }
-    }
-
-    write-debug "$($MyInvocation.MyCommand.Name) : Response: $FormattedResponse"  
-    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
-        if ( $connection.DebugLogging ) { 
-            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response: $FormattedResponse"
-        }
-    }
-
-    #Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
-    #We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
-    #So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
-    #and probably rewrite over time to use invoke-webrequest for all calls... PiTA!!!! :|
-
-    $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($FullURI)
-    $ServicePoint.CloseConnectionGroup("") | out-null
-    write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $FullURI."
-
-    #Return
-    $response
-}
-Export-ModuleMember -function Invoke-NsxRestMethod
-
-function Invoke-NsxWebRequest {
-
-    #Internal method to construct the REST call headers etc
-    #Alternative to Invoke-NsxRestMethod that enables retrieval of response headers
-    #as the NSX API is not overly consistent when it comes to methods of returning 
-    #information to the caller :|.  Used by edge cmdlets like new/update esg and logicalrouter.
-
-    [CmdletBinding(DefaultParameterSetName="ConnectionObj")]
-  
-    param (
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [System.Management.Automation.PSCredential]$cred,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [string]$server,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [int]$port,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [string]$protocol,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [bool]$ValidateCertificate,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$method,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$URI,
-        [Parameter (Mandatory=$false,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$body = "",
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [psObject]$connection,
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [System.Collections.Hashtable]$extraheader,
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [int]$Timeout=600
-           
-    )
-
-    Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
-
-    if ($pscmdlet.ParameterSetName -eq "Parameter") {
-        if ( -not $ValidateCertificate) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-    }
-    else {
-
-        #ensure we were either called with a connection or there is a defaultConnection (user has 
-        #called connect-nsxserver) 
-        #Little Grr - $connection is a defined variable with no value so we cant use test-path
-        if ( $connection -eq $null) {
-            
-            #Now we need to assume that defaultnsxconnection does not exist...
-            if ( -not (test-path variable:global:DefaultNSXConnection) ) { 
-                throw "Not connected.  Connect to NSX manager with Connect-NsxServer first." 
-            }
-            else { 
-                Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
-                $connection = $DefaultNSXConnection
-            }       
-        }
-
-        
-        if ( -not $connection.ValidateCertificate ) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-
-        $cred = $connection.credential
-        $server = $connection.Server
-        $port = $connection.Port
-        $protocol = $connection.Protocol
-
-    }
-
-    $headerDictionary = @{}
-    $base64cred = [system.convert]::ToBase64String(
-        [system.text.encoding]::ASCII.Getbytes(
-            "$($cred.GetNetworkCredential().username):$($cred.GetNetworkCredential().password)"
-        )
-    )
-    $headerDictionary.add("Authorization", "Basic $Base64cred")
-
-    if ( $extraHeader ) {
-        foreach ($header in $extraHeader.GetEnumerator()) {
-            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) { 
-                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Extra Header being added to following REST call.  Key: $($Header.Key), Value: $($Header.Value)"
-                }
-            }
-            $headerDictionary.add($header.Key, $header.Value)
-        }
-    }
-    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
-    
-    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
-        if ( $connection.DebugLogging ) { 
-            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager via invoke-webrequest : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
-        }
-    }
-
-    #do rest call
-    
-    try { 
-        if (( $method -eq "put" ) -or ( $method -eq "post" )) { 
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
-        } else {
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
-        }
-    }
-    catch {
-        
-        #Get response from the exception
-        $response = $_.exception.response
-        if ($response) {  
-            $responseStream = $_.exception.response.GetResponseStream()
-            $reader = New-Object system.io.streamreader($responseStream)
-            $responseBody = $reader.readtoend()
-            $ErrorString = "invoke-nsxwebrequest : Exception occured calling invoke-restmethod. $($response.StatusCode) : $($response.StatusDescription) : Response Body: $($responseBody)"
-            
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
-                if ( $connection.DebugLogging ) { 
-                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString"
-                }
-            }
-
-            throw $ErrorString
-        }
-        else { 
-
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
-                if ( $connection.DebugLogging ) { 
-                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)"
-                }
-            }
-            throw $_ 
-        } 
-        
-
-    }
-
-    #Output the response header dictionary
-    foreach ( $key in $response.Headers.Keys) {
-        write-debug "$($MyInvocation.MyCommand.Name) : Response header item : $Key = $($Response.Headers.Item($key))"
-        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-            if ( $connection.DebugLogging ) { 
-                Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response header item : $Key = $($Response.Headers.Item($key))"
-            }
-        }
-    } 
-
-    #And if there is response content...
-    if ( $response.content ) {
-        switch ( $response.content ) {
-            { $_ -is [System.String] } { 
-                
-                write-debug "$($MyInvocation.MyCommand.Name) : Response Body: $($response.content)" 
-            
-                if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                    if ( $connection.DebugLogging ) { 
-                        Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response Body: $($response.content)"
-                    }
-                }
-            }
-            default { 
-                write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown"
-
-                if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
-                    if ( $connection.DebugLogging ) { 
-                        Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response type unknown ( $($Response.Content.gettype()) )."
-                    } 
-                }
-            }
-        }
-    }
-    else { 
-        write-debug "$($MyInvocation.MyCommand.Name) : No response content"
-
-        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
-            if ( $connection.DebugLogging ) { 
-                Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  No response content."
-            } 
-        }
-    }
-
-    $response
-}
-
-Export-ModuleMember -Function Invoke-NsxWebRequest
-
 function Add-XmlElement {
 
     #Internal function used to simplify the exercise of adding XML text Nodes.
@@ -579,7 +219,6 @@ function Add-XmlElement {
     $xmlNode.AppendChild($xmlText) | out-null
     $xmlRoot.AppendChild($xmlNode) | out-null
 }
-Export-ModuleMember -function Add-XmlElement
 
 function Get-FeatureStatus { 
 
@@ -597,6 +236,331 @@ function Get-FeatureStatus {
     }
     $statusstring
 }
+
+function Parse-CentralCliResponse {
+
+    param (
+        [Parameter ( Mandatory=$True, Position=1)]
+            [String]$response
+    )
+
+
+    #Response is straight text unfortunately, so there is no structure.  Having a crack at writing a very simple parser though the formatting looks.... challenging...
+    
+    #Control flags for handling list and table processing.
+    $TableHeaderFound = $false
+    $MatchedVnicsList = $false
+    $MatchedRuleset = $false
+    $MatchedAddrSet = $false
+
+    $RuleSetName = ""
+    $AddrSetName = ""
+
+    $KeyValHash = @{}
+    $KeyValHashUsed = $false
+
+    #Defined this as variable as the swtich statement does not let me concat strings, which makes for a verrrrry long line...
+    $RegexDFWRule = "^(?<Internal>#\sinternal\s#\s)?(?<RuleSetMember>rule\s)?(?<RuleId>\d+)\sat\s(?<Position>\d+)\s(?<Direction>in|out|inout)\s" + 
+            "(?<Type>protocol|ethertype)\s(?<Service>.*?)\sfrom\s(?<Source>.*?)\sto\s(?<Destination>.*?)(?:\sport\s(?<Port>.*))?\s" + 
+            "(?<Action>accept|reject|drop)(?:\swith\s(?<Log>log))?(?:\stag\s(?<Tag>'.*'))?;"
+
+
+
+    foreach ( $line in ($response -split '[\r\n]')) { 
+
+        #Init EntryHash hashtable
+        $EntryHash= @{}
+
+        switch -regex ($line.trim()) {
+
+            #C CLI appears to emit some error conditions as ^ Error:<digits> 
+            "^Error \d+:.*$" {
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Error line. $_ "
+                
+                Throw "CLI command returned an error: ( $_ )"
+
+            }
+
+            "^\s*$" { 
+                #Blank line, ignore...
+                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring blank line: $_"
+                break
+
+            }
+
+            "^# Filter rules$" { 
+                #Filter line encountered in a ruleset list, ignore...
+                if ( $MatchedRuleSet ) { 
+                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring meaningless #Filter rules line in ruleset: $_"
+                    break
+                }
+                else {
+                    throw "Error parsing Centralised CLI command output response.  Encountered #Filter rules line when not processing a ruleset: $_"
+                }
+
+            }
+            #Matches a single integer of 1 or more digits at the start of the line followed only by a fullstop.
+            #Example is the Index in a VNIC list.  AFAIK, the index should only be 1-9. but just in case we are matching 1 or more digit...
+            "^(\d+)\.$" { 
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Index line.  Discarding value: $_ "
+                If ( $MatchedVnicsList ) { 
+                    #We are building a VNIC list output and this is the first line.
+                    #Init the output object to static kv props, but discard the value (we arent outputing as it appears superfluous.)
+                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, initialising new Vnic list object"
+
+                    $VnicListHash = @{}
+                    $VnicListHash += $KeyValHash
+                    $KeyValHashUsed = $true
+
+                }
+                break
+            } 
+
+            #Matches the start of a ruleset list.  show dfw host host-xxx filter xxx rules will output in rulesets like this
+            "ruleset\s(\S+) {" {
+
+                #Set a flag to say we matched a ruleset List, and create the output object.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Ruleset output.  Processing following lines as DFW Ruleset: $_"
+                $MatchedRuleset = $true 
+                $RuleSetName = $matches[1].trim()
+                break        
+            }
+
+            #Matches the start of a addrset list.  show dfw host host-xxx filter xxx addrset will output in addrsets like this
+            "addrset\s(\S+) {" {
+
+                #Set a flag to say we matched a addrset List, and create the output object.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Addrset output.  Processing following lines as DFW Addrset: $_"
+                $MatchedAddrSet = $true 
+                $AddrSetName = $matches[1].trim()
+                break        
+            }
+
+            #Matches a addrset entry.  show dfw host host-xxx filter xxx addrset will output in addrsets.
+            "^(?<Type>ip|mac)\s(?<Address>.*),$" {
+
+                #Make sure we were expecting it...
+                if ( -not $MatchedAddrSet ) {
+                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw addrset entry : $_" 
+                }
+
+                #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
+                [PSCustomobject]@{
+                    "AddrSet" = $AddrSetName;
+                    "Type" = $matches.Type;
+                    "Address" = $matches.Address
+                }
+
+                break
+            }
+
+            #Matches a rule, either within a ruleset, or individually listed.  show dfw host host-xxx filter xxx rules will output in rulesets, 
+            #or show dfw host-xxx filter xxx rule 1234 will output individual rule that should match.
+            $RegexDFWRule {
+
+                #Check if the rule is individual or part of ruleset...
+                if ( $Matches.ContainsKey("RuleSetMember") -and (-not $MatchedRuleset )) {
+                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw ruleset entry : $_" 
+                }
+
+                $Type = switch ( $matches.Type ) { "protocol" { "Layer3" } "ethertype" { "Layer2" }}
+                $Internal = if ( $matches.ContainsKey("Internal")) { $true } else { $false }
+                $Port = if ( $matches.ContainsKey("Port") ) { $matches.port } else { "Any" } 
+                $Log = if ( $matches.ContainsKey("Log") ) { $true } else { $false } 
+                $Tag = if ( $matches.ContainsKey("Tag") ) { $matches.Tag } else { "" } 
+
+                If ( $MatchedRuleset ) {
+
+                    #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
+                    [PSCustomobject]@{
+                        "RuleSet" = $RuleSetName;
+                        "InternalRule" = $Internal;
+                        "RuleID" = $matches.RuleId;
+                        "Position" = $matches.Position;
+                        "Direction" = $matches.Direction;
+                        "Type" = $Type;
+                        "Service" = $matches.Service;
+                        "Source" = $matches.Source;
+                        "Destination" = $matches.Destination;
+                        "Port" = $Port;
+                        "Action" = $matches.Action;
+                        "Log" = $Log;
+                        "Tag" = $Tag
+
+                    }
+                }
+
+                else {
+                    #We are not processing a RuleSet; so we need to emit an output object without a ruleset name.
+                    [PSCustomobject]@{
+                        "InternalRule" = $Internal;
+                        "RuleID" = $matches.RuleId;
+                        "Position" = $matches.Position;
+                        "Direction" = $matches.Direction;
+                        "Type" = $Type;
+                        "Service" = $matches.Service;
+                        "Source" = $matches.Source;
+                        "Destination" = $matches.Destination;
+                        "Port" = $Port;
+                        "Action" = $matches.Action;
+                        "Log" = $Log;
+                        "Tag" = $Tag
+                    }
+                }
+
+                break
+            }
+
+            #Matches the end of a ruleset and addr lists.  show dfw host host-xxx filter xxx rules will output in lists like this
+            "^}$" {
+
+                if ( $MatchedRuleset ) { 
+
+                    #Clear the flag to say we matched a ruleset List
+                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW ruleset."
+                    $MatchedRuleset = $false
+                    $RuleSetName = ""
+                    break     
+                }
+
+                if ( $MatchedAddrSet ) { 
+                   
+                    #Clear the flag to say we matched an addrset List
+                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW addrset."
+                    $MatchedAddrSet = $false
+                    $AddrSetName = ""
+                    break     
+                }
+
+                throw "Error parsing Centralised CLI command output response.  Encountered unexpected list completion character in line: $_"
+            }
+
+            #More Generic matches
+
+            #Matches the generic KV case where we have _only_ two strings separated by more than one space.
+            #This will do my head in later when I look at it, so the regex explanation is:
+            #    - (?: gives non capturing group, we want to leverage $matches later, so dont want polluting groups.
+            #    - (\S|\s(?!\s)) uses negative lookahead assertion to 'Match a non whitespace, or a single whitespace, as long as its not followed by another whitespace.
+            #    - The rest should be self explanatory.
+            "^((?:\S|\s(?!\s))+\s{2,}){1}((?:\S|\s(?!\s))+)$" { 
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (multispace separated): $_ )"
+                
+                $key = $matches[1].trim()
+                $value = $matches[2].trim()
+                If ( $MatchedVnicsList ) { 
+                    #We are building a VNIC list output and this is one of the lines.
+                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, Adding $key = $value to current VnicListHash"
+
+                    $VnicListHash.Add($key,$value)
+
+                    if ( $key -eq "Filters" ) {
+
+                        #Last line in a VNIC List...
+                        write-debug "$($MyInvocation.MyCommand.Name) : VNIC List :  Outputing VNIC List Hash."
+                        [PSCustomobject]$VnicListHash
+                    }
+                }
+                else {
+                    #Add KV to hash table that we will append to output object
+                    $KeyValHash.Add($key,$value)
+                }     
+                break
+            }
+
+            #Matches a general case output line containing Key: Value for properties that are consistent accross all entries in a table. 
+            #This will match a line with multiple colons in it, not sure if thats an issue yet...
+            "^((?:\S|\s(?!\s))+):((?:\S|\s(?!\s))+)$" {
+                if ( $TableHeaderFound ) { Throw "Error parsing Centralised CLI command output response.  Key Value line found after header: ( $_ )" }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (Colon Separated) : $_"
+                
+                #Add KV to hash table that we will append to output object
+                $KeyValHash.Add($matches[1].trim(),$matches[2].trim())
+
+                break
+            }
+
+            #Matches a Table header line.  This is a special case of the table entry line match, with the first element being ^No\.  Hoping that 'No.' start of the line is consistent :S
+            "^No\.\s{2,}(.+\s{2,})+.+$" {
+                if ( $TableHeaderFound ) { 
+                    throw "Error parsing Centralised CLI command output response.  Matched header line more than once: ( $_ )"
+                }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Header line: $_"
+                $TableHeaderFound = $true
+                $Props = $_.trim() -split "\s{2,}"
+                break
+            }
+
+            #Matches the start of a Virtual Nics List output.  We process the output lines following this as a different output object
+            "Virtual Nics List:" {
+                #When central cli outputs a NIC 'list' it does so with a vertical list of Key Value rather than a table format, 
+                #and with multi space as the KV separator, rather than a : like normal KV output.  WTF?
+                #So Now I have to go forth and collate my nic object over the next few lines...
+                #Example looks like this:
+
+                #Virtual Nics List:
+                #1.
+                #Vnic Name      test-vm - Network adapter 1
+                #Vnic Id        50012d15-198c-066c-af22-554aed610579.000
+                #Filters        nic-4822904-eth0-vmware-sfw.2
+
+                #Set a flag to say we matched a VNic List, and create the output object initially with just the KV's matched already.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched VNIC List line.  Processing remaining lines as Vnic List: $_"
+                $MatchedVnicsList = $true 
+                break                       
+
+            }
+
+            #Matches a table entry line.  At least three properties (that may contain a single space) separated by more than one space.
+            "^((?:\S|\s(?!\s))+\s{2,}){2,}((?:\S|\s(?!\s))+)$" {
+                if ( -not $TableHeaderFound ) { 
+                    throw "Error parsing Centralised CLI command output response.  Matched table entry line before header: ( $_ )"
+                }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Entry line: $_"
+                $Vals = $_.trim() -split "\s{2,}"
+                if ($Vals.Count -ne $Props.Count ) { 
+                    Throw "Error parsing Centralised CLI command output response.  Table entry line contains different value count compared to properties count: ( $_ )"
+                }
+
+                #Build the output hashtable with the props returned in the table entry line
+                for ( $i= 0; $i -lt $props.count; $i++ ) {
+
+                    #Ordering is hard, and No. entry is kinda superfluous, so removing it from output (for now)
+                    if ( -not ( $props[$i] -eq "No." )) {
+                        $EntryHash[$props[$i].trim()]=$vals[$i].trim()
+                    }
+                }
+
+                #Add the KV pairs that were parsed before the table.
+                try {
+
+                    #This may fail if we have a key of the same name.  For the moment, Im going to assume that this wont happen...
+                    $EntryHash += $KeyValHash
+                    $KeyValHashUsed = $true
+                }
+                catch {
+                    throw "Unable to append static Key Values to EntryHash output object.  Possibly due to a conflicting key"
+                }
+
+                #Emit the entry line as a PSCustomobject :)
+                [PSCustomObject]$EntryHash
+                break
+            }
+            default { throw "Unable to parse Centralised CLI output line : $($_ -replace '\s','_')" } 
+        }
+    }
+
+    if ( (-not $KeyValHashUsed) -and $KeyValHash.count -gt 0 ) {
+
+        #Some output is just key value, so, if it hasnt been appended to output object already, we will just emit it.
+        #Not sure how this approach will work long term, but it works for show dfw vnic <>
+        write-debug "$($MyInvocation.MyCommand.Name) : KeyValHash has not been used after all line processing, outputing as is: $_"
+        [PSCustomObject]$KeyValHash
+    }
+}
+
 
 ########
 ########
@@ -2215,21 +2179,86 @@ Function Validate-VirtualMachine {
     $true
 }
 
+Function Validate-TagAssignment { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    
+    #Check if it looks like Security Tag Assignmenbt
+    if ($argument -is [PSCustomObject] ) {
+
+        if ( -not ( $argument | get-member -name SecurityTag -Membertype Properties)) { 
+            throw "Specify a valid Security Tag Assignment. Specified object does not contain a SecurityTag property object."
+        }
+        if ( -not ( $argument | get-member -name VirtualMachine -Membertype Properties)) { 
+            throw "Specify a valid Security Tag Assignment. Specified object does not contain a VirtualMachine property object."
+        }
+        if ( -not ( $argument.SecurityTag -is [System.Xml.XmlElement] )) { 
+            throw "Specify a valid Security Tag Assignment."
+        }
+        if ( -not ( $argument.VirtualMachine -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop])) { 
+            throw "Specify a valid Security Tag Assignment."
+        }
+        $True
+    }
+    else { 
+        throw "Specify a valid Security Tag Assignment."
+    }
+}
+
+
+
 ##########
 ##########
 # Helper functions
 
 function Format-XML () {
 
+    <#
+    .SYNOPSIS
+    Accepts a string containing valid XML tags or an XMLElement object and 
+    outputs it as a formatted string including newline and indentation of child
+    nodes.
+
+    .DESCRIPTION 
+    Valid XML returned by the NSX API is a single string with no newlines or 
+    indentation.  While PowerNSX cmdlets typicallly emit an XMLElement object, 
+    which PowerShell outputs as formatted tables or lists when outputing to host,
+    making normal human interaction easy, for output to file or debug stream, 
+    format-xml converts the API returned XML to more easily read formated XML
+    complete with linebreaks and indentation.
+
+    As a side effect, this has the added benefit of being useable as an 
+    additional format handler on the PowerShell pipeline, so rather than 
+    displaying output objects using familiar table and list output formats, the
+    user now has the option of displaying the native XML in a human readable 
+    format.
+
+
+    .EXAMPLE
+    Get-NsxTransportZone | Format-Xml
+
+    Displays the XMLElement object returned by Get-NsxTransportZone as formatted
+    XML.
+
+    #>
+
+    #NB: Find where I got this to reference...
     #Shamelessly ripped from the web with some modification, useful for formatting XML output into a form that 
     #is easily read by humans.  Seriously - how is this not part of the dotnet system.xml classes?
 
     param ( 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,Position=1) ]
             [ValidateNotNullorEmpty()]
+
+            #String object containing valid XML, or XMLElement or XMLDocument object
             $xml="", 
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
+
+            #Number of whitespace charaters to indent child nodes by when formatting
             [int]$indent=2
     ) 
 
@@ -2269,15 +2298,443 @@ function Format-XML () {
     }
 
     end{}
-
 }
-Export-ModuleMember -function Format-Xml
-
-
 
 ##########
 ##########
 # Core functions
+
+function Invoke-NsxRestMethod {
+
+    <#
+    .SYNOPSIS
+    Constructs and performs a valid NSX REST call.
+
+    .DESCRIPTION 
+    Invoke-NsxRestMethod uses either a specified connection object as returned 
+    by Connect-NsxServer, or the $DefaultNsxConnection global variable if 
+    defined to construct a REST api call to the NSX API.  
+
+    Invoke-NsxRestMethod constructs the appropriate request headers required by 
+    the NSX API, including authentication details (built from the connection 
+    object), required content type and includes any custom headers specified by 
+    the caller that might be required by a specific API resource, before making 
+    the rest call and returning the appropriate XML object to the caller. 
+
+    .EXAMPLE
+    Invoke-NsxRestMethod -Method get -Uri "/api/2.0/vdn/scopes"
+
+    Performs a 'Get' against the URI /api/2.0/vdn/scopes and returns the xml
+    object respresenting the NSX API XML reponse.  This call requires the 
+    $DefaultNsxServer variable to exist and be populated with server and 
+    authentiation details as created by Connect-NsxServer -DefaultConnection
+
+    .EXAMPLE
+    $MyConnection = Connect-NsxServer -Server OtherNsxManager -DefaultConnection:$false
+    
+    Invoke-NsxRestMethod -Method get -Uri "/api/2.0/vdn/scopes" -connection $MyConnection
+
+    Creates a connection variable for a non default NSX server, performs a 
+    'Get' against the URI /api/2.0/vdn/scopes and returns the xml
+    object respresenting the NSX API XML reponse.
+    
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="ConnectionObj")]
+  
+    param (
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #PSCredential object containing authentication details to be used for connection to NSX Manager API
+            [System.Management.Automation.PSCredential]$cred,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #NSX Manager ip address or FQDN
+            [string]$server,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #TCP Port on -server to connect to
+            [int]$port,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #Protocol - HTTP/HTTPS
+            [string]$protocol,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #Validates the certificate presented by NSX Manager for HTTPS connections
+            [bool]$ValidateCertificate,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #REST method of call.  Get, Put, Post, Delete, Patch etc 
+            [string]$method,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #URI of resource (/api/1.0/myresource).  Should not include protocol, server or port.
+            [string]$URI,
+        [Parameter (Mandatory=$false,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #Content to be sent to server when method is Put/Post/Patch
+            [string]$body = "",
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Pre-populated connection object as returned by Connect-NsxServer
+            [psObject]$connection,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Hashtable collection of KV pairs representing additional headers to send to the NSX Manager during REST call
+            [System.Collections.Hashtable]$extraheader,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Request timeout value - passed directly to underlying invoke-restmethod call 
+            [int]$Timeout=600
+    )
+
+    Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
+
+    if ($pscmdlet.ParameterSetName -eq "Parameter") {
+        if ( -not $ValidateCertificate) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+    }
+    else {
+
+        #ensure we were either called with a connection or there is a defaultConnection (user has 
+        #called connect-nsxserver) 
+        #Little Grr - $connection is a defined variable with no value so we cant use test-path
+        if ( $connection -eq $null) {
+            
+            #Now we need to assume that defaultnsxconnection does not exist...
+            if ( -not (test-path variable:global:DefaultNSXConnection) ) { 
+                throw "Not connected.  Connect to NSX manager with Connect-NsxServer first." 
+            }
+            else { 
+                Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
+                $connection = $DefaultNSXConnection
+            }       
+        }
+
+        
+        if ( -not $connection.ValidateCertificate ) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+
+        $cred = $connection.credential
+        $server = $connection.Server
+        $port = $connection.Port
+        $protocol = $connection.Protocol
+
+    }
+
+    $headerDictionary = @{}
+    $base64cred = [system.convert]::ToBase64String(
+        [system.text.encoding]::ASCII.Getbytes(
+            "$($cred.GetNetworkCredential().username):$($cred.GetNetworkCredential().password)"
+        )
+    )
+    $headerDictionary.add("Authorization", "Basic $Base64cred")
+
+    if ( $extraHeader ) {
+        foreach ($header in $extraHeader.GetEnumerator()) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Extra Header being added to following REST call.  Key: $($Header.Key), Value: $($Header.Value)"
+                }
+            }
+            $headerDictionary.add($header.Key, $header.Value)
+        }
+    }
+    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager via invoke-restmethod : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+        }
+    }
+
+    #do rest call
+    try { 
+        if ( $PsBoundParameters.ContainsKey('Body')) { 
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
+        } else {
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
+        }
+    }
+    catch {
+        
+        #Get response from the exception
+        $response = $_.exception.response
+        if ($response) {  
+            $responseStream = $_.exception.response.GetResponseStream()
+            $reader = New-Object system.io.streamreader($responseStream)
+            $responseBody = $reader.readtoend()
+            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
+            
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString"
+                }
+            }
+    
+            throw $ErrorString
+        }
+        else { 
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)"
+                }
+            }
+            throw $_ 
+        } 
+        
+
+    }
+    switch ( $response ) {
+        { $_ -is [xml] } { $FormattedResponse = "`n$($response.outerxml | Format-Xml)" } 
+        { $_ -is [System.String] } { $FormattedResponse = $response }
+        default { $formattedResponse = "Response type unknown" }
+    }
+
+    write-debug "$($MyInvocation.MyCommand.Name) : Response: $FormattedResponse"  
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response: $FormattedResponse"
+        }
+    }
+
+    #Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
+    #We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
+    #So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
+    #and probably rewrite over time to use invoke-webrequest for all calls... PiTA!!!! :|
+
+    $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($FullURI)
+    $ServicePoint.CloseConnectionGroup("") | out-null
+    write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $FullURI."
+
+    #Return
+    $response
+}
+
+function Invoke-NsxWebRequest {
+
+    <#
+    .SYNOPSIS
+    Constructs and performs a valid NSX REST call and returns a response object
+    including response headers.
+
+    .DESCRIPTION 
+    Invoke-NsxWebRequest uses either a specified connection object as returned 
+    by Connect-NsxServer, or the $DefaultNsxConnection global variable if 
+    defined to construct a REST api call to the NSX API.  
+
+    Invoke-NsxWebRequest constructs the appropriate request headers required by 
+    the NSX API, including authentication details (built from the connection 
+    object), required content type and includes any custom headers specified by 
+    the caller that might be required by a specific API resource, before making 
+    the rest call and returning the resulting response object to the caller.
+
+    The Response object includes the response headers unlike 
+    Invoke-NsxRestMethod.
+
+    .EXAMPLE
+    $MyConnection = Connect-NsxServer -Server OtherNsxManager -DefaultConnection:$false
+    $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $MyConnection
+    $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)] 
+
+    Creates a connection variable for a non default NSX server, performs a 'Post'
+    against the URI $URI and then retrieves details from the Location header
+    included in the response object. 
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="ConnectionObj")]
+  
+    param (
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #PSCredential object containing authentication details to be used for connection to NSX Manager API
+            [System.Management.Automation.PSCredential]$cred,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #NSX Manager ip address or FQDN
+            [string]$server,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #TCP Port on -server to connect to
+            [int]$port,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #Protocol - HTTP/HTTPS
+            [string]$protocol,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #Validates the certificate presented by NSX Manager for HTTPS connections
+            [bool]$ValidateCertificate,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #REST method of call.  Get, Put, Post, Delete, Patch etc 
+            [string]$method,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #URI of resource (/api/1.0/myresource).  Should not include protocol, server or port.
+            [string]$URI,
+        [Parameter (Mandatory=$false,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #Content to be sent to server when method is Put/Post/Patch
+            [string]$body = "",
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Pre-populated connection object as returned by Connect-NsxServer
+            [psObject]$connection,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Hashtable collection of KV pairs representing additional headers to send to the NSX Manager during REST call
+            [System.Collections.Hashtable]$extraheader,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Request timeout value - passed directly to underlying invoke-restmethod call 
+            [int]$Timeout=600
+    )
+
+    Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
+
+    if ($pscmdlet.ParameterSetName -eq "Parameter") {
+        if ( -not $ValidateCertificate) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+    }
+    else {
+
+        #ensure we were either called with a connection or there is a defaultConnection (user has 
+        #called connect-nsxserver) 
+        #Little Grr - $connection is a defined variable with no value so we cant use test-path
+        if ( $connection -eq $null) {
+            
+            #Now we need to assume that defaultnsxconnection does not exist...
+            if ( -not (test-path variable:global:DefaultNSXConnection) ) { 
+                throw "Not connected.  Connect to NSX manager with Connect-NsxServer first." 
+            }
+            else { 
+                Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
+                $connection = $DefaultNSXConnection
+            }       
+        }
+
+        
+        if ( -not $connection.ValidateCertificate ) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+
+        $cred = $connection.credential
+        $server = $connection.Server
+        $port = $connection.Port
+        $protocol = $connection.Protocol
+
+    }
+
+    $headerDictionary = @{}
+    $base64cred = [system.convert]::ToBase64String(
+        [system.text.encoding]::ASCII.Getbytes(
+            "$($cred.GetNetworkCredential().username):$($cred.GetNetworkCredential().password)"
+        )
+    )
+    $headerDictionary.add("Authorization", "Basic $Base64cred")
+
+    if ( $extraHeader ) {
+        foreach ($header in $extraHeader.GetEnumerator()) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Extra Header being added to following REST call.  Key: $($Header.Key), Value: $($Header.Value)"
+                }
+            }
+            $headerDictionary.add($header.Key, $header.Value)
+        }
+    }
+    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+    
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager via invoke-webrequest : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+        }
+    }
+
+    #do rest call
+    
+    try { 
+        if (( $method -eq "put" ) -or ( $method -eq "post" )) { 
+            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
+        } else {
+            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
+        }
+    }
+    catch {
+        
+        #Get response from the exception
+        $response = $_.exception.response
+        if ($response) {  
+            $responseStream = $_.exception.response.GetResponseStream()
+            $reader = New-Object system.io.streamreader($responseStream)
+            $responseBody = $reader.readtoend()
+            $ErrorString = "invoke-nsxwebrequest : Exception occured calling invoke-restmethod. $($response.StatusCode) : $($response.StatusDescription) : Response Body: $($responseBody)"
+            
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString"
+                }
+            }
+
+            throw $ErrorString
+        }
+        else { 
+
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)"
+                }
+            }
+            throw $_ 
+        } 
+        
+
+    }
+
+    #Output the response header dictionary
+    foreach ( $key in $response.Headers.Keys) {
+        write-debug "$($MyInvocation.MyCommand.Name) : Response header item : $Key = $($Response.Headers.Item($key))"
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+            if ( $connection.DebugLogging ) { 
+                Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response header item : $Key = $($Response.Headers.Item($key))"
+            }
+        }
+    } 
+
+    #And if there is response content...
+    if ( $response.content ) {
+        switch ( $response.content ) {
+            { $_ -is [System.String] } { 
+                
+                write-debug "$($MyInvocation.MyCommand.Name) : Response Body: $($response.content)" 
+            
+                if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                    if ( $connection.DebugLogging ) { 
+                        Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response Body: $($response.content)"
+                    }
+                }
+            }
+            default { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown"
+
+                if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                    if ( $connection.DebugLogging ) { 
+                        Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response type unknown ( $($Response.Content.gettype()) )."
+                    } 
+                }
+            }
+        }
+    }
+    else { 
+        write-debug "$($MyInvocation.MyCommand.Name) : No response content"
+
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+            if ( $connection.DebugLogging ) { 
+                Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  No response content."
+            } 
+        }
+    }
+
+    $response
+}
 
 function Connect-NsxServer {
 
@@ -2293,10 +2750,42 @@ function Connect-NsxServer {
     reproduce the same outcome during subsequent NSX operations.
 
     .EXAMPLE
-    This example shows how to start an instance 
+    Connect-NsxServer -Server nsxserver -username admin -Password VMware1!
+        
+    Connects to the nsxserver 'nsxserver' with the specified credentials.  If a
+    registered vCenter server is configured in NSX manager, you are prompted to
+    establish a PowerCLI session to that vCenter along with required 
+    authentication details.
 
-    PS C:\> Connect-NsxServer -Server nsxserver -username admin -Password 
-        VMware1!
+    .EXAMPLE
+    Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -DisableViAutoConnect
+        
+    Connects to the nsxserver 'nsxserver' with the specified credentials and 
+    supresses the prompt to establish a PowerCLI connection with the registered 
+    vCenter.
+
+    .EXAMPLE
+    Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -ViUserName administrator@vsphere.local -ViPassword VMware1! 
+        
+    Connects to the nsxserver 'nsxserver' with the specified credentials and 
+    automatically establishes a PowerCLI connection with the registered 
+    vCenter using the credentials specified.
+
+    .EXAMPLE
+    $MyConnection = Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -DefaultConnection:$false
+    Get-NsxTransportZone 'TransportZone1' -connection $MyConnection 
+
+    Connects to the nsxserver 'nsxserver' with the specified credentials and 
+    then uses the returned connection object in a subsequent call to 
+    Get-NsxTransportZone.  The $DefaultNsxConnection parameter is not populated
+    
+    Note: Any PowerNSX cmdlets will fail if the -connection parameters is not 
+    specified and the $DefaultNsxConnection variable is not populated.
+
+    Note:  Pipline operations involving multiple PowerNSX commands that interact
+    with the NSX API (not all) require that all cmdlets specify the -connection 
+    parameter (not just the fist one.) 
+
 
 
     #>
@@ -2306,51 +2795,70 @@ function Connect-NsxServer {
     param (
         [Parameter (Mandatory=$true,ParameterSetName="cred",Position=1)]
         [Parameter (Mandatory=$true,ParameterSetName="userpass",Position=1)]
-            [ValidateNotNullOrEmpty()]
+            #NSX Manager address or FQDN 
+            [ValidateNotNullOrEmpty()] 
             [string]$Server,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
+            #TCP Port to connect to on -Server
             [ValidateRange(1,65535)]
             [int]$Port=443,
         [Parameter (Mandatory=$true,ParameterSetName="cred")]
+            #PSCredential object containing NSX API authentication credentials
             [PSCredential]$Credential,
         [Parameter (Mandatory=$true,ParameterSetName="userpass")]
+            #Username used to authenticate to NSX API
             [ValidateNotNullOrEmpty()]
             [string]$Username,
         [Parameter (Mandatory=$true,ParameterSetName="userpass")]
+            #Password used to authenticate to NSX API
             [ValidateNotNullOrEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
+            #Validates the certificate presented by NSX Manager for HTTPS connections.  Defaults to False
             [ValidateNotNullOrEmpty()]
             [switch]$ValidateCertificate=$false,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
+            #NSX API transport protocol - HTTPS / HTTP .  Defaults to HTTPS
             [ValidateNotNullOrEmpty()]
             [string]$Protocol="https",
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
+            #If True, the $DefaultNsxConnection global variable is created and populated with connection details.  
+            #All PowerNSX commands that use the NSX API will utilise this connection unless they are called with the -connection parameter.
+            #Defaults to True
             [bool]$DefaultConnection=$true,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
+            #If False, and a PowerCLI connection needs to be established to the registered vCenter, the Connect-ViServer call made by PowerNSX will specify the -NotDefault switch (see Get-Help Connect-ViServer)
+            #Defaults to True
             [bool]$VIDefaultConnection=$true,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
-        [Parameter (ParameterSetName="userpass")]   
+        [Parameter (ParameterSetName="userpass")]  
+            #If True, and the PowerNSX connection attempt is successful, an automatic PowerCLI connection to the registered vCenter server is not attempted.  Defaults to False.
             [switch]$DisableVIAutoConnect=$false,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
-        [Parameter (ParameterSetName="userpass")]    
+        [Parameter (ParameterSetName="userpass")] 
+            #UserName used in PowerCLI connection to registered vCenter.   
             [string]$VIUserName,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]    
+            #Password used in PowerCLI connection to registered vCenter.   
             [string]$VIPassword,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]    
+            #PSCredential object containing credentials used in PowerCLI connection to registered vCenter.   
             [PSCredential]$VICred,
         [Parameter (Mandatory=$false)]
+            #Enable DebugLogging of all API calls to $DebugLogFile.  Can be enabled on esisting connections with $connection.DebugLogging = $true.  Defaults to False.  
             [switch]$DebugLogging=$false,
         [Parameter (Mandatory=$false)]    
+            #If DebugLogging is enabled, specifies the file to which output is written.  Defaults to $Env:temp\PowerNSXLog-<user>@<server>-<datetime>.log
             [string]$DebugLogFile,
         [Parameter (Mandatory=$false)]
+            #Supresses warning output from PowerCLI connection attempts (typically invalid Certificate warnings)
             [ValidateSet("Continue","Ignore")]
             [string]$ViWarningAction="Continue"   
     )
@@ -2493,16 +3001,26 @@ function Connect-NsxServer {
     #Return the connection
     $connection
 }
-Export-ModuleMember -Function Connect-NsxServer
 
 function Disconnect-NsxServer {
 
-    # REST is not connection oriented, so there really isnt a connect/disconnect concept.
-    # This will just remove the stored variable that PowerNSX cmdlets use.
-    Remove-Variable -name defaultNsxConnection -scope global
+    <#
+    .SYNOPSIS
+    Destroys the $DefaultNSXConnection global variable if it exists.
 
+    .DESCRIPTION
+    REST is not connection oriented, so there really isnt a connect/disconnect 
+    concept.  Disconnect-NsxServer, merely removes the $DefaultNSXConnection 
+    variable that PowerNSX cmdlets default to using.
+
+    .EXAMPLE
+    Connect-NsxServer -Server nsxserver -username admin -Password VMware1!
+
+    #>
+    if (Get-Variable -Name DefaultNsxConnection -scope global ) {
+        Remove-Variable -name DefaultNsxConnection -scope global
+    }
 }
-Export-ModuleMember -function Disconnect-NsxServer
 
 function Get-PowerNsxVersion {
 
@@ -2520,7 +3038,6 @@ function Get-PowerNsxVersion {
     #Updated to take advantage of Manifest info.
     Get-Module PowerNsx | select version, path, author, companyName 
 }
-Export-ModuleMember -function Get-PowerNsxVersion 
 
 #########
 #########
@@ -2554,9 +3071,11 @@ function Get-NsxClusterStatus {
     param (
 
         [Parameter ( Mandatory=$true,ValueFromPipeline=$true)]
+            #Cluster Object to retreive status details for.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -2578,331 +3097,6 @@ function Get-NsxClusterStatus {
         }
     }
     end{}
-}
-Export-ModuleMember -Function Get-NsxClusterStatus
-
-function Parse-CentralCliResponse {
-
-    param (
-        [Parameter ( Mandatory=$True, Position=1)]
-            [String]$response
-    )
-
-
-    #Response is straight text unfortunately, so there is no structure.  Having a crack at writing a very simple parser though the formatting looks.... challenging...
-    
-    #Control flags for handling list and table processing.
-    $TableHeaderFound = $false
-    $MatchedVnicsList = $false
-    $MatchedRuleset = $false
-    $MatchedAddrSet = $false
-
-    $RuleSetName = ""
-    $AddrSetName = ""
-
-    $KeyValHash = @{}
-    $KeyValHashUsed = $false
-
-    #Defined this as variable as the swtich statement does not let me concat strings, which makes for a verrrrry long line...
-    $RegexDFWRule = "^(?<Internal>#\sinternal\s#\s)?(?<RuleSetMember>rule\s)?(?<RuleId>\d+)\sat\s(?<Position>\d+)\s(?<Direction>in|out|inout)\s" + 
-            "(?<Type>protocol|ethertype)\s(?<Service>.*?)\sfrom\s(?<Source>.*?)\sto\s(?<Destination>.*?)(?:\sport\s(?<Port>.*))?\s" + 
-            "(?<Action>accept|reject|drop)(?:\swith\s(?<Log>log))?(?:\stag\s(?<Tag>'.*'))?;"
-
-
-
-    foreach ( $line in ($response -split '[\r\n]')) { 
-
-        #Init EntryHash hashtable
-        $EntryHash= @{}
-
-        switch -regex ($line.trim()) {
-
-            #C CLI appears to emit some error conditions as ^ Error:<digits> 
-            "^Error \d+:.*$" {
-
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Error line. $_ "
-                
-                Throw "CLI command returned an error: ( $_ )"
-
-            }
-
-            "^\s*$" { 
-                #Blank line, ignore...
-                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring blank line: $_"
-                break
-
-            }
-
-            "^# Filter rules$" { 
-                #Filter line encountered in a ruleset list, ignore...
-                if ( $MatchedRuleSet ) { 
-                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring meaningless #Filter rules line in ruleset: $_"
-                    break
-                }
-                else {
-                    throw "Error parsing Centralised CLI command output response.  Encountered #Filter rules line when not processing a ruleset: $_"
-                }
-
-            }
-            #Matches a single integer of 1 or more digits at the start of the line followed only by a fullstop.
-            #Example is the Index in a VNIC list.  AFAIK, the index should only be 1-9. but just in case we are matching 1 or more digit...
-            "^(\d+)\.$" { 
-
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Index line.  Discarding value: $_ "
-                If ( $MatchedVnicsList ) { 
-                    #We are building a VNIC list output and this is the first line.
-                    #Init the output object to static kv props, but discard the value (we arent outputing as it appears superfluous.)
-                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, initialising new Vnic list object"
-
-                    $VnicListHash = @{}
-                    $VnicListHash += $KeyValHash
-                    $KeyValHashUsed = $true
-
-                }
-                break
-            } 
-
-            #Matches the start of a ruleset list.  show dfw host host-xxx filter xxx rules will output in rulesets like this
-            "ruleset\s(\S+) {" {
-
-                #Set a flag to say we matched a ruleset List, and create the output object.
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Ruleset output.  Processing following lines as DFW Ruleset: $_"
-                $MatchedRuleset = $true 
-                $RuleSetName = $matches[1].trim()
-                break        
-            }
-
-            #Matches the start of a addrset list.  show dfw host host-xxx filter xxx addrset will output in addrsets like this
-            "addrset\s(\S+) {" {
-
-                #Set a flag to say we matched a addrset List, and create the output object.
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Addrset output.  Processing following lines as DFW Addrset: $_"
-                $MatchedAddrSet = $true 
-                $AddrSetName = $matches[1].trim()
-                break        
-            }
-
-            #Matches a addrset entry.  show dfw host host-xxx filter xxx addrset will output in addrsets.
-            "^(?<Type>ip|mac)\s(?<Address>.*),$" {
-
-                #Make sure we were expecting it...
-                if ( -not $MatchedAddrSet ) {
-                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw addrset entry : $_" 
-                }
-
-                #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
-                [PSCustomobject]@{
-                    "AddrSet" = $AddrSetName;
-                    "Type" = $matches.Type;
-                    "Address" = $matches.Address
-                }
-
-                break
-            }
-
-            #Matches a rule, either within a ruleset, or individually listed.  show dfw host host-xxx filter xxx rules will output in rulesets, 
-            #or show dfw host-xxx filter xxx rule 1234 will output individual rule that should match.
-            $RegexDFWRule {
-
-                #Check if the rule is individual or part of ruleset...
-                if ( $Matches.ContainsKey("RuleSetMember") -and (-not $MatchedRuleset )) {
-                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw ruleset entry : $_" 
-                }
-
-                $Type = switch ( $matches.Type ) { "protocol" { "Layer3" } "ethertype" { "Layer2" }}
-                $Internal = if ( $matches.ContainsKey("Internal")) { $true } else { $false }
-                $Port = if ( $matches.ContainsKey("Port") ) { $matches.port } else { "Any" } 
-                $Log = if ( $matches.ContainsKey("Log") ) { $true } else { $false } 
-                $Tag = if ( $matches.ContainsKey("Tag") ) { $matches.Tag } else { "" } 
-
-                If ( $MatchedRuleset ) {
-
-                    #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
-                    [PSCustomobject]@{
-                        "RuleSet" = $RuleSetName;
-                        "InternalRule" = $Internal;
-                        "RuleID" = $matches.RuleId;
-                        "Position" = $matches.Position;
-                        "Direction" = $matches.Direction;
-                        "Type" = $Type;
-                        "Service" = $matches.Service;
-                        "Source" = $matches.Source;
-                        "Destination" = $matches.Destination;
-                        "Port" = $Port;
-                        "Action" = $matches.Action;
-                        "Log" = $Log;
-                        "Tag" = $Tag
-
-                    }
-                }
-
-                else {
-                    #We are not processing a RuleSet; so we need to emit an output object without a ruleset name.
-                    [PSCustomobject]@{
-                        "InternalRule" = $Internal;
-                        "RuleID" = $matches.RuleId;
-                        "Position" = $matches.Position;
-                        "Direction" = $matches.Direction;
-                        "Type" = $Type;
-                        "Service" = $matches.Service;
-                        "Source" = $matches.Source;
-                        "Destination" = $matches.Destination;
-                        "Port" = $Port;
-                        "Action" = $matches.Action;
-                        "Log" = $Log;
-                        "Tag" = $Tag
-                    }
-                }
-
-                break
-            }
-
-            #Matches the end of a ruleset and addr lists.  show dfw host host-xxx filter xxx rules will output in lists like this
-            "^}$" {
-
-                if ( $MatchedRuleset ) { 
-
-                    #Clear the flag to say we matched a ruleset List
-                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW ruleset."
-                    $MatchedRuleset = $false
-                    $RuleSetName = ""
-                    break     
-                }
-
-                if ( $MatchedAddrSet ) { 
-                   
-                    #Clear the flag to say we matched an addrset List
-                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW addrset."
-                    $MatchedAddrSet = $false
-                    $AddrSetName = ""
-                    break     
-                }
-
-                throw "Error parsing Centralised CLI command output response.  Encountered unexpected list completion character in line: $_"
-            }
-
-            #More Generic matches
-
-            #Matches the generic KV case where we have _only_ two strings separated by more than one space.
-            #This will do my head in later when I look at it, so the regex explanation is:
-            #    - (?: gives non capturing group, we want to leverage $matches later, so dont want polluting groups.
-            #    - (\S|\s(?!\s)) uses negative lookahead assertion to 'Match a non whitespace, or a single whitespace, as long as its not followed by another whitespace.
-            #    - The rest should be self explanatory.
-            "^((?:\S|\s(?!\s))+\s{2,}){1}((?:\S|\s(?!\s))+)$" { 
-
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (multispace separated): $_ )"
-                
-                $key = $matches[1].trim()
-                $value = $matches[2].trim()
-                If ( $MatchedVnicsList ) { 
-                    #We are building a VNIC list output and this is one of the lines.
-                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, Adding $key = $value to current VnicListHash"
-
-                    $VnicListHash.Add($key,$value)
-
-                    if ( $key -eq "Filters" ) {
-
-                        #Last line in a VNIC List...
-                        write-debug "$($MyInvocation.MyCommand.Name) : VNIC List :  Outputing VNIC List Hash."
-                        [PSCustomobject]$VnicListHash
-                    }
-                }
-                else {
-                    #Add KV to hash table that we will append to output object
-                    $KeyValHash.Add($key,$value)
-                }     
-                break
-            }
-
-            #Matches a general case output line containing Key: Value for properties that are consistent accross all entries in a table. 
-            #This will match a line with multiple colons in it, not sure if thats an issue yet...
-            "^((?:\S|\s(?!\s))+):((?:\S|\s(?!\s))+)$" {
-                if ( $TableHeaderFound ) { Throw "Error parsing Centralised CLI command output response.  Key Value line found after header: ( $_ )" }
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (Colon Separated) : $_"
-                
-                #Add KV to hash table that we will append to output object
-                $KeyValHash.Add($matches[1].trim(),$matches[2].trim())
-
-                break
-            }
-
-            #Matches a Table header line.  This is a special case of the table entry line match, with the first element being ^No\.  Hoping that 'No.' start of the line is consistent :S
-            "^No\.\s{2,}(.+\s{2,})+.+$" {
-                if ( $TableHeaderFound ) { 
-                    throw "Error parsing Centralised CLI command output response.  Matched header line more than once: ( $_ )"
-                }
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Header line: $_"
-                $TableHeaderFound = $true
-                $Props = $_.trim() -split "\s{2,}"
-                break
-            }
-
-            #Matches the start of a Virtual Nics List output.  We process the output lines following this as a different output object
-            "Virtual Nics List:" {
-                #When central cli outputs a NIC 'list' it does so with a vertical list of Key Value rather than a table format, 
-                #and with multi space as the KV separator, rather than a : like normal KV output.  WTF?
-                #So Now I have to go forth and collate my nic object over the next few lines...
-                #Example looks like this:
-
-                #Virtual Nics List:
-                #1.
-                #Vnic Name      test-vm - Network adapter 1
-                #Vnic Id        50012d15-198c-066c-af22-554aed610579.000
-                #Filters        nic-4822904-eth0-vmware-sfw.2
-
-                #Set a flag to say we matched a VNic List, and create the output object initially with just the KV's matched already.
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched VNIC List line.  Processing remaining lines as Vnic List: $_"
-                $MatchedVnicsList = $true 
-                break                       
-
-            }
-
-            #Matches a table entry line.  At least three properties (that may contain a single space) separated by more than one space.
-            "^((?:\S|\s(?!\s))+\s{2,}){2,}((?:\S|\s(?!\s))+)$" {
-                if ( -not $TableHeaderFound ) { 
-                    throw "Error parsing Centralised CLI command output response.  Matched table entry line before header: ( $_ )"
-                }
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Entry line: $_"
-                $Vals = $_.trim() -split "\s{2,}"
-                if ($Vals.Count -ne $Props.Count ) { 
-                    Throw "Error parsing Centralised CLI command output response.  Table entry line contains different value count compared to properties count: ( $_ )"
-                }
-
-                #Build the output hashtable with the props returned in the table entry line
-                for ( $i= 0; $i -lt $props.count; $i++ ) {
-
-                    #Ordering is hard, and No. entry is kinda superfluous, so removing it from output (for now)
-                    if ( -not ( $props[$i] -eq "No." )) {
-                        $EntryHash[$props[$i].trim()]=$vals[$i].trim()
-                    }
-                }
-
-                #Add the KV pairs that were parsed before the table.
-                try {
-
-                    #This may fail if we have a key of the same name.  For the moment, Im going to assume that this wont happen...
-                    $EntryHash += $KeyValHash
-                    $KeyValHashUsed = $true
-                }
-                catch {
-                    throw "Unable to append static Key Values to EntryHash output object.  Possibly due to a conflicting key"
-                }
-
-                #Emit the entry line as a PSCustomobject :)
-                [PSCustomObject]$EntryHash
-                break
-            }
-            default { throw "Unable to parse Centralised CLI output line : $($_ -replace '\s','_')" } 
-        }
-    }
-
-    if ( (-not $KeyValHashUsed) -and $KeyValHash.count -gt 0 ) {
-
-        #Some output is just key value, so, if it hasnt been appended to output object already, we will just emit it.
-        #Not sure how this approach will work long term, but it works for show dfw vnic <>
-        write-debug "$($MyInvocation.MyCommand.Name) : KeyValHash has not been used after all line processing, outputing as is: $_"
-        [PSCustomObject]$KeyValHash
-    }
 }
 
 function Invoke-NsxCli {
@@ -2928,11 +3122,14 @@ function Invoke-NsxCli {
     param (
 
         [Parameter ( Mandatory=$true, Position=1) ]
+            #Free form query string that is sent to the NSX Central CLI API
             [ValidateNotNullOrEmpty()]
             [String]$Query,
         [Parameter ( Mandatory=$false) ]
+            #Supress warning about experimental feature.  Defaults to False
             [switch]$SupressWarning,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
                
@@ -2971,7 +3168,6 @@ function Invoke-NsxCli {
     }
     end{}
 }
-Export-ModuleMember -Function Invoke-NsxCli
 
 function Get-NsxCliDfwFilter {
 
@@ -3000,9 +3196,11 @@ function Get-NsxCliDfwFilter {
 
     Param ( 
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            #PowerCLI Virtual Machine object
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -3023,7 +3221,6 @@ function Get-NsxCliDfwFilter {
 
     end{}
 }
-Export-ModuleMember -Function Get-NsxCliDfwFilter
 
 function Get-NsxCliDfwRule {
 
@@ -3056,6 +3253,7 @@ function Get-NsxCliDfwRule {
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -3095,7 +3293,6 @@ function Get-NsxCliDfwRule {
     }
     end{}
 }
-Export-ModuleMember -Function Get-NsxCliDfwRule
 
 function Get-NsxCliDfwAddrSet {
 
@@ -3128,6 +3325,7 @@ function Get-NsxCliDfwAddrSet {
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -3149,7 +3347,6 @@ function Get-NsxCliDfwAddrSet {
     }
     end{}
 }
-Export-ModuleMember -Function Get-NsxCliDfwAddrSet
 
 function Get-NsxHostUvsmLogging {
 
@@ -3171,6 +3368,7 @@ function Get-NsxHostUvsmLogging {
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VMHostImpl]$VMHost,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -3223,6 +3421,7 @@ function Set-NsxHostUvsmLogging {
             [ValidateSet("OFF", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE",IgnoreCase=$false)]
             [string]$LogLevel,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -3448,7 +3647,6 @@ function New-NsxManager{
     } 
 
 } 
-Export-ModuleMember -Function New-NsxManager
 
 function Set-NsxManager {
  
@@ -3506,6 +3704,7 @@ function Set-NsxManager {
         [Parameter (Mandatory=$False, ParameterSetName="Sso")]
             [switch]$AcceptAnyThumbprint=$True,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -3613,7 +3812,6 @@ function Set-NsxManager {
 
     Invoke-NsxRestMethod -Method $method -body $xmlRoot.outerXml -uri $uri -Connection $Connection
 }
-Export-ModuleMember -Function Set-NsxManager
 
 function New-NsxController {
     
@@ -3659,6 +3857,7 @@ function New-NsxController {
         [Parameter ( Mandatory=$False)]
             [switch]$Wait=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -3754,7 +3953,6 @@ function New-NsxController {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxController
 
 function Get-NsxController {
 
@@ -3779,6 +3977,7 @@ function Get-NsxController {
         [Parameter (Mandatory=$false,Position=1)]
         [string]$ObjectId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -3794,7 +3993,6 @@ function Get-NsxController {
         $response.controllers.controller
     }
 }
-Export-ModuleMember -Function Get-NsxController
 
 function New-NsxIpPool {
     
@@ -3839,6 +4037,7 @@ function New-NsxIpPool {
             [ValidateNotNullOrEmpty()]
             [ipaddress]$EndAddress, 
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -3893,7 +4092,6 @@ function New-NsxIpPool {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxIpPool
 
 function Get-NsxIpPool {
 
@@ -3919,6 +4117,7 @@ function Get-NsxIpPool {
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
             [string]$ObjectId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -3943,7 +4142,6 @@ function Get-NsxIpPool {
         }
     }
 }
-Export-ModuleMember -Function Get-NsxIpPool
 
 function Get-NsxVdsContext {
 
@@ -3968,6 +4166,7 @@ function Get-NsxVdsContext {
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
             [string]$ObjectId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4002,7 +4201,6 @@ function Get-NsxVdsContext {
         }
     }
 }
-Export-ModuleMember -Function Get-NsxVdsContext
 
 function New-NsxVdsContext {
     
@@ -4032,6 +4230,7 @@ function New-NsxVdsContext {
             [ValidateRange(1600,9000)]
             [int]$Mtu,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -4082,7 +4281,6 @@ function New-NsxVdsContext {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxVdsContext
 
 function Remove-NsxVdsContext {
 
@@ -4107,6 +4305,7 @@ function Remove-NsxVdsContext {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4140,7 +4339,6 @@ function Remove-NsxVdsContext {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxVdsContext
 
 function New-NsxClusterVxlanConfig { 
     
@@ -4189,6 +4387,7 @@ function New-NsxClusterVxlanConfig {
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -4304,7 +4503,6 @@ function New-NsxClusterVxlanConfig {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxClusterVxlanConfig
 
 function Install-NsxCluster { 
     
@@ -4331,6 +4529,7 @@ function Install-NsxCluster {
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -4414,7 +4613,6 @@ function Install-NsxCluster {
 
     end {}
 }
-Export-ModuleMember -Function Install-NsxCluster
 
 function Remove-NsxCluster { 
     
@@ -4443,6 +4641,7 @@ function Remove-NsxCluster {
         [Parameter (Mandatory=$false)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -4552,7 +4751,6 @@ function Remove-NsxCluster {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxCluster
 
 function Remove-NsxClusterVxlanConfig { 
     
@@ -4582,6 +4780,7 @@ function Remove-NsxClusterVxlanConfig {
         [Parameter (Mandatory=$false)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -4669,7 +4868,6 @@ function Remove-NsxClusterVxlanConfig {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxClusterVxlanConfig
 
 function New-NsxSegmentIdRange {
     
@@ -4702,6 +4900,7 @@ function New-NsxSegmentIdRange {
             [ValidateRange(5000,16777215)]
             [int]$End,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -4739,7 +4938,6 @@ function New-NsxSegmentIdRange {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxSegmentIdRange
 
 function Get-NsxSegmentIdRange {
 
@@ -4764,6 +4962,7 @@ function Get-NsxSegmentIdRange {
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
             [string]$ObjectId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4788,7 +4987,6 @@ function Get-NsxSegmentIdRange {
         }
     }
 }
-Export-ModuleMember -Function Get-NsxSegmentIdRange
 
 function Remove-NsxSegmentIdRange {
 
@@ -4813,6 +5011,7 @@ function Remove-NsxSegmentIdRange {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4846,7 +5045,6 @@ function Remove-NsxSegmentIdRange {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSegmentIdRange
 
 function Get-NsxTransportZone {
 
@@ -4877,6 +5075,7 @@ function Get-NsxTransportZone {
             [ValidateNotNullOrEmpty()]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4902,7 +5101,6 @@ function Get-NsxTransportZone {
         }
     }
 }
-Export-ModuleMember -Function Get-NsxTransportZone
 
 function New-NsxTransportZone {
     
@@ -4939,6 +5137,7 @@ function New-NsxTransportZone {
             [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE")]
             [string]$ControlPlaneMode,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -4986,7 +5185,6 @@ function New-NsxTransportZone {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxTransportZone
 
 function Remove-NsxTransportZone {
 
@@ -5016,6 +5214,7 @@ function Remove-NsxTransportZone {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5049,7 +5248,6 @@ function Remove-NsxTransportZone {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxTransportZone
 
 #########
 #########
@@ -5094,6 +5292,7 @@ function Get-NsxLogicalSwitch {
             [ValidateNotNullOrEmpty()]
             [string]$virtualWireId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5173,7 +5372,6 @@ function Get-NsxLogicalSwitch {
 
     }
 }
-Export-ModuleMember -Function Get-NsxLogicalSwitch
 
 function New-NsxLogicalSwitch  {
 
@@ -5219,6 +5417,7 @@ function New-NsxLogicalSwitch  {
             [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE")]
             [string]$ControlPlaneMode,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5248,7 +5447,6 @@ function New-NsxLogicalSwitch  {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalSwitch
 
 function Remove-NsxLogicalSwitch {
 
@@ -5283,6 +5481,7 @@ function Remove-NsxLogicalSwitch {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5316,7 +5515,6 @@ function Remove-NsxLogicalSwitch {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalSwitch
 
 #########
 #########
@@ -5365,6 +5563,7 @@ function Get-NsxSpoofguardPolicy {
             [string]$objectId,
         [Parameter (Mandatory=$false, ParameterSetName="ObjectId")]
         [Parameter (Mandatory=$false, ParameterSetName="Name")]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5414,7 +5613,6 @@ function Get-NsxSpoofguardPolicy {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxSpoofguardPolicy
 
 function New-NsxSpoofguardPolicy {
 
@@ -5495,6 +5693,7 @@ function New-NsxSpoofguardPolicy {
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5571,7 +5770,6 @@ function New-NsxSpoofguardPolicy {
     end {}
    
 }
-Export-ModuleMember -Function New-NsxSpoofguardPolicy
 
 function Remove-NsxSpoofguardPolicy {
     
@@ -5618,6 +5816,7 @@ function Remove-NsxSpoofguardPolicy {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5654,7 +5853,6 @@ function Remove-NsxSpoofguardPolicy {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSpoofguardPolicy
 
 function Publish-NsxSpoofguardPolicy {
     
@@ -5697,6 +5895,7 @@ function Publish-NsxSpoofguardPolicy {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5731,7 +5930,6 @@ function Publish-NsxSpoofguardPolicy {
 
     end {}
 }
-Export-ModuleMember -Function Publish-NsxSpoofguardPolicy
 
 function Get-NsxSpoofguardNic {
     
@@ -5809,6 +6007,7 @@ function Get-NsxSpoofguardNic {
         [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
         [Parameter (Mandatory=$false, ParameterSetName = "VM")]
         [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5860,7 +6059,6 @@ function Get-NsxSpoofguardNic {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxSpoofguardNic
 
 function Grant-NsxSpoofguardNicApproval { 
 
@@ -5921,6 +6119,7 @@ function Grant-NsxSpoofguardNicApproval {
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6031,7 +6230,6 @@ function Grant-NsxSpoofguardNicApproval {
     }
     end {}
 }
-Export-ModuleMember -Function Grant-NsxSpoofguardNicApproval
 
 function Revoke-NsxSpoofguardNicApproval { 
 
@@ -6082,6 +6280,7 @@ function Revoke-NsxSpoofguardNicApproval {
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6172,7 +6371,6 @@ function Revoke-NsxSpoofguardNicApproval {
     }
     end {}
 }
-Export-ModuleMember -Function Revoke-NsxSpoofguardNicApproval
 
 
 #########
@@ -6289,7 +6487,6 @@ function New-NsxLogicalRouterInterfaceSpec {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterInterfaceSpec
 
 function Get-NsxLogicalRouter {
 
@@ -6314,6 +6511,7 @@ function Get-NsxLogicalRouter {
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
             [string]$Name,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6403,7 +6601,6 @@ function Get-NsxLogicalRouter {
         }
     }
 }
-Export-ModuleMember -Function Get-NsxLogicalRouter
 
 function New-NsxLogicalRouter {
 
@@ -6482,6 +6679,7 @@ function New-NsxLogicalRouter {
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$HADatastore=$datastore,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6567,7 +6765,6 @@ function New-NsxLogicalRouter {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouter
 
 function Remove-NsxLogicalRouter {
 
@@ -6599,6 +6796,7 @@ function Remove-NsxLogicalRouter {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6632,7 +6830,6 @@ function Remove-NsxLogicalRouter {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouter
 
 function Set-NsxLogicalRouterInterface {
 
@@ -6682,6 +6879,7 @@ function Set-NsxLogicalRouterInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6738,7 +6936,6 @@ function Set-NsxLogicalRouterInterface {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxLogicalRouterInterface
 
 function New-NsxLogicalRouterInterface {
 
@@ -6787,6 +6984,7 @@ function New-NsxLogicalRouterInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection 
     )
@@ -6826,7 +7024,6 @@ function New-NsxLogicalRouterInterface {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterInterface
 function Remove-NsxLogicalRouterInterface {
 
     <#
@@ -6853,6 +7050,7 @@ function Remove-NsxLogicalRouterInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection   
     )
@@ -6888,7 +7086,6 @@ function Remove-NsxLogicalRouterInterface {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterInterface
 
 function Get-NsxLogicalRouterInterface {
 
@@ -6924,6 +7121,7 @@ function Get-NsxLogicalRouterInterface {
             [ValidateRange(1,1000)]
             [int]$Index,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6963,7 +7161,6 @@ function Get-NsxLogicalRouterInterface {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterInterface
 
 
 
@@ -7071,7 +7268,6 @@ function New-NsxAddressSpec {
 
     end{}
 }
-Export-ModuleMember -Function New-NsxAddressSpec
 
 function New-NsxEdgeInterfaceSpec {
 
@@ -7203,7 +7399,6 @@ function New-NsxEdgeInterfaceSpec {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeInterfaceSpec
 
 function New-NsxEdgeSubInterfaceSpec {
 
@@ -7313,7 +7508,6 @@ function New-NsxEdgeSubInterfaceSpec {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeSubInterfaceSpec
 
 function Set-NsxEdgeInterface {
 
@@ -7400,6 +7594,7 @@ function Set-NsxEdgeInterface {
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -7472,7 +7667,6 @@ function Set-NsxEdgeInterface {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeInterface
 
 function Clear-NsxEdgeInterface {
 
@@ -7507,6 +7701,7 @@ function Clear-NsxEdgeInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -7543,7 +7738,6 @@ function Clear-NsxEdgeInterface {
 
     end {}
 }
-Export-ModuleMember -Function Clear-NsxEdgeInterface
 
 function Get-NsxEdgeInterface {
 
@@ -7589,6 +7783,7 @@ function Get-NsxEdgeInterface {
             [ValidateRange(0,9)]
             [int]$Index,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -7634,7 +7829,6 @@ function Get-NsxEdgeInterface {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeInterface
 
 function New-NsxEdgeSubInterface {
 
@@ -7706,6 +7900,7 @@ function New-NsxEdgeSubInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Connected=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -7770,7 +7965,6 @@ function New-NsxEdgeSubInterface {
     invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
     Write-progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)." -completed
 }
-Export-ModuleMember -Function New-NsxEdgeSubInterface
 
 function Remove-NsxEdgeSubInterface {
 
@@ -7808,6 +8002,7 @@ function Remove-NsxEdgeSubInterface {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -7849,7 +8044,6 @@ function Remove-NsxEdgeSubInterface {
     }
     End {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeSubInterface
 
 function Get-NsxEdgeSubInterface {
 
@@ -7931,7 +8125,6 @@ function Get-NsxEdgeSubInterface {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeSubInterface
 
 function Get-NsxEdgeInterfaceAddress {
     
@@ -7999,7 +8192,6 @@ function Get-NsxEdgeInterfaceAddress {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeInterfaceAddress
 
 function Add-NsxEdgeInterfaceAddress {
     
@@ -8050,6 +8242,7 @@ function Add-NsxEdgeInterfaceAddress {
             [System.Xml.XmlElement[]]$AddressSpec,
         [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -8096,7 +8289,6 @@ function Add-NsxEdgeInterfaceAddress {
 
     end {}
 }
-Export-ModuleMember -Function Add-NsxEdgeInterfaceAddress
 
 function Remove-NsxEdgeInterfaceAddress {
     
@@ -8129,6 +8321,7 @@ function Remove-NsxEdgeInterfaceAddress {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -8185,7 +8378,6 @@ function Remove-NsxEdgeInterfaceAddress {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeInterfaceAddress
 
 function Get-NsxEdge {
 
@@ -8218,6 +8410,7 @@ function Get-NsxEdge {
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
             [string]$Name,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -8307,7 +8500,6 @@ function Get-NsxEdge {
         }
     }
 }
-Export-ModuleMember -Function Get-NsxEdge
 
 function New-NsxEdge {
 
@@ -8417,6 +8609,7 @@ function New-NsxEdge {
             [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
             [System.Xml.XmlElement[]]$Interface,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection  
     )
@@ -8572,7 +8765,6 @@ function New-NsxEdge {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxEdge
 
 function Redeploy-NsxEdge {
 
@@ -8603,6 +8795,7 @@ function Redeploy-NsxEdge {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -8635,7 +8828,6 @@ function Redeploy-NsxEdge {
 
     end {}
 }
-Export-ModuleMember -Function Redeploy-NsxEdge
 
 function Set-NsxEdge {
 
@@ -8676,6 +8868,7 @@ function Set-NsxEdge {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -8719,7 +8912,6 @@ function Set-NsxEdge {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdge
 
 function Remove-NsxEdge {
 
@@ -8749,6 +8941,7 @@ function Remove-NsxEdge {
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -8782,7 +8975,6 @@ function Remove-NsxEdge {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdge
 
 #########
 #########
@@ -8825,6 +9017,7 @@ function Set-NsxEdgeNat {
         [Parameter (Mandatory=$False)]
             [switch]$Enabled,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -8879,7 +9072,6 @@ function Set-NsxEdgeNat {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeNat
 
 function Get-NsxEdgeNat {
     
@@ -8931,7 +9123,6 @@ function Get-NsxEdgeNat {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeNat 
 
 function Get-NsxEdgeNatRule {
     
@@ -9001,7 +9192,6 @@ function Get-NsxEdgeNatRule {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeNatRule
 
 function New-NsxEdgeNatRule {
     
@@ -9055,6 +9245,7 @@ function New-NsxEdgeNatRule {
         [Parameter (Mandatory=$false)]
             [string]$IcmpType,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -9116,7 +9307,6 @@ function New-NsxEdgeNatRule {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeNatRule
 
 function Remove-NsxEdgeNatRule {
     
@@ -9152,6 +9342,7 @@ function Remove-NsxEdgeNatRule {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9188,7 +9379,6 @@ function Remove-NsxEdgeNatRule {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeNatRule
 
 
 
@@ -9231,6 +9421,7 @@ function Get-NsxEdgeCsr {
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9266,7 +9457,6 @@ function Get-NsxEdgeCsr {
 
     end {}
 }
-Export-ModuleMember -function Get-NsxEdgeCsr
 
 function New-NsxEdgeCsr{
 
@@ -9318,6 +9508,7 @@ function New-NsxEdgeCsr{
         [Parameter (Mandatory=$False)]
             [string]$Name,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9389,7 +9580,6 @@ function New-NsxEdgeCsr{
 
     end {}
 }
-Export-ModuleMember -function New-NsxEdgeCsr
 
 function Remove-NsxEdgeCsr{
 
@@ -9428,6 +9618,7 @@ function Remove-NsxEdgeCsr{
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9461,7 +9652,6 @@ function Remove-NsxEdgeCsr{
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeCrl
 
 function Get-NsxEdgeCertificate{
     
@@ -9497,6 +9687,7 @@ function Get-NsxEdgeCertificate{
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9532,7 +9723,6 @@ function Get-NsxEdgeCertificate{
 
     end {}
 }
-Export-ModuleMember -function Get-NsxEdgeCertificate
 
 function New-NsxEdgeSelfSignedCertificate{
 
@@ -9567,6 +9757,7 @@ function New-NsxEdgeSelfSignedCertificate{
         [Parameter (Mandatory=$False)]
             [int]$NumberOfDays=365,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9591,7 +9782,6 @@ function New-NsxEdgeSelfSignedCertificate{
 
     end {}
 }
-Export-ModuleMember -function New-NsxEdgeCertificate
 
 function Remove-NsxEdgeCertificate{
     
@@ -9629,6 +9819,7 @@ function Remove-NsxEdgeCertificate{
         [Parameter (Mandatory=$False)]
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9662,7 +9853,6 @@ function Remove-NsxEdgeCertificate{
 
     end {}
 }
-Export-ModuleMember -function Remove-NsxEdgeCertificate
 
 
 #########
@@ -9716,7 +9906,6 @@ function Get-NsxSslVpn {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSslVpn
 
 function Set-NsxSslVpn {
 
@@ -9769,6 +9958,7 @@ function Set-NsxSslVpn {
         [Parameter (Mandatory=$False)]
             [switch]$Enable_DES_CBC3_SHA,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -9954,7 +10144,6 @@ function Set-NsxSslVpn {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxSslVpn
 
 function New-NsxSslVpnAuthServer {
 
@@ -9996,6 +10185,7 @@ function New-NsxSslVpnAuthServer {
             [ValidateSet("Local")]
             [string]$ServerType="Local",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -10068,7 +10258,6 @@ function New-NsxSslVpnAuthServer {
 
     end{}
 }
-Export-ModuleMember -Function New-NsxSslVpnAuthServer
 
 function Get-NsxSslVpnAuthServer {
   
@@ -10141,7 +10330,6 @@ function Get-NsxSslVpnAuthServer {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSslVpnAuthServer
 
 function New-NsxSslVpnUser{
 
@@ -10174,6 +10362,7 @@ function New-NsxSslVpnUser{
         [Parameter (Mandatory=$False)]
             [switch]$ForcePasswordChangeOnNextLogin,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -10224,7 +10413,6 @@ function New-NsxSslVpnUser{
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnUser -UserName $UserName
     }
 }
-Export-ModuleMember -Function New-NsxSslVpnUser
 
 function Get-NsxSslVpnUser {
 
@@ -10264,7 +10452,6 @@ function Get-NsxSslVpnUser {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSslVpnUser
 
 function Remove-NsxSslVpnUser {
     param (
@@ -10275,6 +10462,7 @@ function Remove-NsxSslVpnUser {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10309,7 +10497,6 @@ function Remove-NsxSslVpnUser {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSslVpnUser
 
 function New-NsxSslVpnIpPool {
 
@@ -10342,6 +10529,7 @@ function New-NsxSslVpnIpPool {
         [Parameter (Mandatory=$False)]
             [switch]$Enabled=$True,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10393,7 +10581,7 @@ function New-NsxSslVpnIpPool {
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnIpPool -IpRange $IpRange
     }
 }
-Export-ModuleMember -Function New-NsxSslVpnIpPool
+
 
 function Get-NsxSslVpnIpPool {
 
@@ -10433,7 +10621,7 @@ function Get-NsxSslVpnIpPool {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSslVpnIpPool
+
 
 function Remove-NsxSslVpnIpPool {
     param (
@@ -10444,6 +10632,7 @@ function Remove-NsxSslVpnIpPool {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10477,7 +10666,7 @@ function Remove-NsxSslVpnIpPool {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSslVpnIpPool
+
 
 function New-NsxSslVpnPrivateNetwork {
 
@@ -10502,6 +10691,7 @@ function New-NsxSslVpnPrivateNetwork {
         [Parameter (Mandatory=$False)]
             [switch]$Enabled=$True,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10553,7 +10743,7 @@ function New-NsxSslVpnPrivateNetwork {
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnPrivateNetwork -Network $Network
     }
 }
-Export-ModuleMember -Function New-NsxSslVpnPrivateNetwork
+
 
 function Get-NsxSslVpnPrivateNetwork {
 
@@ -10593,7 +10783,7 @@ function Get-NsxSslVpnPrivateNetwork {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSslVpnPrivateNetwork
+
 
 function Remove-NsxSslVpnPrivateNetwork {
     param (
@@ -10604,6 +10794,7 @@ function Remove-NsxSslVpnPrivateNetwork {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection 
     )
@@ -10637,7 +10828,7 @@ function Remove-NsxSslVpnPrivateNetwork {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSslVpnPrivateNetwork
+
 
 function New-NsxSslVpnClientInstallationPackage {
 
@@ -10678,6 +10869,7 @@ function New-NsxSslVpnClientInstallationPackage {
         [Parameter (Mandatory=$False)]
             [switch]$Enabled=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10755,7 +10947,7 @@ function New-NsxSslVpnClientInstallationPackage {
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnClientInstallationPackage -Name $Name
     }
 }
-Export-ModuleMember -Function New-NsxSslVpnClientInstallationPackage
+
 
 function Get-NsxSslVpnClientInstallationPackage {
 
@@ -10795,7 +10987,7 @@ function Get-NsxSslVpnClientInstallationPackage {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSslVpnClientInstallationPackage
+
 
 function Remove-NsxSslVpnClientInstallationPackage {
     param (
@@ -10806,6 +10998,7 @@ function Remove-NsxSslVpnClientInstallationPackage {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection 
     )
@@ -10839,7 +11032,7 @@ function Remove-NsxSslVpnClientInstallationPackage {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSslVpnClientInstallationPackage
+
 
 #########
 #########
@@ -10934,6 +11127,7 @@ function Set-NsxEdgeRouting {
             [ValidateRange(0,255)]
             [int]$DefaultGatewayAdminDistance,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection  
 
@@ -11150,7 +11344,7 @@ function Set-NsxEdgeRouting {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeRouting
+
 
 function Get-NsxEdgeRouting {
     
@@ -11201,7 +11395,7 @@ function Get-NsxEdgeRouting {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeRouting 
+
 
 # Static Routing
 
@@ -11279,7 +11473,7 @@ function Get-NsxEdgeStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeStaticRoute
+
 
 function New-NsxEdgeStaticRoute {
     
@@ -11332,6 +11526,7 @@ function New-NsxEdgeStaticRoute {
             [ValidateRange(0,255)]
             [int]$AdminDistance,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11403,7 +11598,7 @@ function New-NsxEdgeStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeStaticRoute
+
 
 function Remove-NsxEdgeStaticRoute {
     
@@ -11447,6 +11642,7 @@ function Remove-NsxEdgeStaticRoute {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11501,7 +11697,7 @@ function Remove-NsxEdgeStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeStaticRoute
+
 
 # Prefixes
 
@@ -11592,7 +11788,7 @@ function Get-NsxEdgePrefix {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgePrefix
+
 
 function New-NsxEdgePrefix {
     
@@ -11636,6 +11832,7 @@ function New-NsxEdgePrefix {
             [ValidateNotNullorEmpty()]
             [string]$Network,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11694,7 +11891,7 @@ function New-NsxEdgePrefix {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgePrefix
+
 
 function Remove-NsxEdgePrefix {
     
@@ -11736,6 +11933,7 @@ function Remove-NsxEdgePrefix {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11790,7 +11988,7 @@ function Remove-NsxEdgePrefix {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgePrefix
+
 
 # BGP
 
@@ -11845,7 +12043,7 @@ function Get-NsxEdgeBgp {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeBgp
+
 
 function Set-NsxEdgeBgp {
     
@@ -11890,6 +12088,7 @@ function Set-NsxEdgeBgp {
         [Parameter (Mandatory=$False)]
             [switch]$DefaultOriginate,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -12009,7 +12208,7 @@ function Set-NsxEdgeBgp {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeBgp
+
 
 function Get-NsxEdgeBgpNeighbour {
     
@@ -12102,7 +12301,7 @@ function Get-NsxEdgeBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeBgpNeighbour
+
 
 function New-NsxEdgeBgpNeighbour {
     
@@ -12163,6 +12362,7 @@ function New-NsxEdgeBgpNeighbour {
             [ValidateNotNullorEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -12234,7 +12434,7 @@ function New-NsxEdgeBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeBgpNeighbour
+
 
 function Remove-NsxEdgeBgpNeighbour {
     
@@ -12274,6 +12474,7 @@ function Remove-NsxEdgeBgpNeighbour {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -12336,7 +12537,7 @@ function Remove-NsxEdgeBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeBgpNeighbour
+
 
 # OSPF
 
@@ -12392,7 +12593,7 @@ function Get-NsxEdgeOspf {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeOspf
+
 
 function Set-NsxEdgeOspf {
     
@@ -12434,6 +12635,7 @@ function Set-NsxEdgeOspf {
         [Parameter (Mandatory=$False)]
             [switch]$DefaultOriginate,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -12539,7 +12741,7 @@ function Set-NsxEdgeOspf {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeOspf
+
 
 function Get-NsxEdgeOspfArea {
     
@@ -12612,7 +12814,7 @@ function Get-NsxEdgeOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeOspfArea
+
 
 function Remove-NsxEdgeOspfArea {
     
@@ -12653,6 +12855,7 @@ function Remove-NsxEdgeOspfArea {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -12711,7 +12914,7 @@ function Remove-NsxEdgeOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeOspfArea
+
 
 function New-NsxEdgeOspfArea {
     
@@ -12768,6 +12971,7 @@ function New-NsxEdgeOspfArea {
             [ValidateNotNullorEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -12852,7 +13056,7 @@ function New-NsxEdgeOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeOspfArea
+
 
 function Get-NsxEdgeOspfInterface {
     
@@ -12937,7 +13141,7 @@ function Get-NsxEdgeOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeOspfInterface
+
 
 function Remove-NsxEdgeOspfInterface {
     
@@ -12983,6 +13187,7 @@ function Remove-NsxEdgeOspfInterface {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -13041,7 +13246,7 @@ function Remove-NsxEdgeOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeOspfInterface
+
 
 function New-NsxEdgeOspfInterface {
     
@@ -13099,6 +13304,7 @@ function New-NsxEdgeOspfInterface {
         [Parameter (Mandatory=$false)]
             [switch]$IgnoreMTU,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -13179,7 +13385,7 @@ function New-NsxEdgeOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeOspfInterface
+
 
 # Redistribution Rules
 
@@ -13287,7 +13493,7 @@ function Get-NsxEdgeRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeRedistributionRule
+
 
 function Remove-NsxEdgeRedistributionRule {
     
@@ -13327,6 +13533,7 @@ function Remove-NsxEdgeRedistributionRule {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -13397,7 +13604,7 @@ function Remove-NsxEdgeRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeRedistributionRule
+
 
 function New-NsxEdgeRedistributionRule {
     
@@ -13450,6 +13657,7 @@ function New-NsxEdgeRedistributionRule {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -13539,7 +13747,7 @@ function New-NsxEdgeRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeRedistributionRule
+
 
 #########
 #########
@@ -13635,6 +13843,7 @@ function Set-NsxLogicalRouterRouting {
             [ValidateRange(0,255)]
             [int]$DefaultGatewayAdminDistance,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -13884,7 +14093,7 @@ function Set-NsxLogicalRouterRouting {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxLogicalRouterRouting
+
 
 function Get-NsxLogicalRouterRouting {
     
@@ -13932,7 +14141,7 @@ function Get-NsxLogicalRouterRouting {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterRouting 
+
 
 # Static Routing
 
@@ -14007,7 +14216,7 @@ function Get-NsxLogicalRouterStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterStaticRoute
+
 
 function New-NsxLogicalRouterStaticRoute {
     
@@ -14057,6 +14266,7 @@ function New-NsxLogicalRouterStaticRoute {
             [ValidateRange(0,255)]
             [int]$AdminDistance,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -14128,7 +14338,7 @@ function New-NsxLogicalRouterStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterStaticRoute
+
 
 function Remove-NsxLogicalRouterStaticRoute {
     
@@ -14169,6 +14379,7 @@ function Remove-NsxLogicalRouterStaticRoute {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -14223,7 +14434,7 @@ function Remove-NsxLogicalRouterStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterStaticRoute
+
 
 # Prefixes
 
@@ -14311,7 +14522,7 @@ function Get-NsxLogicalRouterPrefix {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterPrefix
+
 
 function New-NsxLogicalRouterPrefix {
     
@@ -14348,6 +14559,7 @@ function New-NsxLogicalRouterPrefix {
             [ValidateNotNullorEmpty()]
             [string]$Network,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -14406,7 +14618,7 @@ function New-NsxLogicalRouterPrefix {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterPrefix
+
 
 function Remove-NsxLogicalRouterPrefix {
     
@@ -14441,6 +14653,7 @@ function Remove-NsxLogicalRouterPrefix {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection 
     )
@@ -14495,7 +14708,7 @@ function Remove-NsxLogicalRouterPrefix {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterPrefix
+
 
 
 # BGP
@@ -14548,7 +14761,7 @@ function Get-NsxLogicalRouterBgp {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterBgp
+
 
 function Set-NsxLogicalRouterBgp {
     
@@ -14589,6 +14802,7 @@ function Set-NsxLogicalRouterBgp {
         [Parameter (Mandatory=$False)]
             [switch]$DefaultOriginate,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -14708,7 +14922,7 @@ function Set-NsxLogicalRouterBgp {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxLogicalRouterBgp
+
 
 function Get-NsxLogicalRouterBgpNeighbour {
     
@@ -14798,7 +15012,7 @@ function Get-NsxLogicalRouterBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterBgpNeighbour
+
 
 function New-NsxLogicalRouterBgpNeighbour {
     
@@ -14862,6 +15076,7 @@ function New-NsxLogicalRouterBgpNeighbour {
             [ValidateNotNullorEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -14936,7 +15151,7 @@ function New-NsxLogicalRouterBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterBgpNeighbour
+
 
 function Remove-NsxLogicalRouterBgpNeighbour {
     
@@ -14973,6 +15188,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -15035,7 +15251,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterBgpNeighbour
+
 
 # OSPF
 
@@ -15088,7 +15304,7 @@ function Get-NsxLogicalRouterOspf {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterOspf
+
 
 function Set-NsxLogicalRouterOspf {
     
@@ -15133,6 +15349,7 @@ function Set-NsxLogicalRouterOspf {
         [Parameter (Mandatory=$False)]
             [switch]$DefaultOriginate,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -15269,7 +15486,7 @@ function Set-NsxLogicalRouterOspf {
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxLogicalRouterOspf
+
 
 function Get-NsxLogicalRouterOspfArea {
     
@@ -15339,7 +15556,7 @@ function Get-NsxLogicalRouterOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterOspfArea
+
 
 function Remove-NsxLogicalRouterOspfArea {
     
@@ -15377,6 +15594,7 @@ function Remove-NsxLogicalRouterOspfArea {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -15435,7 +15653,7 @@ function Remove-NsxLogicalRouterOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterOspfArea
+
 
 function New-NsxLogicalRouterOspfArea {
     
@@ -15489,6 +15707,7 @@ function New-NsxLogicalRouterOspfArea {
             [ValidateNotNullorEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -15573,7 +15792,7 @@ function New-NsxLogicalRouterOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterOspfArea
+
 
 function Get-NsxLogicalRouterOspfInterface {
     
@@ -15655,7 +15874,7 @@ function Get-NsxLogicalRouterOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterOspfInterface
+
 
 function Remove-NsxLogicalRouterOspfInterface {
     
@@ -15698,6 +15917,7 @@ function Remove-NsxLogicalRouterOspfInterface {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -15756,7 +15976,7 @@ function Remove-NsxLogicalRouterOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterOspfInterface
+
 
 function New-NsxLogicalRouterOspfInterface {
     
@@ -15811,6 +16031,7 @@ function New-NsxLogicalRouterOspfInterface {
         [Parameter (Mandatory=$false)]
             [switch]$IgnoreMTU,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -15891,7 +16112,7 @@ function New-NsxLogicalRouterOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterOspfInterface
+
 
 # Redistribution Rules
 
@@ -15996,7 +16217,7 @@ function Get-NsxLogicalRouterRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterRedistributionRule
+
 
 function Remove-NsxLogicalRouterRedistributionRule {
     
@@ -16035,6 +16256,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -16105,7 +16327,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterRedistributionRule
+
 
 function New-NsxLogicalRouterRedistributionRule {
     
@@ -16155,6 +16377,7 @@ function New-NsxLogicalRouterRedistributionRule {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16244,7 +16467,7 @@ function New-NsxLogicalRouterRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterRedistributionRule
+
 
 #########
 #########
@@ -16279,6 +16502,7 @@ function Get-NsxSecurityGroup {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16315,7 +16539,7 @@ function Get-NsxSecurityGroup {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSecurityGroup
+
 
 function New-NsxSecurityGroup   {
 
@@ -16372,6 +16596,7 @@ function New-NsxSecurityGroup   {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -16427,7 +16652,7 @@ function New-NsxSecurityGroup   {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxSecurityGroup
+
 
 function Remove-NsxSecurityGroup {
 
@@ -16465,6 +16690,7 @@ function Remove-NsxSecurityGroup {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16505,7 +16731,7 @@ function Remove-NsxSecurityGroup {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSecurityGroup
+
 
 function Add-NsxSecurityGroupMember {
     
@@ -16541,6 +16767,7 @@ function Add-NsxSecurityGroupMember {
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16572,7 +16799,7 @@ function Add-NsxSecurityGroupMember {
 
     end {}
 }
-Export-ModuleMember -Function Add-NsxSecurityGroupMember
+
 
 function Remove-NsxSecurityGroupMember {
     
@@ -16608,6 +16835,7 @@ function Remove-NsxSecurityGroupMember {
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16639,7 +16867,7 @@ function Remove-NsxSecurityGroupMember {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSecurityGroupMember
+
 
 function New-NsxSecurityTag {
 
@@ -16667,6 +16895,7 @@ function New-NsxSecurityTag {
         [Parameter (Mandatory=$false)]
             [string]$Description,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -16705,7 +16934,7 @@ function New-NsxSecurityTag {
         
     end {}
 }
-Export-ModuleMember -Function New-NsxSecurityTag
+
 
 function Get-NsxSecurityTag {
 
@@ -16739,6 +16968,7 @@ function Get-NsxSecurityTag {
         [Parameter (Mandatory=$false)]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16774,7 +17004,7 @@ function Get-NsxSecurityTag {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSecurityTag
+
 
 function Remove-NsxSecurityTag {
 
@@ -16808,6 +17038,7 @@ function Remove-NsxSecurityTag {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16842,7 +17073,7 @@ function Remove-NsxSecurityTag {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSecurityTag
+
 
 function Get-NsxSecurityTagAssignment {
 
@@ -16860,48 +17091,50 @@ function Get-NsxSecurityTagAssignment {
     particular NSX Security Tag.
 
     .EXAMPLE
-
-    PS C:\> Get-NsxSecurityTag ST-Web-DMZ | Get-NsxSecurityTagAssignment
+    Get-NsxSecurityTag ST-Web-DMZ | Get-NsxSecurityTagAssignment
+    
     Specify a single security tag to find all virtual machines the tag is assigned to.
 
 
     .EXAMPLE
-
-    PS C:\> Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | Get-NsxSecurityTagAssignment
+    Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | Get-NsxSecurityTagAssignment
+    
     Retrieve all virtual machines that are assigned a security tag containing 'dmz' in the security tag name
 
 
     .EXAMPLE
-
-    PS C:\> Get-VM Web-01 | Get-NsxSecurityTagAssignment
-    Speficy a virtual machine to retrieve all the assigned security tags
+    Get-VM Web-01 | Get-NsxSecurityTagAssignment
+    
+    Specify a virtual machine to retrieve all the assigned security tags
 
     #>
 
-    [CmdLetBinding(DefaultParameterSetName="Standard")]
+    [CmdLetBinding(DefaultParameterSetName="Tag")]
 
     param (
 
-        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Standard")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Tag")]
             [ValidateScript( { Validate-SecurityTag $_ })]
-            [System.Xml.XmlElement]$tag,
-        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Advanced")]
-            [ValidateScript( { Validate-VirtualMachine $_ })]
-            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$vmobject,
+            [System.Xml.XmlElement]$SecurityTag,
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
+
 
     begin {}
     process {
 
         switch ( $PSCmdlet.ParameterSetName ) {
 
-            'Standard' {
+            'Tag' {
 
-                $URI = "/api/2.0/services/securitytags/tag/$($Tag.objectId)/vm"
+                $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)/vm"
                 [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
                 if ( $response.SelectSingleNode('descendant::basicinfolist/basicinfo') ) {
@@ -16909,31 +17142,30 @@ function Get-NsxSecurityTagAssignment {
 
                     foreach ($node in $nodes) {
 
-                        $node.AppendChild($response.CreateElement('securityTagName')) | out-null
-                        $node.AppendChild($response.CreateElement('securityTagObjectId')) | out-null
-
-                        $securityTagNameElement = $node.SelectSingleNode('securityTagName')
-                        $SecurityTagNameElement.AppendChild($response.CreateTextNode($($tag.name))) | out-null
-
-                        $SecurityTagObjectIdElement = $node.SelectSingleNode('securityTagObjectId')
-                        $SecurityTagObjectIdElement.AppendChild($response.CreateTextNode($($tag.objectId))) | out-null
+                        #Get the VI VM object...
+                        $vm = Get-Vm -Server $Connection.VIConnection -id "VirtualMachine-$($node.objectId)"
+                        [pscustomobject]@{
+                            "SecurityTag" = $SecurityTag;
+                            "VirtualMachine" = $vm
+                        }
                     }
-
-                    $response.basicinfolist.basicinfo | sort-object name
                 }
             }
 
-            'Advanced' {
-                $vmMoid = $vmobject.ExtensionData.MoRef.Value
+            'VirtualMachine' {
+
+                #I know this is inneficient, but attempt at refactoring has led down a rabbit hole I dont have time for at the moment.
+                # 'Ill be back...''
+                $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
                 Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)"
-                Get-NsxSecurityTag | Get-NsxSecurityTagAssignment | Where-Object {$_.objectId -eq $($vmMoid)}
+                Get-NsxSecurityTag -connection $connection | Get-NsxSecurityTagAssignment -connection $connection | Where-Object {$_.vm.objectId -eq $($vmMoid)}
             }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSecurityTagAssignment
+
 
 function New-NsxSecurityTagAssignment {
 
@@ -16949,120 +17181,71 @@ function New-NsxSecurityTagAssignment {
     This cmdlet assigns is used to assign NSX Security Tags to a virtual machine.
 
     .EXAMPLE
-
-    PS C:\> Get-VM Web-01 | New-NsxSecurityTagAssignment -tag (Get-NsxSecurityTag ST-Web-DMZ)
+    Get-VM Web-01 | New-NsxSecurityTagAssignment -ApplyTag -SecurityTag (Get-NsxSecurityTag ST-Web-DMZ)
+    
     Assign a single security tag to a virtual machine
 
     .EXAMPLE
-
-    PS C:\> Get-NsxSecurityTag ST-Web-DMZ | New-NsxSecurityTagAssignment -vm (Get-VM Web-01)
+    Get-NsxSecurityTag ST-Web-DMZ | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine (Get-VM Web-01)
+    
     Assign a single security tag to a virtual machine
 
     .EXAMPLE
-
-    PS C:\> Get-VM Web-01 | New-NsxSecurityTagAssignment -tag $( Get-NsxSecurityTag | ? {$_.name -like "*prod*"} )
+    Get-VM Web-01 | New-NsxSecurityTagAssignment ApplyTag -SecurityTag $( Get-NsxSecurityTag | ? {$_.name -like "*prod*"} )
+    
     Assign all security tags containing "prod" in the name to a virtual machine
 
     .EXAMPLE
-
-    PS C:\> Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | New-NsxSecurityTagAssignment -vm (Get-VM web01,app01,db01)
+    Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine (Get-VM web01,app01,db01)
+    
     Assign all security tags containing "DMZ" in the name to multiple virtual machines
-
-    .EXAMPLE
-
-    PS C:\> New-NsxSecurityTagAssignment -csv -path test.csv
-    Use a csv file to assign security tags to virtual machines.
-
-    The csv MUST contain a header row. A Sample csv file format is shown below:
-
-    name,securityTagName
-    Web-01,ST-Web-DMZ
-
-    The following command will export a csv file through PowerNSX that can be directly imported via New-NsxSecurityTagAssignment.
-
-    PS C:\> Get-VM Web-01 | Get-NsxSecurityTagAssignment | export-csv -path test.csv
 
     #>
     [CmdLetBinding(DefaultParameterSetName="VirtualMachine")]
 
     param (
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
-            [ValidateScript( { Validate-VirtualMachine $_ })]
-            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$vmobject,
-        [Parameter (Mandatory=$true, ParameterSetName = "VirtualMachine")]
-            [ValidateScript( { Validate-SecurityTag $_ })]
-            [object[]]$tag,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName = "SecurityTag")]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop[]]$VirtualMachine,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName = "VirtualMachine")]
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "SecurityTag")]
             [ValidateScript( { Validate-SecurityTag $_ })]
-            [System.Xml.XmlElement]$tagobject,
+            [System.Xml.XmlElement[]]$SecurityTag,
+        [Parameter (Mandatory=$true, ParameterSetName = "VirtualMachine")]
+            [switch]$ApplyTag,
         [Parameter (Mandatory=$true, ParameterSetName = "SecurityTag")]
-            [ValidateScript( { Validate-VirtualMachine $_ })]
-            [object[]]$vm,
-        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "CsvInput")]
-            [switch]$csv,
-        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "CsvInput")]
-            [ValidateScript({ if ( -not (test-path $_)) { throw "Path or File not found: $_." } $true })]
-            [string]$path,
+            [switch]$ApplyToVm,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
+
+
 
     begin {}
 
     process {
 
-        switch ( $PSCmdlet.ParameterSetName ) {
+        foreach ( $tag in $SecurityTag) {
 
-            'VirtualMachine' {
-                $TagIdentifierStrings = $tag.objectid
-                $vmMoid = $vmobject.ExtensionData.MoRef.Value
+            $TagIdentifierString = $Tag.objectid
 
-                foreach ($TagIdentifierString in $TagIdentifierStrings) {
-                    $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
-                    Write-Progress -activity "Adding Security Tag $($TagIdentifierString) to Virtual Machine $($vmMoid)"
-                    $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
-                    Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed
-                }
+            foreach ( $vm in $VirtualMachine) { 
+                $vmMoid = $vm.ExtensionData.MoRef.Value
 
+                $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
+                Write-Progress -activity "Adding Security Tag $($TagIdentifierString) to Virtual Machine $($vmMoid)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+                Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed
             }
-
-            'SecurityTag' {
-                $TagIdentifierString = $tagobject.objectid
-                $vmMoids = $vm.ExtensionData.MoRef.Value
-
-                foreach ($vmMoid in $vmMoids) {
-                    $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
-                    Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)"
-                    $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
-                    Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed
-
-                }
-            }
-
-            'CsvInput' {
-                $file = Import-Csv $path
-
-                foreach ( $line in $file ) {
-                    $TagIdentifierString = Get-NsxSecurityTag -name $($line.securityTagName)
-                    # Making a huge assumption here that there is only a single VM with that name that we are looking up.
-                    # Will probably need to re-visit this to handle when 2 VMs exist with the same name.
-                    $vmMoid = Get-VM $line.name
-                    $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString.objectId)/vm/$($vmMoid.ExtensionData.MoRef.Value)"
-                    Write-Progress -activity "Adding Security Tag $($TagIdentifierString.objectId) to Virtual Machine $($vmMoid.ExtensionData.MoRef.Value)"
-                    $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
-                    Write-Progress -activity "Adding Security Tag $($TagIdentifierString.objectId) to Virtual Machine $($vmMoid.ExtensionData.MoRef.Value)" -completed
-                }
-
-            }
-
         }
-
     }
 
     end{}
 }
-Export-ModuleMember -Function New-NsxSecurityTagAssignment
+
 
 function Remove-NsxSecurityTagAssignment {
 
@@ -17078,33 +17261,28 @@ function Remove-NsxSecurityTagAssignment {
     This cmdlet assigns is used to remove NSX Security Tags assigned to a virtual machine
 
     .EXAMPLE
-
-    PS C:\> Get-NsxSecurityTag ST-WEB-DMZ | Remove-NsxSecurityTagAssignment -vm (Get-VM Web-01)
-    Removes a security tag assigned to a virtual machine.
+    Get-NsxSecurityTag ST-WEB-DMZ | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment 
+    
+    Gets all assigment of Security Tag ST-WEB-DMZ and removes its assignment from all VMs with confirmation.
 
     .EXAMPLE
+    Get-VM Web01 | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment 
+    
+    Removes all security tags assigned to Web01 virtual machine.
 
-    PS C:\> Get-VM Web01 | Remove-NsxSecurityTagAssignment -tag (Get-NsxSecurityTag ST-WEB-DMZ)
-    Removes a security tag assigned to a virtual machine.
+
 
     #>
-    [CmdLetBinding(DefaultParameterSetName="VirtualMachine")]
+       [CmdLetBinding()]
 
     param (
-        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
-            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$vmobject,
-        [Parameter (Mandatory=$true, ParameterSetName = "VirtualMachine")]
-            [ValidateScript( { Validate-SecurityTag $_ })]
-            [object[]]$tag,
-        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "SecurityTag")]
-            [ValidateScript( { Validate-SecurityTag $_ })]
-            [System.Xml.XmlElement]$tagobject,
-        [Parameter (Mandatory=$true, ParameterSetName = "SecurityTag")]
-            [ValidateScript( { Validate-VirtualMachine $_ })]
-            [object[]]$vm,
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateScript ({ Validate-TagAssignment $_ })]
+            [PSCustomObject]$TagAssignment,
         [Parameter (Mandatory=$false)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17112,77 +17290,33 @@ function Remove-NsxSecurityTagAssignment {
     begin {}
 
     process {
+    
+        if ( $confirm ) { 
+            $message  = "Removing Security Tag $($TagAssignment.SecurityTag.Name) from $($TagAssignment.VirtualMachine.name) may impact desired Security Posture and expose your infrastructure."
+            $question = "Proceed with removal of Security Tag?"
 
-        switch ( $PSCmdlet.ParameterSetName ) {
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
-            'VirtualMachine' {
-                $TagIdentifierStrings = $tag.objectid
-                $vmMoid = $vmobject.ExtensionData.MoRef.Value
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
 
-                foreach ($TagIdentifierString in $TagIdentifierStrings) {
+        } 
+        else { $decision = 0 }
 
-                    if ( $confirm ) { 
-                        $message  = "Removing Security Tag $($tag.Name) from $($vmobject.name) may impact desired Security Posture and expose your infrastructure."
-                        $question = "Proceed with removal of Security Tag $($tag.Name) from $($vmobject.name)?"
+        if ($decision -eq 0) {  
 
-                        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-                        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-                        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-                        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-
-                    } else { $decision = 0 }
-
-                    if ($decision -eq 0) {
-
-                        $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
-                        Write-Progress -activity "Removing Security Tag $($TagIdentifierString) from Virtual Machine $($vmMoid)"
-                        $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                        Write-Progress -activity "Removing Security Tag $TagIdentifierString from Virtual Machine $($vmMoid)" -completed
-
-                    }
-
-                }
-
-            }
-
-            'SecurityTag' {
-                $TagIdentifierString = $tagobject.objectid
-                $vmMoids = $vm.ExtensionData.MoRef.Value
-
-                foreach ($vmMoid in $vmMoids) {
-
-                    if ( $confirm ) {
-                        $message  = "Removing Security Tag $($tagobject.Name) from $($vm.name) may impact desired Security Posture and expose your infrastructure."
-                        $question = "Proceed with removal of Security Tag $($tagobject.Name) from $($vm.name)?"
-
-                        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-                        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-                        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-                        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-
-                    } else { $decision = 0 }
-
-                    if ($decision -eq 0) {
-
-                        $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
-                        Write-Progress -activity "Removing Security Tag $TagIdentifierString from Virtual Machine $($vmMoid)"
-                        $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                        Write-Progress -activity "Removing Security Tag $TagIdentifierString from Virtual Machine $($vmMoid)" -completed
-                    }
-
-                }
-
-            }
-
+            $URI = "/api/2.0/services/securitytags/tag/$($TagAssignment.SecurityTag.ObjectId)/vm/$($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)"
+            Write-Progress -activity "Removing Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            Write-Progress -activity "Adding Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)" -completed
         }
-
     }
+
 
     end{}
 }
-Export-ModuleMember -Function Remove-NsxSecurityTagAssignment
+
 
 function Get-NsxIpSet {
 
@@ -17214,6 +17348,7 @@ function Get-NsxIpSet {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17250,7 +17385,7 @@ function Get-NsxIpSet {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxIpSet
+
 
 function New-NsxIpSet  {
     <#
@@ -17292,6 +17427,7 @@ function New-NsxIpSet  {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17319,7 +17455,7 @@ function New-NsxIpSet  {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxIpSet
+
 
 function Remove-NsxIpSet {
 
@@ -17353,6 +17489,7 @@ function Remove-NsxIpSet {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17393,7 +17530,7 @@ function Remove-NsxIpSet {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxIpSet
+
 
 function Get-NsxMacSet {
 
@@ -17422,6 +17559,7 @@ function Get-NsxMacSet {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17458,7 +17596,7 @@ function Get-NsxMacSet {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxMacSet
+
 
 function New-NsxMacSet  {
     <#
@@ -17494,6 +17632,7 @@ function New-NsxMacSet  {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17521,7 +17660,7 @@ function New-NsxMacSet  {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxMacSet
+
 
 function Remove-NsxMacSet {
 
@@ -17553,6 +17692,7 @@ function Remove-NsxMacSet {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17591,7 +17731,7 @@ function Remove-NsxMacSet {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxMacSet
+
 
 function Get-NsxService {
 
@@ -17632,6 +17772,7 @@ function Get-NsxService {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17719,7 +17860,7 @@ function Get-NsxService {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxService
+
 
 function New-NsxService  {
 
@@ -17772,6 +17913,7 @@ function New-NsxService  {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17803,7 +17945,7 @@ function New-NsxService  {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxService
+
 
 function Remove-NsxService {
 
@@ -17833,6 +17975,7 @@ function Remove-NsxService {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17871,7 +18014,7 @@ function Remove-NsxService {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxService
+
 
 #########
 #########
@@ -18097,6 +18240,7 @@ function Get-NsxFirewallSection {
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$sectionType="layer3sections",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18135,7 +18279,7 @@ function Get-NsxFirewallSection {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxFirewallSection
+
 
 function New-NsxFirewallSection  {
 
@@ -18169,6 +18313,7 @@ function New-NsxFirewallSection  {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18196,7 +18341,7 @@ function New-NsxFirewallSection  {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxFirewallSection
+
 
 function Remove-NsxFirewallSection {
 
@@ -18229,6 +18374,7 @@ function Remove-NsxFirewallSection {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18275,7 +18421,7 @@ function Remove-NsxFirewallSection {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxFirewallSection 
+
 
 function Get-NsxFirewallRule {
 
@@ -18321,6 +18467,7 @@ function Get-NsxFirewallRule {
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18390,7 +18537,7 @@ function Get-NsxFirewallRule {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxFirewallRule
+
 
 function New-NsxFirewallRule  {
 
@@ -18468,6 +18615,7 @@ function New-NsxFirewallRule  {
         [Parameter (Mandatory=$false)]
             [string]$ScopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18559,7 +18707,7 @@ function New-NsxFirewallRule  {
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxFirewallRule
+
 
 
 function Remove-NsxFirewallRule {
@@ -18590,6 +18738,7 @@ function Remove-NsxFirewallRule {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18628,7 +18777,7 @@ function Remove-NsxFirewallRule {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxFirewallRule
+
 
 
 ########
@@ -18682,7 +18831,7 @@ function Get-NsxLoadBalancer {
 
     }      
 }
-Export-ModuleMember -Function Get-NsxLoadBalancer
+
 
 function Set-NsxLoadBalancer {
 
@@ -18720,6 +18869,7 @@ function Set-NsxLoadBalancer {
             [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
             [string]$LogLevel,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18780,7 +18930,7 @@ function Set-NsxLoadBalancer {
     end{
     }
 }
-Export-ModuleMember -Function Set-NsxLoadBalancer
+
 
 function Get-NsxLoadBalancerMonitor {
 
@@ -18845,7 +18995,7 @@ function Get-NsxLoadBalancerMonitor {
     }
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerMonitor
+
 
 function New-NsxLoadBalancerMonitor {
  
@@ -18967,6 +19117,7 @@ function New-NsxLoadBalancerMonitor {
         [Parameter (Mandatory=$false, ParameterSetName="TCP")]
         [Parameter (Mandatory=$false, ParameterSetName="ICMP")]
         [Parameter (Mandatory=$false, ParameterSetName="UDP")]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19056,7 +19207,7 @@ function New-NsxLoadBalancerMonitor {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLoadBalancerMonitor
+
 
 function Remove-NsxLoadBalancerMonitor {
 
@@ -19091,6 +19242,7 @@ function Remove-NsxLoadBalancerMonitor {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$True,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19125,7 +19277,7 @@ function Remove-NsxLoadBalancerMonitor {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLoadBalancerMonitor
+
 
 function Get-NsxLoadBalancerApplicationProfile {
 
@@ -19200,7 +19352,7 @@ function Get-NsxLoadBalancerApplicationProfile {
 
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerApplicationProfile
+
 
 function New-NsxLoadBalancerApplicationProfile {
  
@@ -19261,6 +19413,7 @@ function New-NsxLoadBalancerApplicationProfile {
             [ValidateSet("insert", "prefix", "app")]
             [string]$CookieMode,           
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -19346,7 +19499,7 @@ function New-NsxLoadBalancerApplicationProfile {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLoadBalancerApplicationProfile
+
 
 function Remove-NsxLoadBalancerApplicationProfile {
 
@@ -19384,6 +19537,7 @@ function Remove-NsxLoadBalancerApplicationProfile {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$True,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19419,7 +19573,7 @@ function Remove-NsxLoadBalancerApplicationProfile {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLoadBalancerApplicationProfile
+
 
 function New-NsxLoadBalancerMemberSpec {
 
@@ -19504,7 +19658,7 @@ function New-NsxLoadBalancerMemberSpec {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLoadBalancerMemberSpec
+
 
 function New-NsxLoadBalancerPool {
  
@@ -19571,6 +19725,7 @@ function New-NsxLoadBalancerPool {
             [ValidateScript({ Validate-LoadBalancerMemberSpec $_ })]
             [System.Xml.XmlElement[]]$MemberSpec,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19626,7 +19781,7 @@ function New-NsxLoadBalancerPool {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLoadBalancerPool
+
 
 function Get-NsxLoadBalancerPool {
 
@@ -19697,7 +19852,7 @@ function Get-NsxLoadBalancerPool {
 
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerPool
+
 
 function Remove-NsxLoadBalancerPool {
 
@@ -19733,6 +19888,7 @@ function Remove-NsxLoadBalancerPool {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$True,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19780,7 +19936,7 @@ function Remove-NsxLoadBalancerPool {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLoadBalancerPool
+
 
 function Get-NsxLoadBalancerPoolMember {
 
@@ -19848,7 +20004,7 @@ function Get-NsxLoadBalancerPoolMember {
 
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerPoolMember
+
 
 function Add-NsxLoadBalancerPoolMember {
 
@@ -19903,6 +20059,7 @@ function Add-NsxLoadBalancerPoolMember {
             [ValidateNotNullOrEmpty()]
             [int]$MaximumConnections=0,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19949,7 +20106,7 @@ function Add-NsxLoadBalancerPoolMember {
 
     end {}
 }
-Export-ModuleMember -Function Add-NsxLoadBalancerPoolMember
+
 
 function Remove-NsxLoadBalancerPoolMember {
 
@@ -19985,6 +20142,7 @@ function Remove-NsxLoadBalancerPoolMember {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$True,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20035,7 +20193,7 @@ function Remove-NsxLoadBalancerPoolMember {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLoadBalancerPoolMember
+
 
 function Get-NsxLoadBalancerVip {
 
@@ -20099,7 +20257,7 @@ function Get-NsxLoadBalancerVip {
 
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerVip
+
 
 function Add-NsxLoadBalancerVip {
 
@@ -20174,6 +20332,7 @@ function Add-NsxLoadBalancerVip {
             [ValidateNotNullOrEmpty()]
             [int]$ConnectionRateLimit=0,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -20227,7 +20386,7 @@ function Add-NsxLoadBalancerVip {
 
     end {}
 }
-Export-ModuleMember -Function Add-NsxLoadBalancerVip
+
 
 function Remove-NsxLoadBalancerVip {
 
@@ -20262,6 +20421,7 @@ function Remove-NsxLoadBalancerVip {
         [Parameter (Mandatory=$False)]
             [switch]$Confirm=$True,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20297,7 +20457,7 @@ function Remove-NsxLoadBalancerVip {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLoadBalancerVip
+
 
 
 
@@ -20333,6 +20493,7 @@ function Get-NsxSecurityPolicy {
         [Parameter (Mandatory=$false)]
             [switch]$ShowHidden=$False,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20379,7 +20540,7 @@ function Get-NsxSecurityPolicy {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxSecurityPolicy
+
 
 function Remove-NsxSecurityPolicy {
 
@@ -20414,6 +20575,7 @@ function Remove-NsxSecurityPolicy {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20450,7 +20612,7 @@ function Remove-NsxSecurityPolicy {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSecurityPolicy
+
 
 ########
 ########
@@ -20483,6 +20645,7 @@ function Get-NsxSecurityGroupEffectiveMembers {
             [ValidateNotNull()]
             [System.Xml.XmlElement]$SecurityGroup,
         [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -20537,7 +20700,7 @@ function Get-NsxSecurityGroupEffectiveMembers {
     end {}
 
 }
-Export-ModuleMember -Function Get-NsxSecurityGroupEffectiveMembers
+
 
 
 function Where-NsxVMUsed {
@@ -20667,7 +20830,7 @@ function Where-NsxVMUsed {
     end {}
 
 }
-Export-ModuleMember -Function Where-NsxVMUsed
+
 
 function Get-NsxBackingPortGroup{
 
@@ -20731,7 +20894,7 @@ function Get-NsxBackingPortGroup{
     end {}
 
 }
-Export-ModuleMember -Function Get-NsxBackingPortGroup
+
 
 function Get-NsxBackingDVSwitch{
 
@@ -20795,4 +20958,4 @@ function Get-NsxBackingDVSwitch{
     end {}
 
 }
-Export-ModuleMember -Function Get-NsxBackingDVSwitch
+
