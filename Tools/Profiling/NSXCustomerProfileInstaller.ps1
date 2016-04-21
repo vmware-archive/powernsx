@@ -234,5 +234,6 @@ while ( $UpdateRequired ) {
 write-host -foregroundcolor green "`nRetrieving customer profiling tool.`n"
 $CuProfilingScript_filename = split-path $CuProfilingScript -leaf
 Download-TextFile $CuProfilingScript "$InstallPath\$CuProfilingScript_filename"
-write-host -foregroundcolor green "`nDone.`n"
+write-host -foregroundcolor green "`nExecuting Script and running Setup for the first time.`n"
+& "$InstallPath\$CuProfilingScript_filename" | invoke-expression
 
