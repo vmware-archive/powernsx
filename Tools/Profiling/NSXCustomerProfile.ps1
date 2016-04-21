@@ -29,16 +29,15 @@
 
 param (
 
-    [Parameter (Mandatory=$true, ParameterSetName = "Default")] 
+    [Parameter (Mandatory=$false)] 
         [switch]$Interactive=$True,
-    [Parameter (Mandatory=$true, ParameterSetName = "Setup")]
-        [switch]$Setup
+    [Parameter (Mandatory=$false)]
+        [switch]$Setup=$false
 
 
 )
 
 $InstallPath = "$($env:ProgramData)\VMware\VMware NSX Support Utility"
-$answerfile = "$InstallPath\NSXCustomerProfileAnswers.csv"
 $configFile = "$InstallPath\Config.json"
 $VMwareRecipient = "nbradford@vmware.com"
 
@@ -46,46 +45,55 @@ function new-config {
 
     #Creates and populates the Config File
 
-    write-host "VMware NSX Customer Profiling Tool Setup`n"
+    write-host -ForegroundColor Green "`nVMware NSX Customer Profiling Tool Setup"
 
     if ( test-path $configFile ) { 
-        write-warning "Configuration file $configfile already exists.  Proceeding will overwrite existing configuration."
+        write-warning "`nConfiguration file $configfile already exists.  Proceeding will overwrite existing configuration."
         if ( ( read-host "Continue?" ) -ne "y" ) {
             throw "Setup cancelled"
         }
     }
-    write-host "Configuring NSX and vSphere settings"
-    $NSXManager = Read-Host "NSX Manager IP or FQDN"
-    $NSXUserName = Read-Host "NSX Manager API username (Note:  This is not a vSphere login, and is usually just 'admin')"
-    $NSXPassword = Read-Host -AsSecureString "NSX Manager Password"
-    $VIUserName = Read-Host "vCenter Username"
-    $VIPassword = Read-Host -AsSecureString "vCenter Password"
+    $ConnectionTest = $false
+    while ( -not $ConnectionTest )  { 
 
+        write-host "`n Configuring NSX and vSphere settings`n"
+        $NSXManager = Read-Host "   NSX Manager IP or FQDN"
+        $NSXUserName = Read-Host "   NSX Manager API username (Note:  This is not a vSphere login, and is usually just 'admin')"
+        $NSXPassword = Read-Host -AsSecureString "   NSX Manager Password"
+        $VIUserName = Read-Host "   vCenter Username"
+        $VIPassword = Read-Host -AsSecureString "   vCenter Password"
 
-    write-host "Configuring Email settings"
-    $Smtpserver = Read-Host "  SMTP Server (must allow unauthenticated relay, or credentials of user running script must be allowed to authenticate)"
-    $From = Read-Host "  From Address"
-    $To = Read-Host "  Additional recipients (optional)"
-
-    if ( ( read-host "`nSend test email? (y/n)") -eq "y" ) { 
+        write-host "`n   Testing connection details..." 
         try {
-            send-mailmessage -From $From -To $to, $VMwareRecipient -Smtpserver $Smtpserver -Subject "VMware NSX Customer Profiling Tool Test Email" -Body "Your email settings have been successfully configured."
-        
+            $NsxCredential = new-object -typename System.Management.Automation.PSCredential -argumentlist $NSXUsername, $NSXPassword
+            $ViCredential = new-object -typename System.Management.Automation.PSCredential -argumentlist $VIUserName, $VIPassword
+            $connection = Connect-NsxServer -Server $NSXManager -Credential $NsxCredential -VICred $ViCredential -Defaultconnection:$false -VIDefaultConnection:$false
+            $ConnectionTest = $True
+            disconnect-VIServer $connection.ViConnection -confirm:$false
+
         }
         catch {
-            write-warning "Test email failed to send ($_)."
-            if ( (read-host "Try again?(y/n)" ) -eq "y" ) {
-
-                $Smtpserver = Read-Host "SMTP Server (must allow unauthenticated relay, or credentials of user running script must be allowed to authenticate)"
-                $From = Read-Host "From Address"
-                $To = Read-Host "Additional recipients (optional)"
-            }
-            else {
-                write-warning "Test email failed to send.  Settings may be incorrect."
-            }
+            write-warning "PowerNSX connection failed. ($_)."
         }
     }
 
+    $emailTest = $false
+    while ( -not $EmailTest ) {
+        write-host "`n Configuring Email settings`n"
+        $Smtpserver = Read-Host "  SMTP Server (must allow unauthenticated relay, or credentials of user running script must be allowed to authenticate)"
+        $From = Read-Host "  From Address"
+        $To = Read-Host "  Local recipient (required)"
+
+        write-host "`n   Sending test email..." 
+        try {
+            send-mailmessage -From $From -To $to -Smtpserver $Smtpserver -Subject "VMware NSX Customer Profiling Tool Test Email" -Body "Your email settings have been successfully configured." -ErrorAction Stop
+
+            $EmailTest = $true
+        }
+        catch {
+            write-warning "Test email failed to send ($_)."
+        }
+    }
     
     $outobj = [pscustomobject]@{ 
 
@@ -104,20 +112,21 @@ function new-config {
 
     $outobj | ConvertTo-Json | set-content $configFile
 
+    write-host -ForegroundColor Green "`nSetup completed successfully.  You may rerun setup at any time by specifying the -setup switch."
 }
 
 function Get-Config {
 
-    $inobj = Get-Content $configFile | ConvertFrom-Json
+    $inobj = Get-Content -raw $configFile | ConvertFrom-Json
     if ( -not 
-        ( $_ | Get-Member -MemberType Property -Name nsxmanager) -and
-        ( $_ | Get-Member -MemberType Property -Name smtpserver) -and
-        ( $_ | Get-Member -MemberType Property -Name from) -and
-        ( $_ | Get-Member -MemberType Property -Name to) -and
-        ( $_ | Get-Member -MemberType Property -Name nsxusername) -and
-        ( $_ | Get-Member -MemberType Property -Name nsxpassword) -and
-        ( $_ | Get-Member -MemberType Property -Name viusername) -and
-        ( $_ | Get-Member -MemberType Property -Name vipassword)
+        ( $inobj | Get-Member -MemberType Property -Name nsxmanager) -and
+        ( $inobj | Get-Member -MemberType Property -Name smtpserver) -and
+        ( $inobj | Get-Member -MemberType Property -Name from) -and
+        ( $inobj | Get-Member -MemberType Property -Name to) -and
+        ( $inobj | Get-Member -MemberType Property -Name nsxusername) -and
+        ( $inobj | Get-Member -MemberType Property -Name nsxpassword) -and
+        ( $inobj | Get-Member -MemberType Property -Name viusername) -and
+        ( $inobj | Get-Member -MemberType Property -Name vipassword)
     ) { Throw "Config File content is invalid.  Rerun script with -setup switch to correct."}
 
     $global:NSXManager = $inobj.nsxmanager
@@ -178,19 +187,10 @@ function new-answerfile {
 
 function Get-CustomerProfile {
 
-    write-host
-    write-host  -foregroundColor Green "VMware NSX customer profiling tool"
-    write-host
-    write-host "This tool automates the process of gathering profile information"
-    write-host "about an NSX customer.  It is designed to capture a basic snapshot"
-    write-host "of what NSX features are configured in a given environment.  All reporting is done"
-    write-host "via a CSV file that is generated by the script which can then be provided"
-    write-host "to your friendly VMware NSBU representative."
-    write-host
-    write-host "To provide better context around the information being gathered, some basic"
+
+    write-host "`nTo provide better context around the information being gathered, some basic"
     write-host "free-form questions have to be answered first.  Responses to these will be "
     write-host "saved so future runs of this tool can be completely automatic."
-
 
     #Counter init
     $PreparedHostCount = 0
@@ -597,6 +597,12 @@ function Get-CustomerProfile {
             }
         }
     }
+
+    write-host -ForeGroundColor Green "Collection complete, sending email."
+
+    send-mailmessage -From $From -To $to -Smtpserver $Smtpserver -Subject "VMware NSX Customer Profiling Tool Update - $($Results.CustomerName)" -Body "New profiing results for $($Results.CustomerName)" -ErrorAction Stop -attachments $answerfile
+
+
 }
 
 
@@ -607,20 +613,33 @@ if ( $PSCmdlet.ParameterSetName -eq "Setup" ) {
 }
 else {
 
+    write-host  -foregroundColor Green "`nVMware NSX Customer Profiling Tool"
+    write-host "`nThis tool automates the process of gathering profile information"
+    write-host "about an NSX customer.  It is designed to capture a basic snapshot"
+    write-host "of what NSX features are configured in a given environment.  All reporting is done"
+    write-host "via a CSV file that is generated by the script which is then emailed"
+    write-host "to your friendly VMware NSBU representative."
+
+
     if ( -not (test-path $configFile )) {
+        write-host 
         write-warning "Configuration file missing.  Setup required."
         new-config
     }
 
     try {
         Get-Config 
-        $connection = Connect-NsxServer -Server $NSXManager -Credentials $NsxCredential -VICred $ViCredential
+        write-host -ForegroundColor Green "`nConnecting to NSX Manager and vCenter Server."
+        $connection = Connect-NsxServer -Server $NSXManager -Credential $NsxCredential -VICred $ViCredential
     }
     catch {
         Throw "Unable to connect to NSX.  $_"
     }
+
+    $answerfile = "$InstallPath\CustomerProfileAnswers-$($Connection.Credential.UserName)@$($Connection.Server).csv"
+
     Get-CustomerProfile
-    disconnect-VIServer $connection.ViConnection
+    disconnect-VIServer $connection.ViConnection  -confirm:$false
     disconnect-nsxserver
-     
+
 }
