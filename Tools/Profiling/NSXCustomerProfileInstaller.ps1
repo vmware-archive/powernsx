@@ -36,7 +36,7 @@ $temppath = "$env:temp\VMware\VMware NSX Support Utility Installer"
 $InstallPath = "$($env:ProgramData)\VMware\VMware NSX Support Utility"
 $targetPNSXVersion = New-Object System.Version("2.0.0")
 $repo = "https://bitbucket.org/nbradford/powernsx/raw/Dev"
-$CuProfilingScript = "$repo/Tools/NSXCustomerProfile.ps1"
+$CuProfilingScript = "$repo/Tools/Profiling/NSXCustomerProfile.ps1"
 $PowerNSXInstaller = "$repo/PowerNSXInstaller.ps1"
 
 
