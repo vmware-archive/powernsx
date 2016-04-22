@@ -195,6 +195,9 @@ function new-config {
                 if ( ( read-host "Try again? (y/n)") -ne "y" ) {
                     $TaskSuccess = $True
                 }
+                else { 
+                    $CurrentUserPassword = Read-Host -AsSecureString "  Enter password for $currentUser for scheduled task credentials"
+                }
             }
         }
     }
