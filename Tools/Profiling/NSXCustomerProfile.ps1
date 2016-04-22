@@ -25,7 +25,7 @@
 #SOFTWARE.
 
 #requires -Version 3.0
-#requires -Modules PowerNSX
+#requires -Modules PowerNSX, PSScheduledJob
 
 param (
 
@@ -37,33 +37,68 @@ param (
 
 )
 
+
+#Stuff that should be find for most Environments, but can be changed if really necessary...
 $InstallPath = "$($env:ProgramData)\VMware\VMware NSX Support Utility"
 $configFile = "$InstallPath\Config.json"
+$PowerCLIInitScript = "$(${env:ProgramFiles(x86)})\VMware\Infrastructure\vSphere PowerCLI\Scripts\Initialize-PowerCLIEnvironment.ps1"
+$TaskTimeOfDay = "6am"
+$TaskDayOfWeek = "Sunday"
+
+
+#########################################################################
+# Do not modify below here.
 $VMwareRecipient = "nbradford@vmware.com"
 
 function new-config { 
 
     #Creates and populates the Config File
-
+    write-host -foregroundcolor green "`n##################################################"
     write-host -ForegroundColor Green "`nVMware NSX Customer Profiling Tool Setup"
 
-    if ( test-path $configFile ) { 
-        write-warning "`nConfiguration file $configfile already exists.  Proceeding will overwrite existing configuration."
-        if ( ( read-host "Continue?" ) -ne "y" ) {
+    $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
+
+    write-warning "This setup process will store credentials securely so the Profiling script can be run non-interactively in the future.  All future use of this tool MUST be performed as $currentUser"
+
+    If ( ( read-host "  Continue? (y/n)") -ne "y" ) { 
+        throw "User Cancelled.  Rerun with -setup as desired user."
+    }
+
+    write-host
+
+    if (( Read-Host "  Create Scheduled Task to run profiling script once every week ($TaskTimeOfDay on $TaskDayOfWeek)?") -eq "y" ) {
+
+        if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))) { 
+            throw "Setup must be run as Administrator to create a scheduled task.  Rerun with -setup as an Administrator."
+        }
+        #Remove existing if it exists...
+        Get-ScheduledJob 'VMware NSX Customer Profiling' | Unregister-ScheduledJob
+        $CurrentUserPassword = Read-Host -AsSecureString "  Enter password for $currentUser for scheduled task credentials"
+
+        $CreateTask = $True
+    }
+    else {
+        $CreateTask = $False
+    }
+
+    if ( test-path $configFile ) {
+        write-host 
+        write-warning "Configuration file $configfile already exists.  Proceeding will overwrite existing configuration."
+        if ( ( read-host "  Continue?" ) -ne "y" ) {
             throw "Setup cancelled"
         }
     }
     $ConnectionTest = $false
     while ( -not $ConnectionTest )  { 
 
-        write-host "`n Configuring NSX and vSphere settings`n"
-        $NSXManager = Read-Host "   NSX Manager IP or FQDN"
-        $NSXUserName = Read-Host "   NSX Manager API username (Note:  This is not a vSphere login, and is usually just 'admin')"
-        $NSXPassword = Read-Host -AsSecureString "   NSX Manager Password"
-        $VIUserName = Read-Host "   vCenter Username"
-        $VIPassword = Read-Host -AsSecureString "   vCenter Password"
+        write-host "`nConfiguring NSX and vSphere settings`n"
+        $NSXManager = Read-Host "  NSX Manager IP or FQDN"
+        $NSXUserName = Read-Host "  NSX Manager API username (Note:  This is not a vSphere login, and is usually just 'admin')"
+        $NSXPassword = Read-Host -AsSecureString "  NSX Manager Password"
+        $VIUserName = Read-Host "  vCenter Username"
+        $VIPassword = Read-Host -AsSecureString "  vCenter Password"
 
-        write-host "`n   Testing connection details..." 
+        write-host "`n  Testing connection details..." 
         try {
             $NsxCredential = new-object -typename System.Management.Automation.PSCredential -argumentlist $NSXUsername, $NSXPassword
             $ViCredential = new-object -typename System.Management.Automation.PSCredential -argumentlist $VIUserName, $VIPassword
@@ -79,12 +114,12 @@ function new-config {
 
     $emailTest = $false
     while ( -not $EmailTest ) {
-        write-host "`n Configuring Email settings`n"
+        write-host "`nConfiguring Email settings`n"
         $Smtpserver = Read-Host "  SMTP Server (must allow unauthenticated relay, or credentials of user running script must be allowed to authenticate)"
         $From = Read-Host "  From Address"
         $To = Read-Host "  Local recipient (required)"
 
-        write-host "`n   Sending test email..." 
+        write-host "`n  Sending test email..." 
         try {
             send-mailmessage -From $From -To $to -Smtpserver $Smtpserver -Subject "VMware NSX Customer Profiling Tool Test Email" -Body "Your email settings have been successfully configured." -ErrorAction Stop
 
@@ -111,6 +146,36 @@ function new-config {
     }
 
     $outobj | ConvertTo-Json | set-content $configFile
+
+    if ( $CreateTask ) {
+
+        #Set up Scheduled Task to automate profile gathering
+        $TaskSuccess = $False
+            while ( -not $TaskSuccess ) { 
+            try {
+
+                write-host "`nCreating Scheduled Task`n"
+                $taskCred = new-object -typename System.Management.Automation.PSCredential -argumentlist $CurrentUser, $CurrentUserPassword
+                $command = [ScriptBlock]::Create("& `"$PowerCLIInitScript`"; & `"$($MyInvocation.ScriptName)`" -interactive:`$False")
+                $trigger =  New-JobTrigger -Weekly -At $TaskTimeOfDay -DaysOfWeek $TaskDayOfWeek
+                $job = Register-ScheduledJob -ScriptBlock $command -Trigger $trigger -Name "VMware NSX Customer Profiling" -credential $taskCred
+                $TaskSuccess = $true
+            }
+            catch {
+
+                #Give user option to try again...
+                write-warning "Scheduled Task Creation Failed ($_)."
+                if ( ( read-host "Try again? (y/n)") -ne "y" ) {
+                    $TaskSuccess = $True
+                }
+            }
+        }
+    }
+    else {
+
+        Write-Warning "NSX Profile gathering will not be automatic.  Rerun this script with -setup switch to configure a scheduled task."
+
+    }
 
     write-host -ForegroundColor Green "`nSetup completed successfully.  You may rerun setup at any time by specifying the -setup switch."
 }
@@ -261,7 +326,6 @@ function Get-CustomerProfile {
 
                 switch ( $inkey ) {
 
-    #You broke this shite!
                     "y" { 
                         $results = get-answers
                         
@@ -600,20 +664,21 @@ function Get-CustomerProfile {
 
     write-host -ForeGroundColor Green "Collection complete, sending email."
 
-    send-mailmessage -From $From -To $to -Smtpserver $Smtpserver -Subject "VMware NSX Customer Profiling Tool Update - $($Results.CustomerName)" -Body "New profiing results for $($Results.CustomerName)" -ErrorAction Stop -attachments $answerfile
+    send-mailmessage -From $From -To $to -Smtpserver $Smtpserver -Subject "VMware NSX Customer Profiling Tool Update - $($Results.CustomerName)" -Body "New profiling results for $($Results.CustomerName)" -ErrorAction Stop -attachments $answerfile
 
 
 }
 
 
 
-if ( $PSCmdlet.ParameterSetName -eq "Setup" ) {
+if ( $Setup ) {
     new-config
     
 }
 else {
 
-    write-host  -foregroundColor Green "`nVMware NSX Customer Profiling Tool"
+    write-host -foregroundcolor green "`n##################################################"
+    write-host -foregroundColor Green "`nVMware NSX Customer Profiling Tool"
     write-host "`nThis tool automates the process of gathering profile information"
     write-host "about an NSX customer.  It is designed to capture a basic snapshot"
     write-host "of what NSX features are configured in a given environment.  All reporting is done"
@@ -622,8 +687,7 @@ else {
 
 
     if ( -not (test-path $configFile )) {
-        write-host 
-        write-warning "Configuration file missing.  Setup required."
+        write-host -ForegroundColor Green "`nRunning first time setup...`n"
         new-config
     }
 
