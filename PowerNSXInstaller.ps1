@@ -537,7 +537,7 @@ function init {
         write-host "PowerShell Module directory and run Import-Module PowerNSX from"
         write-host "a PowerCLI session." 
         write-host  
-        break
+        exit 1
     }
     else {
         write-host -ForegroundColor Yellow "Performing automated installation of PowerNSX."
@@ -548,35 +548,35 @@ function init {
 
             write-host -ForegroundColor Yellow "The PowerNSX installer requires Administrative rights."
             write-host -ForegroundColor Yellow "Please restart PowerShell with right click, 'Run As Administrator'"
-            break
+            exit 1
         }
         try {
             check-executionpolicy
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            break
+            exit 1
         }
         try {
             check-powershell
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            break
+            exit 1
         }
         try {
             check-powercli
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            break
+            exit 1
         }
         try {
             check-PowerNSX
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            break
+            exit 1
         }
 
         write-host 
@@ -592,6 +592,7 @@ function init {
         write-host
         write-host -ForegroundColor Green "Enjoy!"
         write-host
+        exit 0
 
     }
 }

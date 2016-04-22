@@ -38,6 +38,7 @@ $targetPNSXVersion = New-Object System.Version("2.0.0")
 $repo = "https://bitbucket.org/nbradford/powernsx/raw/Dev"
 $CuProfilingScript = "$repo/Tools/Profiling/NSXCustomerProfile.ps1"
 $PowerNSXInstaller = "$repo/PowerNSXInstaller.ps1"
+$PowerCLIInitScript = "$(${env:ProgramFiles(x86)})\VMware\Infrastructure\vSphere PowerCLI\Scripts\Initialize-PowerCLIEnvironment.ps1"
 
 
 function Download-TextFile { 
@@ -54,7 +55,7 @@ function Download-TextFile {
 
     write-debug "Download: $source, $destination"
     try {
-        write-progress -Activity "Download $source -> $destination"
+        write-progress -Activity "Downloading file" -Status "$source -> $destination"
         [string]$text = $wc.DownloadString($source)
     }
     catch { 
@@ -73,7 +74,7 @@ function Download-TextFile {
     catch { 
         throw $_ 
     }
-    write-progress -Activity "Download $source -> $destination" -completed
+    write-progress -Activity "Downloading file" -Status "$source -> $destination" -completed
     write-host "Downloaded $destination"
 
 }
@@ -143,11 +144,11 @@ if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsId
 
     write-host -ForegroundColor Yellow "The installer requires Administrative rights."
     write-host -ForegroundColor Yellow "Please restart PowerCLI with right click, 'Run As Administrator'"
-    break
+    exit 1
 }
 
 #Check required PowerCLI assemblies are loaded.
-Check-PowerCliAsemblies
+#Check-PowerCliAsemblies
 
 if ( -not ( test-path $temppath)) { 
     write-host "Creating path $temppath"
@@ -160,7 +161,7 @@ if ( -not (test-path $InstallPath )) {
 }
 
 #Check for PowerNSX
-import-module powernsx -ErrorAction "ignore"
+import-module powernsx -ErrorAction "silentlycontinue"
 if ( -not ( Get-Module PowerNsx )  ) { 
     $version = 0
 }
@@ -182,7 +183,7 @@ else {
 }
 
 while ( $UpdateRequired ) {
-    $PowerNSXInstaller_filename = split-path $PowerNSXInstaller -leaf
+    $PowerNSXInstaller_filename = [System.IO.Path]::GetFileName($PowerNSXInstaller)    
     Download-TextFile $PowerNSXInstaller "$temppath\$PowerNSXInstaller_filename"
     $message = "PowerNSX installation or upgrade required (Current version $version, Required version $targetPNSXVersion.)"
     $question = "Perform install of PowerNSX?"
@@ -196,17 +197,27 @@ while ( $UpdateRequired ) {
     if ( $decision -ne 0 ) { 
         write-host -ForegroundColor Yellow "Automated installation of PowerNSX rejected."
  
-        break
+        exit 1
     }
     else {
 
         invoke-expression '& "$temppath\$PowerNSXInstaller_filename"'
+        if ( $LASTEXITCODE -ne 0 ) { 
+            Write-Warning "PowerNSX Installer did not complete.  Rerun this script to try again." }
+            exit 1
+        }
+        #Assume if we get here, that PowerNSX is installed correctly - which implies PowerCLI should exist.  
+        #invoke the PowerCLI init script to load required modules if its not already loaded.
+        if ( gcm Get-PowerCLIConfiguration -ErrorAction "silentlycontinue" ) { 
+            & "$PowerCLIInitScript"
+        }
 
+        #If an update was done, unload and reload mod to make sure we are using new version.
         if ( Get-Module PowerNsx ) { 
             remove-module PowerNsx
         }
 
-        import-module powernsx -ErrorAction "ignore"
+        import-module powernsx -ErrorAction "silentlycontinue"
         if ( -not ( Get-Module PowerNsx )  ) { 
             $version = 0
         }
