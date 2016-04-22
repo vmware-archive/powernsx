@@ -185,7 +185,7 @@ function new-config {
 
                 #Then create it, which is easy...
                 $trigger =  New-JobTrigger -Weekly -At $TaskTimeOfDay -DaysOfWeek $TaskDayOfWeek
-                $job = Register-ScheduledJob -ScriptBlock $command -Trigger $trigger -Name "VMware NSX Customer Profiling" -credential $taskCred
+                $job = Register-ScheduledJob -ScriptBlock $command -Trigger $trigger -Name "VMware NSX Customer Profiling" -credential $taskCred -ErrorAction Stop
                 $TaskSuccess = $true
             }
             catch {
