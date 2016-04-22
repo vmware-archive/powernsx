@@ -41,6 +41,60 @@ $PowerNSXInstaller = "$repo/PowerNSXInstaller.ps1"
 $PowerCLIInitScript = "$(${env:ProgramFiles(x86)})\VMware\Infrastructure\vSphere PowerCLI\Scripts\Initialize-PowerCLIEnvironment.ps1"
 
 
+function _set-executionpolicy {
+
+    $message  = "Execution Policy Change."
+    $question = "The execution policy helps protect you from scripts that you do not trust.  " + 
+        "Changing the execution policy might expose you to the security risks described in the " + 
+        "about_Execution_Policies help topic. Do you want to change the execution policy?"
+
+    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+    write-host
+
+    if ( $decision -ne 0 ) { 
+        throw "ExecutionPolicy change rejected."
+
+    }
+    else {
+
+        set-executionPolicy "RemoteSigned" -confirm:$false
+        write-host 
+        write-host -ForegroundColor Yellow "Changed ExecutionPolicy to RemoteSigned"
+        write-host   
+    }
+}
+
+function check-executionpolicy {
+
+    write-host -NoNewline "Checking ExecutionPolicy..."
+    switch ( get-executionpolicy){
+
+        "AllSigned" { 
+            write-host -ForegroundColor Yellow "Failed. (Allsigned)"
+            _set-executionpolicy
+
+        }
+        "Restricted" { 
+            write-host -ForegroundColor Yellow "Failed. (Restricted)"
+            _set-executionpolicy
+     
+        }
+        "Default" { 
+            write-host -ForegroundColor Yellow "Failed. (Default)"
+            _set-executionpolicy
+           
+        }
+        default { write-host -ForegroundColor Green "Ok." }
+
+    }
+}
+
+
+
 function Download-TextFile { 
 
     #Stupidly simple text file downloader.
@@ -79,55 +133,6 @@ function Download-TextFile {
 
 }
 
-function Check-PowerCliAsemblies {
-
-    #Checks for known assemblies loaded by PowerCLI.
-    #PowerNSX uses a variety of types, and full operation requires 
-    #extensive PowerCLI usage.  
-    #As of v2, we now _require_ PowerCLI assemblies to be available.
-    #This method works for both PowerCLI 5.5 and 6 (snapin vs module), 
-    #shouldnt be as heavy as loading each required type explicitly to check 
-    #and should function in a modified PowerShell env, as well as normal 
-    #PowerCLI.
-    
-    $RequiredAsm = (
-        "VMware.VimAutomation.ViCore.Cmdlets", 
-        "VMware.Vim",
-        "VMware.VimAutomation.Sdk.Util10Ps",
-        "VMware.VimAutomation.Sdk.Util10",
-        "VMware.VimAutomation.Sdk.Interop",
-        "VMware.VimAutomation.Sdk.Impl",
-        "VMware.VimAutomation.Sdk.Types",
-        "VMware.VimAutomation.ViCore.Types",
-        "VMware.VimAutomation.ViCore.Interop",
-        "VMware.VimAutomation.ViCore.Util10",
-        "VMware.VimAutomation.ViCore.Util10Ps",
-        "VMware.VimAutomation.ViCore.Impl",
-        "VMware.VimAutomation.Vds.Commands",
-        "VMware.VimAutomation.Vds.Impl",
-        "VMware.VimAutomation.Vds.Interop",
-        "VMware.VimAutomation.Vds.Types",
-        "VMware.VimAutomation.Storage.Commands",
-        "VMware.VimAutomation.Storage.Impl",
-        "VMware.VimAutomation.Storage.Types",
-        "VMware.VimAutomation.Storage.Interop",
-        "VMware.DeployAutomation",
-        "VMware.ImageBuilder"
-    )
-
-
-    $CurrentAsmName = foreach( $asm in ([AppDomain]::CurrentDomain.GetAssemblies())) { $asm.getName() } 
-    $CurrentAsmDict = $CurrentAsmName | Group-Object -AsHashTable -Property Name
-
-    foreach( $req in $RequiredAsm ) { 
-
-        if ( -not $CurrentAsmDict.Contains($req) ) { 
-            write-warning "PowerNSX requires PowerCLI."
-            throw "Assembly $req not found.  Some required PowerCli types are not available in this PowerShell session.  Please ensure you are running the installer in a PowerCLI session, or have manually loaded the required assemblies."}
-    }
-}
-
-
 
 ###################################
 # 
@@ -147,8 +152,12 @@ if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsId
     exit 1
 }
 
-#Check required PowerCLI assemblies are loaded.
-#Check-PowerCliAsemblies
+try { 
+    check-executionpolicy
+}
+catch {
+    exit 1
+}
 
 if ( -not ( test-path $temppath)) { 
     write-host "Creating path $temppath"
