@@ -3196,7 +3196,7 @@ function Get-NsxCliDfwFilter {
 
     Param ( 
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
-            #PowerCLI Virtual Machine object
+            #PowerCLI Virtual Machine object.
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
         [Parameter (Mandatory=$False)]
@@ -3250,6 +3250,7 @@ function Get-NsxCliDfwRule {
 
     Param ( 
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            #PowerCLI VirtualMachine object
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
         [Parameter (Mandatory=$False)]
@@ -3322,6 +3323,7 @@ function Get-NsxCliDfwAddrSet {
 
     Param ( 
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            #PowerCLI VirtualMachine object
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
         [Parameter (Mandatory=$False)]
@@ -5999,6 +6001,7 @@ function Get-NsxSpoofguardNic {
                 })]
             [string]$MacAddress,
         [Parameter (Mandatory=$false, ParameterSetName = "VM")]
+            #PowerCLI VirtualMachine object
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
         [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
