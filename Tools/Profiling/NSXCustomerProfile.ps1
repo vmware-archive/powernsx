@@ -52,12 +52,13 @@ $VMwareRecipient = "nbradford@vmware.com"
 
 function new-config { 
 
-    #Creates and populates the Config File
+    #Creates and populates the Config File and registers a scheduled task.
+
     write-host -foregroundcolor green "`n##################################################"
     write-host -ForegroundColor Green "`nVMware NSX Customer Profiling Tool Setup"
 
+    #Storing creds and task creation rely on be able to decrypt the crypted passwords stored in the config file.  We all need to be one happy user for that...
     $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-
     write-warning "This setup process will store credentials securely so the Profiling script can be run non-interactively in the future.  All future use of this tool MUST be performed as $currentUser"
 
     If ( ( read-host "  Continue? (y/n)") -ne "y" ) { 
@@ -66,6 +67,7 @@ function new-config {
 
     write-host
 
+    #Confirm that user wants to create a scheduled task
     if (( Read-Host "  Create Scheduled Task to run profiling script once every week ($TaskTimeOfDay on $TaskDayOfWeek)?") -eq "y" ) {
 
         if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))) { 
@@ -73,8 +75,12 @@ function new-config {
         }
         #Remove existing if it exists...
         Get-ScheduledJob 'VMware NSX Customer Profiling' | Unregister-ScheduledJob
-        $CurrentUserPassword = Read-Host -AsSecureString "  Enter password for $currentUser for scheduled task credentials"
 
+        #Get credentials.  For whatever reason, the script was not executing correctly without it.  TS'ing scheduled task failures is 
+        #one of the more frustrating things Ive had to do this decade...  This particular straw clutch made it work, though I suspect
+        #more because of the action of decrypting passwords from file and converting to securestring objects as simple scheduled tasks
+        #work fine without it...YMMV
+        $CurrentUserPassword = Read-Host -AsSecureString "  Enter password for $currentUser for scheduled task credentials"
         $CreateTask = $True
     }
     else {
@@ -88,6 +94,8 @@ function new-config {
             throw "Setup cancelled"
         }
     }
+
+    #Gather connection details and test connection...
     $ConnectionTest = $false
     while ( -not $ConnectionTest )  { 
 
@@ -112,6 +120,7 @@ function new-config {
         }
     }
 
+    #Gather email details and test with test-email.
     $emailTest = $false
     while ( -not $EmailTest ) {
         write-host "`nConfiguring Email settings`n"
@@ -130,6 +139,7 @@ function new-config {
         }
     }
     
+    #Store configuration in config file.  The Password storage is secured with reversible decryption, meaning any person with access to $currentUser credentials can decrypt.
     $outobj = [pscustomobject]@{ 
 
         "nsxmanager" = $NSXManager;
@@ -147,16 +157,33 @@ function new-config {
 
     $outobj | ConvertTo-Json | set-content $configFile
 
+    #Create a scheduled task if user indicated it...
     if ( $CreateTask ) {
 
-        #Set up Scheduled Task to automate profile gathering
+        #Set up Scheduled Task to automate profile gathering.  Gunna comment the crap outa this, coz it took ages to get working and is not so obvious!  Im sure Ill be back here one day :|
         $TaskSuccess = $False
             while ( -not $TaskSuccess ) { 
             try {
 
                 write-host "`nCreating Scheduled Task`n"
+
+                #Credential seemed to be required - I suspect due to the use of convertto-securestring to import encrypted passwords from file, rather
+                #than being needed to allow the task to run itself...
                 $taskCred = new-object -typename System.Management.Automation.PSCredential -argumentlist $CurrentUser, $CurrentUserPassword
+
+                #Its all in this line...
+                # 1- Command needs to be a scriptblock.  You cant create one with the normal {} otherwise variable expansion is supressed within the braces.
+                # 2 - the & is PoSHes call function.  Run this Sh1t rather than treat it as a string object.
+                # 3 - Need to load PowerCLI env.  Using the init script that comes with PowerCLI is required as technically this would work with PowerCLI 5.5 as well... not tested... Dont want to assume we can just #requires the modules in as 5.5 is snapin based...May work  with initscript param to register-scheduledjob
+                # 4 - The actual scriptnames may contain spaces, and the quotes enclosing them need to be escaped so that they get passed to the actual command block in the task.  The $ before the False needs to be escaped as well so it ends up in the command defn of the task.
+                # 5 - It seems so simple now Im explaining it to myself... :|  Hours...
+                # 6 - If you are trying to TS this crap:
+                #   -  $job = Get-ScheduledJob; $job.command looks like this : & "C:\Program Files (x86)\VMware\Infrastructure\vSphere PowerCLI\Scripts\Initialize-PowerCLIEnvironment.ps1"; & "C:\ProgramData\VMware\VMware NSX Support Utility\NSXCustomerProfile.ps1" -interactive:$False
+                #   - $result = $job.Run() to attempt exec.
+                #   - $result.ChildJobs.jobstateinfo and  $result.ChildJobs.Error are quite enlightening and cant be seen from the Tasks UI...
                 $command = [ScriptBlock]::Create("& `"$PowerCLIInitScript`"; & `"$($MyInvocation.ScriptName)`" -interactive:`$False")
+
+                #Then create it, which is easy...
                 $trigger =  New-JobTrigger -Weekly -At $TaskTimeOfDay -DaysOfWeek $TaskDayOfWeek
                 $job = Register-ScheduledJob -ScriptBlock $command -Trigger $trigger -Name "VMware NSX Customer Profiling" -credential $taskCred
                 $TaskSuccess = $true
@@ -173,7 +200,7 @@ function new-config {
     }
     else {
 
-        Write-Warning "NSX Profile gathering will not be automatic.  Rerun this script with -setup switch to configure a scheduled task."
+        Write-Warning "NSX Profile gathering will not be automatic and VMware will be sad.  Rerun this script with -setup switch to configure a scheduled task to make them happy."
 
     }
 
