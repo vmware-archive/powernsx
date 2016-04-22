@@ -689,11 +689,11 @@ function Get-CustomerProfile {
         }
     }
 
-    write-host -ForeGroundColor Green "Collection complete, sending email."
+    write-host "Collection complete, sending results via email."
 
     send-mailmessage -From $From -To $to -Smtpserver $Smtpserver -Subject "VMware NSX Customer Profiling Tool Update - $($Results.CustomerName)" -Body "New profiling results for $($Results.CustomerName)" -ErrorAction Stop -attachments $answerfile
 
-
+    write-host -ForegroundColor Green "`nVMware NSX Customer Profiling Tool complete.  To run non interactively in future use -Interactive:$false"
 }
 
 
