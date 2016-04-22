@@ -59,7 +59,7 @@ function new-config {
 
     #Storing creds and task creation rely on be able to decrypt the crypted passwords stored in the config file.  We all need to be one happy user for that...
     $CurrentUser = [System.Security.Principal.WindowsIdentity]::GetCurrent().Name
-    write-warning "This setup process will store credentials securely so the Profiling script can be run non-interactively in the future.  All future use of this tool MUST be performed as $currentUser"
+    write-warning "This setup process will store credentials securely so the Profiling script can be run non-interactively in the future.  All future use of this tool MUST be performed as $currentUser."
 
     If ( ( read-host "  Continue? (y/n)") -ne "y" ) { 
         throw "User Cancelled.  Rerun with -setup as desired user."
@@ -68,13 +68,13 @@ function new-config {
     write-host
 
     #Confirm that user wants to create a scheduled task
-    if (( Read-Host "  Create Scheduled Task to run profiling script once every week ($TaskTimeOfDay on $TaskDayOfWeek)?") -eq "y" ) {
+    if (( Read-Host "  Create Scheduled Task to run profiling script once every week ($TaskTimeOfDay on $TaskDayOfWeek)? (y/n)") -eq "y" ) {
 
         if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole([Security.Principal.WindowsBuiltInRole] "Administrator"))) { 
             throw "Setup must be run as Administrator to create a scheduled task.  Rerun with -setup as an Administrator."
         }
         #Remove existing if it exists...
-        Get-ScheduledJob 'VMware NSX Customer Profiling' | Unregister-ScheduledJob
+        Get-ScheduledJob 'VMware NSX Customer Profiling' -erroraction ignore | Unregister-ScheduledJob
 
         #Get credentials.  For whatever reason, the script was not executing correctly without it.  TS'ing scheduled task failures is 
         #one of the more frustrating things Ive had to do this decade...  This particular straw clutch made it work, though I suspect
@@ -90,7 +90,7 @@ function new-config {
     if ( test-path $configFile ) {
         write-host 
         write-warning "Configuration file $configfile already exists.  Proceeding will overwrite existing configuration."
-        if ( ( read-host "  Continue?" ) -ne "y" ) {
+        if ( ( read-host "  Continue? (y/n)" ) -ne "y" ) {
             throw "Setup cancelled"
         }
     }
@@ -175,7 +175,7 @@ function new-config {
                 # 1- Command needs to be a scriptblock.  You cant create one with the normal {} otherwise variable expansion is supressed within the braces.
                 # 2 - the & is PoSHes call function.  Run this Sh1t rather than treat it as a string object.
                 # 3 - Need to load PowerCLI env.  Using the init script that comes with PowerCLI is required as technically this would work with PowerCLI 5.5 as well... not tested... Dont want to assume we can just #requires the modules in as 5.5 is snapin based...May work  with initscript param to register-scheduledjob
-                # 4 - The actual scriptnames may contain spaces, and the quotes enclosing them need to be escaped so that they get passed to the actual command block in the task.  The $ before the False needs to be escaped as well so it ends up in the command defn of the task.
+                # 4 - The actual scriptnames may contain spaces, and the quotes enclosing them need to be escaped so that they get passed to the actual command block in the resulting task.  The $ before the False needs to be escaped as well so it ends up there too.
                 # 5 - It seems so simple now Im explaining it to myself... :|  Hours...
                 # 6 - If you are trying to TS this crap:
                 #   -  $job = Get-ScheduledJob; $job.command looks like this : & "C:\Program Files (x86)\VMware\Infrastructure\vSphere PowerCLI\Scripts\Initialize-PowerCLIEnvironment.ps1"; & "C:\ProgramData\VMware\VMware NSX Support Utility\NSXCustomerProfile.ps1" -interactive:$False
