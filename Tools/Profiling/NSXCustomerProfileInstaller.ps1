@@ -556,10 +556,8 @@ function install-powernsx {
         check-powershell
         check-powercli
         check-PowerNSX
-        
-        write-host -ForegroundColor Green "`nPowerNSX installation complete.`n"
 
-        exit 0
+        write-host -ForegroundColor Green "`nPowerNSX installation complete.`n"
 
     }
 }
