@@ -197,7 +197,7 @@ function install-wmf($version, $uri) {
     }
     else {
         restart-computer
-        exit
+        exit 1
     } 
 }
 
@@ -480,7 +480,7 @@ function _set-executionpolicy {
 
 function check-executionpolicy {
 
-write-host -NoNewline "Checking ExecutionPolicy..."
+    write-host -NoNewline "Checking ExecutionPolicy..."
     switch ( get-executionpolicy){
 
         "AllSigned" { 
