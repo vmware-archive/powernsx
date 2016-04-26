@@ -206,14 +206,14 @@ while ( $UpdateRequired ) {
     if ( $decision -ne 0 ) { 
         write-host -ForegroundColor Yellow "Automated installation of PowerNSX rejected."
  
-        exit 1
+        break
     }
     else {
 
         invoke-expression '& "$temppath\$PowerNSXInstaller_filename"'
         if ( $LASTEXITCODE -ne 0 ) { 
             Write-Warning "PowerNSX Installation not complete.  Rerun me to try again." 
-            exit 1
+            break
         }
         #Assume if we get here, that PowerNSX is installed correctly - which implies PowerCLI should exist.  
         #invoke the PowerCLI init script to load required modules if its not already loaded.
@@ -249,11 +249,13 @@ while ( $UpdateRequired ) {
     }
 }
 
+if ( -not $UpdateRequired ) {    
+    #Only continue once PowerNSX is installed..
+    #Get the profiling script.
+    write-host -foregroundcolor green "`nRetrieving customer profiling tool.`n"
+    $CuProfilingScript_filename = split-path $CuProfilingScript -leaf
+    Download-TextFile $CuProfilingScript "$InstallPath\$CuProfilingScript_filename"
+    write-host -foregroundcolor green "`nExecuting Script and running Setup for the first time.`n"
+    & "$InstallPath\$CuProfilingScript_filename" | invoke-expression
 
-#Get the profiling script.
-write-host -foregroundcolor green "`nRetrieving customer profiling tool.`n"
-$CuProfilingScript_filename = split-path $CuProfilingScript -leaf
-Download-TextFile $CuProfilingScript "$InstallPath\$CuProfilingScript_filename"
-write-host -foregroundcolor green "`nExecuting Script and running Setup for the first time.`n"
-& "$InstallPath\$CuProfilingScript_filename" | invoke-expression
-
+}
