@@ -237,7 +237,7 @@ if ( -not (test-path $InstallPath )) {
 #         $UpdateRequired = $false
 #     }
 # }
-
+$UpdateRequired = $true
 while ( $UpdateRequired ) {
     $PowerNSXInstaller_filename = [System.IO.Path]::GetFileName($PowerNSXInstaller)    
     Download-TextFile $PowerNSXInstaller "$temppath\$PowerNSXInstaller_filename"
