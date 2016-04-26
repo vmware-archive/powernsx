@@ -205,15 +205,14 @@ while ( $UpdateRequired ) {
 
     if ( $decision -ne 0 ) { 
         write-host -ForegroundColor Yellow "Automated installation of PowerNSX rejected."
- 
-        break
+        exit 1
     }
     else {
 
         invoke-expression '& "$temppath\$PowerNSXInstaller_filename"'
         if ( $LASTEXITCODE -ne 0 ) { 
             Write-Warning "PowerNSX Installation not complete.  Rerun me to try again." 
-            break
+            exit 1
         }
         #Assume if we get here, that PowerNSX is installed correctly - which implies PowerCLI should exist.  
         #invoke the PowerCLI init script to load required modules if its not already loaded.
