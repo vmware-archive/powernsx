@@ -698,18 +698,17 @@ do {
         Write-Warning "PowerNSX Installation not complete.  Rerun me to try again." 
         return
     }
-    else { 
 
-        #We know now that PowerCLI is installed.   Need to get user over to it...
-        try { 
-            Check-PowerCliAsemblies 
-        }
-        catch {
 
-            write-warning "Please relaunch this installer in a PowerCLI session to continue."
-            return
-        }
-    } 
+    #We know now that PowerCLI is installed.   Need to get user over to it...
+    try { 
+        Check-PowerCliAsemblies 
+    }
+    catch {
+
+        write-warning "Please relaunch this installer in a PowerCLI session to continue."
+        return
+    }
 
     #If an update was done, unload and reload mod to make sure we are using new version.
     if ( Get-Module PowerNsx ) { 
