@@ -216,94 +216,83 @@ if ( -not (test-path $InstallPath )) {
     New-Item -Type Directory -Path $InstallPath | out-null
 }
 
-#Check for PowerNSX
-import-module powernsx -ErrorAction "silentlycontinue"
-if ( -not ( Get-Module PowerNsx )  ) { 
-    $version = 0
-}
-else { 
-    $version = (Get-PowerNsxVersion).Version
-}
+# #Check for PowerNSX
+# import-module powernsx -ErrorAction "silentlycontinue"
+# if ( -not ( Get-Module PowerNsx )  ) { 
+#     $version = 0
+# }
+# else { 
+#     $version = (Get-PowerNsxVersion).Version
+# }
 
-#Upgrade / Install if required.  Temp hack to deal with the supid v1 string...
-if ( -not ($version -is [System.Version] )) { 
-    $UpdateRequired = $true
-}
-else { 
-    if ( $version.CompareTo($targetPNSXVersion) -lt 0 ) {
-        $UpdateRequired = $true
-    }
-    else {
-        $UpdateRequired = $false
-    }
-}
+# #Upgrade / Install if required.  Temp hack to deal with the supid v1 string...
+# if ( -not ($version -is [System.Version] )) { 
+#     $UpdateRequired = $true
+# }
+# else { 
+#     if ( $version.CompareTo($targetPNSXVersion) -lt 0 ) {
+#         $UpdateRequired = $true
+#     }
+#     else {
+#         $UpdateRequired = $false
+#     }
+# }
 
 while ( $UpdateRequired ) {
     $PowerNSXInstaller_filename = [System.IO.Path]::GetFileName($PowerNSXInstaller)    
     Download-TextFile $PowerNSXInstaller "$temppath\$PowerNSXInstaller_filename"
-    $message = "PowerNSX installation or upgrade required (Current version $version, Required version $targetPNSXVersion.)"
-    $question = "Perform install of PowerNSX?"
-    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+    $message = ""
 
-    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-    write-host
 
-    if ( $decision -ne 0 ) { 
-        write-host -ForegroundColor Yellow "Automated installation of PowerNSX rejected."
+    invoke-expression '& "$temppath\$PowerNSXInstaller_filename"'
+    if ( $LASTEXITCODE -ne 0 ) { 
+        Write-Warning "PowerNSX Installation not complete.  Rerun me to try again." 
         exit 1
     }
-    else {
+    else { 
 
-        invoke-expression '& "$temppath\$PowerNSXInstaller_filename"'
-        if ( $LASTEXITCODE -ne 0 ) { 
-            Write-Warning "PowerNSX Installation not complete.  Rerun me to try again." 
+        #We know now that PowerCLI is installed.   Need to get user over to it...
+        try { 
+            Check-PowerCliAsemblies 
+        }
+        catch {
+
+            write-warning "Please relaunch this installer in a PowerCLI session to continue."
             exit 1
         }
-        else { 
+    } 
 
-            #We know now that PowerCLI is installed.   Need to get user over to it...
-            try { 
-                Check-PowerCliAsemblies 
-            }
-            catch {
+    #Assume if we get here, that PowerNSX is installed correctly - which implies PowerCLI should exist.  
+    #invoke the PowerCLI init script to load required modules if its not already loaded.
+    if ( gcm Get-PowerCLIConfiguration -ErrorAction "silentlycontinue" ) { 
+        & "$PowerCLIInitScript"
+    }
 
-                write-warning "Please relaunch this installer in a PowerCLI session to continue."
-                exit 1
-            }
-        } 
+    #If an update was done, unload and reload mod to make sure we are using new version.
+    if ( Get-Module PowerNsx ) { 
+        remove-module PowerNsx
+    }
 
-        #Assume if we get here, that PowerNSX is installed correctly - which implies PowerCLI should exist.  
-        #invoke the PowerCLI init script to load required modules if its not already loaded.
-        if ( gcm Get-PowerCLIConfiguration -ErrorAction "silentlycontinue" ) { 
-            & "$PowerCLIInitScript"
-        }
+    import-module powernsx -ErrorAction "silentlycontinue"
+    if ( -not ( Get-Module PowerNsx )  ) { 
+        $version = 0
+    }
+    else { 
+        $version = (Get-PowerNsxVersion).Version
+    }
 
-        #If an update was done, unload and reload mod to make sure we are using new version.
-        if ( Get-Module PowerNsx ) { 
-            remove-module PowerNsx
-        }
-
-        import-module powernsx -ErrorAction "silentlycontinue"
-        if ( -not ( Get-Module PowerNsx )  ) { 
-            $version = 0
-        }
-        else { 
-            $version = (Get-PowerNsxVersion).Version
-        }
-
-        #Upgrade / Install if required.  Temp hack to deal with the supid v1 string...
-        if ( -not ($version -is [System.Version] )) { 
+    #Upgrade / Install if required.  Temp hack to deal with the supid v1 string...
+    if ( -not ($version -is [System.Version] )) { 
+        $UpdateRequired = $true
+        Write-Host "PowerNSX installation or upgrade required (Current version $version, Required version $targetPNSXVersion.)"
+    }
+    else { 
+        if ( $version.CompareTo($targetPNSXVersion) -lt 0 ) {
             $UpdateRequired = $true
+            Write-Host "PowerNSX installation or upgrade required (Current version $version, Required version $targetPNSXVersion.)"
         }
-        else { 
-            if ( $version.CompareTo($targetPNSXVersion) -lt 0 ) {
-                $UpdateRequired = $true
-            }
-            else {
-                $UpdateRequired = $false
-            }
+        else {
+            $UpdateRequired = $false
         }
     }
 }
