@@ -668,14 +668,14 @@ if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsId
 
     write-host -ForegroundColor Yellow "The installer requires Administrative rights."
     write-host -ForegroundColor Yellow "Please restart PowerCLI with right click, 'Run As Administrator'"
-    exit 1
+    return
 }
 
 try { 
     check-executionpolicy
 }
 catch {
-    exit 1
+    return
 }
 
 if ( -not ( test-path $temppath)) { 
@@ -696,7 +696,7 @@ do {
     }
     catch { 
         Write-Warning "PowerNSX Installation not complete.  Rerun me to try again." 
-        break
+        return
     }
     else { 
 
@@ -707,7 +707,7 @@ do {
         catch {
 
             write-warning "Please relaunch this installer in a PowerCLI session to continue."
-            exit 1
+            return
         }
     } 
 
