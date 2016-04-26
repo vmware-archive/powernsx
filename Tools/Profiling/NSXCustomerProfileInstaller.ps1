@@ -131,7 +131,6 @@ function Download-TextFile {
 
 }
 
-
 function Check-PowerCliAsemblies {
 
     #Checks for known assemblies loaded by PowerCLI.
@@ -216,32 +215,11 @@ if ( -not (test-path $InstallPath )) {
     New-Item -Type Directory -Path $InstallPath | out-null
 }
 
-# #Check for PowerNSX
-# import-module powernsx -ErrorAction "silentlycontinue"
-# if ( -not ( Get-Module PowerNsx )  ) { 
-#     $version = 0
-# }
-# else { 
-#     $version = (Get-PowerNsxVersion).Version
-# }
 
-# #Upgrade / Install if required.  Temp hack to deal with the supid v1 string...
-# if ( -not ($version -is [System.Version] )) { 
-#     $UpdateRequired = $true
-# }
-# else { 
-#     if ( $version.CompareTo($targetPNSXVersion) -lt 0 ) {
-#         $UpdateRequired = $true
-#     }
-#     else {
-#         $UpdateRequired = $false
-#     }
-# }
-$UpdateRequired = $true
-while ( $UpdateRequired ) {
+do {
     $PowerNSXInstaller_filename = [System.IO.Path]::GetFileName($PowerNSXInstaller)    
     Download-TextFile $PowerNSXInstaller "$temppath\$PowerNSXInstaller_filename"
-    $message = "Launching PowerNSX Installer to check for Updates"
+    write-warning "Launching PowerNSX Installer to check for Updates"
     invoke-expression '& "$temppath\$PowerNSXInstaller_filename"'
     if ( $LASTEXITCODE -ne 0 ) { 
         Write-Warning "PowerNSX Installation not complete.  Rerun me to try again." 
@@ -293,7 +271,7 @@ while ( $UpdateRequired ) {
             $UpdateRequired = $false
         }
     }
-}
+} while ( $UpdateRequired ) 
 
 if ( -not $UpdateRequired ) {    
     #Only continue once PowerNSX is installed..
