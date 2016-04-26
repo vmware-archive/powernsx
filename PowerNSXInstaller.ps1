@@ -197,7 +197,7 @@ function install-wmf($version, $uri) {
     }
     else {
         restart-computer
-        exit 1
+        return
     } 
 }
 
@@ -537,7 +537,7 @@ function init {
         write-host "PowerShell Module directory and run Import-Module PowerNSX from"
         write-host "a PowerCLI session." 
         write-host  
-        exit 1
+        return
     }
     else {
         write-host -ForegroundColor Yellow "Performing automated installation of PowerNSX."
@@ -548,35 +548,35 @@ function init {
 
             write-host -ForegroundColor Yellow "The PowerNSX installer requires Administrative rights."
             write-host -ForegroundColor Yellow "Please restart PowerShell with right click, 'Run As Administrator'"
-            exit 1
+            return
         }
         try {
             check-executionpolicy
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            exit 1
+            return
         }
         try {
             check-powershell
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            exit 1
+            return
         }
         try {
             check-powercli
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            exit 1
+            return
         }
         try {
             check-PowerNSX
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            exit 1
+            return
         }
 
         write-host 
@@ -592,7 +592,7 @@ function init {
         write-host
         write-host -ForegroundColor Green "Enjoy!"
         write-host
-        exit 0
+        return
 
     }
 }
