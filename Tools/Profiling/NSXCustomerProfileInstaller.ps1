@@ -241,9 +241,7 @@ $UpdateRequired = $true
 while ( $UpdateRequired ) {
     $PowerNSXInstaller_filename = [System.IO.Path]::GetFileName($PowerNSXInstaller)    
     Download-TextFile $PowerNSXInstaller "$temppath\$PowerNSXInstaller_filename"
-    $message = ""
-
-
+    $message = "Launching PowerNSX Installer to check for Updates"
     invoke-expression '& "$temppath\$PowerNSXInstaller_filename"'
     if ( $LASTEXITCODE -ne 0 ) { 
         Write-Warning "PowerNSX Installation not complete.  Rerun me to try again." 
