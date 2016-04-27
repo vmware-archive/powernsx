@@ -5285,13 +5285,14 @@ function Get-NsxLogicalSwitch {
  
     param (
 
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
+        [Parameter (Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$vdnScope,
         [Parameter (Mandatory=$false,Position=1)]
             [string]$name,
         [Parameter (Mandatory=$true,ParameterSetName="virtualWire")]
             [ValidateNotNullOrEmpty()]
+            [alias("objectId")]
             [string]$virtualWireId,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -5318,7 +5319,12 @@ function Get-NsxLogicalSwitch {
             
             #Getting all LS in a given VDNScope
             $lspagesize = 10        
-            $URI = "/api/2.0/vdn/scopes/$($vdnScope.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
+            if ( $PSBoundParameters.ContainsKey('vndScope')) { 
+                $URI = "/api/2.0/vdn/scopes/$($vdnScope.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
+            }
+            else { 
+                $URI = "/api/2.0/vdn/virtualwires?pagesize=$lspagesize&startindex=00"
+            }
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
             $logicalSwitches = @()
