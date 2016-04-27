@@ -48,7 +48,7 @@ $TaskDayOfWeek = "Sunday"
 
 #########################################################################
 # Do not modify below here.
-$VMwareRecipient = "nbradford@vmware.com"
+$VMwareRecipient = "NSBU-Customer-Profile@vmware.com"
 
 function new-config { 
 
