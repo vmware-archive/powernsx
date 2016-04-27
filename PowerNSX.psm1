@@ -3077,18 +3077,19 @@ function Update-PowerNsx {
     try { 
         $wc = new-object Net.WebClient
         $scr = try { 
-            $wc.DownloadString($url) 
+            $filename = split-path $url -leaf
+            $wc.Downloadfile($url, "$($env:Temp)\$filename") 
         } 
         catch { 
             if ( $_.exception.innerexception -match "(407)") { 
                 $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"
-                $wc.DownloadString($url) 
+                $wc.Downloadfile($url, "$($env:Temp)\$filename") 
             } 
             else { 
                 throw $_ 
             }
         }
-        $scr | iex 
+        invoke-expression "& `"$($env:Temp)\$filename`" -Upgrade"
     } 
     catch { 
         throw $_ 
