@@ -3039,6 +3039,67 @@ function Get-PowerNsxVersion {
     Get-Module PowerNsx | select version, path, author, companyName 
 }
 
+function Update-PowerNsx {
+    
+    <#
+    .SYNOPSIS
+    Updates PowerNSX to the latest version available in the specified branch.
+    
+    .EXAMPLE
+    Update-PowerNSX -Branch Dev
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory = $True, Position=1)]
+            #Valid Branches supported for upgrading to.
+            [ValidateSet("Dev")]
+            [string]$Branch
+    )
+
+    
+    if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+        [Security.Principal.WindowsBuiltInRole] "Administrator"))) { 
+
+        write-host -ForegroundColor Yellow "Update-PowerNsx requires Administrative rights."
+        write-host -ForegroundColor Yellow "Please restart PowerCLI with right click, 'Run As Administrator' and try again."
+        return
+    }
+
+    if ( $Branch = "Dev" ) {
+        write-warning "Updating to latest Dev branch commit.  Stability is not guaranteed."
+    }
+
+    #Installer doesnt play nice in strict mode...
+    set-strictmode -Off
+    $url="https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSXInstaller.ps1"
+    try { 
+        $wc = new-object Net.WebClient
+        $scr = try { 
+            $wc.DownloadString($url) 
+        } 
+        catch { 
+            if ( $_.exception.innerexception -match "(407)") { 
+                $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"
+                $wc.DownloadString($url) 
+            } 
+            else { 
+                throw $_ 
+            }
+        }
+        $scr | iex 
+    } 
+    catch { 
+        throw $_ 
+    }
+
+    Remove-Module PowerNSX
+    Import-Module PowerNSX
+
+    set-strictmode -Version Latest
+}
+
 #########
 #########
 # Infra functions
