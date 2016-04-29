@@ -5198,7 +5198,7 @@ function New-NsxTransportZone {
         [Parameter (Mandatory=$true)]
             [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl[]]$Cluster,
         [Parameter (Mandatory=$true)]
-            [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE")]
+            [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE",IgnoreCase=$false)]
             [string]$ControlPlaneMode,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
