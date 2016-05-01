@@ -5484,7 +5484,7 @@ function New-NsxLogicalSwitch  {
         [Parameter (Mandatory=$false)]
             [string]$TenantId = "",
         [Parameter (Mandatory=$false)]
-            [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE")]
+            [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE",IgnoreCase=$false)]
             [string]$ControlPlaneMode,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
