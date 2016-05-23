@@ -98,7 +98,7 @@ write-host "`nSecurity Tags Added"
 $vm1 | Get-NsxSecurityTagAssignment | select name,securitytagname
 
 write-host "`nSecurity Tags Removed"
-$vm1 | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment -confirm:$false
+$vm1 | Get-NsxSecurityTagAssignment | Remove-NsxSecurityTagAssignment -confirm:$false
 $vm1 | Get-NsxSecurityTagAssignment | select name,securitytagname
 
 write-host "`n--- End Test 4 ---"
@@ -112,7 +112,7 @@ write-host "`nSecurity Tags before"
 $vm1,$vm2 | Get-NsxSecurityTagAssignment | select name,securitytagname
 
 write-host "`nSecurity Tags Added"
-$vm1,$vm2 | New-NsxSecurityTagAssignment -ApplTag -SecurityTag ( Get-NsxSecurityTag $testSTName2 )
+$vm1,$vm2 | New-NsxSecurityTagAssignment -ApplyTag -SecurityTag ( Get-NsxSecurityTag $testSTName2 )
 $vm1,$vm2 | Get-NsxSecurityTagAssignment | select name,securitytagname
 
 write-host "`nSecurity Tags Removed"
