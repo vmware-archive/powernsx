@@ -17275,7 +17275,7 @@ function Get-NsxSecurityTagAssignment {
                 # 'Ill be back...''
                 $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
                 Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)"
-                Get-NsxSecurityTag -connection $connection | Get-NsxSecurityTagAssignment -connection $connection | Where-Object {$_.vm.objectId -eq $($vmMoid)}
+                Get-NsxSecurityTag -connection $connection | Get-NsxSecurityTagAssignment -connection $connection | Where-Object {($_.VirtualMachine.id -replace "VirtualMachine-","") -eq $($vmMoid)}
             }
         }
     }
