@@ -5466,8 +5466,12 @@ function Get-NsxLogicalSwitch {
                     if ( [int]$paginginfo.totalcount -gt $itemIndex) {
                         write-debug "$($MyInvocation.MyCommand.Name) : PagingInfo: PageSize: $($pagingInfo.PageSize), StartIndex: $($paginginfo.startIndex), TotalCount: $($paginginfo.totalcount)"
                         $startingIndex += $lspagesize
-                        $URI = "/api/2.0/vdn/scopes/$($vdnScope.objectId)/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
-                
+                        if ( $PSBoundParameters.ContainsKey('vndScope')) { 
+                            $URI = "/api/2.0/vdn/scopes/$($vdnScope.objectId)/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
+                        }
+                        else {
+                            $URI = "/api/2.0/vdn/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
+                        }
                         $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                         $pagingInfo = $response.virtualWires.dataPage.pagingInfo
                     

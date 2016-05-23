@@ -10,19 +10,11 @@ $testVMName2 = "STapp02"
 $testSTName1 = "testST1"
 $testSTName2 = "testST2"
 
-$TestVm1 = $vm1
-$TestVm2 = $vm2
-
 $testST1 = Get-NsxSecurityTag $testSTName1
 $testST2 = Get-NsxSecurityTag $testSTName2
 
-If ( -not $TestVM1 ) { 
-    $vm1 = new-vm -name $testVMName1 -ResourcePool ( Get-Cluster $Cluster | Get-ResourcePool Resources)
-}
-
-If ( -not $TestVM2 ) { 
-    $vm2 = new-vm -name $testVMName2 -ResourcePool ( Get-Cluster $Cluster | Get-ResourcePool Resources)
-}
+$vm1 = new-vm -name $testVMName1 -ResourcePool ( Get-Cluster $Cluster | Get-ResourcePool Resources)
+$vm2 = new-vm -name $testVMName2 -ResourcePool ( Get-Cluster $Cluster | Get-ResourcePool Resources)
 
 if ( -not $testST1) {
     $testST1 = New-NsxSecurityTag $testSTName1

@@ -1,7 +1,9 @@
 
-$cluster = "Mgmtmgmt01"
-$testvm = "app01"
+$cluster = "Mgmt01"
+$testvm = "miscapp01"
 $testlsname = "TestLs1"
+
+$vm1 = new-vm -name $testVMName1 -ResourcePool ( Get-Cluster $Cluster | Get-ResourcePool Resources)
 
 Get-Cluster $cluster | Get-NsxClusterStatus
 
