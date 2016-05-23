@@ -1,5 +1,5 @@
 
-$cluster = "mgmt01"
+$cluster = "Mgmtmgmt01"
 $testvm = "app01"
 $testlsname = "TestLs1"
 

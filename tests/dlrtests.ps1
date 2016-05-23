@@ -1,8 +1,8 @@
 #Spins up a test DLR and exercises all DLR cmdlet functionality
 
 #Setup
-$cl = get-cluster mgmt01
-$ds = get-datastore Data
+$cl = get-cluster Mgmt01
+$ds = get-datastore MgmtData
 
 $name = "testlr"
 $ls1_name = "dlrtest_LS1"

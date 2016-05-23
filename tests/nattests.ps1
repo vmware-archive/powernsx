@@ -2,7 +2,7 @@
 
 
 $cl = get-cluster mgmt01
-$ds = get-datastore Data
+$ds = get-datastore MgmtData
 
 #Create one
 $name = "nattest"

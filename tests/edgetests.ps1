@@ -1,7 +1,7 @@
 ##Spins up a test ESG and exercises all edge cmdlet functionality
 
 $cl = get-cluster mgmt01
-$ds = get-datastore Data
+$ds = get-datastore MgmtData
 
 #Create one
 $name = "esgtest"
@@ -21,7 +21,7 @@ $ip4 = "4.4.4.4"
 $ip5 = "5.5.5.5"
 $ip6 = "6.6.6.6"
 
-$vdswitch_name = "mgmt_transit"
+$vdswitch_name = "Mgt_Trans_Vds"
 
 $dgaddress = "1.1.1.254"
 $staticroutenet = "20.20.20.0/24"

@@ -598,8 +598,7 @@ Function Validate-LogicalSwitchOrDistributedPortGroup {
     )      
 
     if (-not (
-        ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
-        ($argument -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) -or
+        ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] ) -or
         ($argument -is [System.Xml.XmlElement] )))
     { 
         throw "Must specify a distributed port group or a logical switch" 
@@ -637,9 +636,7 @@ Function Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup {
     )      
 
     if (-not (
-        ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
-        ($argument -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) -or
-        ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.VirtualPortGroupImpl] ) -or
+        ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupBaseInterop] ) -or
         ($argument -is [System.Xml.XmlElement] )))
     { 
         throw "Must specify a distributed port group, logical switch or standard port group" 
@@ -755,9 +752,7 @@ Function Validate-DistributedSwitch {
         [object]$argument
     )      
 
-    if (-not (
-        ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedSwitchImpl] ) -or
-        ($argument -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] )))
+    if (-not ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedSwitchInterop] ))
     { 
         throw "Must specify a distributed switch" 
     } 
@@ -1753,13 +1748,12 @@ Function Validate-SecurityGroupMember {
     #Check types first - This is not 100% complete at this point!
     if (-not (
          ($argument -is [System.Xml.XmlElement]) -or 
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.DatacenterImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.VirtualPortGroupImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter] ))) {
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.DatacenterInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupBaseInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ))) {
 
             throw "Member is not a supported type.  Specify a Datacenter, Cluster, `
             DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
@@ -1832,14 +1826,13 @@ Function Validate-FirewallAppliedTo {
     #Check types first
     if (-not (
          ($argument -is [System.Xml.XmlElement]) -or 
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.DatacenterImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VMHostImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.VirtualPortGroupImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter] ))) {
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.DatacenterInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VMHostInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupBaseInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ))) {
 
             throw "$($_.gettype()) is not a supported type.  Specify a Datacenter, Cluster, Host `
             DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
@@ -3135,7 +3128,7 @@ function Get-NsxClusterStatus {
         [Parameter ( Mandatory=$true,ValueFromPipeline=$true)]
             #Cluster Object to retreive status details for.
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -3260,7 +3253,7 @@ function Get-NsxCliDfwFilter {
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
             #PowerCLI Virtual Machine object.
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -3314,7 +3307,7 @@ function Get-NsxCliDfwRule {
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
             #PowerCLI VirtualMachine object
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -3387,7 +3380,7 @@ function Get-NsxCliDfwAddrSet {
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
             #PowerCLI VirtualMachine object
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -3430,7 +3423,7 @@ function Get-NsxHostUvsmLogging {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VMHostImpl]$VMHost,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VMHostInterop]$VMHost,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -3480,7 +3473,7 @@ function Set-NsxHostUvsmLogging {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VMHostImpl]$VMHost,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VMHostInterop]$VMHost,
         [Parameter (Mandatory=$true)]
             [ValidateSet("OFF", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE",IgnoreCase=$false)]
             [string]$LogLevel,
@@ -3535,9 +3528,10 @@ function New-NsxManager{
         -CliEnablePassword VMware1!VMware1! -Hostname NSXManagerHostName 
         -IpAddress 1.2.3.4 -Netmask 255.255.255.0 -Gateway 1.2.3.1 
         -DnsServer 1.2.3.5 -DnsDomain corp.local -NtpServer 1.2.3.5 -EnableSsh 
-        -StartVm
+        -StartVm -wait
 
-    Deploys a new NSX Manager
+    Deploys a new NSX Manager, starts the VM, and blocks until the API becomes 
+    available.
 
     #>
 
@@ -3547,6 +3541,7 @@ function New-NsxManager{
     param (
 
         [Parameter ( Mandatory=$True )]
+            #Local Path to NSX MAnager OVA
             [ValidateScript({
                 if ( -not (test-path $_)) {
                     throw "NSX Manager OVF file not found: $_."
@@ -3555,66 +3550,84 @@ function New-NsxManager{
             })]
             [string]$NsxManagerOVF,
         [Parameter ( Mandatory=$True )]
+            #The name of the deployed VM.
             [ValidateNotNullOrEmpty()]
             $Name,
         [Parameter ( Mandatory=$True )]
+            #Name of the vSphere Cluster to which the VM will be deployed.
             [ValidateNotNullOrEmpty()]
             [string]$ClusterName,
         [Parameter ( Mandatory=$True )]
+            #Name of the portgroup to which the management interface of the VM will be connected. 
             [ValidateNotNullOrEmpty()]
             [string]$ManagementPortGroupName,
         [Parameter ( Mandatory=$True )]
+            #Name of the Datastore to which the VM will be deployed. 
             [ValidateNotNullOrEmpty()]
             [string]$DatastoreName,
         [Parameter ( Mandatory=$True )]
+            #Name of the vSphere VM Inventory folder to which the VM will be deployed.
             [ValidateNotNullOrEmpty()]
             [string]$FolderName,
         [Parameter ( Mandatory=$True )]
+            #CLI Password for the deployed NSX Manager.
             [ValidateNotNullOrEmpty()]
             [string]$CliPassword,
         [Parameter ( Mandatory=$True )]
+            #Enable password for the deployed NSX Manager.
             [ValidateNotNullOrEmpty()]
             [string]$CliEnablePassword,
         [Parameter ( Mandatory=$True )]
+            #Guest Hostname for the deployed NSX Manager.
             [ValidateNotNullOrEmpty()]
             [string]$Hostname,
         [Parameter ( Mandatory=$True )]
+            #IP Address assigned to the management interface.
             [ValidateNotNullOrEmpty()]
             [ipaddress]$IpAddress,
         [Parameter ( Mandatory=$True )]
+            #Netmask for the management interface.
             [ValidateNotNullOrEmpty()]
             [ipaddress]$Netmask,
         [Parameter ( Mandatory=$True )]
+            #Gateway Address for the deployed NSX Manager.
             [ValidateNotNullOrEmpty()]
             [ipaddress]$Gateway, 
         [Parameter ( Mandatory=$True )]
+            #DNS Server for the deployed NSX Manager (One only.) 
             [ValidateNotNullOrEmpty()]
             [ipaddress]$DnsServer,
         [Parameter ( Mandatory=$True )]
+            #DNS Domain Name for the deployed NSX Manager.
             [ValidateNotNullOrEmpty()]
             [string]$DnsDomain,
         [Parameter ( Mandatory=$True )]
+            #NTP Server for the deployed NSX Manager (One only.)
             [ValidateNotNullOrEmpty()]
             [ipAddress]$NtpServer,
         [Parameter ( Mandatory=$False)]
+            #Configured Memory for the deployed VM.  Overrides default in OVA.  Non-Production use only!
             [ValidateRange(8,16)]
             [int]$ManagerMemoryGB,
         [Parameter ( Mandatory=$True, ParameterSetName = "StartVM" )]
+            #Start the VM once deployment is completed.
             [switch]$StartVM=$false,
         [Parameter ( Mandatory=$False, ParameterSetName = "StartVM")]
+            #Wait for the NSX Manager API to become available once deployment is complete and the appliance is started.  Requires -StartVM, and network reachability between this machine and the management interface of the NSX Manager.
             [ValidateScript({
                 If ( -not $StartVM ) { throw "Cant wait for Manager API unless -StartVM is enabled."}
                 $true
                 })]
             [switch]$Wait=$false,
+        [Parameter ( Mandatory=$False, ParameterSetName = "StartVM")]
+            #How long to wait before timeout for NSX MAnager API to become available once the VM has been started.
+            [int]$WaitTimeout = 600,
         [Parameter ( Mandatory=$False )]
+            #Enable SSH on the deployed NSX Manager.
             [switch]$EnableSsh=$false
 
 
     )
-
-
-    # Deploys NSX Manager from OVF. 
 
     #Check that we have a PowerCLI connection open...
     If ( -not (test-path variable:global:defaultVIServer )) { 
@@ -3669,8 +3682,6 @@ function New-NsxManager{
     if ( $PSBoundParameters.ContainsKey('Wait')) {
         #User wants to wait for Manager API to start.
         $waitStep = 30
-        $WaitTimeout = 600
-
         $Timer = 0
         Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
 
@@ -3709,7 +3720,6 @@ function New-NsxManager{
         Write-Progress -Activity "Waiting for NSX Manager api to become available" -Completed
 
     } 
-
 } 
 
 function Set-NsxManager {
@@ -3726,46 +3736,73 @@ function Set-NsxManager {
     The Set-NsxManager cmdlet allows configuration of the applaince settings 
     such as syslog, vCenter registration and SSO configuration.
 
+    .EXAMPLE
+    Set-NsxManager -SyslogServer syslog.corp.local -SyslogPort 514 -SyslogProtocol tcp
+
+    Configures NSX Manager Syslog destination.
+
+    .EXAMPLE
+    Set-NsxManager -ssoserver sso.corp.local -ssousername administrator@vsphere.local -ssopassword VMware1! 
+
+    Configures the SSO Server registration of NSX Manager.
+
+    .EXAMPLE
+    Set-NsxManager -vcenterusername administrator@vsphere.local -vcenterpassword VMware1! -vcenterserver vcenter.corp.local
+
+    Configures the vCenter registration of NSX Manager.
+
     #>
 
     Param (
 
         [Parameter (Mandatory=$True, ParameterSetName="Syslog")]
+            #Syslog server to which syslogs will be forwarded.
             [ValidateNotNullOrEmpty()]
             [string]$SyslogServer,
         [Parameter (Mandatory=$False, ParameterSetName="Syslog")]
+            #TCP/UDP port on destination syslog server to connect to.
             [ValidateRange (1,65535)]
             [int]$SyslogPort=514,
         [Parameter (Mandatory=$False, ParameterSetName="Syslog")]
+            #Syslog Protocol - either TCP or UDP.
             [ValidateSet ("tcp","udp")]
             [string]$SyslogProtocol="udp",
         [Parameter (Mandatory=$True, ParameterSetName="Sso")]
+            #SSO Server to register this NSX Manager with.
             [ValidateNotNullOrEmpty()]
             [string]$SsoServer,
         [Parameter (Mandatory=$False, ParameterSetName="Sso")]
+            #TCP Port on SSO server to connect to when registering.
             [ValidateNotNullOrEmpty()]
             [string]$SsoPort=443,
         [Parameter (Mandatory=$True, ParameterSetName="Sso")]
+            #SSO Username used for registration.
             [ValidateNotNullOrEmpty()]
             [string]$SsoUserName,
         [Parameter (Mandatory=$True, ParameterSetName="Sso")]
+            #SSO Password used for registration.
             [ValidateNotNullOrEmpty()]
             [string]$SsoPassword,
         [Parameter (Mandatory=$True, ParameterSetName="vCenter")]
+            #vCenter server to register this NSX Manager with.
             [ValidateNotNullOrEmpty()]
             [string]$vCenterServer,
         [Parameter (Mandatory=$True, ParameterSetName="vCenter")]
+            #UserName used for vCenter connection.
             [ValidateNotNullOrEmpty()]
             [string]$vCenterUserName,
         [Parameter (Mandatory=$True, ParameterSetName="vCenter")]
+            #Password used for vCenter connection.
             [ValidateNotNullOrEmpty()]
             [string]$vCenterPassword,
         [Parameter (Mandatory=$False, ParameterSetName="vCenter")]
         [Parameter (Mandatory=$False, ParameterSetName="Sso")]
+            #SSL Thumbprint to validate certificate presented by SSO/vCenter server against.
             [ValidateNotNullOrEmpty()]
             [string]$SslThumbprint,
         [Parameter (Mandatory=$False, ParameterSetName="vCenter")]
         [Parameter (Mandatory=$False, ParameterSetName="Sso")]
+            #Accept any SSL certificate presented by SSO/vCenter. 
             [switch]$AcceptAnyThumbprint=$True,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -3890,6 +3927,16 @@ function New-NsxController {
 
     The New-NsxController cmdlet deploys a new NSX Controller.
     
+    .EXAMPLE
+    $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.0.1 -SubnetPrefixLength 24 -dnsserver1 192.168.0.1 -dnssuffix corp.local -StartAddress 192.168.0.10 -endaddress 192.168.0.20
+
+write-host "Getting VC objects for Controller Deployment"
+$ControllerCluster = Get-Cluster $ControllerClusterName -server $Connection.VIConnection
+$ControllerDatastore = Get-Datastore $ControllerDatastoreName -server $Connection.VIConnection 
+$ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
+    New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
+
+    
     #>
 
  
@@ -3902,17 +3949,17 @@ function New-NsxController {
             [System.Xml.XmlElement]$IpPool,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl]$ResourcePool,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
                 $true
             })]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,    
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,    
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$Datastore,  
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,  
         [Parameter (Mandatory=$true)]
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
             [object]$PortGroup,
@@ -4435,7 +4482,7 @@ function New-NsxClusterVxlanConfig {
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$true)]
             [ValidateScript({ Validate-DistributedSwitch $_ })]
             [object]$VirtualDistributedSwitch,
@@ -4588,7 +4635,7 @@ function Install-NsxCluster {
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [PArameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
@@ -4698,7 +4745,7 @@ function Remove-NsxCluster {
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
@@ -4837,7 +4884,7 @@ function Remove-NsxClusterVxlanConfig {
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
@@ -5196,7 +5243,7 @@ function New-NsxTransportZone {
             [ValidateNotNullOrEmpty()]
             [string]$Description,       
         [Parameter (Mandatory=$true)]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl[]]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop[]]$Cluster,
         [Parameter (Mandatory=$true)]
             [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE",IgnoreCase=$false)]
             [string]$ControlPlaneMode,
@@ -5797,13 +5844,12 @@ function New-NsxSpoofguardPolicy {
                     $id = $_.objectId
                 }
 
-                { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
-                     ($_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) } {
+                { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] } {
                     
                     $id = $_.ExtensionData.MoRef.Value
                 }
 
-                { $_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.VirtualPortGroupImpl] } {
+                { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupInterop] } {
                     
                     #Standard Port Group specified... Hope you appreciate this, coz the vSphere API and PowerCLI niceness dissapear a bit here.
                     #and it took me a while to work out how to get around it.
@@ -6071,10 +6117,10 @@ function Get-NsxSpoofguardNic {
         [Parameter (Mandatory=$false, ParameterSetName = "VM")]
             #PowerCLI VirtualMachine object
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter]$NetworkAdapter,            
+            [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop]$NetworkAdapter,            
         [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
         [Parameter (Mandatory=$false, ParameterSetName = "VM")]
         [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
@@ -6533,7 +6579,7 @@ function New-NsxLogicalRouterInterfaceSpec {
         Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "isConnected" -xmlElementText $Connected
 
         switch ($ConnectedTo){
-            { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl]) -or ( $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+            { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
             { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
         }  
 
@@ -6732,23 +6778,23 @@ function New-NsxLogicalRouter {
             [System.Xml.XmlElement[]]$Interface,       
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl]$ResourcePool,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
                 $true
             })]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$Datastore,
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [switch]$EnableHA=$false,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$HADatastore=$datastore,
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore=$datastore,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -6770,7 +6816,7 @@ function New-NsxLogicalRouter {
 
         switch ($ManagementPortGroup){
 
-            { $_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] -or $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+            { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
             { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
 
         }
@@ -7441,7 +7487,7 @@ function New-NsxEdgeInterfaceSpec {
         if ( $PsBoundParameters.ContainsKey("ConnectedTo")) { 
             switch ($ConnectedTo){
 
-                { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl]) -or ( $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+                { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
                 { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
             }  
             Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "portgroupId" -xmlElementText $PortGroupID
@@ -7544,7 +7590,7 @@ function New-NsxEdgeSubInterfaceSpec {
         if ( $PsBoundParameters.ContainsKey("Network")) { 
             switch ($Network){
 
-                { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl]) -or ( $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+                { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
                 { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
             }  
 
@@ -8615,17 +8661,17 @@ function New-NsxEdge {
             [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl]$ResourcePool,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
                 $true
             })]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$Datastore,
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [String]$Username="admin",
@@ -8634,13 +8680,13 @@ function New-NsxEdge {
             [String]$Password,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$HADatastore=$datastore,
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore=$datastore,
         [Parameter (Mandatory=$false)]
             [ValidateSet ("compact","large","xlarge","quadlarge")]
             [string]$FormFactor="compact",
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.FolderImpl]$VMFolder,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.FolderInterop]$VMFolder,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [String]$Tenant,
@@ -18140,7 +18186,7 @@ function New-NsxSourceDestNode {
             write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
             #Proper PowerCLI Object passed
             #If passed object is a NIC, we have to do some more digging
-            if (  $item -is [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter] ) {
+            if (  $item -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
                    
                 write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
                 #Naming based on DFW UI standard
@@ -18231,7 +18277,7 @@ function New-NsxAppliedToListNode {
             write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
             #Proper PowerCLI Object passed
             #If passed object is a NIC, we have to do some more digging
-            if (  $item -is [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter] ) {
+            if (  $item -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
                
                 write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
                 #Naming based on DFW UI standard
@@ -20800,7 +20846,7 @@ function Where-NsxVMUsed {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VM
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VM
     )
     
     begin {

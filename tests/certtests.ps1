@@ -1,7 +1,7 @@
 ##Spins up a test ESG and exercises all cert cmdlet functionality
 
 $cl = get-cluster mgmt01
-$ds = get-datastore Data
+$ds = get-datastore MgmtData
 
 #Create one
 $name = "esgtest"

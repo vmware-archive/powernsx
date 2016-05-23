@@ -27,7 +27,7 @@ $dfwedgeIp1 = "1.1.1.1"
 $testvm1 = get-vm $testVMName1
 $testvm2 = get-vm $testVMName2
 $cl = get-cluster mgmt01
-$ds = get-datastore Data
+$ds = get-datastore MgmtData
 $Password = "VMware1!VMware1!"
 $tenant = "testtenant"
 
