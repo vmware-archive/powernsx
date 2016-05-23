@@ -2,7 +2,7 @@
 
 #Setup
 
-$Cluster = Mgmt01
+$Cluster = "Mgmt01"
 
 $testVMName1 = "STapp01"
 $testVMName2 = "STapp02"
