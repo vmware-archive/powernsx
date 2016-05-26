@@ -4079,14 +4079,21 @@ function Get-NsxController {
     The Get-NsxController cmdlet deploys a new NSX Controller via the NSX API.
     
     .EXAMPLE
-    PS C:\> Get-NsxTransportZone -name TestTZ
+    Get-NsxController
     
+    Retreives all controller objects from NSX manager
+
+    .EXAMPLE
+    Get-NsxController -objectId Controller-1
+
+    Returns a specific NSX Controller object from NSX manager 
     #>
 
 
     param (
         [Parameter (Mandatory=$false,Position=1)]
-        [string]$ObjectId,
+            #ObjectId of the NSX Controller to return.
+            [string]$ObjectId,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -4096,12 +4103,14 @@ function Get-NsxController {
 
     $URI = "/api/2.0/vdn/controller"
 
-    $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
     
-    if ( $PsBoundParameters.containsKey('objectId')) { 
-        $response.controllers.controller | ? { $_.Id -eq $ObjectId }
-    } else {
-        $response.controllers.controller
+        if ($response.SelectsingleNode('descendant::controllers/controller')) { 
+        if ( $PsBoundParameters.containsKey('objectId')) { 
+            $response.controllers.controller | ? { $_.Id -eq $ObjectId }
+        } else {
+            $response.controllers.controller
+        }
     }
 }
 
