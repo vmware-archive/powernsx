@@ -13374,7 +13374,7 @@ function Remove-NsxEdgeOspfInterface {
         }
     }
 
-    end {}
+    end {}  
 }
 
 
@@ -17304,11 +17304,11 @@ function New-NsxSecurityTagAssignment {
     This cmdlet assigns is used to assign NSX Security Tags to a virtual machine.
 
     .DESCRIPTION
-    A NSX Security Tag is a arbitrary string. It is used in other functions of
+    A NSX Security Tag is an arbitrary string. It is used in other functions of
     NSX such as Security Groups match criteria. Security Tags are applied to a
     Virtual Machine.
 
-    This cmdlet assigns is used to assign NSX Security Tags to a virtual machine.
+    This cmdlet is used to assign NSX Security Tags to a virtual machine.
 
     .EXAMPLE
     Get-VM Web-01 | New-NsxSecurityTagAssignment -ApplyTag -SecurityTag (Get-NsxSecurityTag ST-Web-DMZ)
@@ -17321,7 +17321,7 @@ function New-NsxSecurityTagAssignment {
     Assign a single security tag to a virtual machine
 
     .EXAMPLE
-    Get-VM Web-01 | New-NsxSecurityTagAssignment ApplyTag -SecurityTag $( Get-NsxSecurityTag | ? {$_.name -like "*prod*"} )
+    Get-VM Web-01 | New-NsxSecurityTagAssignment -ApplyTag -SecurityTag $( Get-NsxSecurityTag | ? {$_.name -like "*prod*"} )
     
     Assign all security tags containing "prod" in the name to a virtual machine
 
