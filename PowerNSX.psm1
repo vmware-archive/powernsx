@@ -19335,7 +19335,7 @@ function New-NsxLoadBalancerMonitor {
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
-        get-nsxedge -objectId $edgeId -connection $connection | Get-NsxLoadBalancerMonitor -name $Name
+        get-nsxedge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -name $Name
     }
 
     end {}
