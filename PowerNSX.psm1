@@ -3170,7 +3170,12 @@ function Invoke-NsxCli {
     as opposed to configured state.  They should you how the dataplane actually
     is configured at the time the query is run.
 
-    The Centralised CLI is primarily a trouble shooting tool.
+    WARNING: The Centralised CLI is primarily a trouble shooting tool and 
+    it and the PowerNSX cmdlets that expose it should not be used for any other
+    purpose.  All the PowerNSX cmdlets that expose the central cli rely on a 
+    bespoke text parser to interpret the results as powershell objects, and have 
+    not been extensively tested.
+
 
     #>
 
@@ -3192,7 +3197,7 @@ function Invoke-NsxCli {
 
     begin{ 
         if ( -not $SupressWarning ) {
-            write-warning "This cmdlet is experimental and has not been completely tested.  Use with caution and report any errors." 
+            write-warning "This cmdlet is experimental and has not been well tested.  Its use should be limited to troubleshooting purposes only." 
         }
     }
 
@@ -3270,7 +3275,7 @@ function Get-NsxCliDfwFilter {
         foreach ( $filter in $filters ) { 
             #Execute the appropriate CLI query against the VMs host for the current filter...
             $query = "show vnic $($Filter."Vnic Id")"
-            Invoke-NsxCli $query -SupressWarning -connection $connection
+            Invoke-NsxCli $query -connection $connection
         }
     }
 
@@ -3322,7 +3327,7 @@ function Get-NsxCliDfwRule {
             #First we retrieve the filter names from the host that the VM is running on
             try { 
                 $query = "show vm $($VirtualMachine.ExtensionData.Moref.Value)"
-                $VMs = Invoke-NsxCli $query -SupressWarning -connection $connection
+                $VMs = Invoke-NsxCli $query -connection $connection
             }
             catch {
                 #Invoke-nsxcli threw an exception.  There are a couple we want to handle here...
@@ -3393,7 +3398,7 @@ function Get-NsxCliDfwAddrSet {
 
         #First we retrieve the filter names from the host that the VM is running on
         $query = "show vm $($VirtualMachine.ExtensionData.Moref.Value)"
-        $Filters = Invoke-NsxCli $query -SupressWarning -connection $connection
+        $Filters = Invoke-NsxCli $query -connection $connection
 
         #Potentially there are multiple filters (VM with more than one NIC).
         foreach ( $filter in $filters ) { 
@@ -3928,12 +3933,10 @@ function New-NsxController {
     The New-NsxController cmdlet deploys a new NSX Controller.
     
     .EXAMPLE
-    $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.0.1 -SubnetPrefixLength 24 -dnsserver1 192.168.0.1 -dnssuffix corp.local -StartAddress 192.168.0.10 -endaddress 192.168.0.20
-
-write-host "Getting VC objects for Controller Deployment"
-$ControllerCluster = Get-Cluster $ControllerClusterName -server $Connection.VIConnection
-$ControllerDatastore = Get-Datastore $ControllerDatastoreName -server $Connection.VIConnection 
-$ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
+    $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.0.1 -SubnetPrefixLength 24 -StartAddress 192.168.0.10 -endaddress 192.168.0.20
+    $ControllerCluster = Get-Cluster vSphereCluster
+    $ControllerDatastore = Get-Datastore $ControllerDatastoreName -server $Connection.VIConnection 
+    $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
     New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
 
     
@@ -19332,7 +19335,7 @@ function New-NsxLoadBalancerMonitor {
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
-        get-nsxedge $edgeId -connection $connection | Get-NsxLoadBalancerMonitor -name $Name
+        get-nsxedge -objectId $edgeId -connection $connection | Get-NsxLoadBalancerMonitor -name $Name
     }
 
     end {}
