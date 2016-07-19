@@ -9377,6 +9377,8 @@ function New-NsxEdgeNatRule {
             [string]$TranslatedPort,
         [Parameter (Mandatory=$false)]
             [string]$IcmpType,
+        [Parameter (Mandatory=$false)]
+            [int]$AboveRuleId, 
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -9394,10 +9396,19 @@ function New-NsxEdgeNatRule {
        
         #Create the new rules + rule element.
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-        $Rules = $xmlDoc.CreateElement('natRules') 
-        $Rule = $xmlDoc.CreateElement('natRule') 
-        $xmlDoc.AppendChild($Rules) | out-null
-        $Rules.AppendChild($Rule)  | out-null
+        if ( -not $PsBoundParameters.ContainsKey('AboveRuleId') ) { 
+            $Rules = $xmlDoc.CreateElement('natRules') 
+            $Rule = $xmlDoc.CreateElement('natRule') 
+            $xmlDoc.AppendChild($Rules) | out-null
+            $Rules.AppendChild($Rule)  | out-null
+            $URI = "/api/4.0/edges/$EdgeId/nat/config/rules"
+
+        }
+        else { 
+            $Rule = $xmlDoc.CreateElement('natRule') 
+            $xmlDoc.AppendChild($Rule) | out-null
+            $URI = "/api/4.0/edges/$EdgeId/nat/config/rules?aboveRuleId=$($AboveRuleId.toString())"
+        }
 
         #Append the mandatory props
         Add-XmlElement -xmlRoot $Rule -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
@@ -9428,14 +9439,18 @@ function New-NsxEdgeNatRule {
             Add-XmlElement -xmlRoot $Rule -xmlElementName "icmpType" -xmlElementText $IcmpType.ToString()
         }
 
+        if ( -not $PsBoundParameters.ContainsKey('AboveRuleId') ) { 
+            $body = $Rules.OuterXml 
+        }
+        else {
+            $body = $Rule.OuterXml 
+        }
 
-        $URI = "/api/4.0/edges/$EdgeId/nat/config/rules"
-        $body = $Rules.OuterXml 
-   
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-        Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxEdgeNat | Get-NsxEdgeNatRule | select -last 1
+        $ruleid = $response.Headers.location -replace "/api/4.0/edges/$edgeid/nat/config/rules/","" 
+        Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxEdgeNat | Get-NsxEdgeNatRule -ruleid $ruleid
     }
 
     end {}
@@ -9495,7 +9510,7 @@ function Remove-NsxEdgeNatRule {
             
         if ( $confirm ) { 
             $message  = "Edge Services Gateway nat rule update will modify existing Edge configuration."
-            $question = "Proceed with Update of Edge Services Gateway $EdgeId?"
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
