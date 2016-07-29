@@ -3191,21 +3191,29 @@ function Invoke-NsxCli {
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
-               
+            [PSCustomObject]$Connection = $defaultNSXConnection,
+        [Parameter(Mandatory = $false)]
+        # adding a switch param to support throwing raw output to avoid errors with the parser
+        [switch]$RawOutput
+
     )
 
-    begin{ 
+    begin {
+
         if ( -not $SupressWarning ) {
-            write-warning "This cmdlet is experimental and has not been well tested.  Its use should be limited to troubleshooting purposes only." 
-        }
-    }
 
-    process{
+            Write-Warning -Message "This cmdlet is experimental and has not been well tested.  Its use should be limited to troubleshooting purposes only."
 
+        } # end if
 
-        write-debug "$($MyInvocation.MyCommand.Name) : Executing Central CLI query $Query"
-        
+    } # end begin block
+
+    process {
+
+        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Executing Central CLI Query {$Query}"
+
+        Write-Debug -Message "[$($MyInvocation.MyCommand.Name)] Building XML"
+
         #Create the XMLRoot
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
         [System.XML.XMLElement]$xmlCli = $XMLDoc.CreateElement("nsxcli")
@@ -3217,17 +3225,40 @@ function Invoke-NsxCli {
 
         $Body = $xmlCli.OuterXml
         $uri = "/api/1.0/nsx/cli?action=execute"
-        try {
-            $response = invoke-nsxrestmethod -connection $connection -method post -uri $uri -Body $Body
-            Parse-CentralCliResponse $response
-        }
-        catch {
 
-            throw "Unable to execute Centralised CLI query.  $_"
-        }
-    }
-    end{}
-}
+        Write-Debug -Message "[$($MyInvocation.MyCommand.Name)] Invoking POST method. Entering 'try/catch' block"
+        try {
+
+            $response = Invoke-NsxRestMethod -Connection $connection -Method post -Uri $uri -Body $Body
+
+            if ($RawOutput) {
+
+                Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Returning Raw Output"
+                $response
+
+            } else {
+
+                Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Parsing Output"
+                Parse-CentralCliResponse $response
+
+            } # end if/else
+
+        } catch {
+
+            throw "[$($MyInvocation.MyCommand.Name)][ERROR] Unable to execute Centralized CLI query. $_.Exception.Message. Try re-running command with the -RawOutput parameter."
+
+        } # end try/catch
+
+    } # end process block
+
+    end {
+
+        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Processing Complete"
+
+    } # end block
+
+} # end function Invoke-NsxCli
+
 
 function Get-NsxCliDfwFilter {
 
@@ -3236,25 +3267,25 @@ function Get-NsxCliDfwFilter {
     Uses the NSX Centralised CLI to retreive the VMs VNIC filters.
 
     .DESCRIPTION
-    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It 
-    provides centralised means of performing read only operations against 
-    various aspects of the dataplane including Logical Switching, Logical 
+    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It
+    provides centralised means of performing read only operations against
+    various aspects of the dataplane including Logical Switching, Logical
     Routing, Distributed Firewall and Edge Services Gateways.
 
     The results returned by the Centralised CLI are actual (realised) state
     as opposed to configured state.  They show you how the dataplane actually
     is configured at the time the query is run.
 
-    This cmdlet accepts a VM object, and leverages the Invoke-NsxCli cmdlet by 
-    constructing the appropriate Centralised CLI command without requiring the 
-    user to do the show cluster all -> show cluster domain-xxx -> show host 
+    This cmdlet accepts a VM object, and leverages the Invoke-NsxCli cmdlet by
+    constructing the appropriate Centralised CLI command without requiring the
+    user to do the show cluster all -> show cluster domain-xxx -> show host
     host-xxx -> show vm vm-xxx dance -> show dfw host host-xxx filter xxx rules
-    dance.  It returns objects representing the Filters defined on each vnic of 
+    dance.  It returns objects representing the Filters defined on each vnic of
     the VM
 
     #>
 
-    Param ( 
+    Param (
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
             #PowerCLI Virtual Machine object.
             [ValidateNotNullorEmpty()]
