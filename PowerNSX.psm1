@@ -3161,22 +3161,38 @@ function Invoke-NsxCli {
     Provides access to the NSX Centralised CLI.
 
     .DESCRIPTION
-    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It 
-    provides centralised means of performing read only operations against 
-    various aspects of the dataplane including Logical Switching, Logical 
+    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It
+    provides centralised means of performing read only operations against
+    various aspects of the dataplane including Logical Switching, Logical
     Routing, Distributed Firewall and Edge Services Gateways.
 
     The results returned by the Centralised CLI are actual (realised) state
     as opposed to configured state.  They should you how the dataplane actually
     is configured at the time the query is run.
 
-    WARNING: The Centralised CLI is primarily a trouble shooting tool and 
+    WARNING: The Centralised CLI is primarily a trouble shooting tool and
     it and the PowerNSX cmdlets that expose it should not be used for any other
-    purpose.  All the PowerNSX cmdlets that expose the central cli rely on a 
-    bespoke text parser to interpret the results as powershell objects, and have 
+    purpose.  All the PowerNSX cmdlets that expose the central cli rely on a
+    bespoke text parser to interpret the results as powershell objects, and have
     not been extensively tested.
-
-
+    .INPUTS
+    System.String
+    .PARAMETER Query
+    string text of Central CLI command to execute
+    .PARAMETER SupressWarning
+    Switch parameter to ignore the experimental warning
+    .PARAMETER Connection
+    Proper NSX connection [PSCustomObject]
+    .PARAMETER RawOutput
+    Switch parameter that will not try to parse the output
+    .NOTES
+    Version: 1.2
+    Updated: 7/29/16
+    Updated By: Kevin Kirkpatrick (vScripter)
+    Update Notes:
+    - Added '-RawOutput' parameter
+    - Added support for '-Verbose'
+    - Expanded support for '-Debug'
     #>
 
     param (
@@ -3193,8 +3209,8 @@ function Invoke-NsxCli {
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection = $defaultNSXConnection,
         [Parameter(Mandatory = $false)]
-        # adding a switch param to support throwing raw output to avoid errors with the parser
-        [switch]$RawOutput
+            # switch param to support throwing raw output to avoid errors with the parser
+            [switch]$RawOutput
 
     )
 
