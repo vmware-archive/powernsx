@@ -13617,7 +13617,7 @@ function Get-NsxEdgeRedistributionRule {
             if ( $bgp ) {
 
                 $_bgp = $bgp.CloneNode($True)
-                if ( $_bgp.SelectSingleNode('child::redistribution/rules') ) { 
+                if ( $_bgp.SelectSingleNode('child::redistribution/rules/rule') ) { 
 
                     $BgpRuleCollection = $_bgp.redistribution.rules.rule
 
