@@ -9109,6 +9109,121 @@ function Remove-NsxEdge {
     end {}
 }
 
+function Enable-NsxEdgeSsh { 
+
+    <#
+    .SYNOPSIS
+    Enables the SSH server on an existing NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    This cmdlet enables the ssh server on the specified Edge Services Gateway.  
+    If rule autogeneration is configured on the Edge, the Edge firewall is 
+    automatically configured to allow incoming connections.
+
+    .EXAMPLE
+    Enable SSH on edge Edge01
+
+    C:\PS> Get-NsxEdge Edge01 | Enable-NsxEdgeSsh
+    
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/cliremoteaccess?enable=true"
+        Write-Progress -activity "Enable SSH on Edge Services Gateway $($Edge.Name)"
+        invoke-nsxrestmethod -method "post" -uri $URI -connection $connection| out-null
+        write-progress -activity "Enable SSH on Edge Services Gateway $($Edge.Name)" -completed
+
+    }
+
+    end {}
+}
+
+function Disable-NsxEdgeSsh {
+
+    <#
+    .SYNOPSIS
+    Disables the SSH server on an existing NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    This cmdlet disables the ssh server on the specified Edge Services Gateway.  
+
+    .EXAMPLE
+    Disable SSH on edge Edge01
+
+    C:\PS> Get-NsxEdge Edge01 | Disable-NsxEdgeSsh
+    
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Disabling SSH will prevent remote SSH connections to this edge."
+            $question = "Proceed with disabling SSH service on $($Edge.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/cliremoteaccess?enable=false"
+            Write-Progress -activity "Disable SSH on Edge Services Gateway $($Edge.Name)"
+            invoke-nsxrestmethod -method "post" -uri $URI -connection $connection| out-null
+            write-progress -activity "Disable SSH on Edge Services Gateway $($Edge.Name)" -completed
+        }
+    }
+
+    end {}
+
+}
+
 #########
 #########
 # Edge NAT related functions
