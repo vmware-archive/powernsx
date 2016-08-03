@@ -5408,13 +5408,14 @@ function Get-NsxLogicalSwitch {
 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
             [ValidateNotNullOrEmpty()]
-            [System.Xml.XmlElement]$vdnScope,
+            [alias("vdnScope")]
+            [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$false,Position=1)]
-            [string]$name,
+            [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="virtualWire")]
             [ValidateNotNullOrEmpty()]
-            [alias("objectId")]
-            [string]$virtualWireId,
+            [alias("virtualWireId")]
+            [string]$ObjectId,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -5431,7 +5432,7 @@ function Get-NsxLogicalSwitch {
         if ( $psCmdlet.ParameterSetName -eq "virtualWire" ) {
 
             #Just getting a single named Logical Switch
-            $URI = "/api/2.0/vdn/virtualwires/$virtualWireId"
+            $URI = "/api/2.0/vdn/virtualwires/$ObjectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $response.virtualWire
 
@@ -5441,7 +5442,7 @@ function Get-NsxLogicalSwitch {
             #Getting all LS in a given VDNScope
             $lspagesize = 10        
             if ( $PSBoundParameters.ContainsKey('vndScope')) { 
-                $URI = "/api/2.0/vdn/scopes/$($vdnScope.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
+                $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
             }
             else { 
                 $URI = "/api/2.0/vdn/virtualwires?pagesize=$lspagesize&startindex=00"
@@ -5479,7 +5480,7 @@ function Get-NsxLogicalSwitch {
                         write-debug "$($MyInvocation.MyCommand.Name) : PagingInfo: PageSize: $($pagingInfo.PageSize), StartIndex: $($paginginfo.startIndex), TotalCount: $($paginginfo.totalcount)"
                         $startingIndex += $lspagesize
                         if ( $PSBoundParameters.ContainsKey('vndScope')) { 
-                            $URI = "/api/2.0/vdn/scopes/$($vdnScope.objectId)/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
+                            $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
                         }
                         else {
                             $URI = "/api/2.0/vdn/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
@@ -5537,7 +5538,8 @@ function New-NsxLogicalSwitch  {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateNotNullOrEmpty()]
-            [System.XML.XMLElement]$vdnScope,
+            [alias("vdnScope")]
+            [System.XML.XMLElement]$TransportZone,
         [Parameter (Mandatory=$true,Position=1)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
@@ -5572,7 +5574,7 @@ function New-NsxLogicalSwitch  {
            
         #Do the post
         $body = $xmlroot.OuterXml
-        $URI = "/api/2.0/vdn/scopes/$($vdnscope.objectId)/virtualwires"
+        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires"
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
         #response only contains the vwire id, we have to query for it to get output consisten with get-nsxlogicalswitch
