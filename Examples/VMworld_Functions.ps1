@@ -21,8 +21,8 @@
 
 
 $steps = @(
-    {connect-nsxserver -server nsx-m-01a -username admin -password VMware1! -viusername administrator@vsphere.local -vipassword VMware1!},
-    {$tz = Get-NsxTransportZone},
+    {connect-nsxserver -server "nsx-m-01a-local.corp.local" -username admin -password VMware1! -viusername administrator@vsphere.local -vipassword VMware1! -ViWarningAction "Ignore"},
+    {$tz = Get-NsxTransportZone },
     {$webls = New-NsxLogicalSwitch -TransportZone $tz -Name webls},
     {$appls = New-NsxLogicalSwitch -TransportZone $tz -Name appls},
     {$dbls = New-NsxLogicalSwitch -TransportZone $tz -Name dbls},
@@ -32,9 +32,9 @@ $steps = @(
     {new-nsxedge -Name edge01 -Cluster (get-cluster mgmt01) -Datastore (get-datastore mgmtdata) -Password VMware1!VMware1! -FormFactor compact -Interface $uplink,$transit -FwDefaultPolicyAllow},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress 192.168.100.1 -confirm:$false},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgp -LocalAS 100 -RouterId 192.168.100.20 -confirm:$false},
-    {get-nsxedge | Get-NsxEdgeRouting | Set-NsxEdgeBgp -DefaultOriginate -confirm:$false},
-    {get-nsxedge edge01 | Get-NsxEdgeRouting |Set-NsxEdgeRouting -EnableBgpRouteRedistribution -confirm:$false},
-    {get-nsxedge | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress 172.16.100.3 -RemoteAS 200 -confirm:$false},
+    {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeBgp -DefaultOriginate -confirm:$false},
+    {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgpRouteRedistribution -confirm:$false},
+    {get-nsxedge edge01 | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress 172.16.100.3 -RemoteAS 200 -confirm:$false},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -Learner bgp -FromStatic -confirm:$false},
     {$uplinklif = New-NsxLogicalRouterInterfaceSpec -Name Uplink -Type uplink -ConnectedTo (Get-NsxLogicalSwitch transitls) -PrimaryAddress 172.16.100.2 -SubnetPrefixLength 29},
     {$weblif = New-NsxLogicalRouterInterfaceSpec -Name web -Type internal -ConnectedTo (Get-NsxLogicalSwitch webls) -PrimaryAddress 172.16.1.1 -SubnetPrefixLength 24},
@@ -43,8 +43,8 @@ $steps = @(
     {New-NsxLogicalRouter -Name LogicalRouter01 -ManagementPortGroup (Get-VDPortgroup internal) -Interface $uplinklif,$weblif,$applif,$dblif -Cluster (get-cluster mgmt01) -Datastore (get-datastore mgmtdata)},
     {get-nsxlogicalrouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgp -ProtocolAddress 172.16.100.3 -ForwardingAddress 172.16.100.2 -LocalAS 200 -RouterId 172.16.100.3 -confirm:$false},
     {get-nsxlogicalrouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgpRouteRedistribution -confirm:$false},
-    {Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -FromConnected -Learner bgp -confirm:$false},
-    {Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress 172.16.100.1 -RemoteAS 100 -ForwardingAddress 172.16.100.2 -ProtocolAddress 172.16.100.3 -confirm:$false}
+    {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -FromConnected -Learner bgp -confirm:$false},
+    {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress 172.16.100.1 -RemoteAS 100 -ForwardingAddress 172.16.100.2 -ProtocolAddress 172.16.100.3 -confirm:$false}
 )
 
 
