@@ -31,17 +31,10 @@ $steps = @(
     {$transit = New-NsxEdgeInterfaceSpec -Index 1 -Name transit -type internal -ConnectedTo (Get-nsxlogicalswitch transitls) -PrimaryAddress 172.16.100.1 -SubnetPrefixLength 29},
     {new-nsxedge -Name edge01 -Cluster (get-cluster mgmt01) -Datastore (get-datastore mgmtdata) -Password VMware1!VMware1! -FormFactor compact -Interface $uplink,$transit -FwDefaultPolicyAllow},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress 192.168.100.1 -confirm:$false},
-<<<<<<< HEAD
     {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgp -LocalAS 100 -RouterId 192.168.100.20 -confirm:$false},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeBgp -DefaultOriginate -confirm:$false},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgpRouteRedistribution -confirm:$false},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress 172.16.100.3 -RemoteAS 200 -confirm:$false},
-=======
-    {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgp -LocalAS 100 -RouterId 192.168.100.200 -confirm:$false},
-    {get-nsxedge | Get-NsxEdgeRouting | Set-NsxEdgeBgp -DefaultOriginate -confirm:$false},
-    {get-nsxedge edge01 | Get-NsxEdgeRouting |Set-NsxEdgeRouting -EnableBgpRouteRedistribution -confirm:$false},
-    {get-nsxedge | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress 172.16.100.3 -RemoteAS 200 -confirm:$false},
->>>>>>> 7c699b3c716299170b4cd59fa1f613d9a75ab65f
     {get-nsxedge edge01 | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -Learner bgp -FromStatic -confirm:$false},
     {$uplinklif = New-NsxLogicalRouterInterfaceSpec -Name Uplink -Type uplink -ConnectedTo (Get-NsxLogicalSwitch transitls) -PrimaryAddress 172.16.100.2 -SubnetPrefixLength 29},
     {$weblif = New-NsxLogicalRouterInterfaceSpec -Name web -Type internal -ConnectedTo (Get-NsxLogicalSwitch webls) -PrimaryAddress 172.16.1.1 -SubnetPrefixLength 24},
