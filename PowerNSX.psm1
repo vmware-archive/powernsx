@@ -21224,3 +21224,177 @@ function Get-NsxBackingDVSwitch{
 
 }
 
+
+function Get-NsxFirewallExclusionList {
+
+  <#
+  .SYNOPSIS
+  Gets the virtual machines that are excluded from the distributed firewall
+
+  .DESCRIPTION
+  The 'Exclusion List' is a list of virtual machines which are excluded from
+  the distributed firewall rules. They are not protected and/or limited by it.
+
+  If a virtual machine has multiple vNICs, all of them are excluded from protection.
+
+  VMware recommends that you place the following service virtual machines in the Exclusion List
+  * vCenter Server.
+  * Partner service virtual machines.
+  * Virtual machines that require promiscuous mode.
+
+  This cmdlet retrieves all VMs on the exclusion list
+
+  .EXAMPLE
+  PowerCLI C:\> Foreach($vm in (Get-NsxFirewallExclusionList).ExcludedVMs) { Write-Host $vm.Name }
+
+  #>
+
+  param (
+    [Parameter (Mandatory=$False)]
+    #PowerNSX Connection object.
+    [ValidateNotNullOrEmpty()]
+    [PSCustomObject]$Connection=$defaultNSXConnection
+  )
+
+  begin {}
+  process
+  {
+    # Build URL and catch response into XML format
+    $URI = "/api/2.1/app/excludelist"
+    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $Connection
+
+    $ExcludedVMs = @()
+
+    # If there are any VMs returned, go through them and build an array of VM objects
+    if ($response.SelectSingleNode('descendant::VshieldAppConfiguration/excludeListConfiguration/excludeMember'))
+    {
+      $nodes = $response.SelectNodes('descendant::VshieldAppConfiguration/excludeListConfiguration/excludeMember')
+
+      foreach ($node in $nodes)
+      {
+        # Get the VI VM object...
+        $vm = Get-VM -Server $Connection.VIConnection -id "VirtualMachine-$($node.member.objectId)"
+        # Add to array
+        $ExcludedVMs += $vm
+      }
+    }
+
+    # Return the array with the VMs
+    $return = new-object psobject
+    $return | add-member -memberType NoteProperty -Name "ExcludedVMs" -value $ExcludedVMs
+    $return
+  }
+
+  end {}
+}
+
+
+function Add-NsxFirewallExclusionList
+{
+
+  <#
+  .SYNOPSIS
+  Adds a virtual machine to the exclusion list, which are excluded from the distributed firewall
+
+  .DESCRIPTION
+  The 'Exclusion List' is a list of virtual machines which are excluded from
+  the distributed firewall rules. They are not protected and/or limited by it.
+
+  If a virtual machine has multiple vNICs, all of them are excluded from protection.
+
+  VMware recommends that you place the following service virtual machines in the Exclusion List
+  * vCenter Server.
+  * Partner service virtual machines.
+  * Virtual machines that require promiscuous mode.
+
+  This cmdlet adds a VM to the exclusion list
+
+  .EXAMPLE
+  PowerCLI C:\> Add-NsxFirewallExclusionList -VirtualMachine (Get-VM -Name myVM)
+
+  #>
+
+  param (
+    [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+    [ValidateNotNullorEmpty()]
+    [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+    [Parameter (Mandatory=$False)]
+    #PowerNSX Connection object.
+    [ValidateNotNullOrEmpty()]
+    [PSCustomObject]$Connection=$defaultNSXConnection
+  )
+
+  begin {}
+  process
+  {
+    # Get VM MOID
+    $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
+    # Build URL
+    $URI = "/api/2.1/app/excludelist/$vmMoid"
+
+    try {
+        $response = invoke-nsxrestmethod -method "PUT" -uri $URI -connection $connection
+    }
+    catch {
+        Throw "Unable to add VM $VirtualMachine to Exclusion list. $_"
+    }
+  }
+
+  end {}
+}
+
+
+function Remove-NsxFirewallExclusionList
+{
+
+  <#
+  .SYNOPSIS
+  Removes a virtual machine from the exclusion list, which are excluded from the distributed firewall
+
+  .DESCRIPTION
+  The 'Exclusion List' is a list of virtual machines which are excluded from
+  the distributed firewall rules. They are not protected and/or limited by it.
+
+  If a virtual machine has multiple vNICs, all of them are excluded from protection.
+
+  VMware recommends that you place the following service virtual machines in the Exclusion List
+  * vCenter Server.
+  * Partner service virtual machines.
+  * Virtual machines that require promiscuous mode.
+
+  This cmdlet removes a VM to the exclusion list
+
+  .EXAMPLE
+  PowerCLI C:\> Remove-NsxFirewallExclusionList -VirtualMachine (Get-VM -Name myVM)
+
+  #>
+
+  param (
+    [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+    [ValidateNotNullorEmpty()]
+    [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+    [Parameter (Mandatory=$False)]
+    #PowerNSX Connection object.
+    [ValidateNotNullOrEmpty()]
+    [PSCustomObject]$Connection=$defaultNSXConnection
+  )
+
+  begin {}
+  process
+  {
+    # Get VM MOID
+    $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
+    # Build URL
+    $URI = "/api/2.1/app/excludelist/$vmMoid"
+
+    try {
+        $response = invoke-nsxrestmethod -method "DELETE" -uri $URI -connection $connection
+    }
+    catch {
+        Throw "Unable to remove VM $VirtualMachine from Exclusion list. $_"
+    }
+  }
+
+  end {}
+}
+
