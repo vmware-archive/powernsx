@@ -27,30 +27,62 @@ $steps = @(
     {$appls = New-NsxLogicalSwitch -TransportZone $tz -Name appls},
     {$dbls = New-NsxLogicalSwitch -TransportZone $tz -Name dbls},
     {$transitls = New-NsxLogicalSwitch -TransportZone $tz -Name transitls},
-    {$uplink = New-NsxEdgeInterfaceSpec -Index 0 -Name uplink -type uplink -ConnectedTo (Get-VDPortgroup internal) -PrimaryAddress 192.168.100.20 -SubnetPrefixLength 24},
-    {$transit = New-NsxEdgeInterfaceSpec -Index 1 -Name transit -type internal -ConnectedTo (Get-nsxlogicalswitch transitls) -PrimaryAddress 172.16.100.1 -SubnetPrefixLength 29},
+    {$uplink = New-NsxEdgeInterfaceSpec -Index 0 -Name uplink -type uplink -ConnectedTo (Get-VDPortgroup internal) -PrimaryAddress 192.168.119.150 -SubnetPrefixLength 24},
+    {$transit = New-NsxEdgeInterfaceSpec -Index 1 -Name transit -type internal -ConnectedTo (Get-nsxlogicalswitch transitls) -PrimaryAddress 172.16.1.1 -SubnetPrefixLength 29},
     {new-nsxedge -Name edge01 -Cluster (get-cluster mgmt01) -Datastore (get-datastore mgmtdata) -Password VMware1!VMware1! -FormFactor compact -Interface $uplink,$transit -FwDefaultPolicyAllow},
-    {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress 192.168.100.1 -confirm:$false},
-    {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgp -LocalAS 100 -RouterId 192.168.100.200 -confirm:$false},
+    {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress 192.168.119.2 -confirm:$false},
+    {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgp -LocalAS 100 -RouterId 192.168.119.200 -confirm:$false},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeBgp -DefaultOriginate -confirm:$false},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableBgpRouteRedistribution -confirm:$false},
-    {get-nsxedge edge01 | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress 172.16.100.3 -RemoteAS 200 -confirm:$false},
+    {get-nsxedge edge01 | Get-NsxEdgeRouting | New-NsxEdgeBgpNeighbour -IpAddress 172.16.1.3 -RemoteAS 200 -confirm:$false},
     {get-nsxedge edge01 | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -Learner bgp -FromStatic -confirm:$false},
-    {$uplinklif = New-NsxLogicalRouterInterfaceSpec -Name Uplink -Type uplink -ConnectedTo (Get-NsxLogicalSwitch transitls) -PrimaryAddress 172.16.100.2 -SubnetPrefixLength 29},
-    {$weblif = New-NsxLogicalRouterInterfaceSpec -Name web -Type internal -ConnectedTo (Get-NsxLogicalSwitch webls) -PrimaryAddress 172.16.1.1 -SubnetPrefixLength 24},
-    {$applif = New-NsxLogicalRouterInterfaceSpec -Name app -Type internal -ConnectedTo (Get-NsxLogicalSwitch appls) -PrimaryAddress 172.16.2.1 -SubnetPrefixLength 24},
-    {$dblif = New-NsxLogicalRouterInterfaceSpec -Name db -Type internal -ConnectedTo (Get-NsxLogicalSwitch dbls) -PrimaryAddress 172.16.3.1 -SubnetPrefixLength 24},
+    {$uplinklif = New-NsxLogicalRouterInterfaceSpec -Name Uplink -Type uplink -ConnectedTo (Get-NsxLogicalSwitch transitls) -PrimaryAddress 172.16.1.2 -SubnetPrefixLength 29},
+    {$weblif = New-NsxLogicalRouterInterfaceSpec -Name web -Type internal -ConnectedTo (Get-NsxLogicalSwitch webls) -PrimaryAddress 10.0.1.1 -SubnetPrefixLength 24},
+    {$applif = New-NsxLogicalRouterInterfaceSpec -Name app -Type internal -ConnectedTo (Get-NsxLogicalSwitch appls) -PrimaryAddress 10.0.2.1 -SubnetPrefixLength 24},
+    {$dblif = New-NsxLogicalRouterInterfaceSpec -Name db -Type internal -ConnectedTo (Get-NsxLogicalSwitch dbls) -PrimaryAddress 10.0.3.1 -SubnetPrefixLength 24},
     {New-NsxLogicalRouter -Name LogicalRouter01 -ManagementPortGroup (Get-VDPortgroup internal) -Interface $uplinklif,$weblif,$applif,$dblif -Cluster (get-cluster mgmt01) -Datastore (get-datastore mgmtdata)},
-    {get-nsxlogicalrouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgp -ProtocolAddress 172.16.100.3 -ForwardingAddress 172.16.100.2 -LocalAS 200 -RouterId 172.16.100.3 -confirm:$false},
+    {get-nsxlogicalrouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgp -ProtocolAddress 172.16.1.3 -ForwardingAddress 172.16.1.2 -LocalAS 200 -RouterId 172.16.1.3 -confirm:$false},
     {get-nsxlogicalrouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgpRouteRedistribution -confirm:$false},
     {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -FromConnected -Learner bgp -confirm:$false},
-    {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress 172.16.100.1 -RemoteAS 100 -ForwardingAddress 172.16.100.2 -ProtocolAddress 172.16.100.3 -confirm:$false}
+    {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress 172.16.1.1 -RemoteAS 100 -ForwardingAddress 172.16.1.2 -ProtocolAddress 172.16.1.3 -confirm:$false}
+    {$webpg = $webls | Get-NsxBackingPortGroup},
+    {$apppg = $appls | Get-NsxBackingPortGroup},
+    {$dbpg = $dbls | Get-NsxBackingPortGroup},
+    {get-vm | where { $_.name -match 'web'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $webpg -Confirm:$false},
+    {get-vm | where { $_.name -match 'app'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $apppg -Confirm:$false},
+    {get-vm | where { $_.name -match 'db'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $dbpg -Confirm:$false}
+    
+
+)
+
+$cleanup = @(
+
+    {Get-VApp | get-vm | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup Internal -Confirm:$false},
+    {Get-NsxEdge | Remove-NsxEdge -Confirm:$false},
+    {Get-NsxLogicalRouter | Remove-NsxLogicalRouter -Confirm:$false},
+    {Get-NsxLogicalSwitch | Remove-NsxLogicalSwitch -Confirm:$false}
 )
 
 
 function ShowTheAwesome { 
 
     foreach ( $step in $steps ) { 
+
+        #Show me first
+        write-host -foregroundcolor yellow ">>> $step"
+
+        write-host "Press a key to run the command..."
+        #wait for a keypress to continue
+        $junk = [console]::ReadKey($true)
+
+        #execute (dot source) me in global scope
+        . $step
+    }
+}
+
+function CleanupTheAwesome { 
+
+    foreach ( $step in $cleanup ) { 
 
         #Show me first
         write-host -foregroundcolor yellow ">>> $step"
