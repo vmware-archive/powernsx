@@ -21106,11 +21106,15 @@ function Get-NsxSecurityPolicy {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Set Security Policies by objectId
             [string]$ObjectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Get Security Policies by name
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [switch]$ShowHidden=$False,
+            #Include the readonly (system) Security Policies in results.
+            [alias("ShowHidden")]      
+            [switch]$IncludeHidden=$False,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -21140,7 +21144,7 @@ function Get-NsxSecurityPolicy {
             $FinalSecPol = $response.securityPolicy 
         }
 
-        if ( -not $ShowHidden ) { 
+        if ( -not $IncludeHidden ) { 
             foreach ( $CurrSecPol in $FinalSecPol ) { 
                 if ( $CurrSecPol.SelectSingleNode('child::extendedAttributes/extendedAttribute')) {
                     $hiddenattr = $CurrSecPol.extendedAttributes.extendedAttribute | ? { $_.name -eq 'isHidden'}
@@ -21203,29 +21207,36 @@ function Remove-NsxSecurityPolicy {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "Security Policy removal is permanent."
-            $question = "Proceed with removal of Security Policy $($SecurityPolicy.Name)?"
 
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if ($SecurityPolicy.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isHidden`" and value=`"true`"]") -and ( -not $force)) {
+            write-warning "Not removing $($SecurityPolicy.Name) as it is set as hidden.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.ObjectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove Security Policy $($SecurityPolicy.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
-            write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed
+        else { 
 
+            if ( $confirm ) { 
+                $message  = "Security Policy removal is permanent."
+                $question = "Proceed with removal of Security Policy $($SecurityPolicy.Name)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.ObjectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove Security Policy $($SecurityPolicy.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed
+
+            }
         }
     }
 
