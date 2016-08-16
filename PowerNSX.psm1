@@ -18131,13 +18131,20 @@ function Get-NsxService {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Return service by objectId
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Return service by name
             [string]$Name,
         [Parameter (Mandatory=$false,ParameterSetName="Port",Position=1)]
+            #Return services that have a either a matching port, or are defiuned by a range into which the specified port falls
             [int]$Port,
         [Parameter (Mandatory=$false)]
+            #Scopeid - default is globalroot-0
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Include services with readonly attribute
+            [switch]$IncludeReadOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -18155,11 +18162,18 @@ function Get-NsxService {
 
             "objectId" {
 
-                  #Just getting a single named service group
+                #Just getting a single named service group
                 $URI = "/api/2.0/services/application/$objectId"
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( $response.SelectSingleNode('descendant::application')) {
-                    $response.application
+                    $svcs = $response.application
+                    #Filter readonly if switch not set
+                    if ( -not $IncludeReadOnly ) { 
+                        $svcs| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                    }
+                    else { 
+                        $svcs
+                    }
                 }
             }
 
@@ -18169,9 +18183,16 @@ function Get-NsxService {
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( $response.SelectSingleNode('descendant::list/application')) {
                     if  ( $name ) { 
-                        $response.list.application | ? { $_.name -eq $name }
+                        $svcs = $response.list.application | ? { $_.name -eq $name }
                     } else {
-                        $response.list.application
+                        $svcs = $response.list.application
+                    }
+                    #Filter readonly if switch not set
+                    if ( -not $IncludeReadOnly ) { 
+                        $svcs| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                    }
+                    else { 
+                        $svcs
                     }
                 }
             }
@@ -18205,7 +18226,13 @@ function Get-NsxService {
                                         #Then test if the port int array contains what we are looking for...
                                         if ( $ports.contains($port) ) { 
                                             write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
-                                            $application
+                                            #Filter readonly if switch not set
+                                            if ( -not $IncludeReadOnly ) { 
+                                                $application| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                                            }
+                                            else { 
+                                                $application
+                                            }
                                             break
                                         }
                                     }
@@ -18353,29 +18380,34 @@ function Remove-NsxService {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "Service removal is permanent."
-            $question = "Proceed with removal of Service $($Service.Name)?"
-
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if ($Service.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+            write-warning "Not removing $($Service.Name) as it is set as read-only.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/application/$($Service.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/application/$($Service.objectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove Service $($Service.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
-            write-progress -activity "Remove Service $($Service.Name)" -completed
+        else {
+            if ( $confirm ) { 
+                $message  = "Service removal is permanent."
+                $question = "Proceed with removal of Service $($Service.Name)?"
 
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/application/$($Service.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/application/$($Service.objectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove Service $($Service.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Service $($Service.Name)" -completed
+
+            }
         }
     }
 
