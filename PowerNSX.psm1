@@ -16808,11 +16808,17 @@ function Get-NsxSecurityGroup {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Get SecurityGroups by objectid
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Get SecurityGroups by name
             [string]$name,
         [Parameter (Mandatory=$false)]
+            #Scopeid - default globalroot-0
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Include default system security group
+            [switch]$IncludeSystem=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -16832,9 +16838,16 @@ function Get-NsxSecurityGroup {
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::list/securitygroup')) {
                 if  ( $Name  ) { 
-                    $response.list.securitygroup | ? { $_.name -eq $name }
+                    $sg = $response.list.securitygroup | ? { $_.name -eq $name }
                 } else {
-                    $response.list.securitygroup
+                    $sg = $response.list.securitygroup
+                }
+                #Filter default if switch not set
+                if ( -not $IncludeSystem ) { 
+                    $sg| ? { ( $_.objectId -ne 'securitygroup-1') }
+                }
+                else { 
+                    $sg
                 }
             }
         }
@@ -16844,7 +16857,14 @@ function Get-NsxSecurityGroup {
             $URI = "/api/2.0/services/securitygroup/$objectId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::securitygroup')) {
-                $response.securitygroup 
+                $sg = $response.securitygroup 
+            }
+            #Filter default if switch not set
+            if ( -not $IncludeSystem ) { 
+                $sg | ? { ( $_.objectId -ne 'securitygroup-1') }
+            }
+            else { 
+                $sg
             }
         }
     }
@@ -16983,26 +17003,32 @@ function Remove-NsxSecurityGroup {
     to be corrected before publish operations will succeed again.
 
     .EXAMPLE
-    Example1: Remove the SecurityGroup TestSG
-    PS C:\> Get-NsxSecurityGroup TestSG | Remove-NsxSecurityGroup
+    Get-NsxSecurityGroup TestSG | Remove-NsxSecurityGroup
 
-    Example2: Remove the SecurityGroup $sg without confirmation.
-    PS C:\> $sg | Remove-NsxSecurityGroup -confirm:$false
+    Remove the SecurityGroup TestSG
+    
+    .EXAMPLE
+    $sg | Remove-NsxSecurityGroup -confirm:$false
 
+    Remove the SecurityGroup $sg without confirmation.
+    
     
     #>
 
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #SecurityGroup object as returned by get-nsxsecuritygroup
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$SecurityGroup,
         [Parameter (Mandatory=$False)]
+            #Disable confirmation prompt
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #Force deletion of in use or system objects
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17015,29 +17041,34 @@ function Remove-NsxSecurityGroup {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "Security Group removal is permanent."
-            $question = "Proceed with removal of Security group $($SecurityGroup.Name)?"
-
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if (($SecurityGroup.ObjectId -eq 'securitygroup-1') -and ( -not $force)) {
+            write-warning "Not removing $($SecurityGroup.Name) as it is a default SecurityGroup.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove Security Group $($SecurityGroup.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
-            write-progress -activity "Remove Security Group $($SecurityGroup.Name)" -completed
+        else {
+            if ( $confirm ) { 
+                $message  = "Security Group removal is permanent."
+                $question = "Proceed with removal of Security group $($SecurityGroup.Name)?"
 
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove Security Group $($SecurityGroup.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Security Group $($SecurityGroup.Name)" -completed
+
+            }
         }
     }
 
