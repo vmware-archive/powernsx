@@ -2871,6 +2871,23 @@ function Connect-NsxServer {
         Throw "Unable to connect to NSX Manager at $Server.  $_"
     }
     $connection = new-object PSCustomObject
+    # NSX-v 6.2.3 changed the output of the following API from JSON to XML.
+    #
+    # /api/1.0/appliance-management/global/info"
+    #
+    # Along with the return JSON/XML change, the data structure also received a
+    # new base element named globalInfo.
+    #
+    # So what we do is try for the new format, and if it fails, lets default to
+    # the old JSON format.
+    try {
+        $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.globalInfo.versionInfo.majorVersion).$($response.globalInfo.versionInfo.minorVersion).$($response.globalInfo.versionInfo.patchVersion)" -force
+        $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.globalInfo.versionInfo.BuildNumber)"
+    }
+    catch {
+        $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
+        $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
+    }
     $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
     $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
     $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
