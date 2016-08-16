@@ -11,30 +11,23 @@
 #     PowerShell extensions for NSX for vSphere
 #--------------------------------------------------
 
-#Permission is hereby granted, free of charge, to any person obtaining a copy of
-#this software and associated documentation files (the "Software"), to deal in 
-#the Software without restriction, including without limitation the rights to 
-#use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-#of the Software, and to permit persons to whom the Software is furnished to do 
-#so, subject to the following conditions:
+<#
+Copyright © 2015 VMware, Inc. All Rights Reserved.
 
-#The above copyright notice and this permission notice shall be included in all 
-#copies or substantial portions of the Software.
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 2, as published by the Free Software Foundation.
 
-#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
-#SOFTWARE.
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTIBILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License version 2 for more details.
 
-### Note
-#This powershell scrip should be considered entirely experimental and dangerous
-#and is likely to kill babies, cause war and pestilence and permanently block all 
-#your toilets.  Seriously - It's still in development,  not tested beyond lab 
-#scenarios, and its recommended you dont use it for any production environment 
-#without testing extensively!
+You should have received a copy of the General Public License version 2 along with this program.
+If not, see https://www.gnu.org/licenses/gpl-2.0.html.
+
+The full text of the General Public License 2.0 is provided in the COPYING file.
+Some files may be comprised of various open source software components, each of which
+has its own license that is located in the source code of the respective component.”
+#>
 
 ## Note: The OvfConfiguration portion of this example relies on this OVA. The securityGroup and Firewall configuration have a MANDATORY DEPENDANCY on this OVA being deployed at runtime. The script will fail if the conditions are not met. This OVA can be found here http://goo.gl/oBAFgq
 
