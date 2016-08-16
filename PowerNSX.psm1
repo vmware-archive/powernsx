@@ -17306,12 +17306,17 @@ function Get-NsxSecurityTag {
    param (
 
         [Parameter (Mandatory=$false, Position=1)]
+            #Get Security Tag by name
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
+            #Get security tag by objectId
             [string]$objectId,
+        [Parameter (Mandatory=$false)]
+            #Include system security tags
+            [switch]$IncludeSystem=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17328,9 +17333,16 @@ function Get-NsxSecurityTag {
             [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::securityTags/securityTag')) { 
                 if  ( $PsBoundParameters.ContainsKey('Name')) { 
-                    $response.securitytags.securitytag | ? { $_.name -eq $name }
+                    $tags = $response.securitytags.securitytag | ? { $_.name -eq $name }
                 } else {
-                    $response.securitytags.securitytag
+                    $tags = $response.securitytags.securitytag
+                }
+
+                if ( -not $IncludeSystem ) { 
+                    $tags | ? { ( $_.systemResource -ne 'true') }
+                }
+                else { 
+                    $tags
                 }
             }
         }
@@ -17340,7 +17352,14 @@ function Get-NsxSecurityTag {
             $URI = "/api/2.0/services/securitytags/tag/$objectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::securityTag')) { 
-                $response.securitytag
+                $tags = $response.securitytag
+            }
+
+            if ( -not $IncludeSystem ) { 
+                $tags | ? { ( $_.systemResource -ne 'true') }
+            }
+            else { 
+                $tags
             }
         }
     }
@@ -17393,24 +17412,29 @@ function Remove-NsxSecurityTag {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "Removal of Security Tags may impact desired Security Posture and expose your infrastructure. Please understand the impact of this change"
-            $question = "Proceed with removal of Security Tag $($SecurityTag.Name)?"
-
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if (($SecurityTag.systemResource -eq 'true') -and ( -not $force)) {
+            write-warning "Not removing $($SecurityTag.Name) as it is a default SecurityTag.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)?force=$($Force.ToString().ToLower())"
-            
-            Write-Progress -activity "Remove Security Tag $($SecurityTag.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
-            write-progress -activity "Remove Security Tag $($SecurityTag.Name)" -completed
+        else {
+            if ( $confirm ) { 
+                $message  = "Removal of Security Tags may impact desired Security Posture and expose your infrastructure. Please understand the impact of this change"
+                $question = "Proceed with removal of Security Tag $($SecurityTag.Name)?"
 
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)?force=$($Force.ToString().ToLower())"
+                
+                Write-Progress -activity "Remove Security Tag $($SecurityTag.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Security Tag $($SecurityTag.Name)" -completed
+
+            }
         }
     }
 
