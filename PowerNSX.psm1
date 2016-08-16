@@ -17890,11 +17890,17 @@ function Get-NsxMacSet {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Get Mac sets by objectid
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Get mac sets by name
             [string]$Name,
         [Parameter (Mandatory=$false)]
+            #ScopeId - defaults to globalroot-0
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Include mac sets with readonly attribute
+            [switch]$IncludeReadOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -17914,9 +17920,17 @@ function Get-NsxMacSet {
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::list/macset')) {
                 if ( $name ) {
-                    $response.list.macset | ? { $_.name -eq $name }
+                    $macsets = $response.list.macset | ? { $_.name -eq $name }
                 } else {
-                    $response.list.macset
+                    $macsets = $response.list.macset
+                }
+
+                #Filter readonly if switch not set
+                if ( -not $IncludeReadOnly ) { 
+                    $macsets| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                }
+                else { 
+                    $macsets
                 }
             }
         }
@@ -17926,7 +17940,15 @@ function Get-NsxMacSet {
             $URI = "/api/2.0/services/macset/$objectId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::macset')) {
-                $response.macset
+                $macsets = $response.macset
+            }
+
+            #Filter readonly if switch not set
+            if ( -not $IncludeReadOnly ) { 
+                $macsets| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+            }
+            else { 
+                $macsets
             }
         }
     }
@@ -18022,11 +18044,14 @@ function Remove-NsxMacSet {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #Macset as retrieved by get-nsxmacset to remove
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$MacSet,
         [Parameter (Mandatory=$False)]
+            #Set to false to disable prompt on deletion
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
+            #Enable force to remove objects in use, or set to readonly (system)
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -18040,29 +18065,34 @@ function Remove-NsxMacSet {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "MACSet removal is permanent."
-            $question = "Proceed with removal of MAC Set $($MACSet.Name)?"
-
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if ($macset.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+            write-warning "Not removing $($MacSet.Name) as it is set as read-only.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove MAC Set $($MACSet.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
-            write-progress -activity "Remove MAC Set $($MACSet.Name)" -completed
+        else { 
+            if ( $confirm ) { 
+                $message  = "MACSet removal is permanent."
+                $question = "Proceed with removal of MAC Set $($MACSet.Name)?"
 
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove MAC Set $($MACSet.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove MAC Set $($MACSet.Name)" -completed
+
+            }
         }
     }
 
