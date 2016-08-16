@@ -17654,11 +17654,17 @@ function Get-NsxIpSet {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Objectid of IPSet
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Name of IPSet
             [string]$Name,
         [Parameter (Mandatory=$false)]
+            #ScopeId of IPSet - default is globalroot-0
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Return 'Readonly' (system) ipsets as well
+            [switch]$IncludeReadOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -17678,10 +17684,17 @@ function Get-NsxIpSet {
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::list/ipset')) {
                 if ( $name ) {
-                    $response.list.ipset | ? { $_.name -eq $name }
+                    $ipsets = $response.list.ipset | ? { $_.name -eq $name } 
                 } else {
-                    $response.list.ipset
+                    $ipsets = $response.list.ipset 
                 }
+            }
+
+            if ( -not $IncludeReadOnly ) { 
+                $ipsets | ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+            }
+            else { 
+                $ipsets
             }
         }
         else {
@@ -17690,7 +17703,14 @@ function Get-NsxIpSet {
             $URI = "/api/2.0/services/ipset/$objectId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response.SelectSingleNode('descendant::ipset')) {
-                $response.ipset
+                $ipsets = $response.ipset 
+            }
+
+            if ( -not $IncludeReadOnly ) { 
+                $ipsets | ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+            }
+            else { 
+                $ipsets
             }
         }
     }
@@ -17814,29 +17834,34 @@ function Remove-NsxIpSet {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "IPSet removal is permanent."
-            $question = "Proceed with removal of IP Set $($IPSet.Name)?"
-
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if ($ipset.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+            write-warning "Not removing $($Ipset.Name) as it is set as read-only.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove IP Set $($IPSet.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
-            write-progress -activity "Remove IP Set $($IPSet.Name)" -completed
+        else { 
+            if ( $confirm ) { 
+                $message  = "IPSet removal is permanent."
+                $question = "Proceed with removal of IP Set $($IPSet.Name)?"
 
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+            
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove IP Set $($IPSet.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove IP Set $($IPSet.Name)" -completed
+            }
         }
     }
 
