@@ -2885,11 +2885,14 @@ function Connect-NsxServer {
         $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.globalInfo.versionInfo.BuildNumber)"
     }
     catch {
-        $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
-        $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
+        try { 
+            $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
+            $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
+        }
+        catch { 
+            write-warning "Unable to determine version information.  This may be due to a restriction in the rights the current user has to read the appliance-management API and may not represent an issue."
+        }
     }
-    $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
-    $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
     $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
     $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
     $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
