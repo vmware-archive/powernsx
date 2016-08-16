@@ -19,7 +19,7 @@ If not, see https://www.gnu.org/licenses/gpl-2.0.html.
 
 The full text of the General Public License 2.0 is provided in the COPYING file.
 Some files may be comprised of various open source software components, each of which
-has its own license that is located in the source code of the respective component.”
+has its own license that is located in the source code of the respective component.
 #>
 
 #Requires -Version 3.0
@@ -3569,9 +3569,9 @@ function New-NsxManager{
     Manager VM from OVA.
 
     .DESCRIPTION
-    The NSX management plane is provided by NSX Manager, the centralized 
-    network management component of NSX. It provides the single point of 
-    configuration for NSX operations, and provides NSX's REST API.
+    The NSX management plane is provided by NSX Manager, the centralized 
+    network management component of NSX. It provides the single point of 
+    configuration for NSX operations, and provides NSX's REST API.
 
     The New-NsxManager cmdlet deploys and configures a new NSX Manager appliance
     using PowerCLI
@@ -3784,9 +3784,9 @@ function Set-NsxManager {
     Configures appliance settings for an existing NSX Manager appliance. 
 
     .DESCRIPTION
-    The NSX management plane is provided by NSX Manager, the centralized 
-    network management component of NSX. It provides the single point of 
-    configuration for NSX operations, and provides NSX's REST API.
+    The NSX management plane is provided by NSX Manager, the centralized 
+    network management component of NSX. It provides the single point of 
+    configuration for NSX operations, and provides NSX's REST API.
 
     The Set-NsxManager cmdlet allows configuration of the applaince settings 
     such as syslog, vCenter registration and SSO configuration.
@@ -5712,13 +5712,13 @@ function Get-NsxSpoofguardPolicy {
     Retreives Spoofguard policy objects from NSX.
 
     .DESCRIPTION
-    If a virtual machine has been compromised, its IP address can be spoofed 
-    and malicious transmissions can bypass firewall policies. You create a 
-    SpoofGuard policy for specific networks that allows you to authorize the IP
-    addresses reported by VMware Tools and alter them if necessary to prevent 
-    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
-    collected from the VMX files and vSphere SDK. Operating separately from 
-    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
     Use the Get-NsxSpoofguardPolicy cmdlet to retreive existing SpoofGuard 
@@ -5806,13 +5806,13 @@ function New-NsxSpoofguardPolicy {
     Creates a new Spoofguard policy in NSX.
 
     .DESCRIPTION
-    If a virtual machine has been compromised, its IP address can be spoofed 
-    and malicious transmissions can bypass firewall policies. You create a 
-    SpoofGuard policy for specific networks that allows you to authorize the IP
-    addresses reported by VMware Tools and alter them if necessary to prevent 
-    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
-    collected from the VMX files and vSphere SDK. Operating separately from 
-    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
     Use the New-NsxSpoofguardPolicy cmdlet to create a new SpoofGuard 
@@ -5962,13 +5962,13 @@ function Remove-NsxSpoofguardPolicy {
     Removes the specified Spoofguard policy object from NSX.
 
     .DESCRIPTION
-    If a virtual machine has been compromised, its IP address can be spoofed 
-    and malicious transmissions can bypass firewall policies. You create a 
-    SpoofGuard policy for specific networks that allows you to authorize the IP
-    addresses reported by VMware Tools and alter them if necessary to prevent 
-    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
-    collected from the VMX files and vSphere SDK. Operating separately from 
-    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
     Use the Remnove-NsxSpoofguardPolicy cmdlet to remove the specified
@@ -6045,13 +6045,13 @@ function Publish-NsxSpoofguardPolicy {
     Publishes the specified Spoofguard policy object.
 
     .DESCRIPTION
-    If a virtual machine has been compromised, its IP address can be spoofed 
-    and malicious transmissions can bypass firewall policies. You create a 
-    SpoofGuard policy for specific networks that allows you to authorize the IP
-    addresses reported by VMware Tools and alter them if necessary to prevent 
-    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
-    collected from the VMX files and vSphere SDK. Operating separately from 
-    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
     Use the Publish-NsxSpoofguardPolicy cmdlet to publish the specified
@@ -6122,13 +6122,13 @@ function Get-NsxSpoofguardNic {
     Retreives Spoofguard NIC details for the specified Spoofguard policy.
 
     .DESCRIPTION
-    If a virtual machine has been compromised, its IP address can be spoofed 
-    and malicious transmissions can bypass firewall policies. You create a 
-    SpoofGuard policy for specific networks that allows you to authorize the IP
-    addresses reported by VMware Tools and alter them if necessary to prevent 
-    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
-    collected from the VMX files and vSphere SDK. Operating separately from 
-    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
     Use the Get-NsxSpoofguardNic cmdlet to retreive Spoofguard NIC details for 
@@ -6189,6 +6189,7 @@ function Get-NsxSpoofguardNic {
         [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop]$NetworkAdapter,            
+        [Parameter (Mandatory=$false, ParameterSetName = "Default")]
         [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
         [Parameter (Mandatory=$false, ParameterSetName = "VM")]
         [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
@@ -6252,13 +6253,13 @@ function Grant-NsxSpoofguardNicApproval {
     Approves a new IP for the specified Spoofguard NIC.
 
     .DESCRIPTION
-    If a virtual machine has been compromised, its IP address can be spoofed 
-    and malicious transmissions can bypass firewall policies. You create a 
-    SpoofGuard policy for specific networks that allows you to authorize the IP
-    addresses reported by VMware Tools and alter them if necessary to prevent 
-    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
-    collected from the VMX files and vSphere SDK. Operating separately from 
-    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
     Use the Grant-NsxSpoofguardNicApproval cmdlet to add the specified IP
@@ -6423,13 +6424,13 @@ function Revoke-NsxSpoofguardNicApproval {
     Removes an approved IP from the specified Spoofguard NIC.
 
     .DESCRIPTION
-    If a virtual machine has been compromised, its IP address can be spoofed 
-    and malicious transmissions can bypass firewall policies. You create a 
-    SpoofGuard policy for specific networks that allows you to authorize the IP
-    addresses reported by VMware Tools and alter them if necessary to prevent 
-    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
-    collected from the VMX files and vSphere SDK. Operating separately from 
-    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
     Use the Revoke-NsxSpoofguardNicApproval cmdlet to remove the specified IP
@@ -9293,12 +9294,12 @@ function Set-NsxEdgeNat {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    NSX Edge provides network address translation (NAT) service to protect the 
-    IP addresses of internal (private)  networks from the public network.
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
 
-    You can configure NAT rules to provide access to services running on 
-    privately addressed virtual machines.  There are two types of NAT rules that
-    can be configured: SNAT and DNAT. 
+    You can configure NAT rules to provide access to services running on 
+    privately addressed virtual machines.  There are two types of NAT rules that
+    can be configured: SNAT and DNAT. 
 
     The Set-NsxEdgeNat cmdlet configures the global NAT configuration of
     the specified Edge Services Gateway.
@@ -9387,12 +9388,12 @@ function Get-NsxEdgeNat {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    NSX Edge provides network address translation (NAT) service to protect the 
-    IP addresses of internal (private)  networks from the public network.
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
 
-    You can configure NAT rules to provide access to services running on 
-    privately addressed virtual machines.  There are two types of NAT rules that
-    can be configured: SNAT and DNAT. 
+    You can configure NAT rules to provide access to services running on 
+    privately addressed virtual machines.  There are two types of NAT rules that
+    can be configured: SNAT and DNAT. 
 
     The Get-NsxEdgeNat cmdlet retreives the global NAT configuration of
     the specified Edge Services Gateway.
@@ -9438,8 +9439,8 @@ function Get-NsxEdgeNatRule {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    NSX Edge provides network address translation (NAT) service to protect the 
-    IP addresses of internal (private)  networks from the public network.
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
 
     The Get-NsxEdgeNatRule cmdlet retreives the nat rules from the 
     nat configuration specified.
@@ -9506,8 +9507,8 @@ function New-NsxEdgeNatRule {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    NSX Edge provides network address translation (NAT) service to protect the 
-    IP addresses of internal (private)  networks from the public network.
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
 
     The New-NsxEdgeNatRule cmdlet creates a new NAT rule in the nat 
     configuration specified.
@@ -9636,8 +9637,8 @@ function Remove-NsxEdgeNatRule {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    NSX Edge provides network address translation (NAT) service to protect the 
-    IP addresses of internal (private)  networks from the public network.
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
 
     The Remove-NsxEdgeNatRule cmdlet removes a specific NAT rule from the NAT
     configuration of the specified Edge Services Gateway.
@@ -10188,9 +10189,9 @@ function Get-NsxSslVpn {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    SSL VPN allows remote users to connect securely to private networks behind an
-    NSX Edge Services gateway and access servers and applications 
-    in the private networks.
+    SSL VPN allows remote users to connect securely to private networks behind an
+    NSX Edge Services gateway and access servers and applications 
+    in the private networks.
 
     The Get-NsxSslVpn cmdlet retreives the global SSLVPN configuration of
     the specified Edge Services Gateway.
@@ -10588,9 +10589,9 @@ function Get-NsxSslVpnAuthServer {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    SSL VPN allows remote users to connect securely to private networks behind an
-    NSX Edge Services gateway and access servers and applications 
-    in the private networks.
+    SSL VPN allows remote users to connect securely to private networks behind an
+    NSX Edge Services gateway and access servers and applications 
+    in the private networks.
 
     Authentication Servers define how the SSL VPN server authenticates user
     connections
