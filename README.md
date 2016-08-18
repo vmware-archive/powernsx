@@ -10,7 +10,7 @@ It aims to focus on exposing New, Update, Remove and Get operations for all key 
 
 It is unlikely that it will ever expose 100% of the NSX API, but feature requests are welcomed if you find a particular function you require to be lacking.
 
-PowerNSX is currently a work in progress and is not yet feature complete. 
+PowerNSX remains a work in progress and is not yet feature complete. 
 
 See the Wiki for Setup and Usage instructions.
 
@@ -19,8 +19,8 @@ See the Wiki for Setup and Usage instructions.
 Contribution and feature requests are more than welcome, please use the following methods:
 
   * For bugs and issues, please use the issues register with details of the problem.
-  * For Feature Requests, please use the issues register with details of what's required.
-  * For code contribution (bug fixes, or feature request), please request write access to the dev branch or supply a patch.
+  * For Feature Requests and bug reports, please use the issues register with details of what's required.
+  * To contribute code, create a fork, make your changes and submit a pull request.
  
 ## Who do I talk to? ##
 
