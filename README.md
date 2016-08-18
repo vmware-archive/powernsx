@@ -1,6 +1,4 @@
-<<<<<<< HEAD
 
-=======
 # PowerNSX #
 
 ## About ##
@@ -47,4 +45,3 @@ If not, see https://www.gnu.org/licenses/gpl-2.0.html.
 The full text of the General Public License 2.0 is provided in the COPYING file.
 Some files may be comprised of various open source software components, each of which
 has its own license that is located in the source code of the respective component.”
->>>>>>> vmware-github
