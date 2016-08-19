@@ -2,7 +2,7 @@
 # Simple NSX environment standup script.
 # Nick Bradford
 # Nbradford@vmware.com
-#
+# 3TA elements courtesy of Anthony Burke : aburke@vmware.com
 
 <#
 Copyright © 2015 VMware, Inc. All Rights Reserved.
