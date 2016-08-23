@@ -34,7 +34,7 @@ git push $USER my-new-feature
 
 ### Staying In Sync With Upstream
 
-When your branch gets out of sync with the vmware/powernsx/master branch, use the following to update:
+When your branch gets out of sync with the powernsx/master branch, use the following to update:
 
 ``` shell
 git checkout my-new-feature
@@ -45,7 +45,7 @@ git push --force-with-lease $USER my-new-feature
 
 ### Updating pull requests
 
-If your PR fails to pass CI or needs changes based on code review, you'll most likely want to squash these changes into
+If your PR needs changes based on code review, you'll most likely want to squash these changes into
 existing commits.
 
 If your pull request contains a single commit or your changes are related to the most recent commit, you can simply
@@ -93,7 +93,7 @@ When opening a new issue, try to roughly follow the commit message format conven
 
 The PowerNSX Module and Installer are in the root directory.  
 
-The 'bootstrap' line (the PoSH oneliner that will install the _latest commit of the current branch_) is contained withing InstallBootstrapper.ps1
+The 'bootstrap' line (the PoSH oneliner that will install the _latest commit of the current branch_) is contained within InstallBootstrapper.ps1
 
 There is a directory for Tests (for the moment, these are not really automatable or consumable by anyone other than the maintainers, but any effort toward converting these toward Pester style tests would be greatly appreciated)
 
