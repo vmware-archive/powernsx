@@ -3969,6 +3969,296 @@ function Set-NsxManager {
     Invoke-NsxRestMethod -Method $method -body $xmlRoot.outerXml -uri $uri -Connection $Connection
 }
 
+function Get-NsxManagerSsoConfig {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager SSO Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The SSO configuration of NSX Manager controls its registration with VMware
+    SSO server for authentication purposes.
+
+    The Get-NsxManagerSsoConfig cmdlet retrieves the SSO configuration and 
+    status of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerSsoConfig
+    
+    Retreives the SSO configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/services/ssoconfig"
+
+    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    
+    if ($response.SelectsingleNode('descendant::ssoConfig/vsmSolutionName')) { 
+        $ssoConfig = $response.ssoConfig
+
+        #Only if its configured do we get status
+        $URI = "/api/2.0/services/ssoconfig/status"
+        [System.Xml.XmlDocument]$status = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        Add-XmlElement -xmlRoot $ssoConfig -xmlElementName "Connected" -xmlElementText $status.boolean
+        #really?  Boolean?  What bonehead wrote this API?
+
+        $ssoConfig
+        
+    }
+}
+
+function Get-NsxManagerVcenterConfig {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager vCenter Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The vCenter configuration of NSX Manager controls its registration with 
+    VMware vCenter server for authentication purposes.
+
+    The Get-NsxManagerVcenterConfig cmdlet retrieves the vCenterconfiguration 
+    and status of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerSsoConfig
+    
+    Retreives the SSO configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/services/vcconfig"
+
+    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    
+    if ($response.SelectsingleNode('descendant::vcInfo/ipAddress')) { 
+        $vcConfig = $response.vcInfo
+
+        #Only if its configured do we get status
+        $URI = "/api/2.0/services/vcconfig/status"
+        [System.Xml.XmlDocument]$status = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        Add-XmlElement -xmlRoot $vcConfig -xmlElementName "Connected" -xmlElementText $status.vcConfigStatus.Connected
+
+        $vcConfig        
+    }
+}
+
+function Get-NsxManagerTimeSettings {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Time Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerTimeSettings cmdlet retrieves the time related
+    configuration of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerTimeSettings
+    
+    Retreives the time configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/system/timesettings"
+
+    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection    
+}
+
+function Get-NsxManagerSyslogServer {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Syslog Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerSyslog cmdlet retrieves the time related
+    configuration of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerSyslogServer
+    
+    Retreives the Syslog server configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/system/syslogserver"
+
+    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
+}
+
+function Get-NsxManagerNetwork {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Network Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerNetwork cmdlet retrieves the network related
+    configuration of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerNetwork
+    
+    Retreives the Syslog server configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/system/network"
+
+    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
+}
+
+function Get-NsxManagerBackup {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Backup Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerBackup cmdlet retrieves the backup related
+    configuration of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerBackup
+    
+    Retreives the Backup server configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/backuprestore/backupsettings"
+
+    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+}
+
+function Get-NsxManagerComponentSummary {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Component Summary Information.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerComponentSummary cmdlet retrieves the component summary
+    related information of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerComponentSummary
+    
+    Retreives the component summary information from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/summary/components"
+
+    $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    $response.componentsByGroup
+
+}
+
+function Get-NsxManagerSystemSummary {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager System Summary Information.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerSystemSummary cmdlet retrieves the component summary
+    related information of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerSystemSummary
+    
+    Retreives the system summary information from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/summary/system"
+
+    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+}
+
+
 function New-NsxController {
     
     <#
