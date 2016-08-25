@@ -546,8 +546,8 @@ function init {
             write-host 
             write-host "You can connect to NSX and vCenter with Connect-NsxServer."
             write-host
-            write-host "Head to https://vmware.github.io/powernsx for Documentation"
-            write-host "updates and further assistance"
+            write-host "Head to https://vmware.github.io/powernsx for documentation,"
+            write-host "updates and further assistance."
             write-host
             write-host -ForegroundColor Green "Enjoy!"
             write-host
