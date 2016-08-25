@@ -2860,8 +2860,8 @@ function Connect-NsxServer {
     The Connect-NsxServer cmdlet connects to the specified NSX server and 
     retrieves version details.  Because the underlying REST protocol is not 
     connection oriented, the 'Connection' concept relates to just validating 
-    endpoint details and credentials and storing some basic information used to 
-    reproduce the same outcome during subsequent NSX operations.
+    endpoint details and credentials and storing some basic information used 
+    to reproduce the same outcome during subsequent NSX operations.
 
     .EXAMPLE
     Connect-NsxServer -Server nsxserver -username admin -Password VMware1!
@@ -4231,7 +4231,27 @@ function Get-NsxManagerTimeSettings {
 
     $URI = "/api/1.0/appliance-management/system/timesettings"
 
-    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection    
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    #NSX 6.2.3/4 changed API schema here! :( Grrrr.  Have to test and return consistent object
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the timesettings child exists.
+        $result.timeSettings
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlTimeSettings = $xmlDoc.CreateElement('timeSettings')
+        $xmldoc.AppendChild($xmlTimeSettings) | out-null
+
+        [System.XML.XMLElement]$xmlNTPServerString = $xmlDoc.CreateElement('ntpServer')
+        $xmlTimeSettings.Appendchild($xmlNTPServerString) | out-null
+        
+        Add-XmlElement -xmlRoot $xmlNTPServerString -xmlElementName "string" -xmlElementText $result.ntpServer
+        Add-XmlElement -xmlRoot $xmlTimeSettings -xmlElementName "datetime" -xmlElementText $result.datetime
+        Add-XmlElement -xmlRoot $xmlTimeSettings -xmlElementName "timezone" -xmlElementText $result.timezone
+        $xmlTimeSettings
+    }  
 }
 
 function Get-NsxManagerSyslogServer {
@@ -4263,7 +4283,24 @@ function Get-NsxManagerSyslogServer {
 
     $URI = "/api/1.0/appliance-management/system/syslogserver"
 
-    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
+
+    #NSX 6.2.3/4 changed API schema here! :( Grrrr.  Have to test and return consistent object
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the timesettings child exists.
+        $result.syslogserver
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlSyslog = $xmlDoc.CreateElement('syslogserver')
+        $xmldoc.AppendChild($xmlSyslog) | out-null
+
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "syslogServer" -xmlElementText $result.syslogServer
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "port" -xmlElementText $result.port
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "protocol" -xmlElementText $result.protocol
+        $xmlSyslog
+    }  
 }
 
 function Get-NsxManagerNetwork {
@@ -4359,9 +4396,78 @@ function Get-NsxManagerComponentSummary {
 
     $URI = "/api/1.0/appliance-management/summary/components"
 
-    $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-    $response.componentsByGroup
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the child exists.
+        $result.ComponentsSummary
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        #This hacky attempt to return a consistent object is definately not that universal - but there is fidelity lost in the API reponse that 
+        #prevents me from easily reconsructing the correct XML.  So I had to reverse engineer based on a 6.2.3 example response.  Hopefully this 
+        #will just go away quietly...
 
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlComponentsSummary = $xmlDoc.CreateElement('componentsSummary')
+        [System.XML.XMLElement]$xmlComponentsByGroup = $xmlDoc.CreateElement('componentsByGroup')
+        $xmldoc.AppendChild($xmlComponentsSummary) | out-null
+        $xmlComponentsSummary.AppendChild($xmlComponentsByGroup) | out-null
+
+        foreach ( $NamedProperty in (get-member -InputObject $result.componentsByGroup -MemberType NoteProperty)) { 
+
+            [System.XML.XMLElement]$xmlEntry = $xmlDoc.CreateElement('entry')
+            $xmlComponentsByGroup.AppendChild($xmlEntry) | out-null
+
+            Add-XmlElement -xmlRoot $xmlEntry -xmlElementName "string" -xmlElementText $NamedProperty.Name
+
+            [System.XML.XMLElement]$xmlComponents = $xmlDoc.CreateElement('components')
+            $xmlEntry.AppendChild($xmlComponents) | out-null
+
+            foreach ( $component in $result.componentsByGroup.($NamedProperty.name).components) { 
+            
+                [System.XML.XMLElement]$xmlComponent = $xmlDoc.CreateElement('component')
+                $xmlComponents.AppendChild($xmlComponent) | out-null
+
+                foreach ( $NoteProp in ($component | Get-Member -Membertype NoteProperty) ) { 
+
+                    #Check if I actually have a value
+                    if ( $component.($NoteProp.Name) ) { 
+                        
+                        $Property = $component.($NoteProp.Name)
+                        write-debug "GetType: $($Property.gettype())"
+                        write-debug "Is: $($Property -is [array])"
+
+                        #Switch on my value 
+                        switch ( $Property.gettype() )  { 
+
+                            "System.Object[]" { 
+                                write-debug "In: Array"
+                                [System.XML.XMLElement]$xmlCompArray = $xmlDoc.CreateElement($NoteProp.Name)
+                                $xmlComponent.AppendChild($xmlCompArray) | out-null
+                                foreach ( $member in $Property ) { 
+                                    #All examples ive seen have strings, but not sure if this will stand up to scrutiny...
+                                    Add-XmlElement -xmlRoot $xmlCompArray -xmlElementName $member.GetType().Name.tolower() -xmlElementText $member.ToString()
+                                }
+                            }
+
+                            "string" { 
+                                write-debug "In: String"
+                                Add-XmlElement -xmlRoot $xmlComponent -xmlElementName $NoteProp.Name -xmlElementText $Property
+                            }
+
+                            "bool" {
+                                write-debug "In: Bool"
+                                Add-XmlElement -xmlRoot $xmlComponent -xmlElementName $NoteProp.Name -xmlElementText $Property.ToString().tolower()
+                            }
+                            default { write-debug "Fuck it : $_" }
+                        }
+                    }
+                }
+            }
+        }
+        $xmlComponentsSummary
+    }  
 }
 
 function Get-NsxManagerSystemSummary {
@@ -4395,7 +4501,6 @@ function Get-NsxManagerSystemSummary {
 
     invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 }
-
 
 function New-NsxController {
     
