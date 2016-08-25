@@ -347,22 +347,43 @@ function check-PowerNSX {
         }
         else {
 
-            $ModuleDir = split-path $ModulePath -parent
-            if (-not (test-path $ModuleDir )) {
-
-                Write-Progress -Activity "Installing PowerNSX for" -Status "check-powernsx" -CurrentOperation "Creating directory $ModuleDir"
-                new-item -Type Directory $ModuleDir | out-null
-            }
-            Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Installing PowerNSX"
-            Download-File $PowerNSXManifest $ManifestPath
-            Download-File $PowerNSXMod $ModulePath
-            if (-not ((Test-Path $ModulePath) -and (test-path $ManifestPath ))) { 
-                throw "Unable to download/install PowerNSX. $_"
-
-            }
+            $doInstall = $true
         }
 
     } 
+    else { 
+
+        #Module already exists and user didnt specify upgrade switch prompt user to upgrade.
+        $message  = "PowerNSX module is already installed."
+        $question = "Do you want to upgrade to the latest available PowerNSX?"
+
+        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+
+        if ( $decision -eq 0 ) {
+            $doInstall = $true
+
+        }
+    }
+
+    if ( $doInstall ) { 
+        $ModuleDir = split-path $ModulePath -parent
+        if (-not (test-path $ModuleDir )) {
+
+            Write-Progress -Activity "Installing PowerNSX for" -Status "check-powernsx" -CurrentOperation "Creating directory $ModuleDir"
+            new-item -Type Directory $ModuleDir | out-null
+        }
+        Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Installing PowerNSX"
+        Download-File $PowerNSXManifest $ManifestPath
+        Download-File $PowerNSXMod $ModulePath
+        if (-not ((Test-Path $ModulePath) -and (test-path $ManifestPath ))) { 
+            throw "Unable to download/install PowerNSX. $_"
+
+        }
+    }
 
     Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Checking PSModulePath for PowerNSX Module Path"
 
@@ -468,8 +489,8 @@ function init {
         write-host -ForegroundColor Yellow "Automated installation rejected."
         write-host 
         write-host "If you wish to perform the installation manually, ensure the minimum"
-        write-host "requirements for PowerNSX are met, place the module file in a"
-        write-host "PowerShell Module directory and run Import-Module PowerNSX from"
+        write-host "requirements for PowerNSX are met, place the module file and manifest"
+        write-host "in a PowerShell Module directory and run Import-Module PowerNSX from"
         write-host "a PowerCLI session." 
         write-host  
         return
@@ -517,13 +538,16 @@ function init {
             write-host 
             write-host -ForegroundColor Green "PowerNSX installation complete."
             write-host 
-            write-host "Start a new PowerCLI session and import the PowerNSX module as follows:"
-            write-host "    import-module PowerNSX"
+            write-host "PowerNSX requires PowerCLI to function fully!"
+            write-host "To get started with PowerNSX, start a new PowerCLI session."
             write-host 
             write-host "You can view the cmdlets supported by PowerNSX as follows:"
             write-host "    get-command -module PowerNSX"
             write-host 
-            write-host "Review the PowerNSX Documentation at <> for further assistance"
+            write-host "You can connect to NSX and vCenter with Connect-NsxServer."
+            write-host
+            write-host "Head to https://vmware.github.io/powernsx for Documentation"
+            write-host "updates and further assistance"
             write-host
             write-host -ForegroundColor Green "Enjoy!"
             write-host
