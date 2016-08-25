@@ -33,7 +33,7 @@ param (
 $Branch = "update-gituhub-ref"
 
 #PowerCLI 6.0 R3 
-$PowerCLI_Download="https://my.vmware.com/group/vmware/get-download?downloadGroup=PCLI600R3"
+$PowerCLI_Download="https://my.vmware.com/group/vmware/get-download?downloadGroup=PCLI630R1"
 
 #WMF3 - for Windows 6.0
 $WMF_3_61_64_Download="https://download.microsoft.com/download/E/7/6/E76850B8-DA6E-4FF5-8CCE-A24FC513FD16/Windows6.1-KB2506143-x64.msu"
@@ -364,7 +364,7 @@ function check-PowerNSX {
 
     } 
 
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Checking PSModulePath for PowerNSXT Module Path"
+    Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Checking PSModulePath for PowerNSX Module Path"
 
     #Need to use registry here as the PowerCLI installation changes will not have propogated to the current host.
     $envModulePath = (Get-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Session Manager\Environment').PSModulePath
