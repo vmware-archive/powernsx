@@ -27,7 +27,7 @@ has its own license that is located in the source code of the respective compone
 #More sophisticated requirement checking done at module load time.
 
 #My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
-$PNsxUrlBase = "https://github.com/vmware/powernsx"
+$PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
 $ValidBranches = @("master","v1","v2", "update-gituhub-ref")
 
 
@@ -552,6 +552,19 @@ function Parse-CentralCliResponse {
 ########
 # Validation Functions
 
+function Validate-UpdateBranch {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $ValidBranches -contains $argument ) { 
+        $true
+    } else { 
+        throw "Invalid Branch.  Specify one of the valid branches : $($Validbranches -join ", ")"
+    } 
+   
+}
 Function Validate-TransportZone {
 
     Param (
@@ -3053,7 +3066,7 @@ function Update-PowerNsx {
 
         [Parameter (Mandatory = $True, Position=1)]
             #Valid Branches supported for upgrading to.
-            [ValidateSet($ValidBranches)]
+            [ValidateScript({ Validate-UpdateBranch $_ })]
             [string]$Branch
     )
 
@@ -3067,7 +3080,7 @@ function Update-PowerNsx {
         return
     }
 
-    if ( $Branch = "Dev" ) {
+    if ( $Branch -eq "Dev" ) {
         write-warning "Updating to latest Dev branch commit.  Stability is not guaranteed."
     }
 
