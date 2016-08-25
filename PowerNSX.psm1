@@ -28,7 +28,7 @@ has its own license that is located in the source code of the respective compone
 
 #My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
 $PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
-$ValidBranches = @("master","v1","v2", "update-gituhub-ref")
+$ValidBranches = @("master","v1","v2")
 
 
 set-strictmode -version Latest
