@@ -1801,18 +1801,140 @@ Function Validate-FirewallRuleSourceDest {
     Validate-SecurityGroupMember $argument    
 }
 
+
+Function Validate-ServiceGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $argument -is [system.xml.xmlelement] ){ 
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) {
+            throw "Invalid service group specified"
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) {
+            throw "Invalid service group specified"
+        }
+        if ( -not ($argument.objectTypeName -eq "ApplicationGroup")){
+            throw "Invalid service group specified"
+        }
+        $true
+    }
+    else {
+        throw "Invalid Service Group specified"
+    }
+}
+
+
 Function Validate-Service {
 
     Param (
         [Parameter (Mandatory=$true)]
         [object]$argument
     )
-    if ( -not ($argument | get-member -MemberType Property -Name objectId )) { 
-        throw "Invalid service object specified" 
-    } 
-    else { 
+    if ( $argument -is [system.xml.xmlelement] ){ 
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) {
+            throw "Invalid service specified"
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) {
+            throw "Invalid service specified"
+        }
+        if ( -not ($argument.objectTypeName -eq "Application")){
+            throw "Invalid service specified"
+        }
         $true
     }
+    else {
+        throw "Invalid Service specified"
+    }
+}
+
+Function Validate-ServiceOrServiceGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    try {
+        Validate-Service -argument $argument
+    }
+    catch {
+        try {
+            Validate-ServiceGroup -argument $argument 
+        }
+        catch {
+            throw "Invalid Service or Service Group specific"
+        }
+
+    }
+    $true
+}
+Function Validate-ServiceGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $argument -is [system.xml.xmlelement] ){ 
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) {
+            throw "Invalid service group specified"
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) {
+            throw "Invalid service group specified"
+        }
+        if ( -not ($argument.objectTypeName -eq "ApplicationGroup")){
+            throw "Invalid service group specified"
+        }
+        $true
+    }
+    else {
+        throw "Invalid Service Group specified"
+    }
+}
+
+
+Function Validate-Service {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $argument -is [system.xml.xmlelement] ){ 
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) {
+            throw "Invalid service specified"
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) {
+            throw "Invalid service specified"
+        }
+        if ( -not ($argument.objectTypeName -eq "Application")){
+            throw "Invalid service specified"
+        }
+        $true
+    }
+    else {
+        throw "Invalid Service specified"
+    }
+}
+
+Function Validate-ServiceOrServiceGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    try {
+        Validate-Service -argument $argument
+    }
+    catch {
+        try {
+            Validate-ServiceGroup -argument $argument 
+        }
+        catch {
+            throw "Invalid Service or Service Group specific"
+        }
+
+    }
+    $true
 }
 
 Function Validate-FirewallAppliedTo {
@@ -18779,6 +18901,397 @@ function Remove-NsxService {
     end {}
 }
 
+
+Function Get-NsxServiceGroup {
+
+
+    <#
+    .SYNOPSIS
+    Retrieves a list of NSX Service Groups.
+
+    .DESCRIPTION
+    Lists all created NSX Service Groups. Service groups contain a mixture of 
+    selected ports to represent a potential grouping of like ports.
+
+    This cmdlet retrieves the service group of the specified configuration.
+
+    .EXAMPLE
+    Get-NsxServiceGroup
+
+    Retrieves all NSX Service Groups
+
+    .EXAMPLE
+    Get-NsxServiceGroup Heartbeat
+
+    Retrieves the default NSX Service Group called Heartbeat
+
+    .EXAMPLE
+    Get-NsxServiceGroup | ? {$_.name -match ("Exchange")} | select name
+
+    Retrieves all Services Groups that have the string "Exchange" in their 
+    name property
+    e.g:
+    ----
+    Microsoft Exchange 2003
+    MS Exchange 2007 Transport Servers
+    MS Exchange 2007 Unified Messaging Centre
+    MS Exchange 2007 Client Access Server
+    Microsoft Exchange 2007
+    MS Exchange 2007 Mailbox Servers
+    Microsoft Exchange 2010
+    MS Exchange 2010 Client Access Servers
+    MS Exchange 2010 Transport Servers
+    MS Exchange 2010 Mailbox Servers
+    MS Exchange 2010 Unified Messaging Server
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+    param (
+
+    [Parameter (Mandatory=$false,Position=1,ParameterSetName="Name")]
+        [ValidateNotNullorEmpty()]
+        [string]$Name,
+    [Parameter (Mandatory=$false)]
+        [string]$scopeId="globalroot-0",
+    [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+        [string]$objectId,
+    [Parameter (Mandatory=$False)]
+        #PowerNSX Connection object.
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        if ( -not $objectId ) {
+            #All Sections
+
+            $URI = "/api/2.0/services/applicationgroup/scope/$scopeId"
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+
+            if ($response.SelectSingleNode("child::list/applicationGroup")){
+                $servicegroup = $response.list.applicationGroup
+            
+                if ($PsBoundParameters.ContainsKey("Name")){
+                    $servicegroup | ? {$_.name -eq $name}
+                }
+                else {
+    
+                    $servicegroup
+                }
+            }
+
+        }
+        else {
+
+            $URI = "/api/2.0/services/applicationgroup/$objectid"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            
+            $response.applicationGroup
+        }
+
+    }
+
+    end {}
+}
+
+
+function Get-NsxServiceGroupMember {
+
+    <#
+    .SYNOPSIS
+    Retrieves a list of services within an NSX Service Groups.
+
+    .DESCRIPTION
+    Lists all serivces associated to an NSX Service Groups. Service groups 
+    contain a mixture of selected ports to represent a potential grouping 
+    of like ports.
+
+    This cmdlet retrieves the member services within a Service Group for 
+    specific or all Service Groups
+
+    .EXAMPLE
+    Get-NsxServiceGroup | Get-NsxServiceGroupMember
+
+    Retrieves all members of all Service Groups. You are brave.
+    
+    .EXAMPLE
+    Get-NsxServiceGroup Heartbeat | Get-NsxServiceGroupMember
+
+    Retrieves all members of the Service Group Heartbeat
+    e.g:
+
+    objectId           : application-70
+    objectTypeName     : Application
+    vsmUuid            : 42019B98-63EC-995F-6CBB-FF738D027F92
+    nodeId             : 0dd7c0dd-a194-4df1-a14b-56a1617c2f0f
+    revision           : 2
+    type               : type
+    name               : Vmware-VCHeartbeat
+    scope              : scope
+    clientHandle       :
+    extendedAttributes :
+    isUniversal        : false
+    universalRevision  : 0
+
+    objectId           : application-180
+    objectTypeName     : Application
+    vsmUuid            : 42019B98-63EC-995F-6CBB-FF738D027F92
+    nodeId             : 0dd7c0dd-a194-4df1-a14b-56a1617c2f0f
+    revision           : 2
+    type               : type
+    name               : Vmware-Heartbeat-PrimarySecondary
+    scope              : scope
+    clientHandle       :
+    extendedAttributes :
+    isUniversal        : false
+    universalRevision  : 0
+
+
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-ServiceOrServiceGroup $_ })]
+            [System.Xml.XmlElement]$ServiceGroup,
+        [Parameter (Mandatory=$false)]
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            [string]$objectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin{
+
+    }
+    process{
+
+        if ($ServiceGroup.SelectSingleNode("child::member")){
+            $ServiceGroup.member
+        }
+
+    }
+
+    end{}
+}
+
+
+function Remove-NsxServiceGroup {
+
+    <#
+    .SYNOPSIS
+    Removes the specified NSX Service Group.
+
+    .DESCRIPTION
+     A service group is a container that includes Services and other Service
+    Groups. These Service Groups are used by the NSX Distributed Firewall 
+    when creating firewall rules. They can also be referenced by Service 
+    Composer's Security Policies.
+
+    This cmdlet removes the specified Service Group.
+
+    .EXAMPLE
+    Get-NsxServiceGroup Heartbeat | Remove-NsxServiceGroup
+
+    This will remove the Service Group Heartbeat. All members of the Service 
+    Group are not affected.
+
+    .EXAMPLE
+    Get-NsxServiceGroup | Remove-NsxServiceGroup -confirm:$false
+
+    This will retrieve and remove ALL Service Groups without confirmation 
+    prompt. 
+
+    #>
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-ServiceGroup $_ })]
+            [System.Xml.XmlElement]$ServiceGroup,
+        [Parameter (Mandatory=$False)]
+            [switch]$confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+        )
+
+
+
+    begin{
+
+    }
+    process{
+
+
+        if ( $confirm ) {
+            $message  = "Service Group removal is permanent."
+            $question = "Proceed with removal of Service group $($ServiceGroup.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            if ( $force ) {
+                $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectid)?force=true"
+            }
+            else {
+                $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectid)?force=false"
+            }
+
+            Write-Progress -activity "Remove Service Group $($ServiceGroup.Name)"
+            Invoke-NsxRestMethod -method "delete" -uri $URI -connection $connection | out-null
+            Write-progress -activity "Remove Service Group $($ServiceGroup.Name)" -completed
+        }
+    }
+
+    end {}
+}
+
+
+function New-NsxServiceGroup {
+
+    <#
+    .SYNOPSIS
+    Creates a new Service Group to which new Services or Service Groups can 
+    be added.
+
+    .DESCRIPTION
+    A service group is a container that includes Services and other Service
+    Groups. These Service Groups are used by the NSX Distributed Firewall 
+    when creating firewall rules. They can also be referenced by Service 
+    Composer's Security Policies.
+
+    .EXAMPLE
+    New-NsxServiceGroup PowerNSX-SVG
+
+    Creates a new Service Group called PowerNSX-SVG
+
+
+    objectId           : applicationgroup-53
+    objectTypeName     : ApplicationGroup
+    vsmUuid            : 42019B98-63EC-995F-6CBB-FF738D027F92
+    nodeId             : 0dd7c0dd-a194-4df1-a14b-56a1617c2f0f
+    revision           : 1
+    type               : type
+    name               : PowerNSX-SVG
+    description        :
+    scope              : scope
+    clientHandle       :
+    extendedAttributes :
+    isUniversal        : false
+    universalRevision  : 0
+    inheritanceAllowed : false
+
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description = "",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("applicationGroup")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+
+        $body = $xmlroot.OuterXml
+
+        $method = "POST"
+        $uri = "/api/2.0/services/applicationgroup/globalroot-0"
+        $response = invoke-nsxrestmethod -uri $uri -method $method -body $body -connection $connection
+
+        Get-NsxServiceGroup $Name
+
+    }
+
+    end {}
+}
+
+
+function Add-NsxServiceGroupMember {
+
+    <#
+    .SYNOPSIS
+    Adds a single Service, numerous Services, or a Service Group to a Service 
+    Group
+
+    .DESCRIPTION
+    Adds the defined Service or Service Group to an NSX Service Groups. Service
+    groups contain a mixture of selected ports to represent a potential 
+    grouping of like ports.
+
+    This cmdlet adds the defined Services or Service Groups within a Service 
+    Group for specific or all Service Groups
+
+    .EXAMPLE
+    PS C:\> Get-NsxServiceGroup Heartbeat | Add-NsxServiceGroupMember -Member $Service1
+
+
+    PS C:\> get-nsxservicegroup Service-Group-4 | Add-NsxServiceGroupMember $Service1,$Service2
+
+    #>
+
+    param (
+        #Mastergroup added from Get-NsxServiceGroup
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-ServiceGroup $_ })]
+            [System.Xml.XmlElement]$ServiceGroup,
+        [Parameter (Mandatory=$true,Position=1)]
+            [ValidateScript({ Validate-ServiceOrServiceGroup $_ })]
+            #The [] in XmlElement means it can expect more than one object!
+            [System.Xml.XmlElement[]]$Member,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+
+        foreach ($Mem in $Member){
+            $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectId)/members/$($Mem.objectId)"
+            $response = invoke-nsxrestmethod -method "PUT" -uri $URI -connection $connection
+            Write-Progress -activity "Adding Service or Service Group $($Mem) to Service Group $($ServiceGroup)"
+        }
+
+    }
+    end {}
+}
 
 #########
 #########
