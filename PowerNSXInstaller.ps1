@@ -30,7 +30,7 @@ param (
     )
 
 #Control which branch is installed.  Latest commit in this branch is used.
-$Branch = "master"
+$Branch = "update-gituhub-ref"
 
 #PowerCLI 6.0 R3 
 $PowerCLI_Download="https://my.vmware.com/group/vmware/get-download?downloadGroup=PCLI600R3"
