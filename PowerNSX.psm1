@@ -26,6 +26,9 @@ has its own license that is located in the source code of the respective compone
 
 #More sophisticated requirement checking done at module load time.
 
+#My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
+$PNsxUrlBase = "https://github.com/vmware/powernsx"
+$ValidBranches = @("master","v1","v2")
 
 
 set-strictmode -version Latest
@@ -3050,10 +3053,11 @@ function Update-PowerNsx {
 
         [Parameter (Mandatory = $True, Position=1)]
             #Valid Branches supported for upgrading to.
-            [ValidateSet("Dev")]
+            [ValidateSet($ValidBranches)]
             [string]$Branch
     )
 
+    $PNsxUrl = "$PNsxUrlBase/$Branch/PowerNSXInstaller.ps1"
     
     if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
         [Security.Principal.WindowsBuiltInRole] "Administrator"))) { 
@@ -3069,17 +3073,16 @@ function Update-PowerNsx {
 
     #Installer doesnt play nice in strict mode...
     set-strictmode -Off
-    $url="https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSXInstaller.ps1"
     try { 
         $wc = new-object Net.WebClient
         $scr = try { 
-            $filename = split-path $url -leaf
-            $wc.Downloadfile($url, "$($env:Temp)\$filename") 
+            $filename = split-path $PNsxUrl -leaf
+            $wc.Downloadfile($PNsxUrl, "$($env:Temp)\$filename") 
         } 
         catch { 
             if ( $_.exception.innerexception -match "(407)") { 
                 $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"
-                $wc.Downloadfile($url, "$($env:Temp)\$filename") 
+                $wc.Downloadfile($PNsxUrl, "$($env:Temp)\$filename") 
             } 
             else { 
                 throw $_ 

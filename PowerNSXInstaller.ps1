@@ -30,7 +30,7 @@ param (
     )
 
 #Control which branch is installed.  Latest commit in this branch is used.
-$Branch = "Dev"
+$Branch = "master"
 
 #PowerCLI 6.0 R3 
 $PowerCLI_Download="https://my.vmware.com/group/vmware/get-download?downloadGroup=PCLI600R3"
@@ -53,8 +53,8 @@ $PSMinVersion = "3"
 
 
 #PowerNSX (branch latest)
-$PowerNSXMod = "https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSX.psm1"
-$PowerNSXManifest = "https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSX.psd1"
+$PowerNSXMod = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psm1"
+$PowerNSXManifest = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psd1"
 
 #Module Path
 $ModulePath = "$($env:ProgramFiles)\Common Files\Modules\PowerNSX\PowerNSX.psm1"
