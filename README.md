@@ -18,6 +18,7 @@ Installing PowerNSX is as simple as running the below onliner in a PowerCLI Wind
 
 ```
 $Branch="master";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { $wc = new-object Net.WebClient;$scr = try { $wc.DownloadString($url)} catch { if ( $_.exception.innerexception -match "(407)") { $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"; $wc.DownloadString($url) } else { throw $_ }}; $scr | iex } catch { throw $_ }
+```
 
 See the Wiki for further Setup and Usage instructions.
 
