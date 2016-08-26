@@ -9618,11 +9618,11 @@ function New-NsxEdge {
     end {}
 }
 
-function Redeploy-NsxEdge {
+function Repair-NsxEdge {
 
     <#
     .SYNOPSIS
-    Redploys the specified NSX Edge Services Gateway appliances.
+    Resyncs or Redploys the specified NSX Edge Services Gateway appliance.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -9631,9 +9631,20 @@ function Redeploy-NsxEdge {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured 
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    The Redploy-NsxEdge cmdlet triggers redployment of the specified Edges 
-    appliances.
+    The Repair-NsxEdge cmdlet allows a Resync or Redploy operation to be 
+    performed on the specified Edges appliance.
 
+    WARNING: Repair operations can cause connectivity loss.  Use with caution.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Repair-NsxEdge -Operation Redeploy
+
+    Redeploys the ESG Edge01.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Repair-NsxEdge -Operation ReSync -Confirm:$false
+
+    Resyncs the ESG Edge01 without confirmation.
     
     #>
 
@@ -9642,10 +9653,19 @@ function Redeploy-NsxEdge {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #The Edge object to be repaired.  Accepted on pipline
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
+        [Parameter (Mandatory=$True)]
+            #WARNING: This operation can potentially cause a datapath outage depending on the deployment architecture.
+            #Specify the repair operation to be performed on the Edge.  
+            #If ForceSync - The edge appliance is rebooted 
+            #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
+            [ValidateSet("ForceSync", "Redeploy")]
+            [switch]$Operation,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -9658,10 +9678,10 @@ function Redeploy-NsxEdge {
 
     process {
 
-        $URI = "/api/4.0/edges/$($Edge.Id)?action=redeploy"
+        $URI = "/api/4.0/edges/$($Edge.Id)?action=$($Operation.ToLower())"
                
         if ( $confirm ) { 
-            $message  = "Edge Services Gateway reployment is disruptive to Edge services."
+            $message  = "WARNING: An Edge Services Gateway $Operation is disruptive to Edge services and may cause connectivity loss depending on the deployment architecture."
             $question = "Proceed with Redeploy of Edge Services Gateway $($Edge.Name)?"
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -9671,9 +9691,9 @@ function Redeploy-NsxEdge {
         }    
         else { $decision = 0 } 
         if ($decision -eq 0) {
-            Write-Progress -activity "Redeploying Edge Services Gateway $($Edge.Name)"
+            Write-Progress -activity "Repairing Edge Services Gateway $($Edge.Name)"
             $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
-            write-progress -activity "Redeploying Edge Services Gateway $($Edge.Name)" -completed
+            write-progress -activity "Reparing Edge Services Gateway $($Edge.Name)" -completed
             Get-NsxEdge -objectId $($Edge.Id) -connection $connection
         }
     }
@@ -20175,6 +20195,11 @@ function New-NsxFirewallRule  {
             [string]$Tag,
         [Parameter (Mandatory=$false)]
             [string]$ScopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Specifies that New-NsxFirewall rule will return the actual rule that was created rather than the deprecated behaviour of returning the complete containing section
+            #This option exists to allow existing scripts that use this function to be easily updated to set it to $false and continue working (For now!).
+            #This option is deprecated and will be removed in a future version.
+            [switch]$ReturnRule=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -20246,7 +20271,17 @@ function New-NsxFirewallRule  {
 
             Add-XmlElement -xmlRoot $xmlRule -xmlElementName "tag" -xmlElementText $tag
         }
-        
+
+
+        #GetThe existing rule Ids and store them - we check for a rule that isnt contained here in the response so we can presnet back to user with rule id
+        if ( $Section.Rule )  { 
+            $ExistingIds = @($Section.rule.id)
+        }
+        else {
+            $ExistingIds = @()
+        }
+
+
         #Append the new rule to the section
         $xmlrule = $Section.ownerDocument.ImportNode($xmlRule, $true)
         switch ($Position) {
@@ -20263,8 +20298,13 @@ function New-NsxFirewallRule  {
         $IfMatchHeader = @{"If-Match"=$generationNumber}
         $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -extraheader $IfMatchHeader -connection $connection
 
-        $response.section
-        
+        if ( $ReturnRule ) { 
+            $response.section.rule | where { ( -not ($ExistingIds.Contains($_.id))) }
+        }
+        else {
+            $response.section
+            write-warning 'The -ReturnRule:$false option is deprecated and will be removed in a future version.  Please update your scripts so that they accept the return object of New-NsxFirewallRule to be the newly created rule rather than the full section.'
+        }
     }
     end {}
 }
