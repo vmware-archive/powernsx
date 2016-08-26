@@ -4648,6 +4648,7 @@ function New-NsxController {
     param (
 
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$True)]
             [ValidateScript({ Validate-IpPool $_ })]
@@ -5128,7 +5129,8 @@ function Remove-NsxVdsContext {
             [ValidateScript({ Validate-VdsContext $_ })]
             [System.Xml.XmlElement]$VdsContext,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -5463,7 +5465,8 @@ function Remove-NsxCluster {
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -5602,7 +5605,8 @@ function Remove-NsxClusterVxlanConfig {
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -5834,7 +5838,8 @@ function Remove-NsxSegmentIdRange {
             [ValidateScript({ Validate-SegmentIdRange $_ })]
             [System.Xml.XmlElement]$SegmentIdRange,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -6037,7 +6042,8 @@ function Remove-NsxTransportZone {
             [ValidateScript({ Validate-TransportZone $_ })]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -6316,7 +6322,8 @@ function Remove-NsxLogicalSwitch {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$virtualWire,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -6650,7 +6657,8 @@ function Remove-NsxSpoofguardPolicy {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$SpoofguardPolicy,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -6729,7 +6737,8 @@ function Publish-NsxSpoofguardPolicy {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$SpoofguardPolicy,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -6953,7 +6962,8 @@ function Grant-NsxSpoofguardNicApproval {
             [ValidateNotNullOrEmpty()]
             [switch]$ApproveAllDetectedIps=$False,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
@@ -7114,7 +7124,8 @@ function Revoke-NsxSpoofguardNicApproval {
             [ValidateNotNullOrEmpty()]
             [switch]$RevokeAllApprovedIps,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True,        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,        
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
@@ -7632,7 +7643,8 @@ function Remove-NsxLogicalRouter {
             [ValidateScript({ Validate-LogicalRouter $_ })]
             [System.Xml.XmlElement]$LogicalRouter,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -8838,7 +8850,8 @@ function Remove-NsxEdgeSubInterface {
             [ValidateScript({ Validate-EdgeSubInterface $_ })]
             [System.Xml.XmlElement]$Subinterface,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -9157,6 +9170,7 @@ function Remove-NsxEdgeInterfaceAddress {
             [ValidateScript({ Validate-EdgeInterfaceAddress $_ })]
             [System.Xml.XmlElement]$InterfaceAddress,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -9704,6 +9718,7 @@ function Set-NsxEdge {
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -9777,7 +9792,8 @@ function Remove-NsxEdge {
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -9892,7 +9908,8 @@ function Disable-NsxEdgeSsh {
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -9966,6 +9983,7 @@ function Set-NsxEdgeNat {
             [ValidateScript({ Validate-EdgeNat $_ })]
             [System.Xml.XmlElement]$EdgeNat,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$Enabled,
@@ -10308,6 +10326,7 @@ function Remove-NsxEdgeNatRule {
             [ValidateScript({ Validate-EdgeNatRule $_ })]
             [System.Xml.XmlElement]$NatRule,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -10584,7 +10603,8 @@ function Remove-NsxEdgeCsr{
             [ValidateScript({ Validate-EdgeCsr $_ })]
             [System.Xml.XmlElement]$Csr,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -10785,7 +10805,8 @@ function Remove-NsxEdgeCertificate{
             [ValidateScript({ Validate-EdgeCertificate $_ })]
             [System.Xml.XmlElement]$Certificate,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -10885,6 +10906,7 @@ function Set-NsxSslVpn {
             [ValidateScript({ Validate-EdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$Enabled,
@@ -11428,6 +11450,7 @@ function Remove-NsxSslVpnUser {
             [ValidateScript({ Validate-EdgeSslVpnUser $_ })]
             [System.Xml.XmlElement]$SslVpnUser,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -11598,6 +11621,7 @@ function Remove-NsxSslVpnIpPool {
             [ValidateScript({ Validate-EdgeSslVpnIpPool $_ })]
             [System.Xml.XmlElement]$SslVpnIpPool,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -11760,6 +11784,7 @@ function Remove-NsxSslVpnPrivateNetwork {
             [ValidateScript({ Validate-EdgeSslVpnPrivateNetwork $_ })]
             [System.Xml.XmlElement]$SslVpnPrivateNetwork,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -11964,6 +11989,7 @@ function Remove-NsxSslVpnClientInstallationPackage {
             [ValidateScript({ Validate-EdgeSslVpnClientPackage $_ })]
             [System.Xml.XmlElement]$EdgeSslVpnClientPackage,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -12060,6 +12086,7 @@ function Set-NsxEdgeRouting {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableOspf,
@@ -12477,6 +12504,7 @@ function New-NsxEdgeStaticRoute {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,200)]
@@ -12608,6 +12636,7 @@ function Remove-NsxEdgeStaticRoute {
             [ValidateScript({ Validate-EdgeStaticRoute $_ })]
             [System.Xml.XmlElement]$StaticRoute,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -12899,6 +12928,7 @@ function Remove-NsxEdgePrefix {
             [ValidateScript({ Validate-EdgePrefix $_ })]
             [System.Xml.XmlElement]$Prefix,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -13043,6 +13073,7 @@ function Set-NsxEdgeBgp {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableBGP,
@@ -13310,6 +13341,7 @@ function New-NsxEdgeBgpNeighbour {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateNotNullorEmpty()]
@@ -13440,6 +13472,7 @@ function Remove-NsxEdgeBgpNeighbour {
             [ValidateScript({ Validate-EdgeBgpNeighbour $_ })]
             [System.Xml.XmlElement]$BgpNeighbour,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -13593,6 +13626,7 @@ function Set-NsxEdgeOspf {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableOSPF,
@@ -13821,6 +13855,7 @@ function Remove-NsxEdgeOspfArea {
             [ValidateScript({ Validate-EdgeOspfArea $_ })]
             [System.Xml.XmlElement]$OspfArea,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -13925,6 +13960,7 @@ function New-NsxEdgeOspfArea {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,4294967295)]
@@ -14153,6 +14189,7 @@ function Remove-NsxEdgeOspfInterface {
             [ValidateScript({ Validate-EdgeOspfInterface $_ })]
             [System.Xml.XmlElement]$OspfInterface,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -14250,6 +14287,7 @@ function New-NsxEdgeOspfInterface {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,4294967295)]
@@ -14499,6 +14537,7 @@ function Remove-NsxEdgeRedistributionRule {
             [ValidateScript({ Validate-EdgeRedistributionRule $_ })]
             [System.Xml.XmlElement]$RedistributionRule,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -14623,6 +14662,7 @@ function New-NsxEdgeRedistributionRule {
             [ValidateSet("permit","deny",IgnoreCase=$false)]
             [String]$Action="permit",  
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -14770,6 +14810,7 @@ function Set-NsxLogicalRouterRouting {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableOspf,
@@ -15217,6 +15258,7 @@ function New-NsxLogicalRouterStaticRoute {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,200)]
@@ -15345,6 +15387,7 @@ function Remove-NsxLogicalRouterStaticRoute {
             [ValidateScript({ Validate-LogicalRouterStaticRoute $_ })]
             [System.Xml.XmlElement]$StaticRoute,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -15619,6 +15662,7 @@ function Remove-NsxLogicalRouterPrefix {
             [ValidateScript({ Validate-LogicalRouterPrefix $_ })]
             [System.Xml.XmlElement]$Prefix,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -15757,6 +15801,7 @@ function Set-NsxLogicalRouterBgp {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableBGP,
@@ -16018,6 +16063,7 @@ function New-NsxLogicalRouterBgpNeighbour {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateNotNullorEmpty()]
@@ -16154,6 +16200,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
             [ValidateScript({ Validate-LogicalRouterBgpNeighbour $_ })]
             [System.Xml.XmlElement]$BgpNeighbour,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -16301,6 +16348,7 @@ function Set-NsxLogicalRouterOspf {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableOSPF,
@@ -16560,6 +16608,7 @@ function Remove-NsxLogicalRouterOspfArea {
             [ValidateScript({ Validate-LogicalRouterOspfArea $_ })]
             [System.Xml.XmlElement]$OspfArea,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -16661,6 +16710,7 @@ function New-NsxLogicalRouterOspfArea {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,4294967295)]
@@ -16883,6 +16933,7 @@ function Remove-NsxLogicalRouterOspfInterface {
             [ValidateScript({ Validate-LogicalRouterOspfInterface $_ })]
             [System.Xml.XmlElement]$OspfInterface,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -16977,6 +17028,7 @@ function New-NsxLogicalRouterOspfInterface {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,4294967295)]
@@ -17222,6 +17274,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
             [ValidateScript({ Validate-LogicalRouterRedistributionRule $_ })]
             [System.Xml.XmlElement]$RedistributionRule,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -17343,6 +17396,7 @@ function New-NsxLogicalRouterRedistributionRule {
             [ValidateSet("permit","deny",IgnoreCase=$false)]
             [String]$Action="permit",  
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -18052,7 +18106,8 @@ function Remove-NsxSecurityTag {
             [ValidateScript( { Validate-SecurityTag $_ })]
             [System.Xml.XmlElement]$SecurityTag,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
@@ -18302,7 +18357,8 @@ function Remove-NsxSecurityTagAssignment {
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
             [ValidateScript ({ Validate-TagAssignment $_ })]
             [PSCustomObject]$TagAssignment,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -18528,7 +18584,8 @@ function Remove-NsxIpSet {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$IPSet,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
@@ -19076,7 +19133,8 @@ function Remove-NsxService {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$Service,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
@@ -19342,7 +19400,8 @@ function Remove-NsxServiceGroup {
             [ValidateScript({ Validate-ServiceGroup $_ })]
             [System.Xml.XmlElement]$ServiceGroup,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
@@ -19871,7 +19930,8 @@ function Remove-NsxFirewallSection {
             [ValidateNotNull()]
             [System.Xml.XmlElement]$Section,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
@@ -20235,7 +20295,8 @@ function Remove-NsxFirewallRule {
             [ValidateNotNull()]
             [System.Xml.XmlElement]$Rule,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
@@ -20930,7 +20991,8 @@ function Remove-NsxLoadBalancerMonitor {
             [ValidateScript({ Validate-LoadBalancerMonitor $_ })]
             [System.Xml.XmlElement]$Monitor,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -21225,7 +21287,8 @@ function Remove-NsxLoadBalancerApplicationProfile {
             [ValidateScript({ Validate-LoadBalancerApplicationProfile $_ })]
             [System.Xml.XmlElement]$ApplicationProfile,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -21576,7 +21639,8 @@ function Remove-NsxLoadBalancerPool {
             [ValidateScript({ Validate-LoadBalancerPool $_ })]
             [System.Xml.XmlElement]$LoadBalancerPool,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -21830,7 +21894,8 @@ function Remove-NsxLoadBalancerPoolMember {
             [ValidateScript({ Validate-LoadBalancerPoolMember $_ })]
             [System.Xml.XmlElement]$LoadBalancerPoolMember,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -22109,7 +22174,8 @@ function Remove-NsxLoadBalancerVip {
             [ValidateScript({ Validate-LoadBalancerVip $_ })]
             [System.Xml.XmlElement]$LoadBalancerVip,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -22265,7 +22331,8 @@ function Remove-NsxSecurityPolicy {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$SecurityPolicy,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
@@ -22404,7 +22471,7 @@ function Get-NsxSecurityGroupEffectiveMembers {
 
 
 
-function Where-NsxVMUsed {
+function Find-NsxWhereVMUsed {
 
     <#
     .SYNOPSIS
@@ -22430,7 +22497,11 @@ function Where-NsxVMUsed {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VM
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VM,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
