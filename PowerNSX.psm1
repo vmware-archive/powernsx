@@ -20274,7 +20274,7 @@ function New-NsxFirewallRule  {
 
 
         #GetThe existing rule Ids and store them - we check for a rule that isnt contained here in the response so we can presnet back to user with rule id
-        if ( $Section.Rule )  { 
+        if ( $Section.SelectSingleNode("child::rule") )  { 
             $ExistingIds = @($Section.rule.id)
         }
         else {
