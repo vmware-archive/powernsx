@@ -4332,7 +4332,65 @@ function Get-NsxManagerNetwork {
 
     $URI = "/api/1.0/appliance-management/system/network"
 
-    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the child exists.
+        $result.network
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        #This hacky attempt to return a consistent object is definately not that universal - but there is fidelity lost in the API reponse that 
+        #prevents me from easily reconsructing the correct XML.  So I had to reverse engineer based on a 6.2.3 example response.  Hopefully this 
+        #will just go away quietly...
+
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlnetwork = $xmlDoc.CreateElement('network')
+        [System.XML.XMLElement]$xmlnetworkIPv4AddressDto = $xmlDoc.CreateElement('networkIPv4AddressDto')
+        $xmldoc.AppendChild($xmlnetwork) | out-null
+
+        if ( $result.networkIPv4AddressDto) { 
+            $xmlnetwork.AppendChild($xmlnetworkIPv4AddressDto) | out-null
+            Add-XmlElement -xmlRoot $xmlnetworkIPv4AddressDto -xmlElementName "ipv4Address" -xmlElementText $result.networkIPv4AddressDto.ipv4Address
+            Add-XmlElement -xmlRoot $xmlnetworkIPv4AddressDto -xmlElementName "ipv4NetMask" -xmlElementText $result.networkIPv4AddressDto.ipv4NetMask
+            Add-XmlElement -xmlRoot $xmlnetworkIPv4AddressDto -xmlElementName "ipv4Gateway" -xmlElementText $result.networkIPv4AddressDto.ipv4Gateway
+        }
+        
+        if ( $result.hostname ) { 
+            Add-XmlElement -xmlRoot $xmlnetwork -xmlElementName "hostName" -xmlElementText $result.hostname
+        }
+
+        if ( $result.domainName ) {
+            Add-XmlElement -xmlRoot $xmlnetwork -xmlElementName "domainName" -xmlElementText $result.domainName
+        }
+
+        if ( $result.networkIPv6AddressDto) { 
+
+            [System.XML.XMLElement]$xmlnetworkIPv6AddressDto = $xmlDoc.CreateElement('networkIPv6AddressDto')
+            $xmlnetwork.AppendChild($xmlnetworkIPv6AddressDto) | out-null
+            Add-XmlElement -xmlRoot $xmlnetworkIPv6AddressDto -xmlElementName "ipv6Address" -xmlElementText $result.networkIPv4AddressDto.ipv6Address
+            Add-XmlElement -xmlRoot $xmlnetworkIPv6AddressDto -xmlElementName "ipv6NetMask" -xmlElementText $result.networkIPv4AddressDto.ipv6NetMask
+            Add-XmlElement -xmlRoot $xmlnetworkIPv6AddressDto -xmlElementName "ipv6Gateway" -xmlElementText $result.networkIPv4AddressDto.ipv6Gateway
+        }
+
+        if ( $result.dns ) { 
+            
+            [System.XML.XMLElement]$xmldns = $xmlDoc.CreateElement('dns')
+            $xmlnetwork.AppendChild($xmldns) | out-null
+            foreach ( $server in $result.dns.ipv4Dns ) { 
+                Add-XmlElement -xmlRoot $xmldns -xmlElementName "ipv4Address" -xmlElementText $server
+            }
+            foreach ( $server in $result.dns.ipv6Dns ) { 
+                Add-XmlElement -xmlRoot $xmldns -xmlElementName "ipv6Address" -xmlElementText $server
+            }
+            if ( $result.dns.domainList ) { 
+                Add-XmlElement -xmlRoot $xmldns -xmlElementName "domainList" -xmlElementText $result.dns.domainList
+            }
+
+        }
+
+        $xmlnetwork
+    }  
 }
 
 function Get-NsxManagerBackup {
@@ -4364,7 +4422,37 @@ function Get-NsxManagerBackup {
 
     $URI = "/api/1.0/appliance-management/backuprestore/backupsettings"
 
-    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the child exists.
+        $result.backupRestoreSettings
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        #This hacky attempt to return a consistent object is definately not that universal - but there is fidelity lost in the API reponse that 
+        #prevents me from easily reconsructing the correct XML.  So I had to reverse engineer based on a 6.2.3 example response.  Hopefully this 
+        #will just go away quietly...
+
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlbackupRestoreSettings = $xmlDoc.CreateElement('backupRestoreSettings')
+
+
+
+        foreach ( $Property in ($result |  get-member -MemberType NoteProperty )) { 
+            if ( $result."$($Property.Name)" -is [string]) {  
+                Add-XmlElement -xmlRoot $xmlbackupRestoreSettings -xmlElementName "$($Property.Name)" -xmlElementText $result."$($Property.Name)"
+            }
+            elseif ( $result."$($Property.Name)" -is [system.object]) {  
+                [System.XML.XMLElement]$xmlObjElement = $xmlDoc.CreateElement($Property.Name)
+                $xmlbackupRestoreSettings.AppendChild($xmlObjElement) | out-null
+                foreach ( $ElementProp in ($result."$($Property.Name)" | get-member -MemberType NoteProperty )) { 
+                    Add-XmlElement -xmlRoot $xmlObjElement -xmlElementName "$($ElementProp.Name)" -xmlElementText $result."$($Property.Name)"."$($ElementProp.Name)"
+                }
+            }
+        }
+        $xmlbackupRestoreSettings
+    }  
 }
 
 function Get-NsxManagerComponentSummary {
@@ -4499,7 +4587,38 @@ function Get-NsxManagerSystemSummary {
 
     $URI = "/api/1.0/appliance-management/summary/system"
 
-    invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the child exists.
+        $result.systemSummary
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        #This hacky attempt to return a consistent object is definately not that universal - but there is fidelity lost in the API reponse that 
+        #prevents me from easily reconsructing the correct XML.  So I had to reverse engineer based on a 6.2.3 example response.  Hopefully this 
+        #will just go away quietly...
+
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlsystemSummary = $xmlDoc.CreateElement('systemSummary')
+
+
+
+        foreach ( $Property in ($result |  get-member -MemberType NoteProperty )) { 
+            if ( $result."$($Property.Name)" -is [string]) {  
+                Add-XmlElement -xmlRoot $xmlsystemSummary -xmlElementName "$($Property.Name)" -xmlElementText $result."$($Property.Name)"
+            }
+            elseif ( $result."$($Property.Name)" -is [system.object]) {  
+                [System.XML.XMLElement]$xmlObjElement = $xmlDoc.CreateElement($Property.Name)
+                $xmlsystemSummary.AppendChild($xmlObjElement) | out-null
+                foreach ( $ElementProp in ($result."$($Property.Name)" | get-member -MemberType NoteProperty )) { 
+                    Add-XmlElement -xmlRoot $xmlObjElement -xmlElementName "$($ElementProp.Name)" -xmlElementText $result."$($Property.Name)"."$($ElementProp.Name)"
+                }
+            }
+        }
+
+        $xmlsystemSummary
+    }  
 }
 
 function New-NsxController {
