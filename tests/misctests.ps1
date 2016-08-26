@@ -32,13 +32,15 @@ Get-NsxSecurityPolicy
 
 $testsg = New-NsxSecurityGroup -Name $sgname -IncludeMember (Get-vm $testvm)
 $testsg | Get-NsxSecurityGroupEffectiveMembers
-get-vm $testvm | Where-NsxVMUsed
+get-vm $testvm | Find-NsxWhereVMUsed
 $testsg | remove-nsxsecuritygroup -confirm:$false
 
 $LS = Get-NsxTransportZone | New-NsxLogicalSwitch $testlsname
 $LS | Get-nsxbackingPortGroup
 $LS | Get-NsxBackingDVSwitch
 $LS | Remove-NsxLogicalSwitch -confirm:$false
+
+get-vm $testvm | remove-vm -confirm:$false
 
 
 
