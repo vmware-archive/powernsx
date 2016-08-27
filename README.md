@@ -20,7 +20,7 @@ Installing PowerNSX is as simple as running the below onliner in a PowerCLI Wind
 $Branch="master";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { $wc = new-object Net.WebClient;$scr = try { $wc.DownloadString($url)} catch { if ( $_.exception.innerexception -match "(407)") { $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"; $wc.DownloadString($url) } else { throw $_ }}; $scr | iex } catch { throw $_ }
 ```
 
-See the Wiki for further Setup and Usage instructions.
+See the [Wiki](https://github.com/vmware/powernsx/wiki) for further Setup and Usage instructions.
 
 ## Contribution guidelines ##
 
@@ -32,7 +32,7 @@ Contribution and feature requests are more than welcome, please use the followin
  
 ## Who do I talk to? ##
 
-Im just one guy but feel free to contact me at nbradford@vmware.com.
+PowerNSX is a community supported project with support from various individuals at VMware. The right place to go to seek support if you have questions or problems using PowerNSX is the issues page. This includes known issues, usability questions, feature requests, bugs or related conversation.
 
 ## License ##
 
