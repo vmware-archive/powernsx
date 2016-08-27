@@ -3187,7 +3187,7 @@ function Update-PowerNsx {
 
     param (
 
-        [Parameter (Mandatory = $True, Position=1)]
+        [Parameter (Mandatory = $False, Position=1)]
             #Valid Branches supported for upgrading to.
             [ValidateScript({ Validate-UpdateBranch $_ })]
             [string]$Branch=$DefaultBranch
