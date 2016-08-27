@@ -29,6 +29,7 @@ has its own license that is located in the source code of the respective compone
 #My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
 $PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
 $ValidBranches = @("master","v1","v2")
+$DefaultBranch = "v2"
 
 
 set-strictmode -version Latest
@@ -3180,7 +3181,7 @@ function Update-PowerNsx {
     Updates PowerNSX to the latest version available in the specified branch.
     
     .EXAMPLE
-    Update-PowerNSX -Branch Dev
+    Update-PowerNSX -Branch v2
 
     #>
 
@@ -3189,7 +3190,7 @@ function Update-PowerNsx {
         [Parameter (Mandatory = $True, Position=1)]
             #Valid Branches supported for upgrading to.
             [ValidateScript({ Validate-UpdateBranch $_ })]
-            [string]$Branch
+            [string]$Branch=$DefaultBranch
     )
 
     $PNsxUrl = "$PNsxUrlBase/$Branch/PowerNSXInstaller.ps1"
@@ -3202,8 +3203,8 @@ function Update-PowerNsx {
         return
     }
 
-    if ( $Branch -eq "Dev" ) {
-        write-warning "Updating to latest Dev branch commit.  Stability is not guaranteed."
+    if ( $Branch -eq "master" ) {
+        write-warning "Updating to latest master branch commit.  Stability is not guaranteed."
     }
 
     #Installer doesnt play nice in strict mode...
