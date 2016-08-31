@@ -19,8 +19,9 @@ has its own license that is located in the source code of the respective compone
 $cluster = "Mgmt01"
 $testvm = "miscapp01"
 $testlsname = "TestLs1"
+$sgname = "Testing"
 
-$vm1 = new-vm -name $testVMName1 -ResourcePool ( Get-Cluster $Cluster | Get-ResourcePool Resources)
+$vm1 = new-vm -name $testvm -ResourcePool ( Get-Cluster $Cluster | Get-ResourcePool Resources)
 
 Get-Cluster $cluster | Get-NsxClusterStatus
 
@@ -29,15 +30,17 @@ Get-Cluster $cluster | Get-NsxClusterStatus
 Get-NsxSecurityPolicy
 
 
-$testsg = New-NsxSecurityGroup -Name Testing -IncludeMember (Get-vm $testvm)
+$testsg = New-NsxSecurityGroup -Name $sgname -IncludeMember (Get-vm $testvm)
 $testsg | Get-NsxSecurityGroupEffectiveMembers
-get-vm $testvm | Where-NsxVMUsed
+get-vm $testvm | Find-NsxWhereVMUsed
 $testsg | remove-nsxsecuritygroup -confirm:$false
 
 $LS = Get-NsxTransportZone | New-NsxLogicalSwitch $testlsname
 $LS | Get-nsxbackingPortGroup
 $LS | Get-NsxBackingDVSwitch
 $LS | Remove-NsxLogicalSwitch -confirm:$false
+
+get-vm $testvm | remove-vm -confirm:$false
 
 
 

@@ -12,7 +12,24 @@ It is unlikely that it will ever expose 100% of the NSX API, but feature request
 
 PowerNSX remains a work in progress and is not yet feature complete. 
 
-See the Wiki for Setup and Usage instructions.
+## Installing PowerNSX 
+
+Installing PowerNSX is as simple as running the below onliner in a PowerCLI Window.  This will execute the PowerNSX installation script which will guide you through the installation of the latest stable release of PowerNSX.
+
+```
+$Branch="v2";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { $wc = new-object Net.WebClient;$scr = try { $wc.DownloadString($url)} catch { if ( $_.exception.innerexception -match "(407)") { $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"; $wc.DownloadString($url) } else { throw $_ }}; $scr | iex } catch { throw $_ }
+```
+
+The development version of PowerNSX can be installed using the Update-PowerNsx cmdlet of v2 or via the following oneliner.  NOTE:  Live development occurs against this branch and should not be relied upon to be fully functional at all times.  You have been warned!
+```
+Update-PowerNsx master
+```
+or 
+```
+$Branch="master";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { $wc = new-object Net.WebClient;$scr = try { $wc.DownloadString($url)} catch { if ( $_.exception.innerexception -match "(407)") { $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"; $wc.DownloadString($url) } else { throw $_ }}; $scr | iex } catch { throw $_ }
+```
+
+See the [Wiki](https://github.com/vmware/powernsx/wiki) for further Setup and Usage instructions.
 
 ## Contribution guidelines ##
 
@@ -24,7 +41,7 @@ Contribution and feature requests are more than welcome, please use the followin
  
 ## Who do I talk to? ##
 
-Im just one guy but feel free to contact me at nbradford@vmware.com.
+PowerNSX is a community supported project with support from various individuals at VMware. The right place to go to seek support if you have questions or problems using PowerNSX is the issues page. This includes known issues, usability questions, feature requests, bugs or related conversation.
 
 ## License ##
 
