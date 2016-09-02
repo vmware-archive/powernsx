@@ -22256,6 +22256,47 @@ function Remove-NsxLoadBalancerVip {
 
 
 
+function Get-NsxLoadBalancerStats{
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Edge Load Balancer statistics
+
+
+    .DESCRIPTION
+    This cmdlet retrieves NSX Edge Load Balancer statistics from the NSX Edge.
+    It contains timestamp of retrieval, Pool, and Virtual Server details
+
+    .EXAMPLE
+    PS C:\Get-nsxedge | Get-NsxLoadBalancerStats
+
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False,ValueFromPipeline=$true)]
+            [System.Xml.XmlElement[]]$PoolName,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+
+        )
+
+    begin {}
+    process {
+
+            $URI = "/api/4.0/edges/$($edge.id)/loadbalancer/statistics"
+            $response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
+            $response.loadBalancerStatusAndStats
+
+    }
+    end {}
+}
+
 
 ########
 ########
