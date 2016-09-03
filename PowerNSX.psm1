@@ -22260,24 +22260,36 @@ function Get-NsxLoadBalancerStats{
 
     <#
     .SYNOPSIS
-    Retrieves NSX Edge Load Balancer statistics
+    Retrieves NSX Edge Load Balancer statistics for the specified load 
+    balancer
 
 
     .DESCRIPTION
-    This cmdlet retrieves NSX Edge Load Balancer statistics from the NSX Edge.
-    It contains timestamp of retrieval, Pool, and Virtual Server details
+    An NSX Edge Service Gateway provides all NSX Edge services such as 
+    firewall, NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple 
+    paths to a specific destination. It distributes incoming service requests 
+    evenly among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    This cmdlet retrieves NSX Edge Load Balancer statistics from the specified
+    enabled NSX loadbalancer.
 
     .EXAMPLE
-    PS C:\Get-nsxedge | Get-NsxLoadBalancerStats
+    Get-nsxedge edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerStats
+    
+    Retrieves the LB stats for the LB service on Edge01
 
     #>
 
-
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [System.Xml.XmlElement]$Edge,
-        [Parameter (Mandatory=$False,ValueFromPipeline=$true)]
-            [System.Xml.XmlElement[]]$PoolName,
+            #Load Balancer from which to retrieve stats.  Must be enabled.
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -22289,10 +22301,16 @@ function Get-NsxLoadBalancerStats{
     begin {}
     process {
 
-            $URI = "/api/4.0/edges/$($edge.id)/loadbalancer/statistics"
-            $response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
-            $response.loadBalancerStatusAndStats
+        #Test that LB is enabled (otherwise there are no results.)
+        if ( $LoadBalancer.Enabled -ne 'true' ) { 
+            Throw "Load balancer feature is not enabled on $($LoadBalancer.EdgeId)"
+        }
 
+        $URI = "/api/4.0/edges/$($LoadBalancer.EdgeId)/loadbalancer/statistics"
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
+        if ( $response.SelectSingleNode("child::loadBalancerStatusAndStats")) { 
+            $response.loadBalancerStatusAndStats
+        }
     }
     end {}
 }
@@ -22304,7 +22322,7 @@ function Get-NsxLoadBalancerStats{
 
 function Get-NsxSecurityPolicy {
 
- <#
+    <#
     .SYNOPSIS
     Retrieves NSX Security Policy
 
