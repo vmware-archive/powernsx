@@ -3707,73 +3707,30 @@ function New-NsxManager{
     Manager VM from OVA.
 
     .DESCRIPTION
-    The NSX management plane is provided by NSX Manager, the centralized
-    network management component of NSX. It provides the single point of
+    The NSX management plane is provided by NSX Manager, the centralized 
+    network management component of NSX. It provides the single point of 
     configuration for NSX operations, and provides NSX's REST API.
 
     The New-NsxManager cmdlet deploys and configures a new NSX Manager appliance
     using PowerCLI
 
-    .INPUTS
-    System.String
-    System.Int32
-    System.RuntimeType
-
     .EXAMPLE
-    New-NSXManager -NsxManagerOVF ".\VMware-NSX-Manager-6.2.0-2986609.ova"
-        -Name TestingNSXM -ClusterName Cluster1 -ManagementPortGroupName Net1
-        -DatastoreName DS1 -FolderName Folder1 -CliPassword VMware1!VMware1!
-        -CliEnablePassword VMware1!VMware1! -Hostname NSXManagerHostName
-        -IpAddress 1.2.3.4 -Netmask 255.255.255.0 -Gateway 1.2.3.1
-        -DnsServer 1.2.3.5 -DnsDomain corp.local -NtpServer 1.2.3.5 -EnableSsh
+    New-NSXManager -NsxManagerOVF ".\VMware-NSX-Manager-6.2.0-2986609.ova" 
+        -Name TestingNSXM -ClusterName Cluster1 -ManagementPortGroupName Net1 
+        -DatastoreName DS1 -FolderName Folder1 -CliPassword VMware1!VMware1! 
+        -CliEnablePassword VMware1!VMware1! -Hostname NSXManagerHostName 
+        -IpAddress 1.2.3.4 -Netmask 255.255.255.0 -Gateway 1.2.3.1 
+        -DnsServer 1.2.3.5 -DnsDomain corp.local -NtpServer 1.2.3.5 -EnableSsh 
         -StartVm -wait
 
-    Deploys a new NSX Manager, starts the VM, and blocks until the API becomes
+    Deploys a new NSX Manager, starts the VM, and blocks until the API becomes 
     available.
-
-    .EXAMPLE
-    $nsxManagerBuildParams = @{
-        NsxManagerOVF           = ".\VMware-NSX-Manager-6.2.0-2986609.ova"
-        Name                    = TestingNSXM
-        ClusterName             = Cluster1
-        ManagementPortGroupName = Net1
-        DatastoreName           = DS1
-        FolderName              = Folder1
-        CliPassword             = VMware1!VMware1!
-        CliEnablePassword       = VMware1!VMware1!
-        Hostname                = NSXManagerHostName
-        IpAddress               = 1.2.3.4
-        Netmask                 = 255.255.255.0
-        Gateway                 = 1.2.3.1
-        DnsServer               = 1.2.3.5
-        DnsDomain               = corp.local
-        NtpServer               = 1.2.3.5
-        EnableSsh               = $true
-        StartVm                 = $true
-        Wait                    = $true
-    } # end $nsxManagerBuildParams
-
-    New-NSXManager @nsxManagerBuildParams
-
-    Uses 'splatting' technique to specify build configuration and then deploys a new NSX Manager, starts the VM, and blocks until the API becomes
-    available.
-
-    .NOTES
-		Version: 1.2
-		Last Updated: 20150826
-		Last Updated By: Kevin Kirkpatrick (github.com/vScripter)
-		Last Update Notes:
-        - added a filter when selecting VMHost to only select a host that is reporting a 'Connected' status
-        - added logic to throw an error if there are no hosts available in the cluster (either there are none or they are all in maint. mode, etc.)
-		- added Begin/Process/End blocks for language consistency
-        - expanded support for -Verbose
-        - added curly braces '{}' to some of the output messages that expect values so that it's easy to decipher if there is an expected value but none returned
-        - modified check for vCenter server to inspect the 'IsConnected' property; ran into some cases where $global:defaultviserver variable is populated but connection is stale/timedout
-        - misc spacing/formatting to improve readability a little bit
 
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
+
+
     param (
 
         [Parameter ( Mandatory=$True )]
@@ -3788,17 +3745,17 @@ function New-NsxManager{
         [Parameter ( Mandatory=$True )]
             #The name of the deployed VM.
             [ValidateNotNullOrEmpty()]
-            [String]$Name,
+            $Name,
         [Parameter ( Mandatory=$True )]
             #Name of the vSphere Cluster to which the VM will be deployed.
             [ValidateNotNullOrEmpty()]
             [string]$ClusterName,
         [Parameter ( Mandatory=$True )]
-            #Name of the portgroup to which the management interface of the VM will be connected.
+            #Name of the portgroup to which the management interface of the VM will be connected. 
             [ValidateNotNullOrEmpty()]
             [string]$ManagementPortGroupName,
         [Parameter ( Mandatory=$True )]
-            #Name of the Datastore to which the VM will be deployed.
+            #Name of the Datastore to which the VM will be deployed. 
             [ValidateNotNullOrEmpty()]
             [string]$DatastoreName,
         [Parameter ( Mandatory=$True )]
@@ -3828,9 +3785,9 @@ function New-NsxManager{
         [Parameter ( Mandatory=$True )]
             #Gateway Address for the deployed NSX Manager.
             [ValidateNotNullOrEmpty()]
-            [ipaddress]$Gateway,
+            [ipaddress]$Gateway, 
         [Parameter ( Mandatory=$True )]
-            #DNS Server for the deployed NSX Manager (One only.)
+            #DNS Server for the deployed NSX Manager (One only.) 
             [ValidateNotNullOrEmpty()]
             [ipaddress]$DnsServer,
         [Parameter ( Mandatory=$True )]
@@ -3861,176 +3818,115 @@ function New-NsxManager{
         [Parameter ( Mandatory=$False )]
             #Enable SSH on the deployed NSX Manager.
             [switch]$EnableSsh=$false
+
+
     )
 
-    BEGIN {
+    #Check that we have a PowerCLI connection open...
+    If ( -not (test-path variable:global:defaultVIServer )) { 
+        throw "Unable to deploy NSX Manager OVA without a valid PowerCLI connection.  Use Connect-VIServer or Connect-NsxServer to extablish a PowerCLI connection and try again."
+    }
 
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Processing Started"
+    #Chose a target host based on available memory.
+    $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Sort MemoryUsageGB | Select -first 1
 
-        # Check that we have a PowerCLI connection open...
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Verifying PowerCLI connection"
-        If ( -not ($Global:defaultVIServer).IsConnected ) {
+    ## Using the PowerCLI command, get OVF draws on the location of the OVA from the defined variable.
+    $OvfConfiguration = Get-OvfConfiguration -Ovf $NsxManagerOVF
 
-            throw "[$($MyInvocation.MyCommand.Name)][ERROR] Unable to deploy NSX Manager OVA without a valid PowerCLI connection.  Use Connect-VIServer or Connect-NsxServer to extablish a PowerCLI connection and try again."
+    #Network Mapping to portgroup need to be defined.
+    $OvfConfiguration.NetworkMapping.VSMgmt.Value = $ManagementPortGroupName
 
-        } # end if
+    # OVF Configuration values.
+    $OvfConfiguration.common.vsm_cli_passwd_0.value = $CliPassword
+    $OvfConfiguration.common.vsm_cli_en_passwd_0.value = $CliEnablePassword
+    $OvfConfiguration.common.vsm_hostname.value = $Hostname
+    $OvfConfiguration.common.vsm_ip_0.value = $IpAddress
+    $OvfConfiguration.common.vsm_netmask_0.value = $Netmask
+    $OvfConfiguration.common.vsm_gateway_0.value = $Gateway
+    $OvfConfiguration.common.vsm_dns1_0.value = $DnsServer
+    $OvfConfiguration.common.vsm_domain_0.value = $DnsDomain
+    $OvfConfiguration.common.vsm_ntp_0.value = $NtpServer
+    $OvfConfiguration.common.vsm_isSSHEnabled.value = $EnableSsh
 
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Selecting VMHost in Cluster {$ClusterName} for deployment"
-        # Chose a target host that is not in Maintenance Mode and select based on available memory
-        $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | Select -first 1
+    #Deploy the OVA.
+    write-progress -Activity "Deploying NSX Manager OVA"
+    $VM = Import-vApp -Source $NsxManagerOvf -OvfConfiguration $OvfConfiguration -Name $Name -Location $ClusterName -VMHost $TargetVMHost -Datastore $DatastoreName
 
-        # throw an error if there are not any hosts suitable for deployment (ie: all hosts are in maint. mode)
-        if ($targetVmHost.Count = 0) {
+    If ( $PSBoundParameters.ContainsKey('FolderName')) { 
+        write-progress -Activity "Moving NSX Manager VM to $folderName folder"
+        $VM | Move-VM -Location $FolderName
+        write-progress -Activity "Moving NSX Manager VM to $folderName folder" -completed
+    }  
 
-            throw "[$($MyInvocation.MyCommand.Name)][ERROR] Unable to deploy NSX Manager to cluster {$ClusterName}. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is not in Maintenance Mode."
+    if ( $PSBoundParameters.ContainsKey('ManagerMemoryGB') ) {
+        #Hack VM to reduce Ram for constrained environments.  This is NOT SUITABLE FOR PRODUCTION!!!
+        write-warning "Changing Memory configuration of NSX Manager VM to $ManagerMemoryGB GB.  Not supported for Production Use!"
+        get-Vm $Name | set-vm -MemoryGB $ManagerMemoryGB -confirm:$false | Get-VMResourceConfiguration | Set-VMResourceConfiguration -MemReservationMB 0 -CpuReservationMhz 0 | out-null
+    }
 
-        } else {
+    write-progress -Activity "Deploying NSX Manager OVA" -completed
 
-            Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Deploying to Cluster {$ClusterName} and VMHost {$($TargetVMHost).Name}"
+    if ( $StartVM )  { 
+        write-progress -Activity "Starting NSX Manager"
+        $VM | Start-VM
+        write-progress -Activity "Starting NSX Manager" -completed
+    } 
 
-        } # end if/else $targetVmHost.Count
+    if ( $PSBoundParameters.ContainsKey('Wait')) {
+        #User wants to wait for Manager API to start.
+        $waitStep = 30
+        $Timer = 0
+        Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
 
-    } # end BEGIN block
+        do {
 
-    PROCESS {
+            #sleep a while, the VM will take time to start fully..
+            start-sleep $WaitStep
+            $Timer += $WaitStep
+            try { 
+                Connect-NsxServer -server $IpAddress -Username 'admin' -password $CliPassword -DisableViAutoConnect -DefaultConnection $false | out-null
+                break
+            }
+            catch { 
+                Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
+            }
 
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Setting up OVF configuration"
-        ## Using the PowerCLI command, get OVF draws on the location of the OVA from the defined variable.
-        $OvfConfiguration = Get-OvfConfiguration -Ovf $NsxManagerOVF
+            if ( $Timer -ge $WaitTimeout ) { 
 
-        #Network Mapping to portgroup need to be defined.
-        $OvfConfiguration.NetworkMapping.VSMgmt.Value = $ManagementPortGroupName
+                #We exceeded the timeout - what does the user want to do? 
+                $message  = "Waited more than $WaitTimeout seconds for NSX Manager API to become available.  Recommend checking boot process, network config etc."
+                $question = "Continue waiting for NSX Manager?"
+                $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                if ($decision -eq 0) {
+                   #User waits...
+                   $Timer = 0
+                }
+                else {
+                    throw "Timeout waiting for NSX Manager appliance API to become available."
+                }
+            }
+        } while ( $true )
 
-        # OVF Configuration values.
-        $OvfConfiguration.common.vsm_cli_passwd_0.value    = $CliPassword
-        $OvfConfiguration.common.vsm_cli_en_passwd_0.value = $CliEnablePassword
-        $OvfConfiguration.common.vsm_hostname.value        = $Hostname
-        $OvfConfiguration.common.vsm_ip_0.value            = $IpAddress
-        $OvfConfiguration.common.vsm_netmask_0.value       = $Netmask
-        $OvfConfiguration.common.vsm_gateway_0.value       = $Gateway
-        $OvfConfiguration.common.vsm_dns1_0.value          = $DnsServer
-        $OvfConfiguration.common.vsm_domain_0.value        = $DnsDomain
-        $OvfConfiguration.common.vsm_ntp_0.value           = $NtpServer
-        $OvfConfiguration.common.vsm_isSSHEnabled.value    = $EnableSsh
+        Write-Progress -Activity "Waiting for NSX Manager api to become available" -Completed
 
-        # Deploy the OVA.
-        Write-Progress -Activity "Deploying NSX Manager OVA"
-        $VM = Import-vApp -Source $NsxManagerOvf -OvfConfiguration $OvfConfiguration -Name $Name -Location $ClusterName -VMHost $TargetVMHost -Datastore $DatastoreName
-
-        If ( $PSBoundParameters.ContainsKey('FolderName')) {
-
-            Write-Progress -Activity "Moving NSX Manager VM to {$folderName} folder"
-            $VM | Move-VM -Location $FolderName
-            Write-Progress -Activity "Moving NSX Manager VM to {$folderName} folder" -Completed
-
-        } # end if
-
-        if ( $PSBoundParameters.ContainsKey('ManagerMemoryGB') ) {
-
-            # Hack VM to reduce Ram for constrained environments.  This is NOT SUITABLE FOR PRODUCTION!!!
-            Write-Warning -Message "Changing Memory configuration of NSX Manager VM to $ManagerMemoryGB GB.  Not supported for Production Use!"
-
-            [void](Get-VM $Name | Set-VM -MemoryGB $ManagerMemoryGB -confirm:$false | Get-VMResourceConfiguration |
-            Set-VMResourceConfiguration -MemReservationMB 0 -CpuReservationMhz 0)
-
-        } # end if
-
-        Write-Progress -Activity "Deploying NSX Manager OVA" -Completed
-
-        if ( $StartVM )  {
-
-            Write-Progress -Activity "Starting NSX Manager"
-            $VM | Start-VM
-            Write-Progress -Activity "Starting NSX Manager" -Completed
-
-        } # end if
-
-        if ( $PSBoundParameters.ContainsKey('Wait')) {
-
-            # User wants to wait for Manager API to start.
-            $waitStep = 30
-            $Timer = 0
-            Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
-
-            do {
-
-                # sleep a while, the VM will take time to start fully..
-                start-sleep $WaitStep
-                $Timer += $WaitStep
-                try {
-
-                    # use splatting to keep the line width in-check/make it easier to read parameters
-                    $connectParams = $null
-                    $connectParams = @{
-                        Server               = $ipAddress
-                        UserName             = 'admin'
-                        Password             = $cliPassword
-                        DisableViAutoConnect = $true
-                        DefaultConnection    = $false
-                    } # end $connectParams
-
-                    # casting to [void]; it inches some performance out by not having to process anything through the pipeline; sans | Out-Null
-                    [void](Connect-NsxServer @connectParams)
-                    break
-
-                } catch {
-
-                    Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
-
-                } # end try/catch
-
-                if ( $Timer -ge $WaitTimeout ) {
-
-                    # We exceeded the timeout - what does the user want to do?
-                    $message      = "Waited more than $WaitTimeout seconds for NSX Manager API to become available.  Recommend checking boot process, network config etc."
-                    $question     = "Continue waiting for NSX Manager?"
-                    $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-                    $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-                    $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-                    $decision     = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
-
-                    if ($decision -eq 0) {
-
-                        # User waits...
-                        $Timer = 0
-
-                    } else {
-
-                        throw "[$($MyInvocation.MyCommand.Name)][ERROR] Timeout waiting for NSX Manager appliance API to become available."
-
-                    } # end if/else $decision
-
-                } # end if $Timer -ge $WaitTimeout
-
-            } while ( $true )
-
-            Write-Progress -Activity "Waiting for NSX Manager api to become available" -Completed
-
-        } # end if $PSBoundParameters.ContainsKey('Wait')
-
-    } # end PROCESS block
-
-    END {
-
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Processing Complete"
-
-    } # end END block
-
-} # end function New-NsxManager
-
+    } 
+} 
 
 function Set-NsxManager {
-
+ 
     <#
     .SYNOPSIS
-    Configures appliance settings for an existing NSX Manager appliance.
+    Configures appliance settings for an existing NSX Manager appliance. 
 
     .DESCRIPTION
-    The NSX management plane is provided by NSX Manager, the centralized
-    network management component of NSX. It provides the single point of
+    The NSX management plane is provided by NSX Manager, the centralized 
+    network management component of NSX. It provides the single point of 
     configuration for NSX operations, and provides NSX's REST API.
 
-    The Set-NsxManager cmdlet allows configuration of the applaince settings
+    The Set-NsxManager cmdlet allows configuration of the applaince settings 
     such as syslog, vCenter registration and SSO configuration.
 
     .EXAMPLE
@@ -4039,7 +3935,7 @@ function Set-NsxManager {
     Configures NSX Manager Syslog destination.
 
     .EXAMPLE
-    Set-NsxManager -ssoserver sso.corp.local -ssousername administrator@vsphere.local -ssopassword VMware1!
+    Set-NsxManager -ssoserver sso.corp.local -ssousername administrator@vsphere.local -ssopassword VMware1! 
 
     Configures the SSO Server registration of NSX Manager.
 
@@ -9757,11 +9653,19 @@ function Repair-NsxEdge {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #The Edge object to be repaired.  Accepted on pipline
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
+        [Parameter (Mandatory=$True)]
+            #WARNING: This operation can potentially cause a datapath outage depending on the deployment architecture.
+            #Specify the repair operation to be performed on the Edge.  
+            #If ForceSync - The edge appliance is rebooted 
+            #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
+            [ValidateSet("ForceSync", "Redeploy")]
+            [switch]$Operation,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -9831,19 +9735,11 @@ function Set-NsxEdge {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            #The Edge object to be repaired.  Accepted on pipline
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
-        [Parameter (Mandatory=$True)]
-            #WARNING: This operation can potentially cause a datapath outage depending on the deployment architecture.
-            #Specify the repair operation to be performed on the Edge.  
-            #If ForceSync - The edge appliance is rebooted 
-            #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
-            [ValidateSet("ForceSync", "Redeploy")]
-            [switch]$Operation,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -22360,6 +22256,65 @@ function Remove-NsxLoadBalancerVip {
 
 
 
+function Get-NsxLoadBalancerStats{
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Edge Load Balancer statistics for the specified load 
+    balancer
+
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as 
+    firewall, NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple 
+    paths to a specific destination. It distributes incoming service requests 
+    evenly among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    This cmdlet retrieves NSX Edge Load Balancer statistics from the specified
+    enabled NSX loadbalancer.
+
+    .EXAMPLE
+    Get-nsxedge edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerStats
+    
+    Retrieves the LB stats for the LB service on Edge01
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #Load Balancer from which to retrieve stats.  Must be enabled.
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+
+        )
+
+    begin {}
+    process {
+
+        #Test that LB is enabled (otherwise there are no results.)
+        if ( $LoadBalancer.Enabled -ne 'true' ) { 
+            Throw "Load balancer feature is not enabled on $($LoadBalancer.EdgeId)"
+        }
+
+        $URI = "/api/4.0/edges/$($LoadBalancer.EdgeId)/loadbalancer/statistics"
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
+        if ( $response.SelectSingleNode("child::loadBalancerStatusAndStats")) { 
+            $response.loadBalancerStatusAndStats
+        }
+    }
+    end {}
+}
+
 
 ########
 ########
@@ -22367,7 +22322,7 @@ function Remove-NsxLoadBalancerVip {
 
 function Get-NsxSecurityPolicy {
 
- <#
+    <#
     .SYNOPSIS
     Retrieves NSX Security Policy
 

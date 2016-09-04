@@ -70,6 +70,9 @@ $webPool = get-NsxEdge $name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -Na
 $WebPool = $WebPool | Add-NsxLoadBalancerPoolMember -Name Web01 -IpAddress 192.168.200.11 -port 80
 $WebPool = $WebPool | Add-NsxLoadBalancerPoolMember -Name Web02 -IpAddress 192.168.200.12 -port 80
 
+#Get stats
+$stats = Get-NsxEdge $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerStats 
+
 #Remove Poolmember
 $WebPool = $Webpool | Get-NsxLoadBalancerPoolMember Web01 | remove-nsxLoadbalancerPoolMember -confirm:$false
 $WebPool = $Webpool | Get-NsxLoadBalancerPoolMember Web02 | remove-nsxLoadbalancerPoolMember -confirm:$false
