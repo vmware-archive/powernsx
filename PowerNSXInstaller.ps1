@@ -4,36 +4,31 @@
 
 
 
-<#
-Copyright © 2015 VMware, Inc. All Rights Reserved.
+#Copyright © 2015 VMware, Inc. All Rights Reserved.
 
-This program is free software: you can redistribute it and/or modify it under
-the terms of the GNU General Public License version 2, as published by the Free Software Foundation.
+#Permission is hereby granted, free of charge, to any person obtaining a copy of
+#this software and associated documentation files (the "Software"), to deal in 
+#the Software without restriction, including without limitation the rights to 
+#use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
+#of the Software, and to permit persons to whom the Software is furnished to do 
+#so, subject to the following conditions:
 
-This program is distributed in the hope that it will be useful, but WITHOUT ANY
-WARRANTY; without even the implied warranty of MERCHANTIBILITY or FITNESS
-FOR A PARTICULAR PURPOSE. See the GNU General Public License version 2 for more details.
+#The above copyright notice and this permission notice shall be included in all 
+#copies or substantial portions of the Software.
 
-You should have received a copy of the General Public License version 2 along with this program.
-If not, see https://www.gnu.org/licenses/gpl-2.0.html.
-
-The full text of the General Public License 2.0 is provided in the COPYING file.
-Some files may be comprised of various open source software components, each of which
-has its own license that is located in the source code of the respective component.
-#>
-
-
-param (
-    [switch]$Upgrade,
-    [switch]$Confirm=$true,
-    [switch]$Quiet=$false
-    )
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+#SOFTWARE.
 
 #Control which branch is installed.  Latest commit in this branch is used.
-$Branch = "master"
+$Branch = "v1"
 
 #PowerCLI 6.0 R3 
-$PowerCLI_Download="https://my.vmware.com/group/vmware/get-download?downloadGroup=PCLI630R1"
+$PowerCLI_Download="https://my.vmware.com/group/vmware/get-download?downloadGroup=PCLI600R3"
 
 #WMF3 - for Windows 6.0
 $WMF_3_61_64_Download="https://download.microsoft.com/download/E/7/6/E76850B8-DA6E-4FF5-8CCE-A24FC513FD16/Windows6.1-KB2506143-x64.msu"
@@ -51,14 +46,11 @@ $dotNet_45_Download="https://download.microsoft.com/download/E/2/1/E21644B5-2DF2
 #Minimum version of PS required.
 $PSMinVersion = "3"
 
-
-#PowerNSX (branch latest)
-$PowerNSXMod = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psm1"
-$PowerNSXManifest = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psd1"
+#PowerNSX (v1 head)
+$PowerNSX = "https://bitbucket.org/nbradford/powernsx/raw/$Branch/PowerNSX.psm1"
 
 #Module Path
 $ModulePath = "$($env:ProgramFiles)\Common Files\Modules\PowerNSX\PowerNSX.psm1"
-$ManifestPath = "$($env:ProgramFiles)\Common Files\Modules\PowerNSX\PowerNSX.psd1"
 
 
 
@@ -106,48 +98,51 @@ function get-dotNetVersion {
 
 function install-dotNet45 {
 
-    if ( $confirm ) { 
-        $message  = "The version of dotNet framework on this system is too old to install WMF."
-        $question = "Would you like to resolve this? (Will download and install dotNet Framework 4.5.)"
+    $message  = "The version of dotNet framework on this system is too old to install WMF."
+    $question = "Would you like to resolve this? (Will download and install dotNet Framework 4.5.)"
 
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-    }
-    else { $decision = 0 }
+    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+    write-host
 
     if ( $decision -ne 0 ) {
-        throw "dotNet Framework 4.5 install rejected. Unable to continue."    
+        throw "dotNet Framework 4.5 install rejected. Unable to continue." 
+        
     }
 
+    Write-Host -NoNewline "Downloading dotNet 4.5..." 
     $file = "$($env:temp)\DotNet452.exe"
-    Write-Progress -Activity "Installing PowerNSX" -Status "install-dotNet45" -CurrentOperation "Downloading $dotNet_45_Download"    
     try {
         download-file $dotNet_45_Download $file
     }
     catch { 
-        throw "Failed downloading $dotNet_45_Download.  Please check your internet connection and run this script again. _$" 
+        Write-Host -ForegroundColor Yellow "Failed."
+        write-host
+        throw "Unable to continue.  Please check your internet connection and run this script again." 
+
     }
 
-    Write-Progress -Activity "Installing PowerNSX" -Status "install-dotNet45" -CurrentOperation "Installing"
+    Write-Host -ForegroundColor Green "Ok."
+    write-host -NoNewline "Installing dotNet 4.5..."
 
     try { 
         $InstallDotNet = Start-Process -Wait -PassThru $file -ArgumentList "/q /norestart" 
     }
     catch {
-
-        throw "Failed installing $file. $_"
+        Write-Host -ForegroundColor Yellow "Failed."
+        write-host 
+        throw "Resolve the cause of failure, or manually perform dotNet 4.5 installation and run this script again."
 
     }
-    Write-Progress -Activity "Installing PowerNSX for" -Status "install-dotNet45" -Completed  
+    Write-Host -ForegroundColor Green  "Ok." 
 }
     
 function install-wmf($version, $uri) {
 
-    Write-Progress -Activity "Installing PowerNSX" -Status "install-wmf" -CurrentOperation "Downloading Windows Management Framework $version"    
-
+    Write-Host -NoNewline "Downloading Windows Management Framework $version..." 
     
     $localfile = "$($env:temp)\$($uri.split("/")[-1])"
     try { 
@@ -155,62 +150,66 @@ function install-wmf($version, $uri) {
     }
     catch {
 
-        throw "Failed downloading $uri.  $_" 
+        Write-Host -ForegroundColor Yellow "Failed."
+        write-host
+        throw "Unable to continue.  Please check your internet connection and run this script again." 
 
     }
 
-    Write-Progress -Activity "Installing PowerNSX" -Status "install-wmf" -CurrentOperation "Installing Windows Management Framework $version"    
-
+    Write-Host -ForegroundColor Green "Ok."
+    write-host -NoNewline "Installing Windows Management Framework $version..."
+    
     try {
         $InstallWMF = Start-Process -Wait -PassThru "wusa.exe" -ArgumentList "$localfile /quiet /norestart" 
     } 
     catch {
-
-        throw "An error occured installing WMF. $_"
+        Write-Host -ForegroundColor Red  "Error."
+        write-host 
+        write-host -ForegroundColor Yellow "An error occured installing WMF. $_"
+        throw "Unable to continue.  Resolve the issue and run this script again."
         
     }
+    Write-Host -ForegroundColor Green  "Ok."
 
+    write-Host
+    $message  = "The system must be rebooted to complete installation."
+    $question = "Reboot Now?"
 
-    if ( $confirm ) {
-        $message  = "The system must be rebooted to complete installation."
-        $question = "Reboot Now?"
+    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+    write-host
+
+    if ( $decision -ne 0 ) { 
+
+        Throw "Reboot rejected. Restart the system manually and rerun this script." 
+        
+    }
+    else {
+        restart-computer
+        exit
+    } 
+}
+
+function check-powershell {
+
+    #Validate at least PS3
+    write-host -NoNewline "Checking for compatible PowerShell version..."
+
+    if ( $PSVersionTable.PSVersion.Major -lt $PsMinVersion ) {
+
+        write-host -ForegroundColor Yellow "Failed."
+        $message  = "PowerShell version detected is $($PSVersionTable.PSVersion).  A minimum version of PowerShell $PsMinVersion is required."
+        $question = "Would you like to resolve this? (Will download and install appropriate Windows Management Framework update.)"
 
         $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
         $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
         $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
         $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-    }
-    else { $decision = 0 }
-    if ( $decision -ne 0 ) { 
-        Throw "Reboot rejected. Restart the system manually and rerun this script." 
-    }
-    else {
-        restart-computer
-        return
-    } 
-
-    Write-Progress -Activity "Installing PowerNSX" -Status "install-wmf" -completed
-}
-
-function check-powershell {
-
-    #Validate at least PS3    
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powershell" -CurrentOperation "Checking for suitable PowerShell version"
-    
-    if ( $PSVersionTable.PSVersion.Major -lt $PsMinVersion ) {
-
-        if ( $confirm ) {
-                    $message  = "PowerShell version detected is $($PSVersionTable.PSVersion).  A minimum version of PowerShell $PsMinVersion is required."
-                    $question = "Would you like to resolve this? (Will download and install appropriate Windows Management Framework update.)"
-        
-                    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-        
-                    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-        }
-        else { $decision = 0 }
+        write-host  
 
         if ( $decision -ne 0 ) {
             Throw "Windows Management Framework upgrade rejected. Unable to continue." 
@@ -221,10 +220,14 @@ function check-powershell {
                 6 {
                     switch ( [System.Environment]::OSVersion.Version.Minor ) {
                         0 { 
-                            Write-Progress -Activity "Installing PowerNSX" -Status "check-powershell" -CurrentOperation "Checking for WMF 3 compatible dotNet framework version"
+                            write-host -NoNewline "Checking for WMF 3 compatible dotNet framework version..."
                             $dotNetVersion = get-dotNetVersion
                             if ( $dotNetVersion.Major -lt 4 ) {
+                                write-host -ForegroundColor Yellow "Failed."
                                 install-dotNet45
+                            }
+                            else {
+                                write-host -ForegroundColor Green "Ok."
                             }
                             
                             if ( (gwmi win32_operatingsystem).OSArchitecture -eq "64-Bit") {
@@ -237,10 +240,15 @@ function check-powershell {
                         }
 
                         1 {
-                            Write-Progress -Activity "Installing PowerNSX" -Status "check-powershell" -CurrentOperation "Checking for WMF 4 compatible dotNet framework version"
+                            write-host
+                            write-host -NoNewline "Checking for WMF 4 compatible dotNet framework version..."
                             $dotNetVersion = get-dotNetVersion
                             if ( ($dotNetVersion.Major -lt 4) -or (($dotNetVersion.Major -eq 4) -and ($dotNetVersion.Minor -lt 5))) {
+                                write-host -ForegroundColor Yellow "Failed."
                                 install-dotNet45
+                            }
+                            else {
+                                write-host -ForegroundColor Green "Ok."
                             }
 
                             if ( (gwmi win32_operatingsystem).OSArchitecture -eq "64-Bit") {
@@ -251,24 +259,33 @@ function check-powershell {
                                 install-wmf -version 4 -uri $WMF_3_61_32_Download
                             }
                         }
+                      
+                        2 {
+                            #windows 2k12 / Windows 8 
+                            write-host -ForegroundColor Red "PowerShell 3.0 should already be installed on Windows 6.2, but was not found which was unexpected."
+                        }
                     }
                 }
             }
         } 
 
         if ( $unsupportedPlatform ) {
+            write-host  
             write-host -ForegroundColor Yellow "Unsupported Windows version for automated installation of WMF."
             Throw "Please manually install Windows Management Framework 3 (if supported) or above and run this script again." 
+            
         }
     }
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powershell" -Completed
+    else{
+        write-host -ForegroundColor Green "Ok."
+    }
 }
 
 function check-powercli {
 
 
     #Validate at least PowerCLI 5.5 via uninstall reg key
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powercli" -CurrentOperation "Checking for compatible PowerCLI version"
+    write-host -NoNewline "Checking for compatible PowerCLI version..."
     if ((gwmi win32_operatingsystem).osarchitecture -eq "64-bit") { 
         $PowerCli = get-childitem "HKLM:Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" | % { $_ | get-itemproperty | ? { $_.displayName -match 'PowerCLI' }}
 
@@ -277,122 +294,123 @@ function check-powercli {
     }
 
     if ( -not $PowerCli ) {
+        write-host -ForegroundColor Yellow "Failed."
+        write-host -ForegroundColor Yellow "PowerCLI is not installed on this system."
+
         install-powercli
+        
     }
     else {
         switch ($PowerCli.VersionMajor) {
 
             { $_ -lt 5 } {
+
+                write-host -ForegroundColor Yellow "Failed."
+                write-host -ForegroundColor Yellow "The version of PowerCLI installed on this system is too old."
+
                 install-powercli
             
             }
 
             { $_ -eq 5 } { 
                 if ( $PowerCLi.VersionMinor -lt 5 ) { 
+                    write-host -ForegroundColor Yellow "Failed."
+                    write-host -ForegroundColor Yellow "The version of PowerCLI installed on this system is too old."
+
                     install-powercli
+
                 }
-            }  
+                else {
+                    write-host -ForegroundColor Green "Ok."
+                    write-host -NoNewline "Checking for compatible PowerCLI version..."
+
+                }
+            }
+            { $_ -gt 5 }  { write-host -ForegroundColor Green "Ok." }   
         }
     }
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powercli" -Completed
-
 }
 
 function install-powercli {
 
-    if ( $confirm ){
-        $message  = "PowerCLI is required for full functionality of PowerNSX and it is either not installed or the installed version is too old."
-        $question = "Would you like to resolve this? (Opens PowerCLI download page.)"
-    
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-    
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-    }
-    else { $decision = 0 }
+    $message  = "PowerCLI is required for full functionality of PowerNSX."
+    $question = "Would you like to resolve this? (Opens PowerCLI download page.)"
+
+    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+    write-host
+
     if ( $decision -ne 0 ) { 
         throw "PowerCLI rejected. Unable to continue." 
+        write-host
     }
     else {
 
         Start-Process -pspath $PowerCLI_Download
         Throw "Rerun this script when the PowerCLI installation is complete."
     }
+
+
 }
 
 function check-PowerNSX {
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Checking for PowerNSX Module"
+
+    write-host -NoNewline "Checking for PowerNSX Module..."
     
-    if (-not ((Test-Path $ModulePath) -and (test-path $ManifestPath )) -or ( $Upgrade )) { 
-        if ( $confirm -and (-not $upgrade)) { 
-            $message  = "PowerNSX module not found."
-            $question = "Download and install PowerNSX?"
-
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-        }
-        else {
-            Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Upgrading"
-            $decision = 0
-
-        }
-
-        if ( $decision -ne 0 ) { 
-            throw "Install rejected. Rerun this script at a later date if you change your mind." 
-
-        }
-        else {
-
-            $doInstall = $true
-        }
-
-    } 
-    else { 
-
-        #Module already exists and user didnt specify upgrade switch prompt user to upgrade.
-        $message  = "PowerNSX module is already installed."
-        $question = "Do you want to upgrade to the latest available PowerNSX?"
+    if (-not (Test-Path $ModulePath)) { 
+        write-host -ForegroundColor Yellow "Failed."
+        $message  = "PowerNSX module not found."
+        $question = "Download and install PowerNSX?"
 
         $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
         $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
         $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
         $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        write-host
 
-        if ( $decision -eq 0 ) {
-            $doInstall = $true
+        if ( $decision -ne 0 ) { 
+            throw "PowerNSX install rejected. Rerun this script at a later date if you change your mind." 
 
         }
+        else {
+
+            $ModuleDir = split-path $ModulePath -parent
+            if (-not (test-path $ModuleDir )) {
+
+                write-host -NoNewline "Creating directory $ModuleDir..."
+                new-item -Type Directory $ModuleDir | out-null
+                write-host -ForegroundColor Green "Ok."
+            }
+            write-host -NoNewline "Installing PowerNSX..."
+            Download-File $PowerNSX $ModulePath
+            if (-not (Test-Path $ModulePath)) { 
+                write-host -ForegroundColor Yellow "Failed."
+                write-host 
+                throw "Unable to download/install PowerNSX."
+
+            }
+            else{
+                write-host -ForegroundColor Green "Ok."
+            }
+        }
+
+    } else {
+        write-host -ForegroundColor Green "Ok."
     }
 
-    if ( $doInstall ) { 
-        $ModuleDir = split-path $ModulePath -parent
-        if (-not (test-path $ModuleDir )) {
-
-            Write-Progress -Activity "Installing PowerNSX for" -Status "check-powernsx" -CurrentOperation "Creating directory $ModuleDir"
-            new-item -Type Directory $ModuleDir | out-null
-        }
-        Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Installing PowerNSX"
-        Download-File $PowerNSXManifest $ManifestPath
-        Download-File $PowerNSXMod $ModulePath
-        if (-not ((Test-Path $ModulePath) -and (test-path $ManifestPath ))) { 
-            throw "Unable to download/install PowerNSX. $_"
-
-        }
-    }
-
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Checking PSModulePath for PowerNSX Module Path"
+    write-host -NoNewline "Checking PSModulePath for PowerNSX..."
 
     #Need to use registry here as the PowerCLI installation changes will not have propogated to the current host.
     $envModulePath = (Get-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Session Manager\Environment').PSModulePath
     $ParentModulePath = split-path -parent (split-path -parent $ModulePath)
     if (-not ( $envModulePath.Contains( $ParentModulePath ))) { 
 
-        Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Adding common files module directory to PSModulePath env variable"
+        write-host -ForegroundColor Yellow "Failed."
+        write-host -NoNewline "Adding common files module directory to PSModulePath env variable..."
         
         $envModulePath += ";$(split-path (split-path $ModulePath -Parent) -parent)"
         try {
@@ -401,160 +419,169 @@ function check-PowerNSX {
             $env:PSModulePath = $envModulePath
         }
         catch {
-            throw "Unable to add module path to PSModulePath environment variable. $_"
+            write-host -ForegroundColor Yellow "Failed."
+            write-host
+            write-host -ForegroundColor Yellow "Unable to add module path to PSModulePath environment variable. $_"
+            write-host -ForegroundColor Yellow "Resolve the problem and run this script again."
+
         }
+        write-host -ForegroundColor Green "Ok."
 
     }
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -Completed
+    else {
+        write-host -ForegroundColor Green "Ok."
+
+    }
+
 }
 
 function _set-executionpolicy {
 
-    if ( $confirm ) {
-        $message  = "Execution Policy Change."
-        $question = "The execution policy helps protect you from scripts that you do not trust.  " + 
-            "Changing the execution policy might expose you to the security risks described in the " + 
-            "about_Execution_Policies help topic. Do you want to change the execution policy?"
-    
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-    
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-    }
-    else { $decision = 0 }
+    $message  = "Execution Policy Change."
+    $question = "The execution policy helps protect you from scripts that you do not trust.  " + 
+        "Changing the execution policy might expose you to the security risks described in the " + 
+        "about_Execution_Policies help topic. Do you want to change the execution policy?"
+
+    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+    write-host
+
     if ( $decision -ne 0 ) { 
         throw "ExecutionPolicy change rejected."
+
     }
     else {
 
-        Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Setting ExecutionPolicy to RemoteSigned"
         set-executionPolicy "RemoteSigned" -confirm:$false
-
+        write-host 
+        write-host -ForegroundColor Yellow "Changed ExecutionPolicy to RemoteSigned"
+        write-host   
     }
 }
 
 function check-executionpolicy {
 
-    Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Checking ExecutionPolicy"
+write-host -NoNewline "Checking ExecutionPolicy..."
     switch ( get-executionpolicy){
 
         "AllSigned" { 
+            write-host -ForegroundColor Yellow "Failed. (Allsigned)"
             _set-executionpolicy
 
         }
         "Restricted" { 
+            write-host -ForegroundColor Yellow "Failed. (Restricted)"
             _set-executionpolicy
      
         }
         "Default" { 
+            write-host -ForegroundColor Yellow "Failed. (Default)"
             _set-executionpolicy
            
         }
+        default { write-host -ForegroundColor Green "Ok." }
+
     }
 }
-
 function init {
 
     #Perform environment check, and guided dependancy installation for PowerNSX.
 
+    clear-host
+
     #UserIntro:
-    if ( -not $quiet ) { 
-        write-host 
-        write-host -ForegroundColor Green "`nPowerNSX Installation Tool"
-        write-host 
-        write-host "PowerNSX is a PowerShell module for VMware NSX (NSX for vSphere)."
-        write-host
-        write-host "PowerNSX requires PowerShell 3.0 or better and VMware PowerCLI 5.5"
-        write-host "or better to function."
-        write-host 
-        write-host "This installation script will automatically guide you through the"
-        write-host "download and installation of PowerNSX and its dependancies.  A reboot"
-        write-host "may be required during the installation."
-        write-host 
-    }
-    if ( $confirm ){
-        $message  = "Performing automated installation of PowerNSX."
-        $question = "Continue?"
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-    
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-        write-host
-    }
-    else { $decision = 0 }
+    write-host 
+    write-host -ForegroundColor Green "PowerNSX Installation Tool"
+    write-host 
+    write-host "PowerNSX is a PowerShell module for VMware NSX (NSX for vSphere)."
+    write-host
+    write-host "PowerNSX requires PowerShell 3.0 or better and VMware PowerCLI 5.5"
+    write-host "or better to function."
+    write-host 
+    write-host "This installation script will automatically guide you through the"
+    write-host "download and installation of PowerNSX and its dependancies.  A reboot"
+    write-host "may be required during the installation."
+    write-host 
+
+    $message  = "Performing automated installation of PowerNSX."
+    $question = "Continue?"
+    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+    write-host
 
     if ( $decision -ne 0 ) { 
         write-host -ForegroundColor Yellow "Automated installation rejected."
         write-host 
         write-host "If you wish to perform the installation manually, ensure the minimum"
-        write-host "requirements for PowerNSX are met, place the module file and manifest"
-        write-host "in a PowerShell Module directory and run Import-Module PowerNSX from"
+        write-host "requirements for PowerNSX are met, place the module file in a"
+        write-host "PowerShell Module directory and run Import-Module PowerNSX from"
         write-host "a PowerCLI session." 
         write-host  
-        return
+        break
     }
     else {
-        Write-Progress -Activity "Installing PowerNSX" -Status "Initialising" -CurrentOperation "Checking for Administrator role"
+        write-host -ForegroundColor Yellow "Performing automated installation of PowerNSX."
+        write-host
         
         if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
             [Security.Principal.WindowsBuiltInRole] "Administrator"))) { 
 
             write-host -ForegroundColor Yellow "The PowerNSX installer requires Administrative rights."
             write-host -ForegroundColor Yellow "Please restart PowerShell with right click, 'Run As Administrator'"
-            return
+            break
         }
         try {
             check-executionpolicy
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            return
+            break
         }
         try {
             check-powershell
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            return
+            break
         }
         try {
             check-powercli
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            return
+            break
         }
         try {
             check-PowerNSX
         }
         catch {
             write-host -ForegroundColor Yellow $_
-            return
+            break
         }
 
-        if ( -not $quiet ) { 
-            write-host 
-            write-host -ForegroundColor Green "PowerNSX installation complete."
-            write-host 
-            write-host "PowerNSX requires PowerCLI to function fully!"
-            write-host "To get started with PowerNSX, start a new PowerCLI session."
-            write-host 
-            write-host "You can view the cmdlets supported by PowerNSX as follows:"
-            write-host "    get-command -module PowerNSX"
-            write-host 
-            write-host "You can connect to NSX and vCenter with Connect-NsxServer."
-            write-host
-            write-host "Head to https://vmware.github.io/powernsx for documentation,"
-            write-host "updates and further assistance."
-            write-host
-            write-host -ForegroundColor Green "Enjoy!"
-            write-host
-        }
-        return
+        write-host 
+        write-host -ForegroundColor Green "PowerNSX installation complete."
+        write-host 
+        write-host "Start a new PowerCLI session and import the PowerNSX module as follows:"
+        write-host "    import-module PowerNSX"
+        write-host 
+        write-host "You can view the cmdlets supported by PowerNSX as follows:"
+        write-host "    get-command -module PowerNSX"
+        write-host 
+        write-host "Review the PowerNSX Documentation at <> for further assistance"
+        write-host
+        write-host -ForegroundColor Green "Enjoy!"
+        write-host
+
     }
 }
+
 
 init
 
