@@ -1,47 +1,34 @@
 #Powershell NSX module
 #Nick Bradford
 #nbradford@vmware.com
-#Version 1.0 RC 1
+#Version - See Manifest for version details.
 
 
+<#
+Copyright © 2015 VMware, Inc. All Rights Reserved.
 
-#Copyright © 2015 VMware, Inc. All Rights Reserved.
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU General Public License version 2, as published by the Free Software Foundation.
 
-#Permission is hereby granted, free of charge, to any person obtaining a copy of
-#this software and associated documentation files (the "Software"), to deal in 
-#the Software without restriction, including without limitation the rights to 
-#use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-#of the Software, and to permit persons to whom the Software is furnished to do 
-#so, subject to the following conditions:
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTIBILITY or FITNESS
+FOR A PARTICULAR PURPOSE. See the GNU General Public License version 2 for more details.
 
-#The above copyright notice and this permission notice shall be included in all 
-#copies or substantial portions of the Software.
+You should have received a copy of the General Public License version 2 along with this program.
+If not, see https://www.gnu.org/licenses/gpl-2.0.html.
 
-#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
-#SOFTWARE.
-
-### Note
-#This powershell module should be considered entirely experimental and dangerous
-#and is likely to kill babies, cause war and pestilence and permanently block all 
-#your toilets.  Seriously - It's still in development,  not tested beyond lab 
-#scenarios, and its recommended you dont use it for any production environment 
-#without testing extensively!
-
-
-###
-# To Do
-#
-# - Get Edges on LS -> needs get-nsxedge to accept LS as input object
-# - Set/New LR interface functions returning xmldoc, not element.  Check edge interface output as well.
-# - Need to check for PowerCLI we now pretty much require it - which is snapin or module...dang it...
-# - Update Edge (LB? ) validation cmdlets with edgeId
+The full text of the General Public License 2.0 is provided in the COPYING file.
+Some files may be comprised of various open source software components, each of which
+has its own license that is located in the source code of the respective component.
+#>
 
 #Requires -Version 3.0
+
+#More sophisticated requirement checking done at module load time.
+
+#My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
+$PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
+$ValidBranches = @("master","v1","v2")
 
 
 set-strictmode -version Latest
@@ -64,270 +51,143 @@ if ( -not ("TrustAllCertsPolicy" -as [type])) {
 
 }
 
+
+function Check-PowerCliAsemblies {
+
+    #Checks for known assemblies loaded by PowerCLI.
+    #PowerNSX uses a variety of types, and full operation requires 
+    #extensive PowerCLI usage.  
+    #As of v2, we now _require_ PowerCLI assemblies to be available.
+    #This method works for both PowerCLI 5.5 and 6 (snapin vs module), 
+    #shouldnt be as heavy as loading each required type explicitly to check 
+    #and should function in a modified PowerShell env, as well as normal 
+    #PowerCLI.
+    
+    $RequiredAsm = (
+        "VMware.VimAutomation.ViCore.Cmdlets", 
+        "VMware.Vim",
+        "VMware.VimAutomation.Sdk.Util10Ps",
+        "VMware.VimAutomation.Sdk.Util10",
+        "VMware.VimAutomation.Sdk.Interop",
+        "VMware.VimAutomation.Sdk.Impl",
+        "VMware.VimAutomation.Sdk.Types",
+        "VMware.VimAutomation.ViCore.Types",
+        "VMware.VimAutomation.ViCore.Interop",
+        "VMware.VimAutomation.ViCore.Util10",
+        "VMware.VimAutomation.ViCore.Util10Ps",
+        "VMware.VimAutomation.ViCore.Impl",
+        "VMware.VimAutomation.Vds.Commands",
+        "VMware.VimAutomation.Vds.Impl",
+        "VMware.VimAutomation.Vds.Interop",
+        "VMware.VimAutomation.Vds.Types",
+        "VMware.VimAutomation.Storage.Commands",
+        "VMware.VimAutomation.Storage.Impl",
+        "VMware.VimAutomation.Storage.Types",
+        "VMware.VimAutomation.Storage.Interop",
+        "VMware.DeployAutomation",
+        "VMware.ImageBuilder"
+    )
+
+
+    $CurrentAsmName = foreach( $asm in ([AppDomain]::CurrentDomain.GetAssemblies())) { $asm.getName() } 
+    $CurrentAsmDict = $CurrentAsmName | Group-Object -AsHashTable -Property Name
+
+    foreach( $req in $RequiredAsm ) { 
+
+        if ( -not $CurrentAsmDict.Contains($req) ) { 
+            write-warning "PowerNSX requires PowerCLI."
+            throw "Assembly $req not found.  Some required PowerCli types are not available in this PowerShell session.  Please ensure you are running PowerNSX in a PowerCLI session, or have manually loaded the required assemblies."}
+    }
+}
+
+#Check required PowerCLI assemblies are loaded.
+Check-PowerCliAsemblies
+
+
 ########
 ########
 # Private functions
 
-function Invoke-NsxRestMethod {
+Function Test-WebServerSSL {  
+    # Function original location: http://en-us.sysadmins.lv/Lists/Posts/Post.aspx?List=332991f0-bfed-4143-9eea-f521167d287c&ID=60  
+    # Ref : https://communities.vmware.com/thread/501913?start=0&tstart=0 - Thanks Alan ;)
 
-    #Internal method to construct the REST call headers including auth as expected by NSX.
-    #Accepts either a connection object as produced by connect-nsxserver or explicit
-    #parameters.
 
-    [CmdletBinding(DefaultParameterSetName="ConnectionObj")]
-  
-    param (
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [System.Management.Automation.PSCredential]$cred,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [string]$server,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [int]$port,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [string]$protocol,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [bool]$ValidateCertificate,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$method,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$URI,
-        [Parameter (Mandatory=$false,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$body = "",
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [psObject]$connection,
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [System.Collections.Hashtable]$extraheader   
-    )
+    [CmdletBinding()]  
 
-    Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
+    param(  
+        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0)]  
+        [string]$URL,  
+        [Parameter(Position = 1)]  
+        [ValidateRange(1,65535)]  
+        [int]$Port = 443,  
+        [Parameter(Position = 2)]  
+        [Net.WebProxy]$Proxy,  
+        [Parameter(Position = 3)]  
+        [int]$Timeout = 15000,  
+        [switch]$UseUserContext  
+    )  
 
-    if ($pscmdlet.ParameterSetName -eq "Parameter") {
-        if ( -not $ValidateCertificate) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-    }
-    else {
+Add-Type @"  
+using System;  
+using System.Net;  
+using System.Security.Cryptography.X509Certificates;  
+namespace PKI {  
+    namespace Web {  
+        public class WebSSL {  
+            public Uri OriginalURi;  
+            public Uri ReturnedURi;  
+            public X509Certificate2 Certificate;  
+            //public X500DistinguishedName Issuer;  
+            //public X500DistinguishedName Subject;  
+            public string Issuer;  
+            public string Subject;  
+            public string[] SubjectAlternativeNames;  
+            public bool CertificateIsValid;  
+            //public X509ChainStatus[] ErrorInformation;  
+            public string[] ErrorInformation;  
+            public HttpWebResponse Response;  
+        }  
+    }  
+}  
+"@  
 
-        #ensure we were either called with a connection or there is a defaultConnection (user has 
-        #called connect-nsxserver) 
-        #Little Grr - $connection is a defined variable with no value so we cant use test-path
-        if ( $connection -eq $null) {
-            
-            #Now we need to assume that defaultnsxconnection does not exist...
-            if ( -not (test-path variable:global:DefaultNSXConnection) ) { 
-                throw "Not connected.  Connect to NSX manager with Connect-NsxServer first." 
-            }
-            else { 
-                Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
-                $connection = $DefaultNSXConnection
-            }       
-        }
-
-        
-        if ( -not $connection.ValidateCertificate ) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-
-        $cred = $connection.credential
-        $server = $connection.Server
-        $port = $connection.Port
-        $protocol = $connection.Protocol
-
-    }
-
-    $headerDictionary = @{}
-    $base64cred = [system.convert]::ToBase64String(
-        [system.text.encoding]::ASCII.Getbytes(
-            "$($cred.GetNetworkCredential().username):$($cred.GetNetworkCredential().password)"
-        )
-    )
-    $headerDictionary.add("Authorization", "Basic $Base64cred")
-
-    if ( $extraHeader ) {
-        foreach ($header in $extraHeader.GetEnumerator()) {
-            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
-            $headerDictionary.add($header.Key, $header.Value)
-        }
-    }
-    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
-    #do rest call
-    
-    try { 
-        if (( $method -eq "put" ) -or ( $method -eq "post" )) { 
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body
-        } else {
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI
-        }
-    }
-    catch {
-        
-        #Get response from the exception
-        $response = $_.exception.response
-        if ($response) {  
-            $responseStream = $_.exception.response.GetResponseStream()
-            $reader = New-Object system.io.streamreader($responseStream)
-            $responseBody = $reader.readtoend()
-            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
-            throw $ErrorString
-        }
-        else { 
-            throw $_ 
-        } 
-        
-
-    }
-    switch ( $response ) {
-        { $_ -is [xml] } { write-debug "$($MyInvocation.MyCommand.Name) : Response: `n$($response.outerxml | Format-Xml)" } 
-        { $_ -is [System.String] } { write-debug "$($MyInvocation.MyCommand.Name) : Response: $($response)" }
-        default { write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown" }
-
-    }
-
-    #Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
-    #We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
-    #So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
-    #and probably rewrite over time to use invoke-webrequest for all calls... PiTA!!!! :|
-
-    $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($FullURI)
-    $ServicePoint.CloseConnectionGroup("") | out-null
-    write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $FullURI."
-
-    #Return
-    $response
-
-}
-Export-ModuleMember -function Invoke-NsxRestMethod
-
-function Invoke-NsxWebRequest {
-
-    #Internal method to construct the REST call headers etc
-    #Alternative to Invoke-NsxRestMethod that enables retrieval of response headers
-    #as the NSX API is not overly consistent when it comes to methods of returning 
-    #information to the caller :|.  Used by edge cmdlets like new/update esg and logicalrouter.
-
-    [CmdletBinding(DefaultParameterSetName="ConnectionObj")]
-  
-    param (
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [System.Management.Automation.PSCredential]$cred,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [string]$server,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [int]$port,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [string]$protocol,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-            [bool]$ValidateCertificate,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$method,
-        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$URI,
-        [Parameter (Mandatory=$false,ParameterSetName="Parameter")]
-        [Parameter (ParameterSetName="ConnectionObj")]
-            [string]$body = "",
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [psObject]$connection,
-        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
-            [System.Collections.Hashtable]$extraheader   
-    )
-
-    Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
-
-    if ($pscmdlet.ParameterSetName -eq "Parameter") {
-        if ( -not $ValidateCertificate) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-    }
-    else {
-
-        #ensure we were either called with a connection or there is a defaultConnection (user has 
-        #called connect-nsxserver) 
-        #Little Grr - $connection is a defined variable with no value so we cant use test-path
-        if ( $connection -eq $null) {
-            
-            #Now we need to assume that defaultnsxconnection does not exist...
-            if ( -not (test-path variable:global:DefaultNSXConnection) ) { 
-                throw "Not connected.  Connect to NSX manager with Connect-NsxServer first." 
-            }
-            else { 
-                Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
-                $connection = $DefaultNSXConnection
-            }       
-        }
-
-        
-        if ( -not $connection.ValidateCertificate ) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-
-        $cred = $connection.credential
-        $server = $connection.Server
-        $port = $connection.Port
-        $protocol = $connection.Protocol
-
-    }
-
-    $headerDictionary = @{}
-    $base64cred = [system.convert]::ToBase64String(
-        [system.text.encoding]::ASCII.Getbytes(
-            "$($cred.GetNetworkCredential().username):$($cred.GetNetworkCredential().password)"
-        )
-    )
-    $headerDictionary.add("Authorization", "Basic $Base64cred")
-
-    if ( $extraHeader ) {
-        foreach ($header in $extraHeader.GetEnumerator()) {
-            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
-            $headerDictionary.add($header.Key, $header.Value)
-        }
-    }
-    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
-    #do rest call
-    
-    try { 
-        if (( $method -eq "put" ) -or ( $method -eq "post" )) { 
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body
-        } else {
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI
-        }
-    }
-    catch {
-        
-        #Get response from the exception
-        $response = $_.exception.response
-        if ($response) {  
-            $responseStream = $_.exception.response.GetResponseStream()
-            $reader = New-Object system.io.streamreader($responseStream)
-            $responseBody = $reader.readtoend()
-            $ErrorString = "invoke-nsxwebrequest : Exception occured calling invoke-restmethod. $($response.StatusCode) : $($response.StatusDescription) : Response Body: $($responseBody)"
-            throw $ErrorString
-        }
-        else { 
-            throw $_ 
-        } 
-        
-
-    }
-    switch ( $response.content ) {
-        { $_ -is [System.String] } { write-debug "$($MyInvocation.MyCommand.Name) : Response Body: $($response.content), Response Headers: $($response.Headers)" }
-        default { write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown" }
-
-    }
-    $response
-}
-
-Export-ModuleMember -Function Invoke-NsxWebRequest
+    $ConnectString = "https://$url`:$port"  
+    $WebRequest = [Net.WebRequest]::Create($ConnectString)  
+    $WebRequest.Proxy = $Proxy  
+    $WebRequest.Credentials = $null  
+    $WebRequest.Timeout = $Timeout  
+    $WebRequest.AllowAutoRedirect = $true  
+    [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}  
+    try {$Response = $WebRequest.GetResponse()}  
+    catch {}  
+    if ($WebRequest.ServicePoint.Certificate -ne $null) {  
+        $Cert = [Security.Cryptography.X509Certificates.X509Certificate2]$WebRequest.ServicePoint.Certificate.Handle  
+        try {$SAN = ($Cert.Extensions | Where-Object {$_.Oid.Value -eq "2.5.29.17"}).Format(0) -split ", "}  
+        catch {$SAN = $null}  
+        $chain = New-Object Security.Cryptography.X509Certificates.X509Chain -ArgumentList (!$UseUserContext)  
+        [void]$chain.ChainPolicy.ApplicationPolicy.Add("1.3.6.1.5.5.7.3.1")  
+        $Status = $chain.Build($Cert)  
+        New-Object PKI.Web.WebSSL -Property @{  
+            OriginalUri = $ConnectString;  
+            ReturnedUri = $Response.ResponseUri;  
+            Certificate = $WebRequest.ServicePoint.Certificate;  
+            Issuer = $WebRequest.ServicePoint.Certificate.Issuer;  
+            Subject = $WebRequest.ServicePoint.Certificate.Subject;  
+            SubjectAlternativeNames = $SAN;  
+            CertificateIsValid = $Status;  
+            Response = $Response;  
+            ErrorInformation = $chain.ChainStatus | ForEach-Object {$_.Status}  
+        }  
+        $chain.Reset()  
+        [Net.ServicePointManager]::ServerCertificateValidationCallback = $null  
+        $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($ConnectString)
+        $ServicePoint.CloseConnectionGroup("") | out-null
+        write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $ConnectString."
+    } else {  
+        Write-Error $Error[0]  
+    }  
+}  
 
 function Add-XmlElement {
 
@@ -345,107 +205,389 @@ function Add-XmlElement {
     $xmlNode.AppendChild($xmlText) | out-null
     $xmlRoot.AppendChild($xmlNode) | out-null
 }
-Export-ModuleMember -function Add-XmlElement
 
-function Get-EasterEgg {
+function Get-FeatureStatus { 
 
-$OhCaptainMyCaptain = @"                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                                                                 
-                                         `                                       
-                                 `;;###',.`                                      
-                               `'#++##@#+#+@;'`                                  
-                             `;#++++@#++####+@#+'                                
-                             +##+#+###+++@###@#@#;..                             
-                            :#+#'++##+''+##@+###@@#:                             
-                           ,'+''+##++#+++##+######'+:                            
-                         `'+'+;''#'##++'+##+#@@@+#+'#`                           
-                         +;;+;#'#'++@@##@'+#@#@#@##:'+                           
-                        ;';:+#++++'#+####@#'+#@@@@+#++@                          
-                        ;++@@+#'++@@##+###+++#####;+###.                         
-                       .+++@#+#'+##+###@@#+';;'++###,'++`                        
-                       +#'##+#+##@+'+@##@+;:::;;'+####@+;                        
-                       +;+@'@+@###+''+++':::,,,:;'+#+#@#+                        
-                      `#'@'@;#@##''';;;;:,,,,,,,:;'+#+#@@`                       
-                       +#;@+'@#+#+';;;;::,,,,,,,,,:;+###@,                       
-                      +#+;;;'+,++''';;:::,,,,,,.,,,,;+#@@:                       
-                      +'#;';',.::'';;:;;:,,,,,,,..,,,;+##;                       
-                      #+'#'';::::;;;;::::,:,,,,,,,,,,,;:#@                       
-                      ###'+''::,:;;;::::::,,,,,.,,.,,,;;+;                       
-                     `;#+''+'::::::;;;:::,,,,,,,,,,,,::#+                        
-                     .;+#;#+::;:,,''''''':,,::::::::,,:#'` `                     
-                     :'+'##',:;,'++####+#+::;+'#+''';::@+                        
-                     ;.;++#:,::+@#@@###+++::'#####+#++:@#+                       
-                     ;,;;+'.,'+####+#+++'';:;'+####+++:'+'                       
-                     '+';#;,:+++####@##+++;::;+##@+'';;;#;                       
-                     ;+''#,,;+++@+#'@,##++;,:'+##+:#+:,;',                       
-                     ;;`';,,;+++++'+;;++++;.,:+'#+:'::,:;:                       
-                     ,,'+.:::'''+++''''+++;,,::;'';:,,:;;;                       
-                     :'';,::::;;'''''''+++;,,,::;;:::,,:;;                       
-                     :'+:::::::;;;;;;;'''+':,,,,:,,,,,,;,:                       
-                     ::#':::::;;:;::;;''++':,,,,,,,,,,,;:;                       
-                     :;;';;::;:;:::::;'+++':,,,,,,,,,,:;:'                       
-                     ::,;:;:;;;;;:::;;'+++;:.,:,,,,,,,:;:'                       
-                     ,,.+:;;;;''';;:;'+''';,.,:;:,,,,::;:'                       
-                      ::+:;;;+''';;;;'+''';:.,,;;:,,,::;:'                       
-                      ;'':;:;++'''';''++++'';;;,;;::,::;:;                       
-                         :;;;+++''''''++##+''+,,,:;::::;;                        
-                         :;;;+++''''+++#++++;::,,,;:::;'                         
-                         :;;;'+''''''++++''':,:::::::;;;                         
-                         :;;;++'''''+'''':::,,:;;;::::;:                         
-                          ;;;+++'''+##++++''++';+';::;;                          
-                          ;';+++'''''+++'+#+';':;';:;;;                          
-                          `'''++'''''''+';:::::,,:;;;;,                          
-                          .;''++''''''+''';;;::,::;;;'                           
-                         .:,''+++''''''+++++';:::;;;;                            
-                         `#,;'''+++'''''''''::::;;;;                             
-                        .`#,:'+''++''';;;:;;:::;:;;',                            
-                         `@,:'++''+++';;;:::::::';++.`                           
-                       . `@,;'+'+''+++';;;;;::;'';#+:`                           
-                        ``#':;++'+''++++'++'';''':++;`,                          
-                      .```:+;'''''''''++++++++'';:++;.`                          
-                       ```.@'''''''''''''''''+';::++;,`:                         
-                     ,````.#+'''''''''''''''';;;:;+';,```                        
-                    . ````.,#+'''''''''''';;;:;::;#';:``.`:                      
-                  .`.````...#+'''''''''';;;:;;;::++;::``````..                   
-                .`..``````..,#'''''''';'';;;:;:::+'::,`````````:                 
-              .``.,,``````...'#''''''';'';;;:::::+'::,````.``````,.              
-           `.`..`.,.``````.`.,#+'';;;';';;;::::::+'::,`````.````````:            
-         ,`````:.`. ````......:#';;;;;;;;;;:::::;,':::````````````..``:          
-       ,```,`,:,...`````..`....++;;;;;;;;;;:::::+`:,:,+':`.`.`````.....`,        
-     :``....:,:,..,`````........'+;;;;;;;;;:::,;`.,,,.'';..````````.`.....,      
-   :``....:,.,::,.,`````.........,.';;;;;;:::::``:,,.'';;,..,.``````...``...`    
- .``.`.,:..,.,::,,,`````......`.,.,..````..`````.:,,';;;;:,.`:.``````.````.`.,   
-,``,.```....,,:,,,:`````..````,':::....````````...;;;;;;;;:.``:.`````````.``..   
-.`....````...,,,,,:````....`.';::::;.......`````:,:::::;;;;,```:`````````.``..;  
-........,......,,,,````..`.;;;;,:;:,:,..```````.`,,,,:::::;:.`````````````.```.  
-``.....,.,,,..,,,,.```` `,;,,::;.,,:::..``````......,,,,,,,:.`````````````..`.`. 
-```.......,.,,,,,,.`` .:;,,,,,:::;..,::``````..,,..........,.`````````````...`., 
-```.........,,,:::..,,,:::,,,,,,::::,,:,````..,:,`..``````...`````````````..```. 
-.```........,,,:::,,,,,,,,,,,,,,,,,:;,,:`.``...,,.`````````````````````````````.:
-:,.``.....,,,,,:::,,,,,,,,,,,,,,,,,,,:;:,:```,..`````````````````````````````````
-::,.`.....,,,,,:::,,,,,,,,.,,,,,,,,,,,.,;:,,....````````````````````````````````,
-.::,..````..,,,:::,,,,,,,,....,...,,,,,,.`::,..````````````````````````````````.:
-.,::...`````.,,,,,,,,.,,..............,,,,``;.`````````````````````````````.````,
-,,,::..```````..,,,....................`....,.`````````````````````````````````..
-`,,::,...`...```....................``````.,,.``````````````````````````````````,
-..,:::.........``.`...............````````.,.```````````````````````````````````,
-..,,::,..````....................``````.``.:``````````````````````````````````..,
-"@
+    param ( 
 
-    $OhCaptainMyCaptain
+        [string]$featurestring,
+        [system.xml.xmlelement[]]$statusxml
+        )
+
+    [system.xml.xmlelement]$feature = $statusxml | ? { $_.featureId -eq $featurestring } | select -first 1
+    [string]$statusstring = $feature.status
+    $message = $feature.SelectSingleNode('message')
+    if ( $message -and ( $message | get-member -membertype Property -Name '#Text')) { 
+        $statusstring += " ($($message.'#text'))"
+    }
+    $statusstring
 }
-Export-ModuleMember -function Get-EasterEgg
+
+function Parse-CentralCliResponse {
+
+    param (
+        [Parameter ( Mandatory=$True, Position=1)]
+            [String]$response
+    )
+
+
+    #Response is straight text unfortunately, so there is no structure.  Having a crack at writing a very simple parser though the formatting looks.... challenging...
+    
+    #Control flags for handling list and table processing.
+    $TableHeaderFound = $false
+    $MatchedVnicsList = $false
+    $MatchedRuleset = $false
+    $MatchedAddrSet = $false
+
+    $RuleSetName = ""
+    $AddrSetName = ""
+
+    $KeyValHash = @{}
+    $KeyValHashUsed = $false
+
+    #Defined this as variable as the swtich statement does not let me concat strings, which makes for a verrrrry long line...
+    $RegexDFWRule = "^(?<Internal>#\sinternal\s#\s)?(?<RuleSetMember>rule\s)?(?<RuleId>\d+)\sat\s(?<Position>\d+)\s(?<Direction>in|out|inout)\s" + 
+            "(?<Type>protocol|ethertype)\s(?<Service>.*?)\sfrom\s(?<Source>.*?)\sto\s(?<Destination>.*?)(?:\sport\s(?<Port>.*))?\s" + 
+            "(?<Action>accept|reject|drop)(?:\swith\s(?<Log>log))?(?:\stag\s(?<Tag>'.*'))?;"
+
+
+
+    foreach ( $line in ($response -split '[\r\n]')) { 
+
+        #Init EntryHash hashtable
+        $EntryHash= @{}
+
+        switch -regex ($line.trim()) {
+
+            #C CLI appears to emit some error conditions as ^ Error:<digits> 
+            "^Error \d+:.*$" {
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Error line. $_ "
+                
+                Throw "CLI command returned an error: ( $_ )"
+
+            }
+
+            "^\s*$" { 
+                #Blank line, ignore...
+                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring blank line: $_"
+                break
+
+            }
+
+            "^# Filter rules$" { 
+                #Filter line encountered in a ruleset list, ignore...
+                if ( $MatchedRuleSet ) { 
+                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring meaningless #Filter rules line in ruleset: $_"
+                    break
+                }
+                else {
+                    throw "Error parsing Centralised CLI command output response.  Encountered #Filter rules line when not processing a ruleset: $_"
+                }
+
+            }
+            #Matches a single integer of 1 or more digits at the start of the line followed only by a fullstop.
+            #Example is the Index in a VNIC list.  AFAIK, the index should only be 1-9. but just in case we are matching 1 or more digit...
+            "^(\d+)\.$" { 
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Index line.  Discarding value: $_ "
+                If ( $MatchedVnicsList ) { 
+                    #We are building a VNIC list output and this is the first line.
+                    #Init the output object to static kv props, but discard the value (we arent outputing as it appears superfluous.)
+                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, initialising new Vnic list object"
+
+                    $VnicListHash = @{}
+                    $VnicListHash += $KeyValHash
+                    $KeyValHashUsed = $true
+
+                }
+                break
+            } 
+
+            #Matches the start of a ruleset list.  show dfw host host-xxx filter xxx rules will output in rulesets like this
+            "ruleset\s(\S+) {" {
+
+                #Set a flag to say we matched a ruleset List, and create the output object.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Ruleset output.  Processing following lines as DFW Ruleset: $_"
+                $MatchedRuleset = $true 
+                $RuleSetName = $matches[1].trim()
+                break        
+            }
+
+            #Matches the start of a addrset list.  show dfw host host-xxx filter xxx addrset will output in addrsets like this
+            "addrset\s(\S+) {" {
+
+                #Set a flag to say we matched a addrset List, and create the output object.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Addrset output.  Processing following lines as DFW Addrset: $_"
+                $MatchedAddrSet = $true 
+                $AddrSetName = $matches[1].trim()
+                break        
+            }
+
+            #Matches a addrset entry.  show dfw host host-xxx filter xxx addrset will output in addrsets.
+            "^(?<Type>ip|mac)\s(?<Address>.*),$" {
+
+                #Make sure we were expecting it...
+                if ( -not $MatchedAddrSet ) {
+                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw addrset entry : $_" 
+                }
+
+                #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
+                [PSCustomobject]@{
+                    "AddrSet" = $AddrSetName;
+                    "Type" = $matches.Type;
+                    "Address" = $matches.Address
+                }
+
+                break
+            }
+
+            #Matches a rule, either within a ruleset, or individually listed.  show dfw host host-xxx filter xxx rules will output in rulesets, 
+            #or show dfw host-xxx filter xxx rule 1234 will output individual rule that should match.
+            $RegexDFWRule {
+
+                #Check if the rule is individual or part of ruleset...
+                if ( $Matches.ContainsKey("RuleSetMember") -and (-not $MatchedRuleset )) {
+                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw ruleset entry : $_" 
+                }
+
+                $Type = switch ( $matches.Type ) { "protocol" { "Layer3" } "ethertype" { "Layer2" }}
+                $Internal = if ( $matches.ContainsKey("Internal")) { $true } else { $false }
+                $Port = if ( $matches.ContainsKey("Port") ) { $matches.port } else { "Any" } 
+                $Log = if ( $matches.ContainsKey("Log") ) { $true } else { $false } 
+                $Tag = if ( $matches.ContainsKey("Tag") ) { $matches.Tag } else { "" } 
+
+                If ( $MatchedRuleset ) {
+
+                    #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
+                    [PSCustomobject]@{
+                        "RuleSet" = $RuleSetName;
+                        "InternalRule" = $Internal;
+                        "RuleID" = $matches.RuleId;
+                        "Position" = $matches.Position;
+                        "Direction" = $matches.Direction;
+                        "Type" = $Type;
+                        "Service" = $matches.Service;
+                        "Source" = $matches.Source;
+                        "Destination" = $matches.Destination;
+                        "Port" = $Port;
+                        "Action" = $matches.Action;
+                        "Log" = $Log;
+                        "Tag" = $Tag
+
+                    }
+                }
+
+                else {
+                    #We are not processing a RuleSet; so we need to emit an output object without a ruleset name.
+                    [PSCustomobject]@{
+                        "InternalRule" = $Internal;
+                        "RuleID" = $matches.RuleId;
+                        "Position" = $matches.Position;
+                        "Direction" = $matches.Direction;
+                        "Type" = $Type;
+                        "Service" = $matches.Service;
+                        "Source" = $matches.Source;
+                        "Destination" = $matches.Destination;
+                        "Port" = $Port;
+                        "Action" = $matches.Action;
+                        "Log" = $Log;
+                        "Tag" = $Tag
+                    }
+                }
+
+                break
+            }
+
+            #Matches the end of a ruleset and addr lists.  show dfw host host-xxx filter xxx rules will output in lists like this
+            "^}$" {
+
+                if ( $MatchedRuleset ) { 
+
+                    #Clear the flag to say we matched a ruleset List
+                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW ruleset."
+                    $MatchedRuleset = $false
+                    $RuleSetName = ""
+                    break     
+                }
+
+                if ( $MatchedAddrSet ) { 
+                   
+                    #Clear the flag to say we matched an addrset List
+                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW addrset."
+                    $MatchedAddrSet = $false
+                    $AddrSetName = ""
+                    break     
+                }
+
+                throw "Error parsing Centralised CLI command output response.  Encountered unexpected list completion character in line: $_"
+            }
+
+            #More Generic matches
+
+            #Matches the generic KV case where we have _only_ two strings separated by more than one space.
+            #This will do my head in later when I look at it, so the regex explanation is:
+            #    - (?: gives non capturing group, we want to leverage $matches later, so dont want polluting groups.
+            #    - (\S|\s(?!\s)) uses negative lookahead assertion to 'Match a non whitespace, or a single whitespace, as long as its not followed by another whitespace.
+            #    - The rest should be self explanatory.
+            "^((?:\S|\s(?!\s))+\s{2,}){1}((?:\S|\s(?!\s))+)$" { 
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (multispace separated): $_ )"
+                
+                $key = $matches[1].trim()
+                $value = $matches[2].trim()
+                If ( $MatchedVnicsList ) { 
+                    #We are building a VNIC list output and this is one of the lines.
+                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, Adding $key = $value to current VnicListHash"
+
+                    $VnicListHash.Add($key,$value)
+
+                    if ( $key -eq "Filters" ) {
+
+                        #Last line in a VNIC List...
+                        write-debug "$($MyInvocation.MyCommand.Name) : VNIC List :  Outputing VNIC List Hash."
+                        [PSCustomobject]$VnicListHash
+                    }
+                }
+                else {
+                    #Add KV to hash table that we will append to output object
+                    $KeyValHash.Add($key,$value)
+                }     
+                break
+            }
+
+            #Matches a general case output line containing Key: Value for properties that are consistent accross all entries in a table. 
+            #This will match a line with multiple colons in it, not sure if thats an issue yet...
+            "^((?:\S|\s(?!\s))+):((?:\S|\s(?!\s))+)$" {
+                if ( $TableHeaderFound ) { Throw "Error parsing Centralised CLI command output response.  Key Value line found after header: ( $_ )" }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (Colon Separated) : $_"
+                
+                #Add KV to hash table that we will append to output object
+                $KeyValHash.Add($matches[1].trim(),$matches[2].trim())
+
+                break
+            }
+
+            #Matches a Table header line.  This is a special case of the table entry line match, with the first element being ^No\.  Hoping that 'No.' start of the line is consistent :S
+            "^No\.\s{2,}(.+\s{2,})+.+$" {
+                if ( $TableHeaderFound ) { 
+                    throw "Error parsing Centralised CLI command output response.  Matched header line more than once: ( $_ )"
+                }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Header line: $_"
+                $TableHeaderFound = $true
+                $Props = $_.trim() -split "\s{2,}"
+                break
+            }
+
+            #Matches the start of a Virtual Nics List output.  We process the output lines following this as a different output object
+            "Virtual Nics List:" {
+                #When central cli outputs a NIC 'list' it does so with a vertical list of Key Value rather than a table format, 
+                #and with multi space as the KV separator, rather than a : like normal KV output.  WTF?
+                #So Now I have to go forth and collate my nic object over the next few lines...
+                #Example looks like this:
+
+                #Virtual Nics List:
+                #1.
+                #Vnic Name      test-vm - Network adapter 1
+                #Vnic Id        50012d15-198c-066c-af22-554aed610579.000
+                #Filters        nic-4822904-eth0-vmware-sfw.2
+
+                #Set a flag to say we matched a VNic List, and create the output object initially with just the KV's matched already.
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched VNIC List line.  Processing remaining lines as Vnic List: $_"
+                $MatchedVnicsList = $true 
+                break                       
+
+            }
+
+            #Matches a table entry line.  At least three properties (that may contain a single space) separated by more than one space.
+            "^((?:\S|\s(?!\s))+\s{2,}){2,}((?:\S|\s(?!\s))+)$" {
+                if ( -not $TableHeaderFound ) { 
+                    throw "Error parsing Centralised CLI command output response.  Matched table entry line before header: ( $_ )"
+                }
+                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Entry line: $_"
+                $Vals = $_.trim() -split "\s{2,}"
+                if ($Vals.Count -ne $Props.Count ) { 
+                    Throw "Error parsing Centralised CLI command output response.  Table entry line contains different value count compared to properties count: ( $_ )"
+                }
+
+                #Build the output hashtable with the props returned in the table entry line
+                for ( $i= 0; $i -lt $props.count; $i++ ) {
+
+                    #Ordering is hard, and No. entry is kinda superfluous, so removing it from output (for now)
+                    if ( -not ( $props[$i] -eq "No." )) {
+                        $EntryHash[$props[$i].trim()]=$vals[$i].trim()
+                    }
+                }
+
+                #Add the KV pairs that were parsed before the table.
+                try {
+
+                    #This may fail if we have a key of the same name.  For the moment, Im going to assume that this wont happen...
+                    $EntryHash += $KeyValHash
+                    $KeyValHashUsed = $true
+                }
+                catch {
+                    throw "Unable to append static Key Values to EntryHash output object.  Possibly due to a conflicting key"
+                }
+
+                #Emit the entry line as a PSCustomobject :)
+                [PSCustomObject]$EntryHash
+                break
+            }
+            default { throw "Unable to parse Centralised CLI output line : $($_ -replace '\s','_')" } 
+        }
+    }
+
+    if ( (-not $KeyValHashUsed) -and $KeyValHash.count -gt 0 ) {
+
+        #Some output is just key value, so, if it hasnt been appended to output object already, we will just emit it.
+        #Not sure how this approach will work long term, but it works for show dfw vnic <>
+        write-debug "$($MyInvocation.MyCommand.Name) : KeyValHash has not been used after all line processing, outputing as is: $_"
+        [PSCustomObject]$KeyValHash
+    }
+}
+
 
 ########
 ########
 # Validation Functions
+
+function Validate-UpdateBranch {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $ValidBranches -contains $argument ) { 
+        $true
+    } else { 
+        throw "Invalid Branch.  Specify one of the valid branches : $($Validbranches -join ", ")"
+    } 
+   
+}
+Function Validate-TransportZone {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $argument -is [system.xml.xmlelement] ) 
+    {
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) { 
+            throw "Invalid Transport Zone object specified" 
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) { 
+            throw "Invalid Transport Zone object specified" 
+        } 
+        if ( -not ($argument.objectTypeName -eq "VdnScope")) { 
+            throw "Invalid Transport Zone object specified" 
+        }
+        $true 
+    }
+    else { 
+        throw "Invalid Transport Zone object specified"
+    }
+}
 
 Function Validate-LogicalSwitchOrDistributedPortGroup {
 
@@ -455,8 +597,7 @@ Function Validate-LogicalSwitchOrDistributedPortGroup {
     )      
 
     if (-not (
-        ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
-        ($argument -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) -or
+        ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] ) -or
         ($argument -is [System.Xml.XmlElement] )))
     { 
         throw "Must specify a distributed port group or a logical switch" 
@@ -483,6 +624,138 @@ Function Validate-LogicalSwitchOrDistributedPortGroup {
             #Its a VDS type - no further Checking
         }   
     }
+    $true
+}
+
+Function Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )      
+
+    if (-not (
+        ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupBaseInterop] ) -or
+        ($argument -is [System.Xml.XmlElement] )))
+    { 
+        throw "Must specify a distributed port group, logical switch or standard port group" 
+    } 
+
+
+    #Do we Look like XML describing a Logical Switch
+    if ($argument -is [System.Xml.XmlElement] ) {
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "Object specified does not contain an objectId property.  Specify a Distributed PortGroup, Standard PortGroup or Logical Switch object."
+        }
+        if ( -not ( $argument | get-member -name objectTypeName -Membertype Properties)) { 
+            throw "Object specified does not contain a type property.  Specify a Distributed PortGroup, Standard PortGroup or Logical Switch object."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "Object specified does not contain a name property.  Specify a Distributed PortGroup, Standard PortGroup or Logical Switch object."
+        }
+        switch ($argument.objectTypeName) {
+            "VirtualWire" { }
+            default { throw "Object specified is not a supported type.  Specify a Distributed PortGroup, Standard PortGroup or Logical Switch object." }
+        }
+    }
+
+    $true
+}
+
+Function Validate-IpPool {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an OSPF Area element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a name property."
+        }
+        if ( -not ( $argument | get-member -name usedPercentage -Membertype Properties)) { 
+            throw "XML Element specified does not contain a usedPercentage property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid IP Pool object."
+    }
+}
+
+Function Validate-VdsContext {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name switch -Membertype Properties)) { 
+            throw "XML Element specified does not contain a switch property."
+        }
+        if ( -not ( $argument | get-member -name mtu -Membertype Properties)) { 
+            throw "XML Element specified does not contain an mtu property."
+        }
+        if ( -not ( $argument | get-member -name uplinkPortName -Membertype Properties)) { 
+            throw "XML Element specified does not contain an uplinkPortName property."
+        }
+        if ( -not ( $argument | get-member -name promiscuousMode -Membertype Properties)) { 
+            throw "XML Element specified does not contain a promiscuousMode property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Vds Context object."
+    }
+}
+
+Function Validate-SegmentIdRange {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name Id -Membertype Properties)) { 
+            throw "XML Element specified does not contain an Id property."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a name property."
+        }
+        if ( -not ( $argument | get-member -name begin -Membertype Properties)) { 
+            throw "XML Element specified does not contain a begin property."
+        }
+        if ( -not ( $argument | get-member -name end -Membertype Properties)) { 
+            throw "XML Element specified does not contain an end property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Segment Id Range object."
+    }
+}
+
+Function Validate-DistributedSwitch {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )      
+
+    if (-not ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedSwitchInterop] ))
+    { 
+        throw "Must specify a distributed switch" 
+    } 
+   
     $true
 }
 
@@ -546,6 +819,59 @@ Function Validate-EdgeInterfaceSpec {
         throw "Specify at least one interface configuration as produced by New-NsxLogicalRouterInterfaceSpec.  Pass a collection of interface objects to configure more than one interface"
     }
     $true
+}
+
+Function Validate-EdgeInterfaceAddress {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name primaryAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain a primaryAddress property."
+        }
+        if ( -not ( $argument | get-member -name subnetPrefixLength -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subnetPrefixLength property."
+        }
+        if ( -not ( $argument | get-member -name subnetMask -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subnetMask property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        if ( -not ( $argument | get-member -name interfaceIndex -Membertype Properties)) { 
+            throw "XML Element specified does not contain an interfaceIndex property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge Interface Address."
+    }
+}
+
+Function Validate-AddressGroupSpec {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name primaryAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain a primaryAddress property."
+        }
+        if ( -not ( $argument | get-member -name subnetPrefixLength -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subnetPrefixLength property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Interface Spec."
+    }
 }
 
 Function Validate-LogicalRouter {
@@ -1125,6 +1451,292 @@ Function Validate-EdgeSubInterface {
     $true
 }
 
+Function Validate-EdgeNat {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an EdgeNAT element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name version -Membertype Properties)) { 
+            throw "XML Element specified does not contain an version property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        if ( -not ( $argument | get-member -name natRules -Membertype Properties)) { 
+            throw "XML Element specified does not contain a natRules property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LoadBalancer object."
+    }
+}
+
+Function Validate-EdgeNatRule {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an EdgeNAT element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name ruleId -Membertype Properties)) { 
+            throw "XML Element specified does not contain a ruleId property."
+        }
+        if ( -not ( $argument | get-member -name ruleType -Membertype Properties)) { 
+            throw "XML Element specified does not contain a ruleType property."
+        }
+        if ( -not ( $argument | get-member -name action -Membertype Properties)) { 
+            throw "XML Element specified does not contain an action property."
+        }
+        if ( -not ( $argument | get-member -name vnic -Membertype Properties)) { 
+            throw "XML Element specified does not contain a vnic property."
+        }
+        if ( -not ( $argument | get-member -name translatedAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain a translatedAddress property."
+        }
+        if ( -not ( $argument | get-member -name originalAddress -Membertype Properties)) { 
+            throw "XML Element specified does not contain an originalAddress property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid LoadBalancer object."
+    }
+}
+
+Function Validate-EdgeSslVpn {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name logging -Membertype Properties)) { 
+            throw "XML Element specified does not contain a logging property."
+        }
+        if ( -not ( $argument | get-member -name advancedConfig -Membertype Properties)) { 
+            throw "XML Element specified does not contain an advancedConfig property."
+        }
+        if ( -not ( $argument | get-member -name clientConfiguration -Membertype Properties)) { 
+            throw "XML Element specified does not contain a clientConfiguration property."
+        }
+        if ( -not ( $argument | get-member -name layoutConfiguration -Membertype Properties)) { 
+            throw "XML Element specified does not contain a layoutConfiguration property."
+        }
+        if ( -not ( $argument | get-member -name authenticationConfiguration -Membertype Properties)) { 
+            throw "XML Element specified does not contain a authenticationConfiguration property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN object."
+    }
+}
+
+Function Validate-EdgeCsr { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name subject -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subject property."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a name property."
+        }
+        if ( -not ( $argument | get-member -name algorithm -Membertype Properties)) { 
+            throw "XML Element specified does not contain an algorithm property."
+        }
+        if ( -not ( $argument | get-member -name keysize -Membertype Properties)) { 
+            throw "XML Element specified does not contain a keysize property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge CSR object."
+    }
+}
+
+Function Validate-EdgeCertificate { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name issuerCn -Membertype Properties)) { 
+            throw "XML Element specified does not contain an issuerCn property."
+        }
+        if ( -not ( $argument | get-member -name subjectCn -Membertype Properties)) { 
+            throw "XML Element specified does not contain a subjectCn property."
+        }
+        if ( -not ( $argument | get-member -name certificateType -Membertype Properties)) { 
+            throw "XML Element specified does not contain a certificateType property."
+        }
+        if ( -not ( $argument | get-member -name x509Certificate -Membertype Properties)) { 
+            throw "XML Element specified does not contain an x509Certificate property."
+        }
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge Certificate object."
+    }
+}
+
+Function Validate-EdgeSslVpnUser { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name userId -Membertype Properties)) { 
+            throw "XML Element specified does not contain a userId property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeID property."
+        }
+
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN User object."
+    }
+}
+
+Function Validate-EdgeSslVpnIpPool { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name ipRange -Membertype Properties)) { 
+            throw "XML Element specified does not contain a userId property."
+        }
+        if ( -not ( $argument | get-member -name netmask -Membertype Properties)) { 
+            throw "XML Element specified does not contain a netmask property."
+        }
+        if ( -not ( $argument | get-member -name gateway -Membertype Properties)) { 
+            throw "XML Element specified does not contain a gateway property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeID property."
+        }
+
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN Ip Pool object."
+    }
+}
+
+Function Validate-EdgeSslVpnPrivateNetwork { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name network -Membertype Properties)) { 
+            throw "XML Element specified does not contain a network property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeID property."
+        }
+
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN Private Network object."
+    }
+}
+
+Function Validate-EdgeSslVpnClientPackage { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )     
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name profileName -Membertype Properties)) { 
+            throw "XML Element specified does not contain a profileName property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) { 
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an edgeID property."
+        }
+
+        $true
+    }
+    else { 
+        throw "Specify a valid Edge SSL VPN Client Installation Package object."
+    }
+}
+
 Function Validate-SecurityGroupMember { 
     
     Param (
@@ -1135,17 +1747,16 @@ Function Validate-SecurityGroupMember {
     #Check types first - This is not 100% complete at this point!
     if (-not (
          ($argument -is [System.Xml.XmlElement]) -or 
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.DatacenterImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.VirtualPortGroupImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter] ))) {
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.DatacenterInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupBaseInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ))) {
 
             throw "Member is not a supported type.  Specify a Datacenter, Cluster, `
             DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-            IPSet, SecurityGroup or Logical Switch object."      
+            IPSet, SecurityGroup, SecurityTag or Logical Switch object."      
     } 
     else {
 
@@ -1167,10 +1778,11 @@ Function Validate-SecurityGroupMember {
                 "MacSet"{}
                 "SecurityGroup" {}
                 "VirtualWire" {}
+                "SecurityTag" {}
                 default { 
                     throw "Member is not a supported type.  Specify a Datacenter, Cluster, `
                          DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-                         IPSet, MacSet, SecurityGroup or Logical Switch object." 
+                         IPSet, MacSet, SecurityGroup, SecurityTag or Logical Switch object." 
                 }
             }
         }   
@@ -1189,18 +1801,140 @@ Function Validate-FirewallRuleSourceDest {
     Validate-SecurityGroupMember $argument    
 }
 
+
+Function Validate-ServiceGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $argument -is [system.xml.xmlelement] ){ 
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) {
+            throw "Invalid service group specified"
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) {
+            throw "Invalid service group specified"
+        }
+        if ( -not ($argument.objectTypeName -eq "ApplicationGroup")){
+            throw "Invalid service group specified"
+        }
+        $true
+    }
+    else {
+        throw "Invalid Service Group specified"
+    }
+}
+
+
 Function Validate-Service {
 
     Param (
         [Parameter (Mandatory=$true)]
         [object]$argument
     )
-    if ( -not ($argument | get-member -MemberType Property -Name objectId )) { 
-        throw "Invalid service object specified" 
-    } 
-    else { 
+    if ( $argument -is [system.xml.xmlelement] ){ 
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) {
+            throw "Invalid service specified"
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) {
+            throw "Invalid service specified"
+        }
+        if ( -not ($argument.objectTypeName -eq "Application")){
+            throw "Invalid service specified"
+        }
         $true
     }
+    else {
+        throw "Invalid Service specified"
+    }
+}
+
+Function Validate-ServiceOrServiceGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    try {
+        Validate-Service -argument $argument
+    }
+    catch {
+        try {
+            Validate-ServiceGroup -argument $argument 
+        }
+        catch {
+            throw "Invalid Service or Service Group specific"
+        }
+
+    }
+    $true
+}
+Function Validate-ServiceGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $argument -is [system.xml.xmlelement] ){ 
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) {
+            throw "Invalid service group specified"
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) {
+            throw "Invalid service group specified"
+        }
+        if ( -not ($argument.objectTypeName -eq "ApplicationGroup")){
+            throw "Invalid service group specified"
+        }
+        $true
+    }
+    else {
+        throw "Invalid Service Group specified"
+    }
+}
+
+
+Function Validate-Service {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( $argument -is [system.xml.xmlelement] ){ 
+        if ( -not ($argument | get-member -MemberType Property -Name objectId )) {
+            throw "Invalid service specified"
+        }
+        if ( -not ($argument | get-member -MemberType Property -Name objectTypeName )) {
+            throw "Invalid service specified"
+        }
+        if ( -not ($argument.objectTypeName -eq "Application")){
+            throw "Invalid service specified"
+        }
+        $true
+    }
+    else {
+        throw "Invalid Service specified"
+    }
+}
+
+Function Validate-ServiceOrServiceGroup {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    try {
+        Validate-Service -argument $argument
+    }
+    catch {
+        try {
+            Validate-ServiceGroup -argument $argument 
+        }
+        catch {
+            throw "Invalid Service or Service Group specific"
+        }
+
+    }
+    $true
 }
 
 Function Validate-FirewallAppliedTo {
@@ -1210,26 +1944,32 @@ Function Validate-FirewallAppliedTo {
         [object]$argument
     )
 
-    #Check types first - currently missing edge handling!!!
+    #Check types first
     if (-not (
          ($argument -is [System.Xml.XmlElement]) -or 
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.DatacenterImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VMHostImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.VirtualPortGroupImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter] ))) {
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.DatacenterInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VMHostInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupBaseInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop] ) -or
+         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ))) {
 
             throw "$($_.gettype()) is not a supported type.  Specify a Datacenter, Cluster, Host `
             DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-            IPSet, SecurityGroup or Logical Switch object."
+            IPSet, SecurityGroup, Logical Switch or Edge object."
              
     } else {
 
         #Check if we have an ID property
         if ($argument -is [System.Xml.XmlElement] ) {
+
+            if ( $argument | get-member -name edgeSummary ) {
+
+                #Looks like an Edge, get the summary details... I KNEW this would come in handy when I wrote the Get-NSxEdge cmdlet... FIGJAM...
+                $argument = $argument.edgeSummary
+            }
+
             if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
                 throw "XML Element specified does not contain an objectId property."
             }
@@ -1245,10 +1985,11 @@ Function Validate-FirewallAppliedTo {
                 "IPSet"{}
                 "SecurityGroup" {}
                 "VirtualWire" {}
+                "Edge" {}
                 default { 
                     throw "AppliedTo is not a supported type.  Specify a Datacenter, Cluster, Host, `
                         DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-                        IPSet, SecurityGroup or Logical Switch object." 
+                        IPSet, SecurityGroup, Logical Switch or Edge object." 
                 }
             }
         }   
@@ -1454,60 +2195,660 @@ Function Validate-LoadBalancerPoolMember {
     }
 }
 
+Function Validate-SecurityTag {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    
+    #Check if it looks like Security Tag element
+    if ($_ -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an objectId property."
+        }
+        if ( -not ( $argument | get-member -name Name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a Name property."
+        }
+        if ( -not ( $argument | get-member -name type -Membertype Properties)) { 
+            throw "XML Element specified does not contain a type property."
+        }
+        if ( -not ( $argument.Type.TypeName -eq 'SecurityTag' )) { 
+            throw "XML Element specifies a type other than SecurityTag."
+        }
+        $True
+    }
+    else { 
+        throw "Specify a valid Security Tag object."
+    }
+}
+
+Function Validate-SpoofguardPolicy {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    
+    #Check if it looks like Security Tag element
+    if ($_ -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name policyId -Membertype Properties)) { 
+            throw "XML Element specified does not contain an policyId property."
+        }
+        if ( -not ( $argument | get-member -name Name -Membertype Properties)) { 
+            throw "XML Element specified does not contain a Name property."
+        }
+        if ( -not ( $argument | get-member -name operationMode -Membertype Properties)) { 
+            throw "XML Element specified does not contain an OperationMode property."
+        }
+        if ( -not ( $argument | get-member -name defaultPolicy -Membertype Properties)) { 
+            throw "XML Element specified does not contain a defaultPolicy property."
+        }
+        $True
+    }
+    else { 
+        throw "Specify a valid Spoofguard Policy object."
+    }
+}
+
+Function Validate-SpoofguardNic {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    
+    #Check if it looks like Security Tag element
+    if ($_ -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name id -Membertype Properties)) { 
+            throw "XML Element specified does not contain an id property."
+        }
+        if ( -not ( $argument | get-member -name vnicUuid -Membertype Properties)) { 
+            throw "XML Element specified does not contain a vnicUuid property."
+        }
+        if ( -not ( $argument | get-member -name policyId -Membertype Properties)) { 
+            throw "XML Element specified does not contain a policyId property."
+        }
+        $True
+    }
+    else { 
+        throw "Specify a valid Spoofguard Nic object."
+    }
+}
+
+Function Validate-VirtualMachine {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if (-not ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop] )) {
+            throw "Object is not a supported type.  Specify a VirtualMachine object."
+    }
+
+    $true
+}
+
+Function Validate-TagAssignment { 
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    
+    #Check if it looks like Security Tag Assignmenbt
+    if ($argument -is [PSCustomObject] ) {
+
+        if ( -not ( $argument | get-member -name SecurityTag -Membertype Properties)) { 
+            throw "Specify a valid Security Tag Assignment. Specified object does not contain a SecurityTag property object."
+        }
+        if ( -not ( $argument | get-member -name VirtualMachine -Membertype Properties)) { 
+            throw "Specify a valid Security Tag Assignment. Specified object does not contain a VirtualMachine property object."
+        }
+        if ( -not ( $argument.SecurityTag -is [System.Xml.XmlElement] )) { 
+            throw "Specify a valid Security Tag Assignment."
+        }
+        if ( -not ( $argument.VirtualMachine -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop])) { 
+            throw "Specify a valid Security Tag Assignment."
+        }
+        $True
+    }
+    else { 
+        throw "Specify a valid Security Tag Assignment."
+    }
+}
+
+
+
 ##########
 ##########
 # Helper functions
 
 function Format-XML () {
 
+    <#
+    .SYNOPSIS
+    Accepts a string containing valid XML tags or an XMLElement object and 
+    outputs it as a formatted string including newline and indentation of child
+    nodes.
+
+    .DESCRIPTION 
+    Valid XML returned by the NSX API is a single string with no newlines or 
+    indentation.  While PowerNSX cmdlets typicallly emit an XMLElement object, 
+    which PowerShell outputs as formatted tables or lists when outputing to host,
+    making normal human interaction easy, for output to file or debug stream, 
+    format-xml converts the API returned XML to more easily read formated XML
+    complete with linebreaks and indentation.
+
+    As a side effect, this has the added benefit of being useable as an 
+    additional format handler on the PowerShell pipeline, so rather than 
+    displaying output objects using familiar table and list output formats, the
+    user now has the option of displaying the native XML in a human readable 
+    format.
+
+
+    .EXAMPLE
+    Get-NsxTransportZone | Format-Xml
+
+    Displays the XMLElement object returned by Get-NsxTransportZone as formatted
+    XML.
+
+    #>
+
+    #NB: Find where I got this to reference...
     #Shamelessly ripped from the web with some modification, useful for formatting XML output into a form that 
     #is easily read by humans.  Seriously - how is this not part of the dotnet system.xml classes?
 
     param ( 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,Position=1) ]
+            [ValidateNotNullorEmpty()]
+
+            #String object containing valid XML, or XMLElement or XMLDocument object
             $xml="", 
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
+
+            #Number of whitespace charaters to indent child nodes by when formatting
             [int]$indent=2
     ) 
 
-    if ( ($xml -is [System.Xml.XmlElement]) -or ( $xml -is [System.Xml.XmlDocument] ) ) { 
-        try {
-            [xml]$_xml = $xml.OuterXml 
-        }
-        catch {
-            throw "Specified XML element cannot be cast to an XML document."
-        }
-    }
-    elseif ( $xml -is [string] ) {
-        try { 
-            [xml]$_xml = $xml
-        }
-        catch {
-            throw "Specified string cannot be cast to an XML document."
-        } 
-    }
-    else{
+    begin {}
 
-        throw "Unknown data type specified as xml."
+    process {
+        if ( ($xml -is [System.Xml.XmlElement]) -or ( $xml -is [System.Xml.XmlDocument] ) ) { 
+            try {
+                [xml]$_xml = $xml.OuterXml 
+            }
+            catch {
+                throw "Specified XML element cannot be cast to an XML document."
+            }
+        }
+        elseif ( $xml -is [string] ) {
+            try { 
+                [xml]$_xml = $xml
+            }
+            catch {
+                throw "Specified string cannot be cast to an XML document."
+            } 
+        }
+        else{
+
+            throw "Unknown data type specified as xml to Format-Xml."
+        }
+
+
+        $StringWriter = New-Object System.IO.StringWriter 
+        $XmlWriter = New-Object System.XMl.XmlTextWriter $StringWriter 
+        $xmlWriter.Formatting = "indented" 
+        $xmlWriter.Indentation = $Indent 
+        $_xml.WriteContentTo($XmlWriter) 
+        $XmlWriter.Flush() 
+        $StringWriter.Flush() 
+        Write-Output $StringWriter.ToString() 
     }
 
-
-    $StringWriter = New-Object System.IO.StringWriter 
-    $XmlWriter = New-Object System.XMl.XmlTextWriter $StringWriter 
-    $xmlWriter.Formatting = "indented" 
-    $xmlWriter.Indentation = $Indent 
-    $_xml.WriteContentTo($XmlWriter) 
-    $XmlWriter.Flush() 
-    $StringWriter.Flush() 
-    Write-Output $StringWriter.ToString() 
+    end{}
 }
-Export-ModuleMember -function Format-Xml
-
 
 ##########
 ##########
 # Core functions
+
+function Invoke-NsxRestMethod {
+
+    <#
+    .SYNOPSIS
+    Constructs and performs a valid NSX REST call.
+
+    .DESCRIPTION 
+    Invoke-NsxRestMethod uses either a specified connection object as returned 
+    by Connect-NsxServer, or the $DefaultNsxConnection global variable if 
+    defined to construct a REST api call to the NSX API.  
+
+    Invoke-NsxRestMethod constructs the appropriate request headers required by 
+    the NSX API, including authentication details (built from the connection 
+    object), required content type and includes any custom headers specified by 
+    the caller that might be required by a specific API resource, before making 
+    the rest call and returning the appropriate XML object to the caller. 
+
+    .EXAMPLE
+    Invoke-NsxRestMethod -Method get -Uri "/api/2.0/vdn/scopes"
+
+    Performs a 'Get' against the URI /api/2.0/vdn/scopes and returns the xml
+    object respresenting the NSX API XML reponse.  This call requires the 
+    $DefaultNsxServer variable to exist and be populated with server and 
+    authentiation details as created by Connect-NsxServer -DefaultConnection
+
+    .EXAMPLE
+    $MyConnection = Connect-NsxServer -Server OtherNsxManager -DefaultConnection:$false
+    
+    Invoke-NsxRestMethod -Method get -Uri "/api/2.0/vdn/scopes" -connection $MyConnection
+
+    Creates a connection variable for a non default NSX server, performs a 
+    'Get' against the URI /api/2.0/vdn/scopes and returns the xml
+    object respresenting the NSX API XML reponse.
+    
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="ConnectionObj")]
+  
+    param (
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #PSCredential object containing authentication details to be used for connection to NSX Manager API
+            [System.Management.Automation.PSCredential]$cred,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #NSX Manager ip address or FQDN
+            [string]$server,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #TCP Port on -server to connect to
+            [int]$port,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #Protocol - HTTP/HTTPS
+            [string]$protocol,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #Validates the certificate presented by NSX Manager for HTTPS connections
+            [bool]$ValidateCertificate,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #REST method of call.  Get, Put, Post, Delete, Patch etc 
+            [string]$method,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #URI of resource (/api/1.0/myresource).  Should not include protocol, server or port.
+            [string]$URI,
+        [Parameter (Mandatory=$false,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #Content to be sent to server when method is Put/Post/Patch
+            [string]$body = "",
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Pre-populated connection object as returned by Connect-NsxServer
+            [psObject]$connection,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Hashtable collection of KV pairs representing additional headers to send to the NSX Manager during REST call
+            [System.Collections.Hashtable]$extraheader,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Request timeout value - passed directly to underlying invoke-restmethod call 
+            [int]$Timeout=600
+    )
+
+    Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
+
+    if ($pscmdlet.ParameterSetName -eq "Parameter") {
+        if ( -not $ValidateCertificate) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+    }
+    else {
+
+        #ensure we were either called with a connection or there is a defaultConnection (user has 
+        #called connect-nsxserver) 
+        #Little Grr - $connection is a defined variable with no value so we cant use test-path
+        if ( $connection -eq $null) {
+            
+            #Now we need to assume that defaultnsxconnection does not exist...
+            if ( -not (test-path variable:global:DefaultNSXConnection) ) { 
+                throw "Not connected.  Connect to NSX manager with Connect-NsxServer first." 
+            }
+            else { 
+                Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
+                $connection = $DefaultNSXConnection
+            }       
+        }
+
+        
+        if ( -not $connection.ValidateCertificate ) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+
+        $cred = $connection.credential
+        $server = $connection.Server
+        $port = $connection.Port
+        $protocol = $connection.Protocol
+
+    }
+
+    $headerDictionary = @{}
+    $base64cred = [system.convert]::ToBase64String(
+        [system.text.encoding]::ASCII.Getbytes(
+            "$($cred.GetNetworkCredential().username):$($cred.GetNetworkCredential().password)"
+        )
+    )
+    $headerDictionary.add("Authorization", "Basic $Base64cred")
+
+    if ( $extraHeader ) {
+        foreach ($header in $extraHeader.GetEnumerator()) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Extra Header being added to following REST call.  Key: $($Header.Key), Value: $($Header.Value)"
+                }
+            }
+            $headerDictionary.add($header.Key, $header.Value)
+        }
+    }
+    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager via invoke-restmethod : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+        }
+    }
+
+    #do rest call
+    try { 
+        if ( $PsBoundParameters.ContainsKey('Body')) { 
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
+        } else {
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
+        }
+    }
+    catch {
+        
+        #Get response from the exception
+        $response = $_.exception.response
+        if ($response) {  
+            $responseStream = $_.exception.response.GetResponseStream()
+            $reader = New-Object system.io.streamreader($responseStream)
+            $responseBody = $reader.readtoend()
+            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
+            
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString"
+                }
+            }
+    
+            throw $ErrorString
+        }
+        else { 
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)"
+                }
+            }
+            throw $_ 
+        } 
+        
+
+    }
+    switch ( $response ) {
+        { $_ -is [xml] } { $FormattedResponse = "`n$($response.outerxml | Format-Xml)" } 
+        { $_ -is [System.String] } { $FormattedResponse = $response }
+        default { $formattedResponse = "Response type unknown" }
+    }
+
+    write-debug "$($MyInvocation.MyCommand.Name) : Response: $FormattedResponse"  
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response: $FormattedResponse"
+        }
+    }
+
+    #Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
+    #We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
+    #So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
+    #and probably rewrite over time to use invoke-webrequest for all calls... PiTA!!!! :|
+
+    $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($FullURI)
+    $ServicePoint.CloseConnectionGroup("") | out-null
+    write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $FullURI."
+
+    #Return
+    $response
+}
+
+function Invoke-NsxWebRequest {
+
+    <#
+    .SYNOPSIS
+    Constructs and performs a valid NSX REST call and returns a response object
+    including response headers.
+
+    .DESCRIPTION 
+    Invoke-NsxWebRequest uses either a specified connection object as returned 
+    by Connect-NsxServer, or the $DefaultNsxConnection global variable if 
+    defined to construct a REST api call to the NSX API.  
+
+    Invoke-NsxWebRequest constructs the appropriate request headers required by 
+    the NSX API, including authentication details (built from the connection 
+    object), required content type and includes any custom headers specified by 
+    the caller that might be required by a specific API resource, before making 
+    the rest call and returning the resulting response object to the caller.
+
+    The Response object includes the response headers unlike 
+    Invoke-NsxRestMethod.
+
+    .EXAMPLE
+    $MyConnection = Connect-NsxServer -Server OtherNsxManager -DefaultConnection:$false
+    $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $MyConnection
+    $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)] 
+
+    Creates a connection variable for a non default NSX server, performs a 'Post'
+    against the URI $URI and then retrieves details from the Location header
+    included in the response object. 
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="ConnectionObj")]
+  
+    param (
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #PSCredential object containing authentication details to be used for connection to NSX Manager API
+            [System.Management.Automation.PSCredential]$cred,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #NSX Manager ip address or FQDN
+            [string]$server,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #TCP Port on -server to connect to
+            [int]$port,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #Protocol - HTTP/HTTPS
+            [string]$protocol,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #Validates the certificate presented by NSX Manager for HTTPS connections
+            [bool]$ValidateCertificate,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #REST method of call.  Get, Put, Post, Delete, Patch etc 
+            [string]$method,
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #URI of resource (/api/1.0/myresource).  Should not include protocol, server or port.
+            [string]$URI,
+        [Parameter (Mandatory=$false,ParameterSetName="Parameter")]
+        [Parameter (ParameterSetName="ConnectionObj")]
+            #Content to be sent to server when method is Put/Post/Patch
+            [string]$body = "",
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Pre-populated connection object as returned by Connect-NsxServer
+            [psObject]$connection,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Hashtable collection of KV pairs representing additional headers to send to the NSX Manager during REST call
+            [System.Collections.Hashtable]$extraheader,
+        [Parameter (Mandatory=$false,ParameterSetName="ConnectionObj")]
+            #Request timeout value - passed directly to underlying invoke-restmethod call 
+            [int]$Timeout=600
+    )
+
+    Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
+
+    if ($pscmdlet.ParameterSetName -eq "Parameter") {
+        if ( -not $ValidateCertificate) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+    }
+    else {
+
+        #ensure we were either called with a connection or there is a defaultConnection (user has 
+        #called connect-nsxserver) 
+        #Little Grr - $connection is a defined variable with no value so we cant use test-path
+        if ( $connection -eq $null) {
+            
+            #Now we need to assume that defaultnsxconnection does not exist...
+            if ( -not (test-path variable:global:DefaultNSXConnection) ) { 
+                throw "Not connected.  Connect to NSX manager with Connect-NsxServer first." 
+            }
+            else { 
+                Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
+                $connection = $DefaultNSXConnection
+            }       
+        }
+
+        
+        if ( -not $connection.ValidateCertificate ) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+
+        $cred = $connection.credential
+        $server = $connection.Server
+        $port = $connection.Port
+        $protocol = $connection.Protocol
+
+    }
+
+    $headerDictionary = @{}
+    $base64cred = [system.convert]::ToBase64String(
+        [system.text.encoding]::ASCII.Getbytes(
+            "$($cred.GetNetworkCredential().username):$($cred.GetNetworkCredential().password)"
+        )
+    )
+    $headerDictionary.add("Authorization", "Basic $Base64cred")
+
+    if ( $extraHeader ) {
+        foreach ($header in $extraHeader.GetEnumerator()) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Adding extra header $($header.Key ) : $($header.Value)"
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Extra Header being added to following REST call.  Key: $($Header.Key), Value: $($Header.Value)"
+                }
+            }
+            $headerDictionary.add($header.Key, $header.Value)
+        }
+    }
+    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+    
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+        if ( $connection.DebugLogging ) { 
+            Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager via invoke-webrequest : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+        }
+    }
+
+    #do rest call
+    
+    try { 
+        if (( $method -eq "put" ) -or ( $method -eq "post" )) { 
+            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
+        } else {
+            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
+        }
+    }
+    catch {
+        
+        #Get response from the exception
+        $response = $_.exception.response
+        if ($response) {  
+            $responseStream = $_.exception.response.GetResponseStream()
+            $reader = New-Object system.io.streamreader($responseStream)
+            $responseBody = $reader.readtoend()
+            $ErrorString = "invoke-nsxwebrequest : Exception occured calling invoke-restmethod. $($response.StatusCode) : $($response.StatusDescription) : Response Body: $($responseBody)"
+            
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString"
+                }
+            }
+
+            throw $ErrorString
+        }
+        else { 
+
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                if ( $connection.DebugLogging ) { 
+                    Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)"
+                }
+            }
+            throw $_ 
+        } 
+        
+
+    }
+
+    #Output the response header dictionary
+    foreach ( $key in $response.Headers.Keys) {
+        write-debug "$($MyInvocation.MyCommand.Name) : Response header item : $Key = $($Response.Headers.Item($key))"
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+            if ( $connection.DebugLogging ) { 
+                Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response header item : $Key = $($Response.Headers.Item($key))"
+            }
+        }
+    } 
+
+    #And if there is response content...
+    if ( $response.content ) {
+        switch ( $response.content ) {
+            { $_ -is [System.String] } { 
+                
+                write-debug "$($MyInvocation.MyCommand.Name) : Response Body: $($response.content)" 
+            
+                if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                    if ( $connection.DebugLogging ) { 
+                        Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response Body: $($response.content)"
+                    }
+                }
+            }
+            default { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Response type unknown"
+
+                if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+                    if ( $connection.DebugLogging ) { 
+                        Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  Response type unknown ( $($Response.Content.gettype()) )."
+                    } 
+                }
+            }
+        }
+    }
+    else { 
+        write-debug "$($MyInvocation.MyCommand.Name) : No response content"
+
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+            if ( $connection.DebugLogging ) { 
+                Add-Content -Path $Connection.DebugLogfile -Value "$(Get-Date -format s)  No response content."
+            } 
+        }
+    }
+
+    $response
+}
 
 function Connect-NsxServer {
 
@@ -1519,14 +2860,46 @@ function Connect-NsxServer {
     The Connect-NsxServer cmdlet connects to the specified NSX server and 
     retrieves version details.  Because the underlying REST protocol is not 
     connection oriented, the 'Connection' concept relates to just validating 
-    endpoint details and credentials and storing some basic information used to 
-    reproduce the same outcome during subsequent NSX operations.
+    endpoint details and credentials and storing some basic information used 
+    to reproduce the same outcome during subsequent NSX operations.
 
     .EXAMPLE
-    This example shows how to start an instance 
+    Connect-NsxServer -Server nsxserver -username admin -Password VMware1!
+        
+    Connects to the nsxserver 'nsxserver' with the specified credentials.  If a
+    registered vCenter server is configured in NSX manager, you are prompted to
+    establish a PowerCLI session to that vCenter along with required 
+    authentication details.
 
-    PS C:\> Connect-NsxServer -Server nsxserver -username admin -Password 
-        VMware1!
+    .EXAMPLE
+    Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -DisableViAutoConnect
+        
+    Connects to the nsxserver 'nsxserver' with the specified credentials and 
+    supresses the prompt to establish a PowerCLI connection with the registered 
+    vCenter.
+
+    .EXAMPLE
+    Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -ViUserName administrator@vsphere.local -ViPassword VMware1! 
+        
+    Connects to the nsxserver 'nsxserver' with the specified credentials and 
+    automatically establishes a PowerCLI connection with the registered 
+    vCenter using the credentials specified.
+
+    .EXAMPLE
+    $MyConnection = Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -DefaultConnection:$false
+    Get-NsxTransportZone 'TransportZone1' -connection $MyConnection 
+
+    Connects to the nsxserver 'nsxserver' with the specified credentials and 
+    then uses the returned connection object in a subsequent call to 
+    Get-NsxTransportZone.  The $DefaultNsxConnection parameter is not populated
+    
+    Note: Any PowerNSX cmdlets will fail if the -connection parameters is not 
+    specified and the $DefaultNsxConnection variable is not populated.
+
+    Note:  Pipline operations involving multiple PowerNSX commands that interact
+    with the NSX API (not all) require that all cmdlets specify the -connection 
+    parameter (not just the fist one.) 
+
 
 
     #>
@@ -1535,45 +2908,73 @@ function Connect-NsxServer {
  
     param (
         [Parameter (Mandatory=$true,ParameterSetName="cred",Position=1)]
-        [Parameter (ParameterSetName="userpass")]
-            [ValidateNotNullOrEmpty()]
+        [Parameter (Mandatory=$true,ParameterSetName="userpass",Position=1)]
+            #NSX Manager address or FQDN 
+            [ValidateNotNullOrEmpty()] 
             [string]$Server,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
+            #TCP Port to connect to on -Server
             [ValidateRange(1,65535)]
             [int]$Port=443,
         [Parameter (Mandatory=$true,ParameterSetName="cred")]
+            #PSCredential object containing NSX API authentication credentials
             [PSCredential]$Credential,
         [Parameter (Mandatory=$true,ParameterSetName="userpass")]
+            #Username used to authenticate to NSX API
             [ValidateNotNullOrEmpty()]
             [string]$Username,
         [Parameter (Mandatory=$true,ParameterSetName="userpass")]
+            #Password used to authenticate to NSX API
             [ValidateNotNullOrEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
+            #Validates the certificate presented by NSX Manager for HTTPS connections.  Defaults to False
             [ValidateNotNullOrEmpty()]
-            [bool]$ValidateCertificate=$false,
+            [switch]$ValidateCertificate=$false,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
+            #NSX API transport protocol - HTTPS / HTTP .  Defaults to HTTPS
             [ValidateNotNullOrEmpty()]
             [string]$Protocol="https",
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]
-            [ValidateNotNullorEmpty()]
+            #If True, the $DefaultNsxConnection global variable is created and populated with connection details.  
+            #All PowerNSX commands that use the NSX API will utilise this connection unless they are called with the -connection parameter.
+            #Defaults to True
             [bool]$DefaultConnection=$true,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
-        [Parameter (ParameterSetName="userpass")]   
-            [bool]$DisableVIAutoConnect=$false,
+        [Parameter (ParameterSetName="userpass")]
+            #If False, and a PowerCLI connection needs to be established to the registered vCenter, the Connect-ViServer call made by PowerNSX will specify the -NotDefault switch (see Get-Help Connect-ViServer)
+            #Defaults to True
+            [bool]$VIDefaultConnection=$true,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
-        [Parameter (ParameterSetName="userpass")]    
+        [Parameter (ParameterSetName="userpass")]  
+            #If True, and the PowerNSX connection attempt is successful, an automatic PowerCLI connection to the registered vCenter server is not attempted.  Defaults to False.
+            [switch]$DisableVIAutoConnect=$false,
+        [Parameter (Mandatory=$false,ParameterSetName="cred")]
+        [Parameter (ParameterSetName="userpass")] 
+            #UserName used in PowerCLI connection to registered vCenter.   
             [string]$VIUserName,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]    
+            #Password used in PowerCLI connection to registered vCenter.   
             [string]$VIPassword,
         [Parameter (Mandatory=$false,ParameterSetName="cred")]
         [Parameter (ParameterSetName="userpass")]    
-            [PSCredential]$VICred
+            #PSCredential object containing credentials used in PowerCLI connection to registered vCenter.   
+            [PSCredential]$VICred,
+        [Parameter (Mandatory=$false)]
+            #Enable DebugLogging of all API calls to $DebugLogFile.  Can be enabled on esisting connections with $connection.DebugLogging = $true.  Defaults to False.  
+            [switch]$DebugLogging=$false,
+        [Parameter (Mandatory=$false)]    
+            #If DebugLogging is enabled, specifies the file to which output is written.  Defaults to $Env:temp\PowerNSXLog-<user>@<server>-<datetime>.log
+            [string]$DebugLogFile,
+        [Parameter (Mandatory=$false)]
+            #Supresses warning output from PowerCLI connection attempts (typically invalid Certificate warnings)
+            [ValidateSet("Continue","Ignore")]
+            [string]$ViWarningAction="Continue"   
     )
 
     if ($PSCmdlet.ParameterSetName -eq "userpass") {      
@@ -1584,109 +2985,176 @@ function Connect-NsxServer {
     
     #Test NSX connection
     try {
-        $response = invoke-nsxrestmethod -cred $Credential -server $Server -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate $ValidateCertificate
+        $response = invoke-nsxrestmethod -cred $Credential -server $Server -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
     } 
     catch {
 
         Throw "Unable to connect to NSX Manager at $Server.  $_"
     }
     $connection = new-object PSCustomObject
-    $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
-    $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
+    # NSX-v 6.2.3 changed the output of the following API from JSON to XML.
+    #
+    # /api/1.0/appliance-management/global/info"
+    #
+    # Along with the return JSON/XML change, the data structure also received a
+    # new base element named globalInfo.
+    #
+    # So what we do is try for the new format, and if it fails, lets default to
+    # the old JSON format.
+    try {
+        $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.globalInfo.versionInfo.majorVersion).$($response.globalInfo.versionInfo.minorVersion).$($response.globalInfo.versionInfo.patchVersion)" -force
+        $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.globalInfo.versionInfo.BuildNumber)"
+    }
+    catch {
+        try { 
+            $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
+            $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
+        }
+        catch { 
+            write-warning "Unable to determine version information.  This may be due to a restriction in the rights the current user has to read the appliance-management API and may not represent an issue."
+        }
+    }
     $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
     $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
     $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
     $connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
     $connection | add-member -memberType NoteProperty -name "ValidateCertificate" -value $ValidateCertificate -force
     $connection | add-member -memberType NoteProperty -name "VIConnection" -force -Value ""
-
-    if ( $defaultConnection) { set-variable -name DefaultNSXConnection -value $connection -scope Global }
+    $connection | add-member -memberType NoteProperty -name "DebugLogging" -force -Value $DebugLogging
     
+    #Debug log will contain all rest calls, request and response bodies, and response headers.
+    if ( -not $PsBoundParameters.ContainsKey('DebugLogFile' )) {
+
+        #Generating logfile name regardless of initial user pref on debug.  They can just flip the prop on the connection object at a later date to start logging...
+        $dtstring = get-date -format "yyyy_MM_dd_HH_mm_ss"
+        $DebugLogFile = "$($env:TEMP)\PowerNSXLog-$($Credential.UserName)@$Server-$dtstring.log"
+
+    }
+
+    #If debug is on, need to test we can create the debug file first and throw if not... 
+    if ( $DebugLogging -and (-not ( new-item -path $DebugLogFile -Type file ))) { Throw "Unable to create logfile $DebugLogFile.  Disable debugging or specify a valid DebugLogFile name."}
+
+    $connection | add-member -memberType NoteProperty -name "DebugLogFile" -force -Value $DebugLogFile    
+
     #More and more functionality requires PowerCLI connection as well, so now pushing the user in that direction.  Will establish connection to vc the NSX manager 
     #is registered against.
 
-    $vcInfo = Invoke-NsxRestMethod -method get -URI "/api/2.0/services/vcconfig"
-    $RegisteredvCenterIP = $vcInfo.vcInfo.ipAddress
-    $ConnectedToRegisteredVC=$false
+    $vcInfo = Invoke-NsxRestMethod -method get -URI "/api/2.0/services/vcconfig" -connection $connection
+    if ( $DebugLogging ) { Add-Content -Path $DebugLogfile -Value "$(Get-Date -format s)  New PowerNSX Connection to $($credential.UserName)@$($Protocol)://$($Server):$port, version $($Connection.Version)" }
 
-    if ((test-path variable:global:DefaultVIServer )) {
+    if ( -not $vcInfo.SelectSingleNode('descendant::vcInfo/ipAddress')) { 
+        if ( $DebugLogging ) { Add-Content -Path $DebugLogfile -Value "$(Get-Date -format s)  NSX Manager $Server is not currently connected to any vCenter..." }
+        write-warning "NSX Manager does not currently have a vCenter registration.  Use Set-NsxManager to register a vCenter server."
+    }
+    else {
+        $RegisteredvCenterIP = $vcInfo.vcInfo.ipAddress
+        $ConnectedToRegisteredVC=$false
 
-        #Already have a PowerCLI connection - is it to the right place?
+        if ((test-path variable:global:DefaultVIServer )) {
 
-        #the 'ipaddress' in vcinfo from NSX api can be fqdn, 
-        #Resolve to ip so we can compare to any existing connection.  
-        #Resolution can result in more than one ip so we have to iterate over it.
-        
-        $RegisteredvCenterIPs = ([System.Net.Dns]::GetHostAddresses($RegisteredvCenterIP))
+            #Already have a PowerCLI connection - is it to the right place?
 
-        #Remembering we can have multiple vCenter connections too :|
-        :outer foreach ( $VIServerConnection in $global:DefaultVIServer ) {
-            $ExistingVIConnectionIPs =  [System.Net.Dns]::GetHostAddresses($VIServerConnection.Name)
-            foreach ( $ExistingVIConnectionIP in [IpAddress[]]$ExistingVIConnectionIPs ) {
-                foreach ( $RegisteredvCenterIP in [IpAddress[]]$RegisteredvCenterIPs ) {
-                    if ( $ExistingVIConnectionIP -eq $RegisteredvCenterIP ) {
-                        if ( $VIServerConnection.IsConnected ) { 
-                            $ConnectedToRegisteredVC = $true
-                            write-host -foregroundcolor Green "Using existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString)"
-                            $connection.VIConnection = $VIServerConnection
-                            break outer
-                        }
-                        else {
-                            write-host -foregroundcolor Yellow "Existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString) is not connected."
+            #the 'ipaddress' in vcinfo from NSX api can be fqdn, 
+            #Resolve to ip so we can compare to any existing connection.  
+            #Resolution can result in more than one ip so we have to iterate over it.
+            
+            $RegisteredvCenterIPs = ([System.Net.Dns]::GetHostAddresses($RegisteredvCenterIP))
+
+            #Remembering we can have multiple vCenter connections too :|
+            :outer foreach ( $VIServerConnection in $global:DefaultVIServer ) {
+                $ExistingVIConnectionIPs =  [System.Net.Dns]::GetHostAddresses($VIServerConnection.Name)
+                foreach ( $ExistingVIConnectionIP in [IpAddress[]]$ExistingVIConnectionIPs ) {
+                    foreach ( $RegisteredvCenterIP in [IpAddress[]]$RegisteredvCenterIPs ) {
+                        if ( $ExistingVIConnectionIP -eq $RegisteredvCenterIP ) {
+                            if ( $VIServerConnection.IsConnected ) { 
+                                $ConnectedToRegisteredVC = $true
+                                write-host -foregroundcolor Green "Using existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString)"
+                                $connection.VIConnection = $VIServerConnection
+                                break outer
+                            }
+                            else {
+                                write-host -foregroundcolor Yellow "Existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString) is not connected."
+                            }
                         }
                     }
                 }
             }
+        } 
+
+        if ( -not $ConnectedToRegisteredVC ) {
+            if ( -not (($VIUserName -and $VIPassword) -or ( $VICred ) )) {
+                #We assume that if the user did not specify VI creds, then they may want a connection to VC, but we will ask.
+                $decision = 1
+                if ( -not $DisableVIAutoConnect) {
+                  
+                    #Ask the question and get creds.
+
+                    $message  = "PowerNSX requires a PowerCLI connection to the vCenter server NSX is registered against for proper operation."
+                    $question = "Automatically create PowerCLI connection to $($RegisteredvCenterIP)?"
+
+                    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 0)
+
+                }
+
+                if ( $decision -eq 0 ) { 
+                    write-host 
+                    write-warning "Enter credentials for vCenter $RegisteredvCenterIP"
+                    $VICred = get-credential
+                    $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection) -WarningAction:$ViWarningAction
+
+                }
+                else {
+                    write-host
+                    write-warning "Some PowerNSX cmdlets will not be fully functional without a valid PowerCLI connection to vCenter server $RegisteredvCenterIP"
+                }
+            }
+            else { 
+                #User specified VI username/pwd or VI cred.  Connect automatically to the registered vCenter
+                write-host "Creating PowerCLI connection to vCenter server $RegisteredvCenterIP"
+
+                if ( $VICred ) { 
+                    $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection) -WarningAction:$ViWarningAction
+                }
+                else {
+                    $connection.VIConnection = Connect-VIServer -User $VIUserName -Password $VIPassword $RegisteredvCenterIP -NotDefault:(-not $VIDefaultConnection) -WarningAction:$ViWarningAction
+                }
+            }
         }
-    } 
 
-    if ( -not $ConnectedToRegisteredVC ) {
-        if ( -not (($VIUserName -and $VIPassword) -or ( $VICred ) )) {
-            #We assume that if the user did not specify VI creds, then they may want a connection to VC, but we will ask.
-            $decision = 1
-            if ( -not $DisableVIAutoConnect) {
-              
-                #Ask the question and get creds.
-
-                $message  = "PowerNSX requires a PowerCLI connection to the vCenter server NSX is registered against for proper operation."
-                $question = "Automatically create PowerCLI connection to $($RegisteredvCenterIP)?"
-
-                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-
-            }
-
-            if ( $decision -eq 0 ) { 
-                write-host 
-                write-host -foregroundcolor Yellow "Enter credentials for vCenter $RegisteredvCenterIP"
-                $VICred = get-credential
-                $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP
-
-            }
-            else {
-                write-host
-                write-host -foregroundcolor Yellow "Some PowerNSX cmdlets will not be fully functional without a valid PowerCLI connection to vCenter server $RegisteredvCenterIP"
-            }
-        }
-        else { 
-            #User specified VI username/pwd or VI cred.  Connect automatically to the registered vCenter
-            write-host "Creating PowerCLI connection to vCenter server $RegisteredvCenterIP"
-
-            if ( $VICred ) { 
-                $connection.VIConnection = Connect-VIServer -Credential $VICred $RegisteredvCenterIP
-            }
-            else {
-                $connection.VIConnection = Connect-VIServer -User $VIUserName -Password $VIPassword $RegisteredvCenterIP
-            }
-        }
+        if ( $DebugLogging ) { Add-Content -Path $DebugLogfile -Value "$(Get-Date -format s)  NSX Manager $Server is registered against vCenter server $RegisteredvCenterIP.  PowerCLI connection established to registered vCenter : $(if ($Connection.ViConnection ) { $connection.VIConnection.IsConnected } else { "False" })" }
     }
 
+
+    #Set the default connection is required.
+    if ( $DefaultConnection) { set-variable -name DefaultNSXConnection -value $connection -scope Global }
+
+    #Return the connection
     $connection
 }
-Export-ModuleMember -Function Connect-NsxServer
+
+function Disconnect-NsxServer {
+
+    <#
+    .SYNOPSIS
+    Destroys the $DefaultNSXConnection global variable if it exists.
+
+    .DESCRIPTION
+    REST is not connection oriented, so there really isnt a connect/disconnect 
+    concept.  Disconnect-NsxServer, merely removes the $DefaultNSXConnection 
+    variable that PowerNSX cmdlets default to using.
+
+    .EXAMPLE
+    Connect-NsxServer -Server nsxserver -username admin -Password VMware1!
+
+    #>
+    if (Get-Variable -Name DefaultNsxConnection -scope global ) {
+        Remove-Variable -name DefaultNsxConnection -scope global
+    }
+}
 
 function Get-PowerNsxVersion {
 
@@ -1701,14 +3169,71 @@ function Get-PowerNsxVersion {
 
     #>
 
-    [PSCustomobject]@{
-        "Version" = "1.0 RC1";
-        "Major" = 1 ;
-        "Minor" = 0;
-
-    }
+    #Updated to take advantage of Manifest info.
+    Get-Module PowerNsx | select version, path, author, companyName 
 }
-Export-ModuleMember -function Get-PowerNsxVersion 
+
+function Update-PowerNsx {
+    
+    <#
+    .SYNOPSIS
+    Updates PowerNSX to the latest version available in the specified branch.
+    
+    .EXAMPLE
+    Update-PowerNSX -Branch Dev
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory = $True, Position=1)]
+            #Valid Branches supported for upgrading to.
+            [ValidateScript({ Validate-UpdateBranch $_ })]
+            [string]$Branch
+    )
+
+    $PNsxUrl = "$PNsxUrlBase/$Branch/PowerNSXInstaller.ps1"
+    
+    if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+        [Security.Principal.WindowsBuiltInRole] "Administrator"))) { 
+
+        write-host -ForegroundColor Yellow "Update-PowerNsx requires Administrative rights."
+        write-host -ForegroundColor Yellow "Please restart PowerCLI with right click, 'Run As Administrator' and try again."
+        return
+    }
+
+    if ( $Branch -eq "Dev" ) {
+        write-warning "Updating to latest Dev branch commit.  Stability is not guaranteed."
+    }
+
+    #Installer doesnt play nice in strict mode...
+    set-strictmode -Off
+    try { 
+        $wc = new-object Net.WebClient
+        $scr = try { 
+            $filename = split-path $PNsxUrl -leaf
+            $wc.Downloadfile($PNsxUrl, "$($env:Temp)\$filename") 
+        } 
+        catch { 
+            if ( $_.exception.innerexception -match "(407)") { 
+                $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"
+                $wc.Downloadfile($PNsxUrl, "$($env:Temp)\$filename") 
+            } 
+            else { 
+                throw $_ 
+            }
+        }
+        invoke-expression "& `"$($env:Temp)\$filename`" -Upgrade"
+    } 
+    catch { 
+        throw $_ 
+    }
+
+    Remove-Module PowerNSX
+    Import-Module PowerNSX
+
+    set-strictmode -Version Latest
+}
 
 #########
 #########
@@ -1742,8 +3267,13 @@ function Get-NsxClusterStatus {
     param (
 
         [Parameter ( Mandatory=$true,ValueFromPipeline=$true)]
+            #Cluster Object to retreive status details for.
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -1754,7 +3284,7 @@ function Get-NsxClusterStatus {
         write-debug "$($MyInvocation.MyCommand.Name) : Query status for cluster $($cluster.name) ($($cluster.ExtensionData.Moref.Value))"
         $uri = "/api/2.0/nwfabric/status-without-alarms?resource=$($cluster.ExtensionData.Moref.Value)"
         try {
-            $response = invoke-nsxrestmethod -connection $defaultNSXConnection -method get -uri $uri
+            $response = invoke-nsxrestmethod -connection $connection -method get -uri $uri
             $response.resourceStatuses.resourceStatus.nwFabricFeatureStatus
 
         }
@@ -1764,331 +3294,6 @@ function Get-NsxClusterStatus {
     }
     end{}
 }
-Export-ModuleMember -Function Get-NsxClusterStatus
-
-function Parse-CentralCliResponse {
-
-    param (
-        [Parameter ( Mandatory=$True, Position=1)]
-            [String]$response
-    )
-
-
-    #Response is straight text unfortunately, so there is no structure.  Having a crack at writing a very simple parser though the formatting looks.... challenging...
-    
-    #Control flags for handling list and table processing.
-    $TableHeaderFound = $false
-    $MatchedVnicsList = $false
-    $MatchedRuleset = $false
-    $MatchedAddrSet = $false
-
-    $RuleSetName = ""
-    $AddrSetName = ""
-
-    $KeyValHash = @{}
-    $KeyValHashUsed = $false
-
-    #Defined this as variable as the swtich statement does not let me concat strings, which makes for a verrrrry long line...
-    $RegexDFWRule = "^(?<Internal>#\sinternal\s#\s)?(?<RuleSetMember>rule\s)?(?<RuleId>\d+)\sat\s(?<Position>\d+)\s(?<Direction>in|out|inout)\s" + 
-            "(?<Type>protocol|ethertype)\s(?<Service>.*?)\sfrom\s(?<Source>.*?)\sto\s(?<Destination>.*?)(?:\sport\s(?<Port>.*))?\s" + 
-            "(?<Action>accept|reject|drop)(?:\swith\s(?<Log>log))?(?:\stag\s(?<Tag>'.*'))?;"
-
-
-
-    foreach ( $line in ($response -split '[\r\n]')) { 
-
-        #Init EntryHash hashtable
-        $EntryHash= @{}
-
-        switch -regex ($line.trim()) {
-
-            #C CLI appears to emit some error conditions as ^ Error:<digits> 
-            "^Error \d+:.*$" {
-
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Error line. $_ "
-                
-                Throw "CLI command returned an error: ( $_ )"
-
-            }
-
-            "^\s*$" { 
-                #Blank line, ignore...
-                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring blank line: $_"
-                break
-
-            }
-
-            "^# Filter rules$" { 
-                #Filter line encountered in a ruleset list, ignore...
-                if ( $MatchedRuleSet ) { 
-                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring meaningless #Filter rules line in ruleset: $_"
-                    break
-                }
-                else {
-                    throw "Error parsing Centralised CLI command output response.  Encountered #Filter rules line when not processing a ruleset: $_"
-                }
-
-            }
-            #Matches a single integer of 1 or more digits at the start of the line followed only by a fullstop.
-            #Example is the Index in a VNIC list.  AFAIK, the index should only be 1-9. but just in case we are matching 1 or more digit...
-            "^(\d+)\.$" { 
-
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Index line.  Discarding value: $_ "
-                If ( $MatchedVnicsList ) { 
-                    #We are building a VNIC list output and this is the first line.
-                    #Init the output object to static kv props, but discard the value (we arent outputing as it appears superfluous.)
-                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, initialising new Vnic list object"
-
-                    $VnicListHash = @{}
-                    $VnicListHash += $KeyValHash
-                    $KeyValHashUsed = $true
-
-                }
-                break
-            } 
-
-            #Matches the start of a ruleset list.  show dfw host host-xxx filter xxx rules will output in rulesets like this
-            "ruleset\s(\S+) {" {
-
-                #Set a flag to say we matched a ruleset List, and create the output object.
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Ruleset output.  Processing following lines as DFW Ruleset: $_"
-                $MatchedRuleset = $true 
-                $RuleSetName = $matches[1].trim()
-                break        
-            }
-
-            #Matches the start of a addrset list.  show dfw host host-xxx filter xxx addrset will output in addrsets like this
-            "addrset\s(\S+) {" {
-
-                #Set a flag to say we matched a addrset List, and create the output object.
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched start of DFW Addrset output.  Processing following lines as DFW Addrset: $_"
-                $MatchedAddrSet = $true 
-                $AddrSetName = $matches[1].trim()
-                break        
-            }
-
-            #Matches a addrset entry.  show dfw host host-xxx filter xxx addrset will output in addrsets.
-            "^(?<Type>ip|mac)\s(?<Address>.*),$" {
-
-                #Make sure we were expecting it...
-                if ( -not $MatchedAddrSet ) {
-                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw addrset entry : $_" 
-                }
-
-                #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
-                [PSCustomobject]@{
-                    "AddrSet" = $AddrSetName;
-                    "Type" = $matches.Type;
-                    "Address" = $matches.Address
-                }
-
-                break
-            }
-
-            #Matches a rule, either within a ruleset, or individually listed.  show dfw host host-xxx filter xxx rules will output in rulesets, 
-            #or show dfw host-xxx filter xxx rule 1234 will output individual rule that should match.
-            $RegexDFWRule {
-
-                #Check if the rule is individual or part of ruleset...
-                if ( $Matches.ContainsKey("RuleSetMember") -and (-not $MatchedRuleset )) {
-                    Throw "Error parsing Centralised CLI command output response.  Unexpected dfw ruleset entry : $_" 
-                }
-
-                $Type = switch ( $matches.Type ) { "protocol" { "Layer3" } "ethertype" { "Layer2" }}
-                $Internal = if ( $matches.ContainsKey("Internal")) { $true } else { $false }
-                $Port = if ( $matches.ContainsKey("Port") ) { $matches.port } else { "Any" } 
-                $Log = if ( $matches.ContainsKey("Log") ) { $true } else { $false } 
-                $Tag = if ( $matches.ContainsKey("Tag") ) { $matches.Tag } else { "" } 
-
-                If ( $MatchedRuleset ) {
-
-                    #We are processing a RuleSet, so we need to emit an output object that contains the ruleset name.
-                    [PSCustomobject]@{
-                        "RuleSet" = $RuleSetName;
-                        "InternalRule" = $Internal;
-                        "RuleID" = $matches.RuleId;
-                        "Position" = $matches.Position;
-                        "Direction" = $matches.Direction;
-                        "Type" = $Type;
-                        "Service" = $matches.Service;
-                        "Source" = $matches.Source;
-                        "Destination" = $matches.Destination;
-                        "Port" = $Port;
-                        "Action" = $matches.Action;
-                        "Log" = $Log;
-                        "Tag" = $Tag
-
-                    }
-                }
-
-                else {
-                    #We are not processing a RuleSet; so we need to emit an output object without a ruleset name.
-                    [PSCustomobject]@{
-                        "InternalRule" = $Internal;
-                        "RuleID" = $matches.RuleId;
-                        "Position" = $matches.Position;
-                        "Direction" = $matches.Direction;
-                        "Type" = $Type;
-                        "Service" = $matches.Service;
-                        "Source" = $matches.Source;
-                        "Destination" = $matches.Destination;
-                        "Port" = $Port;
-                        "Action" = $matches.Action;
-                        "Log" = $Log;
-                        "Tag" = $Tag
-                    }
-                }
-
-                break
-            }
-
-            #Matches the end of a ruleset and addr lists.  show dfw host host-xxx filter xxx rules will output in lists like this
-            "^}$" {
-
-                if ( $MatchedRuleset ) { 
-
-                    #Clear the flag to say we matched a ruleset List
-                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW ruleset."
-                    $MatchedRuleset = $false
-                    $RuleSetName = ""
-                    break     
-                }
-
-                if ( $MatchedAddrSet ) { 
-                   
-                    #Clear the flag to say we matched an addrset List
-                    write-debug "$($MyInvocation.MyCommand.Name) : Matched end of DFW addrset."
-                    $MatchedAddrSet = $false
-                    $AddrSetName = ""
-                    break     
-                }
-
-                throw "Error parsing Centralised CLI command output response.  Encountered unexpected list completion character in line: $_"
-            }
-
-            #More Generic matches
-
-            #Matches the generic KV case where we have _only_ two strings separated by more than one space.
-            #This will do my head in later when I look at it, so the regex explanation is:
-            #    - (?: gives non capturing group, we want to leverage $matches later, so dont want polluting groups.
-            #    - (\S|\s(?!\s)) uses negative lookahead assertion to 'Match a non whitespace, or a single whitespace, as long as its not followed by another whitespace.
-            #    - The rest should be self explanatory.
-            "^((?:\S|\s(?!\s))+\s{2,}){1}((?:\S|\s(?!\s))+)$" { 
-
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (multispace separated): $_ )"
-                
-                $key = $matches[1].trim()
-                $value = $matches[2].trim()
-                If ( $MatchedVnicsList ) { 
-                    #We are building a VNIC list output and this is one of the lines.
-                    write-debug "$($MyInvocation.MyCommand.Name) : Processing Vnic List, Adding $key = $value to current VnicListHash"
-
-                    $VnicListHash.Add($key,$value)
-
-                    if ( $key -eq "Filters" ) {
-
-                        #Last line in a VNIC List...
-                        write-debug "$($MyInvocation.MyCommand.Name) : VNIC List :  Outputing VNIC List Hash."
-                        [PSCustomobject]$VnicListHash
-                    }
-                }
-                else {
-                    #Add KV to hash table that we will append to output object
-                    $KeyValHash.Add($key,$value)
-                }     
-                break
-            }
-
-            #Matches a general case output line containing Key: Value for properties that are consistent accross all entries in a table. 
-            #This will match a line with multiple colons in it, not sure if thats an issue yet...
-            "^((?:\S|\s(?!\s))+):((?:\S|\s(?!\s))+)$" {
-                if ( $TableHeaderFound ) { Throw "Error parsing Centralised CLI command output response.  Key Value line found after header: ( $_ )" }
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Key Value line (Colon Separated) : $_"
-                
-                #Add KV to hash table that we will append to output object
-                $KeyValHash.Add($matches[1].trim(),$matches[2].trim())
-
-                break
-            }
-
-            #Matches a Table header line.  This is a special case of the table entry line match, with the first element being ^No\.  Hoping that 'No.' start of the line is consistent :S
-            "^No\.\s{2,}(.+\s{2,})+.+$" {
-                if ( $TableHeaderFound ) { 
-                    throw "Error parsing Centralised CLI command output response.  Matched header line more than once: ( $_ )"
-                }
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Header line: $_"
-                $TableHeaderFound = $true
-                $Props = $_.trim() -split "\s{2,}"
-                break
-            }
-
-            #Matches the start of a Virtual Nics List output.  We process the output lines following this as a different output object
-            "Virtual Nics List:" {
-                #When central cli outputs a NIC 'list' it does so with a vertical list of Key Value rather than a table format, 
-                #and with multi space as the KV separator, rather than a : like normal KV output.  WTF?
-                #So Now I have to go forth and collate my nic object over the next few lines...
-                #Example looks like this:
-
-                #Virtual Nics List:
-                #1.
-                #Vnic Name      test-vm - Network adapter 1
-                #Vnic Id        50012d15-198c-066c-af22-554aed610579.000
-                #Filters        nic-4822904-eth0-vmware-sfw.2
-
-                #Set a flag to say we matched a VNic List, and create the output object initially with just the KV's matched already.
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched VNIC List line.  Processing remaining lines as Vnic List: $_"
-                $MatchedVnicsList = $true 
-                break                       
-
-            }
-
-            #Matches a table entry line.  At least three properties (that may contain a single space) separated by more than one space.
-            "^((?:\S|\s(?!\s))+\s{2,}){2,}((?:\S|\s(?!\s))+)$" {
-                if ( -not $TableHeaderFound ) { 
-                    throw "Error parsing Centralised CLI command output response.  Matched table entry line before header: ( $_ )"
-                }
-                write-debug "$($MyInvocation.MyCommand.Name) : Matched Table Entry line: $_"
-                $Vals = $_.trim() -split "\s{2,}"
-                if ($Vals.Count -ne $Props.Count ) { 
-                    Throw "Error parsing Centralised CLI command output response.  Table entry line contains different value count compared to properties count: ( $_ )"
-                }
-
-                #Build the output hashtable with the props returned in the table entry line
-                for ( $i= 0; $i -lt $props.count; $i++ ) {
-
-                    #Ordering is hard, and No. entry is kinda superfluous, so removing it from output (for now)
-                    if ( -not ( $props[$i] -eq "No." )) {
-                        $EntryHash[$props[$i].trim()]=$vals[$i].trim()
-                    }
-                }
-
-                #Add the KV pairs that were parsed before the table.
-                try {
-
-                    #This may fail if we have a key of the same name.  For the moment, Im going to assume that this wont happen...
-                    $EntryHash += $KeyValHash
-                    $KeyValHashUsed = $true
-                }
-                catch {
-                    throw "Unable to append static Key Values to EntryHash output object.  Possibly due to a conflicting key"
-                }
-
-                #Emit the entry line as a PSCustomobject :)
-                [PSCustomObject]$EntryHash
-                break
-            }
-            default { throw "Unable to parse Centralised CLI output line : $($_ -replace '\s','_')" } 
-        }
-    }
-
-    if ( (-not $KeyValHashUsed) -and $KeyValHash.count -gt 0 ) {
-
-        #Some output is just key value, so, if it hasnt been appended to output object already, we will just emit it.
-        #Not sure how this approach will work long term, but it works for show dfw vnic <>
-        write-debug "$($MyInvocation.MyCommand.Name) : KeyValHash has not been used after all line processing, outputing as is: $_"
-        [PSCustomObject]$KeyValHash
-    }
-}
 
 function Invoke-NsxCli {
 
@@ -2097,40 +3302,75 @@ function Invoke-NsxCli {
     Provides access to the NSX Centralised CLI.
 
     .DESCRIPTION
-    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It 
-    provides centralised means of performing read only operations against 
-    various aspects of the dataplane including Logical Switching, Logical 
+    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It
+    provides centralised means of performing read only operations against
+    various aspects of the dataplane including Logical Switching, Logical
     Routing, Distributed Firewall and Edge Services Gateways.
 
     The results returned by the Centralised CLI are actual (realised) state
     as opposed to configured state.  They should you how the dataplane actually
     is configured at the time the query is run.
 
-    The Centralised CLI is primarily a trouble shooting tool.
-
+    WARNING: The Centralised CLI is primarily a trouble shooting tool and
+    it and the PowerNSX cmdlets that expose it should not be used for any other
+    purpose.  All the PowerNSX cmdlets that expose the central cli rely on a
+    bespoke text parser to interpret the results as powershell objects, and have
+    not been extensively tested.
+    .INPUTS
+    System.String
+    .PARAMETER Query
+    string text of Central CLI command to execute
+    .PARAMETER SupressWarning
+    Switch parameter to ignore the experimental warning
+    .PARAMETER Connection
+    Proper NSX connection [PSCustomObject]
+    .PARAMETER RawOutput
+    Switch parameter that will not try to parse the output
+    .NOTES
+    Version: 1.2
+    Updated: 7/29/16
+    Updated By: Kevin Kirkpatrick (vScripter)
+    Update Notes:
+    - Added '-RawOutput' parameter
+    - Added support for '-Verbose'
+    - Expanded support for '-Debug'
     #>
 
     param (
 
         [Parameter ( Mandatory=$true, Position=1) ]
+            #Free form query string that is sent to the NSX Central CLI API
             [ValidateNotNullOrEmpty()]
             [String]$Query,
         [Parameter ( Mandatory=$false) ]
-            [switch]$SupressWarning
-               
+            #Supress warning about experimental feature.  Defaults to False
+            [switch]$SupressWarning,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection = $defaultNSXConnection,
+        [Parameter(Mandatory = $false)]
+            # switch param to support throwing raw output to avoid errors with the parser
+            [switch]$RawOutput
+
     )
 
-    begin{ 
+    begin {
+
         if ( -not $SupressWarning ) {
-            write-warning "This cmdlet is experimental and has not been completely tested.  Use with caution and report any errors." 
-        }
-    }
 
-    process{
+            Write-Warning -Message "This cmdlet is experimental and has not been well tested.  Its use should be limited to troubleshooting purposes only."
 
+        } # end if
 
-        write-debug "$($MyInvocation.MyCommand.Name) : Executing Central CLI query $Query"
-        
+    } # end begin block
+
+    process {
+
+        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Executing Central CLI Query {$Query}"
+
+        Write-Debug -Message "[$($MyInvocation.MyCommand.Name)] Building XML"
+
         #Create the XMLRoot
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
         [System.XML.XMLElement]$xmlCli = $XMLDoc.CreateElement("nsxcli")
@@ -2142,18 +3382,40 @@ function Invoke-NsxCli {
 
         $Body = $xmlCli.OuterXml
         $uri = "/api/1.0/nsx/cli?action=execute"
-        try {
-            $response = invoke-nsxrestmethod -connection $defaultNSXConnection -method post -uri $uri -Body $Body
-            Parse-CentralCliResponse $response
-        }
-        catch {
 
-            throw "Unable to execute Centralised CLI query.  $_"
-        }
-    }
-    end{}
-}
-Export-ModuleMember -Function Invoke-NsxCli
+        Write-Debug -Message "[$($MyInvocation.MyCommand.Name)] Invoking POST method. Entering 'try/catch' block"
+        try {
+
+            $response = Invoke-NsxRestMethod -Connection $connection -Method post -Uri $uri -Body $Body
+
+            if ($RawOutput) {
+
+                Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Returning Raw Output"
+                $response
+
+            } else {
+
+                Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Parsing Output"
+                Parse-CentralCliResponse $response
+
+            } # end if/else
+
+        } catch {
+
+            throw "[$($MyInvocation.MyCommand.Name)][ERROR] Unable to execute Centralized CLI query. $_.Exception.Message. Try re-running command with the -RawOutput parameter."
+
+        } # end try/catch
+
+    } # end process block
+
+    end {
+
+        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Processing Complete"
+
+    } # end block
+
+} # end function Invoke-NsxCli
+
 
 function Get-NsxCliDfwFilter {
 
@@ -2162,28 +3424,33 @@ function Get-NsxCliDfwFilter {
     Uses the NSX Centralised CLI to retreive the VMs VNIC filters.
 
     .DESCRIPTION
-    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It 
-    provides centralised means of performing read only operations against 
-    various aspects of the dataplane including Logical Switching, Logical 
+    The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It
+    provides centralised means of performing read only operations against
+    various aspects of the dataplane including Logical Switching, Logical
     Routing, Distributed Firewall and Edge Services Gateways.
 
     The results returned by the Centralised CLI are actual (realised) state
     as opposed to configured state.  They show you how the dataplane actually
     is configured at the time the query is run.
 
-    This cmdlet accepts a VM object, and leverages the Invoke-NsxCli cmdlet by 
-    constructing the appropriate Centralised CLI command without requiring the 
-    user to do the show cluster all -> show cluster domain-xxx -> show host 
+    This cmdlet accepts a VM object, and leverages the Invoke-NsxCli cmdlet by
+    constructing the appropriate Centralised CLI command without requiring the
+    user to do the show cluster all -> show cluster domain-xxx -> show host
     host-xxx -> show vm vm-xxx dance -> show dfw host host-xxx filter xxx rules
-    dance.  It returns objects representing the Filters defined on each vnic of 
+    dance.  It returns objects representing the Filters defined on each vnic of
     the VM
 
     #>
 
-    Param ( 
+    Param (
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            #PowerCLI Virtual Machine object.
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin{}
@@ -2191,18 +3458,17 @@ function Get-NsxCliDfwFilter {
     process{
 
         $query = "show vm $($VirtualMachine.ExtensionData.Moref.Value)"
-        $filters = Invoke-NsxCli $query -SupressWarning
+        $filters = Invoke-NsxCli $query -SupressWarning -connection $connection
         
         foreach ( $filter in $filters ) { 
             #Execute the appropriate CLI query against the VMs host for the current filter...
             $query = "show vnic $($Filter."Vnic Id")"
-            Invoke-NsxCli $query -SupressWarning
+            Invoke-NsxCli $query -connection $connection
         }
     }
 
     end{}
 }
-Export-ModuleMember -Function Get-NsxCliDfwFilter
 
 function Get-NsxCliDfwRule {
 
@@ -2232,8 +3498,13 @@ function Get-NsxCliDfwRule {
 
     Param ( 
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            #PowerCLI VirtualMachine object
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin{}
@@ -2244,7 +3515,7 @@ function Get-NsxCliDfwRule {
             #First we retrieve the filter names from the host that the VM is running on
             try { 
                 $query = "show vm $($VirtualMachine.ExtensionData.Moref.Value)"
-                $VMs = Invoke-NsxCli $query -SupressWarning
+                $VMs = Invoke-NsxCli $query -connection $connection
             }
             catch {
                 #Invoke-nsxcli threw an exception.  There are a couple we want to handle here...
@@ -2260,7 +3531,7 @@ function Get-NsxCliDfwRule {
             foreach ( $VM in $VMs ) { 
                 #Execute the appropriate CLI query against the VMs host for the current filter...
                 $query = "show dfw host $($VirtualMachine.VMHost.ExtensionData.MoRef.Value) filter $($VM.Filters) rules"
-                $rule = Invoke-NsxCli $query -SupressWarning
+                $rule = Invoke-NsxCli $query -SupressWarning -connection $connection
                 $rule | add-member -memberType NoteProperty -Name "VirtualMachine" -Value $VirtualMachine
                 $rule | add-member -memberType NoteProperty -Name "Filter" -Value $($VM.Filters)
                 $rule
@@ -2271,7 +3542,6 @@ function Get-NsxCliDfwRule {
     }
     end{}
 }
-Export-ModuleMember -Function Get-NsxCliDfwRule
 
 function Get-NsxCliDfwAddrSet {
 
@@ -2301,8 +3571,13 @@ function Get-NsxCliDfwAddrSet {
 
     Param ( 
         [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            #PowerCLI VirtualMachine object
             [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VirtualMachine
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin{}
@@ -2311,25 +3586,2295 @@ function Get-NsxCliDfwAddrSet {
 
         #First we retrieve the filter names from the host that the VM is running on
         $query = "show vm $($VirtualMachine.ExtensionData.Moref.Value)"
-        $Filters = Invoke-NsxCli $query -SupressWarning
+        $Filters = Invoke-NsxCli $query -connection $connection
 
         #Potentially there are multiple filters (VM with more than one NIC).
         foreach ( $filter in $filters ) { 
             #Execute the appropriate CLI query against the VMs host for the current filter...
             $query = "show dfw host $($VirtualMachine.VMHost.ExtensionData.MoRef.Value) filter $($Filter.Filters) addrset"
-            Invoke-NsxCli $query -SupressWarning
+            Invoke-NsxCli $query -SupressWarning -connection $connection
         }
     }
     end{}
 }
-Export-ModuleMember -Function Get-NsxCliDfwAddrSet
+
+function Get-NsxHostUvsmLogging {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Uvsm Logging level from the specified host.
+
+    .DESCRIPTION
+
+    
+    .EXAMPLE
+
+    #>
+
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VMHostInterop]$VMHost,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        #UVSM Logging URI
+        $URI = "/api/1.0/usvmlogging/$($VMHost.Extensiondata.Moref.Value)/root"
+        try { 
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+           [PSCustomobject]@{
+                "LoggerName"=$response.LoggingLevel.LoggerName;
+                "LogLevel"=$response.LoggingLevel.Level;
+                "HostName"=$VMhost.Name;
+                "HostId"=$VMhost.Extensiondata.Moref.Value
+            }
+        }
+        catch {
+            write-warning "Error querying host $($VMhost.Name) for UVSM logging status.  Check Guest Introspection is enabled, and USVM is available." 
+        }
+
+    }
+
+    end {}
+}
+
+function Set-NsxHostUvsmLogging {
+
+    <#
+    .SYNOPSIS
+    Sets the Uvsm Logging on the specified host.
+
+    .DESCRIPTION
+
+    
+    .EXAMPLE
+
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VMHostInterop]$VMHost,
+        [Parameter (Mandatory=$true)]
+            [ValidateSet("OFF", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE",IgnoreCase=$false)]
+            [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+    begin {}
+    process { 
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("logginglevel")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "loggerName" -xmlElementText "root"
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "level" -xmlElementText $LogLevel
+
+        # #Do the post
+        $body = $xmlroot.OuterXml
+        $URI = "/api/1.0/usvmlogging/$($VMhost.Extensiondata.Moref.Value)/changelevel"
+        Write-Progress -activity "Updating log level on host $($VMhost.Name)"    
+        invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection| out-null
+        Write-progress -activity "Updating log level on host $($VMhost.Name)" -completed
+
+    }
+    end {}
+}
+
+function New-NsxManager{
+
+    <#
+    .SYNOPSIS
+    Uses an existing PowerCLI connection to deploy and configure the NSX
+    Manager VM from OVA.
+
+    .DESCRIPTION
+    The NSX management plane is provided by NSX Manager, the centralized 
+    network management component of NSX. It provides the single point of 
+    configuration for NSX operations, and provides NSX's REST API.
+
+    The New-NsxManager cmdlet deploys and configures a new NSX Manager appliance
+    using PowerCLI
+
+    .EXAMPLE
+    New-NSXManager -NsxManagerOVF ".\VMware-NSX-Manager-6.2.0-2986609.ova" 
+        -Name TestingNSXM -ClusterName Cluster1 -ManagementPortGroupName Net1 
+        -DatastoreName DS1 -FolderName Folder1 -CliPassword VMware1!VMware1! 
+        -CliEnablePassword VMware1!VMware1! -Hostname NSXManagerHostName 
+        -IpAddress 1.2.3.4 -Netmask 255.255.255.0 -Gateway 1.2.3.1 
+        -DnsServer 1.2.3.5 -DnsDomain corp.local -NtpServer 1.2.3.5 -EnableSsh 
+        -StartVm -wait
+
+    Deploys a new NSX Manager, starts the VM, and blocks until the API becomes 
+    available.
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
+
+    param (
+
+        [Parameter ( Mandatory=$True )]
+            #Local Path to NSX MAnager OVA
+            [ValidateScript({
+                if ( -not (test-path $_)) {
+                    throw "NSX Manager OVF file not found: $_."
+                }
+                $true
+            })]
+            [string]$NsxManagerOVF,
+        [Parameter ( Mandatory=$True )]
+            #The name of the deployed VM.
+            [ValidateNotNullOrEmpty()]
+            $Name,
+        [Parameter ( Mandatory=$True )]
+            #Name of the vSphere Cluster to which the VM will be deployed.
+            [ValidateNotNullOrEmpty()]
+            [string]$ClusterName,
+        [Parameter ( Mandatory=$True )]
+            #Name of the portgroup to which the management interface of the VM will be connected. 
+            [ValidateNotNullOrEmpty()]
+            [string]$ManagementPortGroupName,
+        [Parameter ( Mandatory=$True )]
+            #Name of the Datastore to which the VM will be deployed. 
+            [ValidateNotNullOrEmpty()]
+            [string]$DatastoreName,
+        [Parameter ( Mandatory=$True )]
+            #Name of the vSphere VM Inventory folder to which the VM will be deployed.
+            [ValidateNotNullOrEmpty()]
+            [string]$FolderName,
+        [Parameter ( Mandatory=$True )]
+            #CLI Password for the deployed NSX Manager.
+            [ValidateNotNullOrEmpty()]
+            [string]$CliPassword,
+        [Parameter ( Mandatory=$True )]
+            #Enable password for the deployed NSX Manager.
+            [ValidateNotNullOrEmpty()]
+            [string]$CliEnablePassword,
+        [Parameter ( Mandatory=$True )]
+            #Guest Hostname for the deployed NSX Manager.
+            [ValidateNotNullOrEmpty()]
+            [string]$Hostname,
+        [Parameter ( Mandatory=$True )]
+            #IP Address assigned to the management interface.
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$IpAddress,
+        [Parameter ( Mandatory=$True )]
+            #Netmask for the management interface.
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$Netmask,
+        [Parameter ( Mandatory=$True )]
+            #Gateway Address for the deployed NSX Manager.
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$Gateway, 
+        [Parameter ( Mandatory=$True )]
+            #DNS Server for the deployed NSX Manager (One only.) 
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$DnsServer,
+        [Parameter ( Mandatory=$True )]
+            #DNS Domain Name for the deployed NSX Manager.
+            [ValidateNotNullOrEmpty()]
+            [string]$DnsDomain,
+        [Parameter ( Mandatory=$True )]
+            #NTP Server for the deployed NSX Manager (One only.)
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$NtpServer,
+        [Parameter ( Mandatory=$False)]
+            #Configured Memory for the deployed VM.  Overrides default in OVA.  Non-Production use only!
+            [ValidateRange(8,16)]
+            [int]$ManagerMemoryGB,
+        [Parameter ( Mandatory=$True, ParameterSetName = "StartVM" )]
+            #Start the VM once deployment is completed.
+            [switch]$StartVM=$false,
+        [Parameter ( Mandatory=$False, ParameterSetName = "StartVM")]
+            #Wait for the NSX Manager API to become available once deployment is complete and the appliance is started.  Requires -StartVM, and network reachability between this machine and the management interface of the NSX Manager.
+            [ValidateScript({
+                If ( -not $StartVM ) { throw "Cant wait for Manager API unless -StartVM is enabled."}
+                $true
+                })]
+            [switch]$Wait=$false,
+        [Parameter ( Mandatory=$False, ParameterSetName = "StartVM")]
+            #How long to wait before timeout for NSX MAnager API to become available once the VM has been started.
+            [int]$WaitTimeout = 600,
+        [Parameter ( Mandatory=$False )]
+            #Enable SSH on the deployed NSX Manager.
+            [switch]$EnableSsh=$false
+
+
+    )
+
+    #Check that we have a PowerCLI connection open...
+    If ( -not (test-path variable:global:defaultVIServer )) { 
+        throw "Unable to deploy NSX Manager OVA without a valid PowerCLI connection.  Use Connect-VIServer or Connect-NsxServer to extablish a PowerCLI connection and try again."
+    }
+
+    #Chose a target host based on available memory.
+    $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Sort MemoryUsageGB | Select -first 1
+
+    ## Using the PowerCLI command, get OVF draws on the location of the OVA from the defined variable.
+    $OvfConfiguration = Get-OvfConfiguration -Ovf $NsxManagerOVF
+
+    #Network Mapping to portgroup need to be defined.
+    $OvfConfiguration.NetworkMapping.VSMgmt.Value = $ManagementPortGroupName
+
+    # OVF Configuration values.
+    $OvfConfiguration.common.vsm_cli_passwd_0.value = $CliPassword
+    $OvfConfiguration.common.vsm_cli_en_passwd_0.value = $CliEnablePassword
+    $OvfConfiguration.common.vsm_hostname.value = $Hostname
+    $OvfConfiguration.common.vsm_ip_0.value = $IpAddress
+    $OvfConfiguration.common.vsm_netmask_0.value = $Netmask
+    $OvfConfiguration.common.vsm_gateway_0.value = $Gateway
+    $OvfConfiguration.common.vsm_dns1_0.value = $DnsServer
+    $OvfConfiguration.common.vsm_domain_0.value = $DnsDomain
+    $OvfConfiguration.common.vsm_ntp_0.value = $NtpServer
+    $OvfConfiguration.common.vsm_isSSHEnabled.value = $EnableSsh
+
+    #Deploy the OVA.
+    write-progress -Activity "Deploying NSX Manager OVA"
+    $VM = Import-vApp -Source $NsxManagerOvf -OvfConfiguration $OvfConfiguration -Name $Name -Location $ClusterName -VMHost $TargetVMHost -Datastore $DatastoreName
+
+    If ( $PSBoundParameters.ContainsKey('FolderName')) { 
+        write-progress -Activity "Moving NSX Manager VM to $folderName folder"
+        $VM | Move-VM -Location $FolderName
+        write-progress -Activity "Moving NSX Manager VM to $folderName folder" -completed
+    }  
+
+    if ( $PSBoundParameters.ContainsKey('ManagerMemoryGB') ) {
+        #Hack VM to reduce Ram for constrained environments.  This is NOT SUITABLE FOR PRODUCTION!!!
+        write-warning "Changing Memory configuration of NSX Manager VM to $ManagerMemoryGB GB.  Not supported for Production Use!"
+        get-Vm $Name | set-vm -MemoryGB $ManagerMemoryGB -confirm:$false | Get-VMResourceConfiguration | Set-VMResourceConfiguration -MemReservationMB 0 -CpuReservationMhz 0 | out-null
+    }
+
+    write-progress -Activity "Deploying NSX Manager OVA" -completed
+
+    if ( $StartVM )  { 
+        write-progress -Activity "Starting NSX Manager"
+        $VM | Start-VM
+        write-progress -Activity "Starting NSX Manager" -completed
+    } 
+
+    if ( $PSBoundParameters.ContainsKey('Wait')) {
+        #User wants to wait for Manager API to start.
+        $waitStep = 30
+        $Timer = 0
+        Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
+
+        do {
+
+            #sleep a while, the VM will take time to start fully..
+            start-sleep $WaitStep
+            $Timer += $WaitStep
+            try { 
+                Connect-NsxServer -server $IpAddress -Username 'admin' -password $CliPassword -DisableViAutoConnect -DefaultConnection $false | out-null
+                break
+            }
+            catch { 
+                Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100)
+            }
+
+            if ( $Timer -ge $WaitTimeout ) { 
+
+                #We exceeded the timeout - what does the user want to do? 
+                $message  = "Waited more than $WaitTimeout seconds for NSX Manager API to become available.  Recommend checking boot process, network config etc."
+                $question = "Continue waiting for NSX Manager?"
+                $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                if ($decision -eq 0) {
+                   #User waits...
+                   $Timer = 0
+                }
+                else {
+                    throw "Timeout waiting for NSX Manager appliance API to become available."
+                }
+            }
+        } while ( $true )
+
+        Write-Progress -Activity "Waiting for NSX Manager api to become available" -Completed
+
+    } 
+} 
+
+function Set-NsxManager {
+ 
+    <#
+    .SYNOPSIS
+    Configures appliance settings for an existing NSX Manager appliance. 
+
+    .DESCRIPTION
+    The NSX management plane is provided by NSX Manager, the centralized 
+    network management component of NSX. It provides the single point of 
+    configuration for NSX operations, and provides NSX's REST API.
+
+    The Set-NsxManager cmdlet allows configuration of the applaince settings 
+    such as syslog, vCenter registration and SSO configuration.
+
+    .EXAMPLE
+    Set-NsxManager -SyslogServer syslog.corp.local -SyslogPort 514 -SyslogProtocol tcp
+
+    Configures NSX Manager Syslog destination.
+
+    .EXAMPLE
+    Set-NsxManager -ssoserver sso.corp.local -ssousername administrator@vsphere.local -ssopassword VMware1! 
+
+    Configures the SSO Server registration of NSX Manager.
+
+    .EXAMPLE
+    Set-NsxManager -vcenterusername administrator@vsphere.local -vcenterpassword VMware1! -vcenterserver vcenter.corp.local
+
+    Configures the vCenter registration of NSX Manager.
+
+    #>
+
+    Param (
+
+        [Parameter (Mandatory=$True, ParameterSetName="Syslog")]
+            #Syslog server to which syslogs will be forwarded.
+            [ValidateNotNullOrEmpty()]
+            [string]$SyslogServer,
+        [Parameter (Mandatory=$False, ParameterSetName="Syslog")]
+            #TCP/UDP port on destination syslog server to connect to.
+            [ValidateRange (1,65535)]
+            [int]$SyslogPort=514,
+        [Parameter (Mandatory=$False, ParameterSetName="Syslog")]
+            #Syslog Protocol - either TCP or UDP.
+            [ValidateSet ("tcp","udp")]
+            [string]$SyslogProtocol="udp",
+        [Parameter (Mandatory=$True, ParameterSetName="Sso")]
+            #SSO Server to register this NSX Manager with.
+            [ValidateNotNullOrEmpty()]
+            [string]$SsoServer,
+        [Parameter (Mandatory=$False, ParameterSetName="Sso")]
+            #TCP Port on SSO server to connect to when registering.
+            [ValidateNotNullOrEmpty()]
+            [string]$SsoPort=443,
+        [Parameter (Mandatory=$True, ParameterSetName="Sso")]
+            #SSO Username used for registration.
+            [ValidateNotNullOrEmpty()]
+            [string]$SsoUserName,
+        [Parameter (Mandatory=$True, ParameterSetName="Sso")]
+            #SSO Password used for registration.
+            [ValidateNotNullOrEmpty()]
+            [string]$SsoPassword,
+        [Parameter (Mandatory=$True, ParameterSetName="vCenter")]
+            #vCenter server to register this NSX Manager with.
+            [ValidateNotNullOrEmpty()]
+            [string]$vCenterServer,
+        [Parameter (Mandatory=$True, ParameterSetName="vCenter")]
+            #UserName used for vCenter connection.
+            [ValidateNotNullOrEmpty()]
+            [string]$vCenterUserName,
+        [Parameter (Mandatory=$True, ParameterSetName="vCenter")]
+            #Password used for vCenter connection.
+            [ValidateNotNullOrEmpty()]
+            [string]$vCenterPassword,
+        [Parameter (Mandatory=$False, ParameterSetName="vCenter")]
+        [Parameter (Mandatory=$False, ParameterSetName="Sso")]
+            #SSL Thumbprint to validate certificate presented by SSO/vCenter server against.
+            [ValidateNotNullOrEmpty()]
+            [string]$SslThumbprint,
+        [Parameter (Mandatory=$False, ParameterSetName="vCenter")]
+        [Parameter (Mandatory=$False, ParameterSetName="Sso")]
+            #Accept any SSL certificate presented by SSO/vCenter. 
+            [switch]$AcceptAnyThumbprint=$True,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+        
+    )
+
+
+ 
+    [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+    
+    switch ( $PsCmdlet.ParameterSetName ) { 
+
+        "Syslog" {
+
+            #Create the XMLRoot
+
+            [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("syslogserver")
+            $xmlDoc.appendChild($xmlRoot) | out-null
+
+            #Create an Element and append it to the root
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "syslogServer" -xmlElementText $syslogServer.ToString()
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "port" -xmlElementText $SyslogPort.ToString()
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "protocol" -xmlElementText $SyslogProtocol
+            
+            $uri = "/api/1.0/appliance-management/system/syslogserver"
+            $method = "put"
+        }
+
+        "Sso" {
+
+
+            If ( (-not  $PsBoundParameters.ContainsKey('SslThumbprint')) -and
+                (-not $AcceptAnyThumbprint )) {
+                Throw "Must specify an SSL Thumbprint or AcceptAnyThumbprint"
+            }
+
+            #Need to get the SSL thumbprint for vCenter to send it in the request.
+            if ( $AcceptAnyThumbprint ) { 
+                try { 
+                    $Cert = Test-WebServerSSL $SsoServer -erroraction Stop
+                    #The cert thumprint comes back without colons separating the bytes, so we add them
+                    $Thumbprint = $Cert.Certificate.Thumbprint -replace '(..(?!$))','$1:'
+                }
+                catch { 
+                    Throw "An error occured retrieving the SSO SSL certificate.  $_"
+                }
+            }
+            else { 
+                $Thumbprint = $SslThumbprint
+            }
+
+            #Create the XMLRoot
+
+            [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("ssoConfig")
+            $xmlDoc.appendChild($xmlRoot) | out-null
+
+            #Create an Element and append it to the root
+            $SsoLookupServiceUrl = "https://$($SsoServer.ToString()):$($SsoPort.ToString())/lookupservice/sdk"
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "ssoLookupServiceUrl" -xmlElementText $SsoLookupServiceUrl
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "ssoAdminUsername" -xmlElementText $SsoUserName.ToString()
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "ssoAdminUserpassword" -xmlElementText $SsoPassword
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "certificateThumbprint" -xmlElementText $Thumbprint
+            
+            $method = "post"
+            $uri = "/api/2.0/services/ssoconfig"
+        }
+
+        "vCenter" {
+
+
+            If ( (-not  $PsBoundParameters.ContainsKey('SslThumbprint')) -and
+                (-not $AcceptAnyThumbprint )) {
+                Throw "Must specify an SSL Thumbprint or AcceptAnyThumbprint"
+            }
+
+            #Need to get the SSL thumbprint for vCenter to send it in the request.
+            if ( $AcceptAnyThumbprint ) { 
+                try { 
+                    $VcCert = Test-WebServerSSL $vCenterServer -erroraction Stop
+                    #The cert thumprint comes back without colons separating the bytes, so we add them
+                    $Thumbprint = $VcCert.Certificate.Thumbprint -replace '(..(?!$))','$1:'
+                }
+                catch { 
+                    Throw "An error occured retrieving the vCenter SSL certificate.  $_"
+                }
+            }
+            else { 
+                $Thumbprint = $SslThumbprint
+            }
+
+            #Build the XML
+            [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("vcInfo")
+            $xmlDoc.appendChild($xmlRoot) | out-null
+
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "ipAddress" -xmlElementText $vCenterServer.ToString()
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "userName" -xmlElementText $vCenterUserName.ToString()
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "password" -xmlElementText $vCenterPassword.ToString()
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "certificateThumbprint" -xmlElementText $Thumbprint
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "assignRoleToUser" -xmlElementText "true"
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "pluginDownloadServer" -xmlElementText ""
+            $method = "put"
+            $uri = "/api/2.0/services/vcconfig"
+
+        }
+    }
+
+    Invoke-NsxRestMethod -Method $method -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+}
+
+function Get-NsxManagerSsoConfig {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager SSO Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The SSO configuration of NSX Manager controls its registration with VMware
+    SSO server for authentication purposes.
+
+    The Get-NsxManagerSsoConfig cmdlet retrieves the SSO configuration and 
+    status of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerSsoConfig
+    
+    Retreives the SSO configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/services/ssoconfig"
+
+    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    
+    if ($response.SelectsingleNode('descendant::ssoConfig/vsmSolutionName')) { 
+        $ssoConfig = $response.ssoConfig
+
+        #Only if its configured do we get status
+        $URI = "/api/2.0/services/ssoconfig/status"
+        [System.Xml.XmlDocument]$status = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        Add-XmlElement -xmlRoot $ssoConfig -xmlElementName "Connected" -xmlElementText $status.boolean
+        #really?  Boolean?  What bonehead wrote this API?
+
+        $ssoConfig
+        
+    }
+}
+
+function Get-NsxManagerVcenterConfig {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager vCenter Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The vCenter configuration of NSX Manager controls its registration with 
+    VMware vCenter server for authentication purposes.
+
+    The Get-NsxManagerVcenterConfig cmdlet retrieves the vCenterconfiguration 
+    and status of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerSsoConfig
+    
+    Retreives the SSO configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/services/vcconfig"
+
+    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    
+    if ($response.SelectsingleNode('descendant::vcInfo/ipAddress')) { 
+        $vcConfig = $response.vcInfo
+
+        #Only if its configured do we get status
+        $URI = "/api/2.0/services/vcconfig/status"
+        [System.Xml.XmlDocument]$status = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        Add-XmlElement -xmlRoot $vcConfig -xmlElementName "Connected" -xmlElementText $status.vcConfigStatus.Connected
+
+        $vcConfig        
+    }
+}
+
+function Get-NsxManagerTimeSettings {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Time Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerTimeSettings cmdlet retrieves the time related
+    configuration of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerTimeSettings
+    
+    Retreives the time configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/system/timesettings"
+
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    #NSX 6.2.3/4 changed API schema here! :( Grrrr.  Have to test and return consistent object
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the timesettings child exists.
+        $result.timeSettings
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlTimeSettings = $xmlDoc.CreateElement('timeSettings')
+        $xmldoc.AppendChild($xmlTimeSettings) | out-null
+
+        [System.XML.XMLElement]$xmlNTPServerString = $xmlDoc.CreateElement('ntpServer')
+        $xmlTimeSettings.Appendchild($xmlNTPServerString) | out-null
+        
+        Add-XmlElement -xmlRoot $xmlNTPServerString -xmlElementName "string" -xmlElementText $result.ntpServer
+        Add-XmlElement -xmlRoot $xmlTimeSettings -xmlElementName "datetime" -xmlElementText $result.datetime
+        Add-XmlElement -xmlRoot $xmlTimeSettings -xmlElementName "timezone" -xmlElementText $result.timezone
+        $xmlTimeSettings
+    }  
+}
+
+function Get-NsxManagerSyslogServer {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Syslog Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerSyslog cmdlet retrieves the time related
+    configuration of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerSyslogServer
+    
+    Retreives the Syslog server configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/system/syslogserver"
+
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
+
+    #NSX 6.2.3/4 changed API schema here! :( Grrrr.  Have to test and return consistent object
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the timesettings child exists.
+        $result.syslogserver
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlSyslog = $xmlDoc.CreateElement('syslogserver')
+        $xmldoc.AppendChild($xmlSyslog) | out-null
+
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "syslogServer" -xmlElementText $result.syslogServer
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "port" -xmlElementText $result.port
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "protocol" -xmlElementText $result.protocol
+        $xmlSyslog
+    }  
+}
+
+function Get-NsxManagerNetwork {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Network Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerNetwork cmdlet retrieves the network related
+    configuration of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerNetwork
+    
+    Retreives the Syslog server configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/system/network"
+
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the child exists.
+        $result.network
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        #This hacky attempt to return a consistent object is definately not that universal - but there is fidelity lost in the API reponse that 
+        #prevents me from easily reconsructing the correct XML.  So I had to reverse engineer based on a 6.2.3 example response.  Hopefully this 
+        #will just go away quietly...
+
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlnetwork = $xmlDoc.CreateElement('network')
+        [System.XML.XMLElement]$xmlnetworkIPv4AddressDto = $xmlDoc.CreateElement('networkIPv4AddressDto')
+        $xmldoc.AppendChild($xmlnetwork) | out-null
+
+        if ( $result.networkIPv4AddressDto) { 
+            $xmlnetwork.AppendChild($xmlnetworkIPv4AddressDto) | out-null
+            Add-XmlElement -xmlRoot $xmlnetworkIPv4AddressDto -xmlElementName "ipv4Address" -xmlElementText $result.networkIPv4AddressDto.ipv4Address
+            Add-XmlElement -xmlRoot $xmlnetworkIPv4AddressDto -xmlElementName "ipv4NetMask" -xmlElementText $result.networkIPv4AddressDto.ipv4NetMask
+            Add-XmlElement -xmlRoot $xmlnetworkIPv4AddressDto -xmlElementName "ipv4Gateway" -xmlElementText $result.networkIPv4AddressDto.ipv4Gateway
+        }
+        
+        if ( $result.hostname ) { 
+            Add-XmlElement -xmlRoot $xmlnetwork -xmlElementName "hostName" -xmlElementText $result.hostname
+        }
+
+        if ( $result.domainName ) {
+            Add-XmlElement -xmlRoot $xmlnetwork -xmlElementName "domainName" -xmlElementText $result.domainName
+        }
+
+        if ( $result.networkIPv6AddressDto) { 
+
+            [System.XML.XMLElement]$xmlnetworkIPv6AddressDto = $xmlDoc.CreateElement('networkIPv6AddressDto')
+            $xmlnetwork.AppendChild($xmlnetworkIPv6AddressDto) | out-null
+            Add-XmlElement -xmlRoot $xmlnetworkIPv6AddressDto -xmlElementName "ipv6Address" -xmlElementText $result.networkIPv4AddressDto.ipv6Address
+            Add-XmlElement -xmlRoot $xmlnetworkIPv6AddressDto -xmlElementName "ipv6NetMask" -xmlElementText $result.networkIPv4AddressDto.ipv6NetMask
+            Add-XmlElement -xmlRoot $xmlnetworkIPv6AddressDto -xmlElementName "ipv6Gateway" -xmlElementText $result.networkIPv4AddressDto.ipv6Gateway
+        }
+
+        if ( $result.dns ) { 
+            
+            [System.XML.XMLElement]$xmldns = $xmlDoc.CreateElement('dns')
+            $xmlnetwork.AppendChild($xmldns) | out-null
+            foreach ( $server in $result.dns.ipv4Dns ) { 
+                Add-XmlElement -xmlRoot $xmldns -xmlElementName "ipv4Address" -xmlElementText $server
+            }
+            foreach ( $server in $result.dns.ipv6Dns ) { 
+                Add-XmlElement -xmlRoot $xmldns -xmlElementName "ipv6Address" -xmlElementText $server
+            }
+            if ( $result.dns.domainList ) { 
+                Add-XmlElement -xmlRoot $xmldns -xmlElementName "domainList" -xmlElementText $result.dns.domainList
+            }
+
+        }
+
+        $xmlnetwork
+    }  
+}
+
+function Get-NsxManagerBackup {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Backup Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerBackup cmdlet retrieves the backup related
+    configuration of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerBackup
+    
+    Retreives the Backup server configuration from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/backuprestore/backupsettings"
+
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the child exists.
+        $result.backupRestoreSettings
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        #This hacky attempt to return a consistent object is definately not that universal - but there is fidelity lost in the API reponse that 
+        #prevents me from easily reconsructing the correct XML.  So I had to reverse engineer based on a 6.2.3 example response.  Hopefully this 
+        #will just go away quietly...
+
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlbackupRestoreSettings = $xmlDoc.CreateElement('backupRestoreSettings')
 
 
 
+        foreach ( $Property in ($result |  get-member -MemberType NoteProperty )) { 
+            if ( $result."$($Property.Name)" -is [string]) {  
+                Add-XmlElement -xmlRoot $xmlbackupRestoreSettings -xmlElementName "$($Property.Name)" -xmlElementText $result."$($Property.Name)"
+            }
+            elseif ( $result."$($Property.Name)" -is [system.object]) {  
+                [System.XML.XMLElement]$xmlObjElement = $xmlDoc.CreateElement($Property.Name)
+                $xmlbackupRestoreSettings.AppendChild($xmlObjElement) | out-null
+                foreach ( $ElementProp in ($result."$($Property.Name)" | get-member -MemberType NoteProperty )) { 
+                    Add-XmlElement -xmlRoot $xmlObjElement -xmlElementName "$($ElementProp.Name)" -xmlElementText $result."$($Property.Name)"."$($ElementProp.Name)"
+                }
+            }
+        }
+        $xmlbackupRestoreSettings
+    }  
+}
 
-#########
-#########
-# L2 related functions
+function Get-NsxManagerComponentSummary {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Component Summary Information.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerComponentSummary cmdlet retrieves the component summary
+    related information of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerComponentSummary
+    
+    Retreives the component summary information from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/summary/components"
+
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the child exists.
+        $result.ComponentsSummary
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        #This hacky attempt to return a consistent object is definately not that universal - but there is fidelity lost in the API reponse that 
+        #prevents me from easily reconsructing the correct XML.  So I had to reverse engineer based on a 6.2.3 example response.  Hopefully this 
+        #will just go away quietly...
+
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlComponentsSummary = $xmlDoc.CreateElement('componentsSummary')
+        [System.XML.XMLElement]$xmlComponentsByGroup = $xmlDoc.CreateElement('componentsByGroup')
+        $xmldoc.AppendChild($xmlComponentsSummary) | out-null
+        $xmlComponentsSummary.AppendChild($xmlComponentsByGroup) | out-null
+
+        foreach ( $NamedProperty in (get-member -InputObject $result.componentsByGroup -MemberType NoteProperty)) { 
+
+            [System.XML.XMLElement]$xmlEntry = $xmlDoc.CreateElement('entry')
+            $xmlComponentsByGroup.AppendChild($xmlEntry) | out-null
+
+            Add-XmlElement -xmlRoot $xmlEntry -xmlElementName "string" -xmlElementText $NamedProperty.Name
+
+            [System.XML.XMLElement]$xmlComponents = $xmlDoc.CreateElement('components')
+            $xmlEntry.AppendChild($xmlComponents) | out-null
+
+            foreach ( $component in $result.componentsByGroup.($NamedProperty.name).components) { 
+            
+                [System.XML.XMLElement]$xmlComponent = $xmlDoc.CreateElement('component')
+                $xmlComponents.AppendChild($xmlComponent) | out-null
+
+                foreach ( $NoteProp in ($component | Get-Member -Membertype NoteProperty) ) { 
+
+                    #Check if I actually have a value
+                    if ( $component.($NoteProp.Name) ) { 
+                        
+                        $Property = $component.($NoteProp.Name)
+                        write-debug "GetType: $($Property.gettype())"
+                        write-debug "Is: $($Property -is [array])"
+
+                        #Switch on my value 
+                        switch ( $Property.gettype() )  { 
+
+                            "System.Object[]" { 
+                                write-debug "In: Array"
+                                [System.XML.XMLElement]$xmlCompArray = $xmlDoc.CreateElement($NoteProp.Name)
+                                $xmlComponent.AppendChild($xmlCompArray) | out-null
+                                foreach ( $member in $Property ) { 
+                                    #All examples ive seen have strings, but not sure if this will stand up to scrutiny...
+                                    Add-XmlElement -xmlRoot $xmlCompArray -xmlElementName $member.GetType().Name.tolower() -xmlElementText $member.ToString()
+                                }
+                            }
+
+                            "string" { 
+                                write-debug "In: String"
+                                Add-XmlElement -xmlRoot $xmlComponent -xmlElementName $NoteProp.Name -xmlElementText $Property
+                            }
+
+                            "bool" {
+                                write-debug "In: Bool"
+                                Add-XmlElement -xmlRoot $xmlComponent -xmlElementName $NoteProp.Name -xmlElementText $Property.ToString().tolower()
+                            }
+                            default { write-debug "Fuck it : $_" }
+                        }
+                    }
+                }
+            }
+        }
+        $xmlComponentsSummary
+    }  
+}
+
+function Get-NsxManagerSystemSummary {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager System Summary Information.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for 
+    vSphere.  
+
+    The Get-NsxManagerSystemSummary cmdlet retrieves the component summary
+    related information of the NSX Manager against which the command is run.
+    
+    .EXAMPLE
+    Get-NsxManagerSystemSummary
+    
+    Retreives the system summary information from the connected NSX Manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/1.0/appliance-management/summary/system"
+
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        #Assume the child exists.
+        $result.systemSummary
+    }
+    elseif ( $result -is [pscustomobject] ) { 
+        #Pre 6.2.3 manager response.
+        #This hacky attempt to return a consistent object is definately not that universal - but there is fidelity lost in the API reponse that 
+        #prevents me from easily reconsructing the correct XML.  So I had to reverse engineer based on a 6.2.3 example response.  Hopefully this 
+        #will just go away quietly...
+
+        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+        [System.XML.XMLElement]$xmlsystemSummary = $xmlDoc.CreateElement('systemSummary')
+
+
+
+        foreach ( $Property in ($result |  get-member -MemberType NoteProperty )) { 
+            if ( $result."$($Property.Name)" -is [string]) {  
+                Add-XmlElement -xmlRoot $xmlsystemSummary -xmlElementName "$($Property.Name)" -xmlElementText $result."$($Property.Name)"
+            }
+            elseif ( $result."$($Property.Name)" -is [system.object]) {  
+                [System.XML.XMLElement]$xmlObjElement = $xmlDoc.CreateElement($Property.Name)
+                $xmlsystemSummary.AppendChild($xmlObjElement) | out-null
+                foreach ( $ElementProp in ($result."$($Property.Name)" | get-member -MemberType NoteProperty )) { 
+                    Add-XmlElement -xmlRoot $xmlObjElement -xmlElementName "$($ElementProp.Name)" -xmlElementText $result."$($Property.Name)"."$($ElementProp.Name)"
+                }
+            }
+        }
+
+        $xmlsystemSummary
+    }  
+}
+
+function New-NsxController {
+    
+    <#
+    .SYNOPSIS
+    Deploys a new NSX Controller.
+
+    .DESCRIPTION
+    An NSX Controller is a member of the NSX Controller Cluster, and forms the 
+    highly available distributed control plane for NSX Logical Switching and NSX
+    Logical Routing.
+
+    The New-NsxController cmdlet deploys a new NSX Controller.
+    
+    .EXAMPLE
+    $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.0.1 -SubnetPrefixLength 24 -StartAddress 192.168.0.10 -endaddress 192.168.0.20
+    $ControllerCluster = Get-Cluster vSphereCluster
+    $ControllerDatastore = Get-Datastore $ControllerDatastoreName -server $Connection.VIConnection 
+    $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
+    New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
+
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$True)]
+            [ValidateScript({ Validate-IpPool $_ })]
+            [System.Xml.XmlElement]$IpPool,
+        [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
+        [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
+            [ValidateScript({
+                if ( $_ -eq $null ) { throw "Must specify Cluster."}
+                if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
+                $true
+            })]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,    
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,  
+        [Parameter (Mandatory=$true)]
+            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [object]$PortGroup,
+        [Parameter (Mandatory=$True)]
+            [string]$Password,
+        [Parameter ( Mandatory=$False)]
+            [switch]$Wait=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        [System.Xml.XmlDocument]$xmlDoc = New-Object System.Xml.XmlDocument
+        #Create the new route element.
+        $ControllerSpec = $xmlDoc.CreateElement('controllerSpec')
+
+        Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "ipPoolId" -xmlElementText $IpPool.objectId.ToString()
+
+        #The following is required (or error is thrown), but is ignored, as the
+        #OVF options end up setting the VM spec... :|
+        Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "deployType" -xmlElementText "small"
+
+        switch ( $PsCmdlet.ParameterSetName ) {
+
+            "Cluster" { 
+                Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "resourcePoolId" -xmlElementText $Cluster.ExtensionData.Moref.Value.ToString()
+            }
+            "ResourcePool" { 
+                Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "resourcePoolId" -xmlElementText $ResourcePool.ExtensionData.Moref.Value.ToString()
+            }
+        }
+
+        Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
+        Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
+        Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()
+        
+        $URI = "/api/2.0/vdn/controller"
+        $body = $ControllerSpec.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Adding a new controller to the NSX controller cluster.  ONLY three controllers are supported.  Then shalt thou count to three, no more, no less. Three shall be the number thou shalt count, and the number of the counting shall be three. Four shalt thou not count, neither count thou two, excepting that thou then proceed to three. Five is right out. Once the number three, being the third number, be reached, then lobbest thou thy Holy Hand Grenade of Antioch towards thy foe, who being naughty in My sight, shall snuff it."
+            $question = "Proceed with controller deployment?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deploying NSX Controller"
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+            write-progress -activity "Deploying NSX Controller" -completed
+            $Controller = Get-NsxController -connection $connection | Sort-Object -Property id | Select-Object -last 1
+            
+            if ( $Wait ) {
+                
+                #User wants to wait for Controller API to start.
+                $waitStep = 30
+                $WaitTimeout = 600
+                
+                $Timer = 0
+                while ( $Controller.status -ne 'RUNNING' ) {
+
+                    #Loop while the controller is deploying (not RUNNING)
+                    Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) "
+                    start-sleep $WaitStep
+                    $Timer += $WaitStep
+
+                    if ( $Timer -ge $WaitTimeout ) { 
+                        #We exceeded the timeout - what does the user want to do? 
+                        $message  = "Waited more than $WaitTimeout seconds for controller to become available.  Recommend checking boot process, network config etc."
+                        $question = "Continue waiting for Controller?"
+                        $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                        $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                        if ($decision -eq 0) {
+                           #User waits...
+                           $timer = 0
+                        }
+                        else {
+                            throw "Timeout waiting for controller $($controller.id) to become available."
+                        }  
+                    }
+
+                    $Controller = Get-Nsxcontroller -connection $connection -objectId ($controller.id)
+                }
+                Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed
+            }
+            $controller
+        }
+    }
+
+    end {}
+}
+
+function Get-NsxController {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Controllers.
+
+    .DESCRIPTION
+    An NSX Controller is a member of the NSX Controller Cluster, and forms the 
+    highly available distributed control plane for NSX Logical Switching and NSX
+    Logical Routing.
+
+    The Get-NsxController cmdlet deploys a new NSX Controller via the NSX API.
+    
+    .EXAMPLE
+    Get-NsxController
+    
+    Retreives all controller objects from NSX manager
+
+    .EXAMPLE
+    Get-NsxController -objectId Controller-1
+
+    Returns a specific NSX Controller object from NSX manager 
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$false,Position=1)]
+            #ObjectId of the NSX Controller to return.
+            [string]$ObjectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/vdn/controller"
+
+    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    
+        if ($response.SelectsingleNode('descendant::controllers/controller')) { 
+        if ( $PsBoundParameters.containsKey('objectId')) { 
+            $response.controllers.controller | ? { $_.Id -eq $ObjectId }
+        } else {
+            $response.controllers.controller
+        }
+    }
+}
+
+function New-NsxIpPool {
+    
+    <#
+    .SYNOPSIS
+    Creates a new IP Pool.
+
+    .DESCRIPTION
+    An IP Pool is a simple IPAM construct in NSX that simplifies automated IP 
+    address asignment for multiple NSX technologies including VTEP interfaces 
+    NSX Controllers.
+
+    The New-NsxIpPool cmdlet creates a new IP Pool on the connected NSX manager.
+    
+    #>
+
+      
+     param (
+
+        [Parameter (Mandatory=$true, Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$Gateway,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$SubnetPrefixLength,       
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$DnsServer1,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$DnsServer2,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$DnsSuffix,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$StartAddress,       
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$EndAddress, 
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+
+            
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlPool = $XMLDoc.CreateElement("ipamAddressPool")
+        $xmlDoc.Appendchild($xmlPool) | out-null
+
+        #Mandatory and default params 
+        Add-XmlElement -xmlRoot $xmlPool -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlPool -xmlElementName "prefixLength" -xmlElementText $SubnetPrefixLength
+        Add-XmlElement -xmlRoot $xmlPool -xmlElementName "gateway" -xmlElementText $Gateway
+
+        #Start/End of range
+        $xmlIpRanges = $xmlDoc.CreateElement("ipRanges")
+        $xmlIpRange = $xmlDoc.CreateElement("ipRangeDto")
+        $xmlPool.Appendchild($xmlIpRanges) | out-null
+        $xmlIpRanges.Appendchild($xmlIpRange) | out-null
+
+        Add-XmlElement -xmlRoot $xmlIpRange -xmlElementName "startAddress" -xmlElementText $StartAddress
+        Add-XmlElement -xmlRoot $xmlIpRange -xmlElementName "endAddress" -xmlElementText $EndAddress
+
+
+        #Optional params
+        if ( $PsBoundParameters.ContainsKey('DnsServer1')) { 
+            Add-XmlElement -xmlRoot $xmlPool -xmlElementName "dnsServer1" -xmlElementText $DnsServer1
+        }
+        if ( $PsBoundParameters.ContainsKey('DnsServer2')) { 
+            Add-XmlElement -xmlRoot $xmlPool -xmlElementName "dnsServer2" -xmlElementText $DnsServer2
+        }
+        if ( $PsBoundParameters.ContainsKey('DnsSuffix')) { 
+            Add-XmlElement -xmlRoot $xmlPool -xmlElementName "dnsSuffix" -xmlElementText $DnsSuffix
+        }
+
+
+        # #Do the post
+        $body = $xmlPool.OuterXml
+        $URI = "/api/2.0/services/ipam/pools/scope/globalroot-0"
+        Write-Progress -activity "Creating IP Pool."
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Creating IP Pool." -completed
+
+        Get-NsxIpPool -objectId $response -connection $connection
+
+    }
+
+    end {}
+}
+
+function Get-NsxIpPool {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Ip Pools.
+
+    .DESCRIPTION
+    An IP Pool is a simple IPAM construct in NSX that simplifies automated IP 
+    address asignment for multiple NSX technologies including VTEP interfaces 
+    NSX Controllers.
+
+
+    The Get-IpPool cmdlet retreives an NSX IP Pools
+    
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+            [string]$Name,
+        [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
+            [string]$ObjectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    if ( $PsBoundParameters.ContainsKey('ObjectId')) { 
+
+        $URI = "/api/2.0/services/ipam/pools/$ObjectId"
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        $response.ipamAddressPool
+    }
+    else { 
+
+        $URI = "/api/2.0/services/ipam/pools/scope/globalroot-0"
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        If ( $PsBoundParameters.ContainsKey("Name")) { 
+
+            $response.ipamAddressPools.ipamAddressPool | ? { $_.name -eq $Name }
+        }
+        else {     
+            $response.ipamAddressPools.ipamAddressPool
+        }
+    }
+}
+
+function Get-NsxVdsContext {
+
+    <#
+    .SYNOPSIS
+    Retrieves a VXLAN Prepared Virtual Distributed Switch.
+
+    .DESCRIPTION
+    Before it can be used for VXLAN, a VDS must be configured with appropriate 
+    teaming and MTU configuration.
+
+    The Get-NsxVdsContext cmdlet retreives VDS's that have been prepared for 
+    VXLAN configuration.
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+            [string]$Name,
+        [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
+            [string]$ObjectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    if ( $PsBoundParameters.ContainsKey('ObjectId')) { 
+
+        $URI = "/api/2.0/vdn/switches/$ObjectId"
+        [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        If ( $response | get-member -memberType properties vdsContext ) { 
+            $response.vdsContext
+        }
+    }
+    else { 
+
+        $URI = "/api/2.0/vdn/switches"
+        [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        If ( $PsBoundParameters.ContainsKey("Name")) { 
+
+            If ( $response | get-member -memberType properties vdsContexts ) { 
+                if ( $response.vdsContexts.SelectSingleNode("descendant::vdsContext")) { 
+                    $response.vdsContexts.vdsContext | ? { $_.switch.name -eq $Name }
+                }
+            }
+        }
+        else {
+            If ( $response | get-member -memberType properties vdsContexts ) { 
+                if ( $response.vdsContexts.SelectSingleNode("descendant::vdsContext")) { 
+                    $response.vdsContexts.vdsContext
+                }
+            }
+        }
+    }
+}
+
+function New-NsxVdsContext {
+    
+    <#
+    .SYNOPSIS
+    Creates a VXLAN Prepared Virtual Distributed Switch.
+
+    .DESCRIPTION
+    Before it can be used for VXLAN, a VDS must be configured with appropriate 
+    teaming and MTU configuration.
+
+    The New-NsxVdsContext cmdlet configures the specified VDS for use with 
+    VXLAN. 
+
+    #>
+
+      
+     param (
+
+        [Parameter (Mandatory=$true, Position=1)]
+            [ValidateScript({ Validate-DistributedSwitch $_ })]
+            [object]$VirtualDistributedSwitch,
+        [Parameter (Mandatory=$true)]
+            [ValidateSet("FAILOVER_ORDER", "ETHER_CHANNEL", "LACP_ACTIVE", "LACP_PASSIVE","LOADBALANCE_LOADBASED", "LOADBALANCE_SRCID", "LOADBALANCE_SRCMAC", "LACP_V2",IgnoreCase=$false)]
+            [string]$Teaming,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(1600,9000)]
+            [int]$Mtu,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+
+            
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlContext = $XMLDoc.CreateElement("nwFabricFeatureConfig")
+        $xmlDoc.Appendchild($xmlContext) | out-null
+
+
+        Add-XmlElement -xmlRoot $xmlContext -xmlElementName "featureId" -xmlElementText "com.vmware.vshield.vsm.vxlan"
+
+        #configSpec
+        $xmlResourceConfig = $xmlDoc.CreateElement("resourceConfig")
+        $xmlConfigSpec = $xmlDoc.CreateElement("configSpec")
+        $xmlConfigSpec.SetAttribute("class","vdsContext")
+        $xmlContext.Appendchild($xmlResourceConfig) | out-null
+        $xmlResourceConfig.Appendchild($xmlConfigSpec) | out-null
+
+        Add-XmlElement -xmlRoot $xmlConfigSpec -xmlElementName "teaming" -xmlElementText $Teaming.toString()
+        Add-XmlElement -xmlRoot $xmlConfigSpec -xmlElementName "mtu" -xmlElementText $Mtu.ToString()
+
+        $xmlSwitch = $xmlDoc.CreateElement("switch")
+        $xmlConfigSpec.Appendchild($xmlSwitch) | out-null
+
+        Add-XmlElement -xmlRoot $xmlSwitch -xmlElementName "objectId" -xmlElementText $VirtualDistributedSwitch.Extensiondata.Moref.Value.ToString()
+
+        Add-XmlElement -xmlRoot $xmlResourceConfig -xmlElementName "resourceId" -xmlElementText $VirtualDistributedSwitch.Extensiondata.Moref.Value.ToString()
+
+
+
+        # #Do the post
+        $body = $xmlContext.OuterXml
+        $URI = "/api/2.0/nwfabric/configure"
+        Write-Progress -activity "Configuring VDS context on VDS $($VirtualDistributedSwitch.Name)."
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Configuring VDS context on VDS $($VirtualDistributedSwitch.Name)." -completed
+
+        Get-NsxVdsContext -objectId $VirtualDistributedSwitch.Extensiondata.Moref.Value -connection $connection
+
+
+    }
+
+    end {}
+}
+
+function Remove-NsxVdsContext {
+
+    <#
+    .SYNOPSIS
+    Removes the VXLAN preparation of a Virtual Distributed Switch.
+
+    .DESCRIPTION
+    Before it can be used for VXLAN, a VDS must be configured with appropriate 
+    teaming and MTU configuration.
+
+    The Remove-NsxVdsContext cmdlet unconfigures the specified VDS for use with 
+    VXLAN. 
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-VdsContext $_ })]
+            [System.Xml.XmlElement]$VdsContext,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Vds Context removal is permanent."
+            $question = "Proceed with removal of Vds Context for Vds $($VdsContext.Switch.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/2.0/vdn/switches/$($VdsContext.Switch.ObjectId)"
+            Write-Progress -activity "Remove Vds Context for Vds $($VdsContext.Switch.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            Write-Progress -activity "Remove Vds Context for Vds $($VdsContext.Switch.Name)" -completed
+
+        }
+    }
+
+    end {}
+}
+
+function New-NsxClusterVxlanConfig { 
+    
+    <#
+    .SYNOPSIS
+    Configures a vSphere cluster for VXLAN.
+
+    .DESCRIPTION
+    VXLAN configuration of a vSphere cluster involves associating the cluster 
+    with an NSX prepared VDS, and configuration of VLAN id for the atuomatically 
+    created VTEP portgroup, VTEP count and VTEP addressing.
+
+    If the VDS specified is not configured for VXLAN, then an error is thrown.
+    Use New-NsxVdsContext to configure a VDS for use with NSX.
+
+    If the specified cluster is not prepared with the necessary VIBs installed,
+    then installation occurs automatically.  Use Install-NsxClusterVibs to 
+    prepare a clusters hosts for use with NSX without configuring VXLAN
+
+    If an IP Pool is not specified, DHCP will be used to configure the host 
+    VTEPs.
+
+    The New-NsxClusterVxlan cmdlet will perform the VXLAN configuration of all 
+    hosts within the specified cluster.
+
+    #>
+
+      
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
+        [Parameter (Mandatory=$true)]
+            [ValidateScript({ Validate-DistributedSwitch $_ })]
+            [object]$VirtualDistributedSwitch,
+        [Parameter (Mandatory=$False)]
+            [ValidateScript({ Validate-IpPool $_ })]
+            [System.Xml.XmlElement]$IpPool,
+        [Parameter (Mandatory=$False)]
+            [int]$VlanId="",
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullorEmpty()]
+            [int]$VtepCount,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullorEmpty()]
+            [int]$VxlanPrepTimeout=120,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+            
+        $VxlanWaitTime = 10 #seconds 
+
+        #Check that the VDS has a VDS context in NSX and is configured.
+        try { 
+            $vdscontext = Get-NsxVdsContext -objectId $VirtualDistributedSwitch.Extensiondata.MoRef.Value -connection $connection 
+        }
+        catch {
+            throw "Specified VDS is not configured for NSX.  Use New-NsxVdsContext to configure the VDS and try again."
+        }
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlContext = $XMLDoc.CreateElement("nwFabricFeatureConfig")
+        $xmlDoc.Appendchild($xmlContext) | out-null
+
+
+        Add-XmlElement -xmlRoot $xmlContext -xmlElementName "featureId" -xmlElementText "com.vmware.vshield.vsm.vxlan"
+
+        #configSpec
+        $xmlResourceConfig = $xmlDoc.CreateElement("resourceConfig")
+        $xmlConfigSpec = $xmlDoc.CreateElement("configSpec")
+        $xmlConfigSpec.SetAttribute("class","clusterMappingSpec")
+        $xmlContext.Appendchild($xmlResourceConfig) | out-null
+        $xmlResourceConfig.Appendchild($xmlConfigSpec) | out-null
+
+        if ( $PSBoundParameters.ContainsKey('IpPool')) { 
+            Add-XmlElement -xmlRoot $xmlConfigSpec -xmlElementName "ipPoolId" -xmlElementText $IpPool.objectId.toString()
+        }
+        Add-XmlElement -xmlRoot $xmlConfigSpec -xmlElementName "vlanId" -xmlElementText $VlanId.ToString()
+        Add-XmlElement -xmlRoot $xmlConfigSpec -xmlElementName "vmknicCount" -xmlElementText $VtepCount.ToString()
+
+        $xmlSwitch = $xmlDoc.CreateElement("switch")
+        $xmlConfigSpec.Appendchild($xmlSwitch) | out-null
+
+        Add-XmlElement -xmlRoot $xmlSwitch -xmlElementName "objectId" -xmlElementText $VirtualDistributedSwitch.Extensiondata.Moref.Value.ToString()
+        Add-XmlElement -xmlRoot $xmlResourceConfig -xmlElementName "resourceId" -xmlElementText $Cluster.Extensiondata.Moref.Value.ToString()
+
+        Write-Progress -id 1 -activity "Configuring VXLAN on cluster $($Cluster.Name)." -status "In Progress..."
+
+        # #Do the post
+        $body = $xmlContext.OuterXml
+        $URI = "/api/2.0/nwfabric/configure"
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+
+        #Get Initial Status 
+        $status = $cluster | get-NsxClusterStatus -connection $connection
+        $hostprep = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.nwfabric.hostPrep' -statusxml $status
+        $fw = Get-FeatureStatus -featurestring 'com.vmware.vshield.firewall' -statusxml $status
+        $messagingInfra = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.messagingInfra' -statusxml $status
+        $VxlanConfig = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.vxlan' -statusxml $status
+
+        $timer = 0
+        while ( ($hostprep -ne 'GREEN') -or
+                ($fw -ne 'GREEN') -or
+                ($messagingInfra -ne 'GREEN') -or
+                ($VxlanConfig -ne 'GREEN')) {
+
+            start-sleep $VxlanWaitTime
+            $timer += $VxlanWaitTime
+            
+            #Get Status
+            $status = $cluster | get-NsxClusterStatus -connection $connection
+            $hostprep = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.nwfabric.hostPrep' -statusxml $status
+            $fw = Get-FeatureStatus -featurestring 'com.vmware.vshield.firewall' -statusxml $status
+            $messagingInfra = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.messagingInfra' -statusxml $status
+            $VxlanConfig = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.vxlan' -statusxml $status
+
+            #Check Status
+            if ( $hostprep -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
+            Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status
+
+            if ( $fw -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
+            Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status
+
+            if ( $messagingInfra -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
+            Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status
+
+            if ( $VxlanConfig -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
+            Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -status $status
+
+            if ($Timer -ge $VxlanPrepTimeout) {
+
+                $message  = "Cluster $($cluster.name) preparation has not completed within the timeout period."
+                $question = "Continue waiting (y) or quit (n)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 0)
+                if ( $decision -eq 1 ) {
+                    Throw "$($cluster.name) cluster preparation failed or timed out."
+                }
+                $Timer = 0
+            }
+        }
+
+        Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
+        Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed
+        Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed
+        Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed
+        Write-Progress -id 1 -activity "Configuring VXLAN on cluster $($Cluster.Name)." -completed
+        $cluster | get-NsxClusterStatus -connection $connection
+        
+    }
+
+    end {}
+}
+
+function Install-NsxCluster { 
+    
+    <#
+    .SYNOPSIS
+    Prepares a vSphere cluster for use with NSX.
+
+    .DESCRIPTION
+    Preparation of a vSphere cluster involves installation of the vibs required
+    for VXLAN, Logical routing and Distributed Firewall.
+
+    The Install-NsxCluster cmdlet will perform the vib installation of all hosts 
+    within the specified cluster.
+
+    #>
+
+      
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
+        [PArameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [int]$VxlanPrepTimeout=120,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+            
+        $VxlanWaitTime = 10 #seconds 
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlContext = $XMLDoc.CreateElement("nwFabricFeatureConfig")
+        $xmlDoc.Appendchild($xmlContext) | out-null
+
+
+        #configSpec
+        $xmlResourceConfig = $xmlDoc.CreateElement("resourceConfig")
+        $xmlContext.Appendchild($xmlResourceConfig) | out-null
+
+        Add-XmlElement -xmlRoot $xmlResourceConfig -xmlElementName "resourceId" -xmlElementText $Cluster.Extensiondata.Moref.Value.ToString()
+
+        Write-Progress -id 1 -activity "Preparing cluster $($Cluster.Name)." -status "In Progress..."
+
+        # #Do the post
+        $body = $xmlContext.OuterXml
+        $URI = "/api/2.0/nwfabric/configure"
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+         
+        #Get Initial Status 
+        $status = $cluster | get-NsxClusterStatus -connection $Connection
+        $hostprep = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.nwfabric.hostPrep' -statusxml $status
+        $fw = Get-FeatureStatus -featurestring 'com.vmware.vshield.firewall' -statusxml $status
+        $messagingInfra = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.messagingInfra' -statusxml $status
+      
+        $timer = 0
+        while ( ($hostprep -ne 'GREEN') -or
+                ($fw -ne 'GREEN') -or
+                ($messagingInfra -ne 'GREEN') ) {
+
+            start-sleep $VxlanWaitTime
+            $timer += $VxlanWaitTime
+
+            #Get Status
+            $status = $cluster | get-NsxClusterStatus -connection $Connection
+            $hostprep = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.nwfabric.hostPrep' -statusxml $status
+            $fw = Get-FeatureStatus -featurestring 'com.vmware.vshield.firewall' -statusxml $status
+            $messagingInfra = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.messagingInfra' -statusxml $status
+
+            #Check Status
+            if ( $hostprep -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
+            Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status
+
+            if ( $fw -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
+            Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status
+
+            if ( $messagingInfra -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
+            Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status
+
+            if ($Timer -ge $VxlanPrepTimeout) { 
+                $message  = "Cluster $($cluster.name) preparation has not completed within the timeout period."
+                $question = "Continue waiting (y) or quit (n)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 0)
+                if ( $decision -eq 1 ) {
+                    Throw "$($cluster.name) cluster preparation failed or timed out."
+                }
+                $Timer = 0            }
+        }
+
+        Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
+        Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed
+        Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed
+        Write-Progress -id 1 -activity "Preparing cluster $($Cluster.Name)." -status "In Progress..." -completed
+        $cluster | get-NsxClusterStatus -connection $connection
+    }
+
+    end {}
+}
+
+function Remove-NsxCluster { 
+    
+    <#
+    .SYNOPSIS
+    Unprepares a vSphere cluster for use with NSX.
+
+    .DESCRIPTION
+    Preparation of a vSphere cluster involves installation of the vibs required
+    for VXLAN, Logical routing and Distributed Firewall.
+
+    The Remove-NsxCluster cmdlet will perform the vib removal of all hosts 
+    within the specified cluster and will also unconfigure VXLAN if configured.
+
+    #>
+
+      
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [int]$VxlanPrepTimeout=120,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+            
+        $VxlanWaitTime = 10 #seconds 
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlContext = $XMLDoc.CreateElement("nwFabricFeatureConfig")
+        $xmlDoc.Appendchild($xmlContext) | out-null
+
+
+        #configSpec
+        $xmlResourceConfig = $xmlDoc.CreateElement("resourceConfig")
+        $xmlContext.Appendchild($xmlResourceConfig) | out-null
+
+        Add-XmlElement -xmlRoot $xmlResourceConfig -xmlElementName "resourceId" -xmlElementText $Cluster.Extensiondata.Moref.Value.ToString()
+
+
+        if ( $confirm ) { 
+            $message  = "Unpreparation of cluster $($Cluster.Name) will result in unconfiguration of VXLAN, removal of Distributed Firewall and uninstallation of all NSX VIBs."
+            $question = "Proceed with un-preparation of cluster $($Cluster.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+
+            ###############
+            #Even though it *usually* unconfigures VXLAN automatically, ive had several instances where an unprepped 
+            #cluster had VXLAN config still present, and prevented future prep attempts from succeeding.  
+            #This may not resolve this issue, but hopefully will... 
+            $cluster | Remove-NsxClusterVxlanConfig -confirm:$false -connection $connection| out-null
+
+            #Now we actually do the unprep...
+            ##############
+            Write-Progress -id 1 -activity "Unpreparing cluster $($Cluster.Name)." -status "In Progress..."
+
+            # #Do the post
+            $body = $xmlContext.OuterXml
+            $URI = "/api/2.0/nwfabric/configure"
+            $response = invoke-nsxrestmethod -method "delete" -uri $URI -body $body -connection $connection
+
+            #Get Initial Status 
+            $status = $cluster | get-NsxClusterStatus -connection $connection
+            $hostprep = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.nwfabric.hostPrep' -statusxml $status
+            $fw = Get-FeatureStatus -featurestring 'com.vmware.vshield.firewall' -statusxml $status
+            $messagingInfra = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.messagingInfra' -statusxml $status
+          
+            $timer = 0
+            while ( ($hostprep -ne 'UNKNOWN') -or
+                    ($fw -ne 'UNKNOWN') -or
+                    ($messagingInfra -ne 'UNKNOWN') ) {
+
+                start-sleep $VxlanWaitTime
+                $timer += $VxlanWaitTime
+               
+                #Get Status
+                $status = $cluster | get-NsxClusterStatus -connection $connection
+                $hostprep = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.nwfabric.hostPrep' -statusxml $status
+                $fw = Get-FeatureStatus -featurestring 'com.vmware.vshield.firewall' -statusxml $status
+                $messagingInfra = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.messagingInfra' -statusxml $status
+
+                #Check Status
+                if ( $hostprep -eq 'UNKNOWN' ) { $status = "Complete"} else { $status = "Waiting" }
+                Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status
+
+                if ( $fw -eq 'UNKNOWN' ) { $status = "Complete"} else { $status = "Waiting" }
+                Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status
+
+                if ( $messagingInfra -eq 'UNKNOWN' ) { $status = "Complete"} else { $status = "Waiting" }
+                Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status
+
+                if ($Timer -ge $VxlanPrepTimeout) { 
+
+                    #Need to do some detection of hosts needing reboot here and prompt to do it automatically...
+
+                    $message  = "Cluster $($cluster.name) unpreparation has not completed within the timeout period."
+                    $question = "Continue waiting (y) or quit (n)?"
+
+                    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 0)
+                    if ( $decision -eq 1 ) {
+                        Throw "$($cluster.name) cluster unpreparation failed or timed out."
+                    }
+                    $Timer = 0            }
+            }
+
+            Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
+            Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed
+            Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed
+            Write-Progress -id 1 -activity "Unpreparing cluster $($Cluster.Name)." -status "In Progress..." -completed
+            $cluster | get-NsxClusterStatus -connection $connection
+        }
+    }
+
+    end {}
+}
+
+function Remove-NsxClusterVxlanConfig { 
+    
+    <#
+    .SYNOPSIS
+    Unconfigures VXLAN on an NSX prepared cluster.
+
+    .DESCRIPTION
+    VXLAN configuration of a vSphere cluster involves associating the cluster 
+    with an NSX prepared VDS, and configuration of VLAN id for the atuomatically 
+    created VTEP portgroup, VTEP count and VTEP addressing.
+
+    The Remove-NsxClusterVxlan cmdlet will perform the unconfiguration of VXLAN
+    on all hosts within the specified cluster only.  VIBs will remain installed.
+
+    #>
+
+      
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [int]$VxlanPrepTimeout=120,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+            
+        $VxlanWaitTime = 10 #seconds 
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlContext = $XMLDoc.CreateElement("nwFabricFeatureConfig")
+        $xmlDoc.Appendchild($xmlContext) | out-null
+
+        #ResourceID (must specific explicitly VXLAN)
+        Add-XmlElement -xmlRoot $xmlContext -xmlElementName "featureId" -xmlElementText "com.vmware.vshield.vsm.vxlan"
+
+        #configSpec
+        $xmlResourceConfig = $xmlDoc.CreateElement("resourceConfig")
+        $xmlContext.Appendchild($xmlResourceConfig) | out-null
+
+        Add-XmlElement -xmlRoot $xmlResourceConfig -xmlElementName "resourceId" -xmlElementText $Cluster.Extensiondata.Moref.Value.ToString()
+
+
+        if ( $confirm ) { 
+            $message  = "Unconfiguration of VXLAN for cluster $($Cluster.Name) will result in loss of communication for any VMs connected to logical switches running in this cluster."
+            $question = "Proceed with unconfiguration of VXLAN for cluster $($Cluster.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+
+            Write-Progress -id 1 -activity "Unconfiguring VXLAN on $($Cluster.Name)." -status "In Progress..."
+
+            # #Do the post
+            $body = $xmlContext.OuterXml
+            $URI = "/api/2.0/nwfabric/configure"
+            $response = invoke-nsxrestmethod -method "delete" -uri $URI -body $body -connection $connection
+
+            #Get Initial Status 
+            $status = $cluster | get-NsxClusterStatus -connection $connection
+            $VxlanConfig = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.vxlan' -statusxml $status
+
+            $timer = 0
+            while ( $VxlanConfig -ne 'UNKNOWN' ) {
+
+                start-sleep $VxlanWaitTime
+                $timer += $VxlanWaitTime
+               
+                #Get Status
+                $status = $cluster | get-NsxClusterStatus -connection $connection
+                $VxlanConfig = Get-FeatureStatus -featurestring 'com.vmware.vshield.vsm.vxlan' -statusxml $status
+
+                #Check Status
+                if ( $VxlanConfig -eq 'UNKNOWN' ) { $status = "Complete"} else { $status = "Waiting" }
+                Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -status $status
+
+                if ($Timer -ge $VxlanPrepTimeout) { 
+                    $message  = "Cluster $($cluster.name) VXLAN unconfiguration has not completed within the timeout period."
+                    $question = "Continue waiting (y) or quit (n)?"
+
+                    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 0)
+                    if ( $decision -eq 1 ) {
+                        Throw "$($cluster.name) cluster VXLAN unconfiguration failed or timed out."
+                    }
+                    $Timer = 0   
+                }
+            }
+            
+            Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed
+            Write-Progress -id 1 -activity "Unconfiguring VXLAN on $($Cluster.Name)." -status "In Progress..." -completed
+            $cluster | get-NsxClusterStatus -connection $connection | ? { $_.featureId -eq "com.vmware.vshield.vsm.vxlan" }
+        }
+    }
+
+    end {}
+}
+
+function New-NsxSegmentIdRange {
+    
+    <#
+    .SYNOPSIS
+    Creates a new VXLAN Segment ID Range.
+
+    .DESCRIPTION
+    Segment ID Ranges provide a method for NSX to allocate a unique identifier 
+    (VNI) to each logical switch created within NSX.  
+
+    The New-NsxSegmentIdRange cmdlet creates a new Segment range on the 
+    connected NSX manager.
+    
+    #>
+
+      
+     param (
+
+        [Parameter (Mandatory=$true, Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,       
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(5000,16777215)]
+            [int]$Begin,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(5000,16777215)]
+            [int]$End,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+
+            
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRange = $XMLDoc.CreateElement("segmentRange")
+        $xmlDoc.Appendchild($xmlRange) | out-null
+
+        #Mandatory and default params 
+        Add-XmlElement -xmlRoot $xmlRange -xmlElementName "name" -xmlElementText $Name.ToString()
+        Add-XmlElement -xmlRoot $xmlRange -xmlElementName "begin" -xmlElementText $Begin.ToString()
+        Add-XmlElement -xmlRoot $xmlRange -xmlElementName "end" -xmlElementText $End.ToString()
+
+        #Optional params
+        if ( $PsBoundParameters.ContainsKey('Description')) { 
+            Add-XmlElement -xmlRoot $xmlRange -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+
+        # #Do the post
+        $body = $xmlRange.OuterXml
+        $URI = "/api/2.0/vdn/config/segments"
+        Write-Progress -activity "Creating Segment Id Range"
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Creating Segment Id Range" -completed
+
+        Get-NsxSegmentIdRange -objectId $response.segmentRange.id -connection $connection
+
+    }
+
+    end {}
+}
+
+function Get-NsxSegmentIdRange {
+
+    <#
+    .SYNOPSIS
+    Reieves VXLAN Segment ID Ranges.
+
+    .DESCRIPTION
+    Segment ID Ranges provide a method for NSX to allocate a unique identifier 
+    (VNI) to each logical switch created within NSX.  
+
+    The Get-NsxSegmentIdRange cmdlet retreives Segment Ranges from the 
+    connected NSX manager.
+    
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+            [string]$Name,
+        [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
+            [string]$ObjectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    if ( $PsBoundParameters.ContainsKey('ObjectId')) { 
+
+        $URI = "/api/2.0/vdn/config/segments/$ObjectId"
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        $response.segmentRange
+    }
+    else { 
+
+        $URI = "/api/2.0/vdn/config/segments"
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        If ( $PsBoundParameters.ContainsKey("Name")) { 
+
+            $response.segmentRanges.segmentRange | ? { $_.name -eq $Name }
+        }
+        else {     
+            $response.segmentRanges.segmentRange
+        }
+    }
+}
+
+function Remove-NsxSegmentIdRange {
+
+    <#
+    .SYNOPSIS
+    Removes a Segment Id Range
+
+    .DESCRIPTION
+    Segment ID Ranges provide a method for NSX to allocate a unique identifier 
+    (VNI) to each logical switch created within NSX.  
+
+    The Remove-NsxSegmentIdRange cmdlet removes the specified Segment Id Range
+    from the connected NSX manager.
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-SegmentIdRange $_ })]
+            [System.Xml.XmlElement]$SegmentIdRange,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Segment Id Range removal is permanent."
+            $question = "Proceed with removal of Segment Id Range $($SegmentIdRange.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/2.0/vdn/config/segments/$($SegmentIdRange.Id)"
+            Write-Progress -activity "Remove Segment Id Range $($SegmentIdRange.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            Write-Progress -activity "Remove Segment Id Range $($SegmentIdRange.Name)" -completed
+
+        }
+    }
+
+    end {}
+}
 
 function Get-NsxTransportZone {
 
@@ -2350,22 +5895,196 @@ function Get-NsxTransportZone {
     #>
 
 
+ [CmdLetBinding(DefaultParameterSetName="Name")]
+
     param (
-        [Parameter (Mandatory=$false,Position=1)]
-        [string]$name
+
+        [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+            [string]$name,
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+            [ValidateNotNullOrEmpty()]
+            [string]$objectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
-    $URI = "/api/2.0/vdn/scopes"
-    $response = invoke-nsxrestmethod -method "get" -uri $URI
-    
-    if ( $name ) { 
-        $response.vdnscopes.vdnscope | ? { $_.name -eq $name }
-    } else {
-        $response.vdnscopes.vdnscope
+    if ( $psCmdlet.ParameterSetName -eq "objectId" ) {
+
+        #Just getting a single Transport Zone by ID
+        $URI = "/api/2.0/vdn/scopes/$objectId"
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        $response.vdnscope
+    }
+    else { 
+
+        #Getting all TZ and optionally filtering on name
+        $URI = "/api/2.0/vdn/scopes"
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        
+        if ( $PsBoundParameters.containsKey('name') ) { 
+            $response.vdnscopes.vdnscope | ? { $_.name -eq $name }
+        } else {
+            $response.vdnscopes.vdnscope
+        }
     }
 }
-Export-ModuleMember -Function Get-NsxTransportZone
+
+function New-NsxTransportZone {
+    
+    <#
+    .SYNOPSIS
+    Creates a new Nsx Transport Zone.
+
+    .DESCRIPTION
+    An NSX Transport Zone defines the maximum scope for logical switches that 
+    are bound to it.  NSX Prepared clusters are added to Transport Zones which
+    allows VMs on them to attach to any logical switch bound to the transport 
+    zone.  
+
+    The New-NsxTransportZone cmdlet creates a new Transport Zone on the 
+    connected NSX manager.
+    
+    At least one cluster is required to be a member of the Transport Zone at 
+    creation time.
+
+    #>
+
+      
+     param (
+
+        [Parameter (Mandatory=$true, Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,       
+        [Parameter (Mandatory=$true)]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop[]]$Cluster,
+        [Parameter (Mandatory=$true)]
+            [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE",IgnoreCase=$false)]
+            [string]$ControlPlaneMode,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+
+            
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlScope = $XMLDoc.CreateElement("vdnScope")
+        $xmlDoc.Appendchild($xmlScope) | out-null
+
+        #Mandatory and default params 
+        Add-XmlElement -xmlRoot $xmlScope -xmlElementName "name" -xmlElementText $Name.ToString()
+        Add-XmlElement -xmlRoot $xmlScope -xmlElementName "controlPlaneMode" -xmlElementText $ControlPlaneMode.ToString()
+        
+        #Dont ask me, I just work here :|
+        [System.XML.XMLElement]$xmlClusters = $XMLDoc.CreateElement("clusters")
+        $xmlScope.Appendchild($xmlClusters) | out-null
+        foreach ( $instance in $cluster ) { 
+            [System.XML.XMLElement]$xmlCluster1 = $XMLDoc.CreateElement("cluster")
+            $xmlClusters.Appendchild($xmlCluster1) | out-null
+            [System.XML.XMLElement]$xmlCluster2 = $XMLDoc.CreateElement("cluster")
+            $xmlCluster1.Appendchild($xmlCluster2) | out-null
+            Add-XmlElement -xmlRoot $xmlCluster2 -xmlElementName "objectId" -xmlElementText $Instance.ExtensionData.Moref.Value
+        }
+
+        #Optional params
+        if ( $PsBoundParameters.ContainsKey('Description')) { 
+            Add-XmlElement -xmlRoot $xmlScope -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+
+        # #Do the post
+        $body = $xmlScope.OuterXml
+        $URI = "/api/2.0/vdn/scopes"
+        Write-Progress -activity "Creating Transport Zone."
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Creating Transport Zone." -completed
+
+        Get-NsxTransportZone -objectId $response -connection $connection
+
+    }
+
+    end {}
+}
+
+function Remove-NsxTransportZone {
+
+    <#
+    .SYNOPSIS
+    Removes an NSX Transport Zone.
+
+    .DESCRIPTION
+    An NSX Transport Zone defines the maximum scope for logical switches that 
+    are bound to it.  NSX Prepared clusters are added to Transport Zones which
+    allows VMs on them to attach to any logical switch bound to the transport 
+    zone.  
+
+    The Remove-NsxTransportZone cmdlet removes an existing Transport Zone on the 
+    connected NSX manager.
+    
+    If any logical switches are bound to the Transport Zone, the attempt to 
+    remove the Transport Zone will fail.
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-TransportZone $_ })]
+            [System.Xml.XmlElement]$TransportZone,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Transport Zone removal is permanent."
+            $question = "Proceed with removal of Transport Zone $($TransportZone.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)"
+            Write-Progress -activity "Remove Transport Zone $($TransportZone.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            Write-Progress -activity "Remove Transport Zone $($TransportZone.Name)" -completed
+
+        }
+    }
+
+    end {}
+}
+
+#########
+#########
+# L2 related functions
+
+
 
 function Get-NsxLogicalSwitch {
 
@@ -2395,14 +6114,20 @@ function Get-NsxLogicalSwitch {
  
     param (
 
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
+        [Parameter (Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
             [ValidateNotNullOrEmpty()]
-            [System.Xml.XmlElement]$vdnScope,
+            [alias("vdnScope")]
+            [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$false,Position=1)]
-            [string]$name,
+            [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="virtualWire")]
             [ValidateNotNullOrEmpty()]
-            [string]$virtualWireId
+            [alias("virtualWireId")]
+            [string]$ObjectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -2415,8 +6140,8 @@ function Get-NsxLogicalSwitch {
         if ( $psCmdlet.ParameterSetName -eq "virtualWire" ) {
 
             #Just getting a single named Logical Switch
-            $URI = "/api/2.0/vdn/virtualwires/$virtualWireId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $URI = "/api/2.0/vdn/virtualwires/$ObjectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $response.virtualWire
 
         }
@@ -2424,8 +6149,13 @@ function Get-NsxLogicalSwitch {
             
             #Getting all LS in a given VDNScope
             $lspagesize = 10        
-            $URI = "/api/2.0/vdn/scopes/$($vdnScope.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            if ( $PSBoundParameters.ContainsKey('vndScope')) { 
+                $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
+            }
+            else { 
+                $URI = "/api/2.0/vdn/virtualwires?pagesize=$lspagesize&startindex=00"
+            }
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
             $logicalSwitches = @()
 
@@ -2457,9 +6187,13 @@ function Get-NsxLogicalSwitch {
                     if ( [int]$paginginfo.totalcount -gt $itemIndex) {
                         write-debug "$($MyInvocation.MyCommand.Name) : PagingInfo: PageSize: $($pagingInfo.PageSize), StartIndex: $($paginginfo.startIndex), TotalCount: $($paginginfo.totalcount)"
                         $startingIndex += $lspagesize
-                        $URI = "/api/2.0/vdn/scopes/$($vdnScope.objectId)/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
-                
-                        $response = invoke-nsxrestmethod -method "get" -uri $URI
+                        if ( $PSBoundParameters.ContainsKey('vndScope')) { 
+                            $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
+                        }
+                        else {
+                            $URI = "/api/2.0/vdn/virtualwires?pagesize=$lspagesize&startindex=$startingIndex"
+                        }
+                        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                         $pagingInfo = $response.virtualWires.dataPage.pagingInfo
                     
     
@@ -2480,7 +6214,6 @@ function Get-NsxLogicalSwitch {
 
     }
 }
-Export-ModuleMember -Function Get-NsxLogicalSwitch
 
 function New-NsxLogicalSwitch  {
 
@@ -2513,7 +6246,8 @@ function New-NsxLogicalSwitch  {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateNotNullOrEmpty()]
-            [System.XML.XMLElement]$vdnScope,
+            [alias("vdnScope")]
+            [System.XML.XMLElement]$TransportZone,
         [Parameter (Mandatory=$true,Position=1)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
@@ -2523,8 +6257,12 @@ function New-NsxLogicalSwitch  {
         [Parameter (Mandatory=$false)]
             [string]$TenantId = "",
         [Parameter (Mandatory=$false)]
-            [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE")]
-            [string]$ControlPlaneMode
+            [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE",IgnoreCase=$false)]
+            [string]$ControlPlaneMode,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -2544,15 +6282,14 @@ function New-NsxLogicalSwitch  {
            
         #Do the post
         $body = $xmlroot.OuterXml
-        $URI = "/api/2.0/vdn/scopes/$($vdnscope.objectId)/virtualwires"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires"
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
         #response only contains the vwire id, we have to query for it to get output consisten with get-nsxlogicalswitch
-        Get-NsxLogicalSwitch -virtualWireId $response
+        Get-NsxLogicalSwitch -virtualWireId $response -connection $connection
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalSwitch
 
 function Remove-NsxLogicalSwitch {
 
@@ -2585,7 +6322,12 @@ function Remove-NsxLogicalSwitch {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$virtualWire,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -2609,7 +6351,7 @@ function Remove-NsxLogicalSwitch {
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/virtualwires/$($virtualWire.ObjectId)"
             Write-Progress -activity "Remove Logical Switch $($virtualWire.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
             write-progress -activity "Remove Logical Switch $($virtualWire.Name)" -completed
 
         }
@@ -2617,7 +6359,868 @@ function Remove-NsxLogicalSwitch {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalSwitch
+
+#########
+#########
+# Spoofguard related functions
+
+function Get-NsxSpoofguardPolicy {
+    
+    <#
+    .SYNOPSIS
+    Retreives Spoofguard policy objects from NSX.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Get-NsxSpoofguardPolicy cmdlet to retreive existing SpoofGuard 
+    Policy objects from NSX.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy
+
+    Get all Spoofguard policies
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy Test
+
+    Get a specific Spoofguard policy
+
+    
+    #>
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+ 
+    param (
+
+        [Parameter (Mandatory=$false, ParameterSetName="Name", Position=1)]
+            [ValidateNotNullorEmpty()]
+            [String]$Name,
+        [Parameter (Mandatory=$false, ParameterSetName="ObjectId")]
+            [ValidateNotNullorEmpty()]
+            [string]$objectId,
+        [Parameter (Mandatory=$false, ParameterSetName="ObjectId")]
+        [Parameter (Mandatory=$false, ParameterSetName="Name")]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {}
+
+    process {
+     
+        if ( $PsCmdlet.ParameterSetName -eq 'Name' ) { 
+            #All SG Policies
+            $URI = "/api/4.0/services/spoofguard/policies/"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response ) { 
+                if ( $response.SelectSingleNode('descendant::spoofguardPolicies/spoofguardPolicy')) { 
+                    if  ( $Name  ) { 
+                        $polcollection = $response.spoofguardPolicies.spoofguardPolicy | ? { $_.name -eq $Name }
+                    } else {
+                        $polcollection = $response.spoofguardPolicies.spoofguardPolicy
+                    }
+                    foreach ($pol in $polcollection ) { 
+                        #Note that when you use the objectid URI, the NSX API actually reutrns additional information (statistics element),
+                        #so, without doing this, to the PowerNSX users, get-nsxsgpolicy <name> would return a subset of info compared to 
+                        #get-nsxsgpolicy which I dont like.
+
+                        $URI = "/api/4.0/services/spoofguard/policies/$($pol.policyId)"
+                        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                        if ( $response ) {
+                            $response.spoofguardPolicy
+                        } 
+                        else {
+                            throw "Unable to retreive SpoofGuard policy $($pol.policyId)."
+                        }
+                    }
+                }
+            }
+        }
+        else {
+
+            #Just getting a single SG Policy
+
+            $URI = "/api/4.0/services/spoofguard/policies/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response ) {
+                $response.spoofguardPolicy
+            } 
+        }
+    }
+    end {}
+}
+
+function New-NsxSpoofguardPolicy {
+
+    <#
+    .SYNOPSIS
+    Creates a new Spoofguard policy in NSX.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the New-NsxSpoofguardPolicy cmdlet to create a new SpoofGuard 
+    Policy in NSX.
+
+    Policies are not published (enforced) automatically.  Use the -publish 
+    switch to automatically publish a newly created policy.  Note that this 
+    could impact VM communications depending on the policy settings.
+
+    .EXAMPLE
+    $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch LSTemp
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode tofu -Network $ls
+    
+    Create a new Trust on First Use Spoofguard policy protecting the Logical 
+    Switch LSTemp
+
+    .EXAMPLE
+    $vss_pg = Get-VirtualPortGroup -Name "VM Network" | select -First 1
+    $vds_pg = Get-VDPortgroup -Name "Internet"
+    $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch -Name LSTemp
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode manual -Network $vss_pg, $vds_pg, $ls
+
+    Create a new manual approval policy for three networks (a VSS PG, VDS PG and
+    Logical switch)
+
+    .EXAMPLE 
+    $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch LSTemp
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode tofu -Network $ls -publish
+    
+    Create a new Trust on First Use Spoofguard policy protecting the Logical 
+    Switch LSTemp and publish it immediately.  
+    Publishing causes the policy to be enforced on the data plane immediately 
+    (and potentially block all communication, so use with care!) 
+
+    .EXAMPLE 
+    $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch LSTemp
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode tofu -Network $ls -AllowLocalIps
+    
+    Create a new Trust on First Use Spoofguard policy protecting the Logical 
+    Switch LSTemp and allow local IPs to be approved (169.254/16 and fe80::/64)
+
+
+    #>
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,
+        [Parameter (Mandatory=$true)]
+            [ValidateSet("tofu","manual","disable")]
+            [string]$OperationMode,
+        [Parameter (Mandatory=$false)]
+            [switch]$AllowLocalIps,
+        [Parameter (Mandatory=$true)]
+            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup $_ })]
+            [object[]]$Network,
+        [Parameter (Mandatory=$False)]
+            [switch]$Publish=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("spoofguardPolicy")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "operationMode" -xmlElementText $OperationMode.ToUpper()
+        if ( $PSBoundParameters.ContainsKey('description')) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        }
+        if ( $PSBoundParameters.ContainsKey('AllowLocalIps')) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "allowLocalIPs" -xmlElementText $AllowLocalIps.ToString().ToLower()
+        }
+
+        foreach ( $Net in $Network) { 
+
+            [System.XML.XMLElement]$xmlEnforcementPoint = $XMLDoc.CreateElement("enforcementPoint")
+            $xmlroot.appendChild($xmlEnforcementPoint) | out-null
+
+            switch ( $Net ) { 
+
+                { $_ -is [System.Xml.XmlElement]  } {
+                    
+                    $id = $_.objectId
+                }
+
+                { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] } {
+                    
+                    $id = $_.ExtensionData.MoRef.Value
+                }
+
+                { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupInterop] } {
+                    
+                    #Standard Port Group specified... Hope you appreciate this, coz the vSphere API and PowerCLI niceness dissapear a bit here.
+                    #and it took me a while to work out how to get around it.
+                    #You dont seem to be able to get a standard Moref outa the PowerCLI network object that represents a VSS PG.
+                    #You also dont seem to be able to do a get-view on it :|
+                    #So, I have get a hasthtable of all morefs that represent VSS based PGs and search it for the name of the PG the user specified.  Im fairly (not 100%) sure this is safe as networkname should be unique at least within VSS portgroups...
+
+                    $StandardPgHash = Get-View -ViewType Network -Property Name | ? { $_.Moref.Type -match 'Network' } | select name, moref | Sort-Object -Property Name -Unique | Group-Object -AsHashTable -Property Name
+
+                    $Item = $StandardPgHash.Item($_.name)
+                    if ( -not $item ) { throw "PortGroup $($_.name) not found." }
+
+                    $id = $Item.MoRef.Value
+                }
+            }
+
+            Add-XmlElement -xmlRoot $xmlEnforcementPoint -xmlElementName "id" -xmlElementText $id
+        }
+    
+        #Do the post
+        $body = $xmlroot.OuterXml
+        $URI = "/api/4.0/services/spoofguard/policies/"
+        $policyId = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        
+        #Now we Publish...
+        if ( $publish ) { 
+            $URI = "/api/4.0/services/spoofguard/$($policyId)?action=publish"
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+        }
+
+        Get-NsxSpoofguardPolicy -objectId $policyId -connection $connection
+        
+    }
+    end {}
+   
+}
+
+function Remove-NsxSpoofguardPolicy {
+    
+    <#
+    .SYNOPSIS
+    Removes the specified Spoofguard policy object from NSX.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Remnove-NsxSpoofguardPolicy cmdlet to remove the specified
+    SpoofGuard Policy from NSX.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Remove-NsxSpoofguardPolicy
+
+    Remove the policy Test.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy | Remove-NsxSpoofguardPolicy
+
+    Remove all policies.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Remove-NsxSpoofguardPolicy -confirm:$false
+
+    Remove the policy Test without confirmation.
+
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SpoofguardPolicy,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {}
+
+    process {
+
+        if ( $SpoofguardPolicy.defaultPolicy -eq 'true') {
+            write-warning "Cant delete the default Spoofguard policy"
+        }
+        else { 
+            if ( $confirm ) { 
+                $message  = "Spoofguard Policy removal is permanent."
+                $question = "Proceed with removal of Spoofguard Policy $($SpoofguardPolicy.Name)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                $URI = "/api/4.0/services/spoofguard/policies/$($SpoofguardPolicy.policyId)"
+                
+                Write-Progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)" -completed
+            }
+        }
+    }
+
+    end {}
+}
+
+function Publish-NsxSpoofguardPolicy {
+    
+    <#
+    .SYNOPSIS
+    Publishes the specified Spoofguard policy object.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Publish-NsxSpoofguardPolicy cmdlet to publish the specified
+    SpoofGuard Policy.  This causes it to be enforced.
+
+    .EXAMPLE
+    New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode manual -Network $vss_pg, $vds_pg, $ls
+    Get-NsxSpoofguardPolicy test | Publish-NsxSpoofguardPolicy
+
+    Create and then separately publish a new policy.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-Vm TestVm | get-NetworkAdapter | select -first 1) | Grant-NsxSpoofguardNicApproval -IpAddress 1.2.3.4
+    Get-NsxSpoofguardPolicy test | Publish-NsxSpoofguardPolicy
+
+    Grant an approval to the first nic on the VM TestVM for ip 1.2.3.4 and publish it
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SpoofguardPolicy,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {}
+
+    process {
+
+
+        if ( $confirm ) { 
+            $message  = "Spoofguard Policy publishing will cause the current policy to be enforced."
+            $question = "Proceed with publish operation on Spoofguard Policy $($SpoofguardPolicy.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/services/spoofguard/$($SpoofguardPolicy.policyId)?action=publish"
+            
+            Write-Progress -activity "Publish Spoofguard Policy $($SpoofguardPolicy.Name)"
+            invoke-nsxrestmethod -method "post" -uri $URI -connection $connection | out-null
+            write-progress -activity "Publish Spoofguard Policy $($SpoofguardPolicy.Name)" -completed
+
+            Get-NsxSpoofguardPolicy -objectId $($SpoofguardPolicy.policyId) -connection $connection
+        }
+    }
+
+    end {}
+}
+
+function Get-NsxSpoofguardNic {
+    
+    <#
+    .SYNOPSIS
+    Retreives Spoofguard NIC details for the specified Spoofguard policy.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Get-NsxSpoofguardNic cmdlet to retreive Spoofguard NIC details for 
+    the specified Spoofguard policy
+
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1)
+
+    Get the Spoofguard settings for the first NIC on vM Evil-Vm
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -VirtualMachine (Get-vm evil-vm)
+
+    Get the Spoofguard settings for all nics on vM Evil-Vm
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -MacAddress 00:50:56:81:04:28
+    
+    Get the Spoofguard settings for the MAC address 00:50:56:81:04:28
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -Filter Inactive
+
+    Get all Inactive spoofguard Nics
+
+    
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="Default")]
+ 
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Default")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "MAC")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VM")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "NIC")]
+            [ValidateScript( { Validate-SpoofguardPolicy $_ } )]
+            [System.xml.xmlElement]$SpoofguardPolicy,
+        [Parameter (Mandatory=$false, ParameterSetName = "Default")]
+        [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
+        [Parameter (Mandatory=$false, ParameterSetName = "VM")]
+        [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
+            [Validateset("Active", "Inactive", "Published", "Unpublished", "Review_Pending", "Duplicate")]
+            [string]$Filter,
+        [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
+            [ValidateScript({
+                if ( $_ -notmatch "[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}:[a-f,A-F,0-9]{2}" ) {
+                    throw "Specify a valid MAC address (0 must be specified as 00)"
+                }
+                $true
+                })]
+            [string]$MacAddress,
+        [Parameter (Mandatory=$false, ParameterSetName = "VM")]
+            #PowerCLI VirtualMachine object
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+        [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop]$NetworkAdapter,            
+        [Parameter (Mandatory=$false, ParameterSetName = "Default")]
+        [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
+        [Parameter (Mandatory=$false, ParameterSetName = "VM")]
+        [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {}
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('Filter')) {
+            $URI = "/api/4.0/services/spoofguard/$($SpoofguardPolicy.policyId)?list=$($Filter.ToUpper())" 
+        }
+        else {
+
+            #Not documented in the API guide but appears to work ;)
+            $URI = "/api/4.0/services/spoofguard/$($SpoofguardPolicy.policyId)?list=ALL"
+        }
+
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+ 
+        if ( $response.SelectsingleNode('descendant::spoofguardList/spoofguard')) {
+        
+            switch ( $PsCmdlet.ParameterSetName  ) { 
+
+                "MAC" { $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress } }
+                "NIC" { 
+                    $MacAddress = $NetworkAdapter.MacAddress
+                    $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress } 
+                }
+
+                "VM" { 
+                    foreach ( $Nic in ($virtualmachine | Get-NetworkAdapter )) { 
+                        $MacAddress = $Nic.MacAddress
+                        $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress }
+                    }
+                }
+                default { $outcollection = $response.spoofguardList.Spoofguard }
+            }
+
+            #Add the policyId to the XML so we can pipline to grant/revoke cmdlets.
+            foreach ( $out in $outcollection ) {
+
+                Add-XmlElement -xmlRoot $out -xmlElementName "policyId" -xmlElementText $($SpoofguardPolicy.policyId)
+            }
+            $outcollection
+        }
+        else { 
+            write-debug "$($MyInvocation.MyCommand.Name) : No results found."
+        }
+    }
+    end {}
+}
+
+function Grant-NsxSpoofguardNicApproval { 
+
+    <#
+    .SYNOPSIS
+    Approves a new IP for the specified Spoofguard NIC.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Grant-NsxSpoofguardNicApproval cmdlet to add the specified IP
+    to the list of approved IPs for the specified Spoofguard NIC.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1) | Grant-NsxSpoofguardNicApproval -IpAddress 1.2.3.4 -Publish
+    
+    Grant approval for the first NIC on VM Evil-VM to use the IP 1.2.3.4 and 
+    publish immediately
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1) | Grant-NsxSpoofguardNicApproval --ApproveAllDetectedIps -Publish
+    
+    Grant approval for the first NIC on VM Evil-VM to use all IPs detected by 
+    whatever IP detction methods are available and publish immediately.
+    
+    Note:  This *may* include 'local' IPs (such as fe80::/64) which may not be 
+    allowed if the policy is not enabled with 'AllowLocalIps'.  In this case
+    this operation will throw a cryptic error (Valid values are {2}) and not 
+    succeed.  In this case you must either change the policy to allow local IPs,
+    or manually approve the specific IPs you want.  This issue affects the NSX 
+    UI as well.
+
+    
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="ipAddress")]
+
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateScript( { Validate-SpoofguardNic $_ } )]
+            [System.xml.xmlElement]$SpoofguardNic,
+        [Parameter (Mandatory=$True, ParameterSetName="ipAddress")]
+            [ValidateNotNullOrEmpty()]
+            [string[]]$IpAddress,
+        [Parameter (Mandatory=$True, ParameterSetName="ApproveAll")]
+            [ValidateNotNullOrEmpty()]
+            [switch]$ApproveAllDetectedIps=$False,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$Publish=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #We need to modify the spoofguardNic XML element, so we need to clone it.
+        $_SpoofguardNic = $SpoofguardNic.CloneNode($true)
+
+        [System.XML.XMLDocument]$xmlDoc = $_SpoofguardNic.OwnerDocument
+        [System.XML.XMLElement]$spoofguardList = $XMLDoc.CreateElement("spoofguardList")
+        $spoofguardList.appendChild($_SpoofguardNic) | out-null
+
+        #Get and Remove the policyId element we put there...
+        $policyId = $_SpoofguardNic.policyId
+        $_SpoofguardNic.RemoveChild($_SpoofguardNic.SelectSingleNode('descendant::policyId')) | out-null
+
+        #if approvedIpAddress element does not exist, create it
+        [system.xml.xmlElement]$approvedIpAddressNode = $_SpoofguardNic.SelectsingleNode('descendant::approvedIpAddress')
+        if ( -not $approvedIpAddressNode ) { 
+
+            [System.XML.XMLElement]$approvedIpAddressNode = $XMLDoc.CreateElement("approvedIpAddress")
+            $_SpoofguardNic.appendChild($approvedIpAddressNode) | out-null
+        }
+
+        #If they are, Add the ip(s) specified
+        if ( $PsBoundParameters.ContainsKey('ipAddress') ) {
+            foreach ( $ip in $ipAddress ) { 
+
+                if ( $approvedIpAddressNode.selectNodes("descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {                            
+                    write-warning "Not adding duplicate IP Address $ip as it is already added."
+                }
+                else { 
+                    Add-XmlElement -xmlRoot $approvedIpAddressNode -xmlElementName "ipAddress" -xmlElementText $ip
+                }
+            }
+        }
+
+        #If there are IPs detected, and approve all is on, ensure user understands consequence.
+        If ( $ApproveAllDetectedIps -and ( $_SpoofguardNic.SelectSingleNode('descendant::detectedIpAddress/ipAddress'))) { 
+
+            If ($confirm ) { 
+
+                $message  = "Do you want to automatically approve all IP Addresses detected on the NIC $($_SpoofguardNic.nicName)?."
+                $question = "Validate the detected IP addresses before continuing.  Proceed?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+
+                foreach ( $ip in $_SpoofguardNic.detectedIpAddress.ipAddress )  {
+                    #Have to ensure we dont add a duplicate here...
+                    
+                    if ( $approvedIpAddressNode.selectNodes("descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {                            
+                        write-warning "Not adding duplicate IP Address $ip as it is already added."
+                    }
+                    else { 
+                        Add-XmlElement -xmlRoot $approvedIpAddressNode -xmlElementName "ipAddress" -xmlElementText $ip
+                    }
+                }
+            }
+        }
+
+        # Had bad thoughts about allowing manual specification of MAC.  I might come back to this...
+
+        # if ( $PsCmdlet.ParameterSetName -eq "ManualMac" ) { 
+        #     if ( -not ( $_SpoofguardNic.SelectsingleNode('descendant::approvedMacAddress'))){
+        #         Add-XmlElement -xmlRoot $_SpoofguardNic -xmlElementName "approvedMacAddress" -xmlElementText $MacAddress
+        #     }
+        #     else { 
+
+        #         #Assume user wants to overwrite... should we confirm on this?
+        #         $_SpoofguardNic.approvedMacAddress = $MacAddress
+
+        #     }
+
+        # }
+        # else { 
+        #     if ( -not ( $_SpoofguardNic.SelectsingleNode('descendant::approvedMacAddress'))){
+        #        Add-XmlElement -xmlRoot $_SpoofguardNic -xmlElementName "approvedMacAddress" -xmlElementText $_SpoofguardNic.detectedMacAddress
+        #     }
+        #     else { 
+
+        #         #Assume user wants to overwrite... should we confirm on this?
+        #         $_SpoofguardNic.approvedMacAddress = $MacAddress
+        #     }
+        # }
+
+        #Do the post
+        $body = $spoofguardList.OuterXml
+        $URI = "/api/4.0/services/spoofguard/$($policyId)?action=approve"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+
+        #Now we Publish...
+        if ( $publish ) { 
+            $URI = "/api/4.0/services/spoofguard/$($policyId)?action=publish"
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+        }
+        
+        Get-NsxSpoofguardPolicy -objectId $policyId -connection $connection | Get-NsxSpoofguardNic -MAC $_SpoofguardNic.detectedMacAddress -connection $connection
+        
+    }
+    end {}
+}
+
+function Revoke-NsxSpoofguardNicApproval { 
+
+    <#
+    .SYNOPSIS
+    Removes an approved IP from the specified Spoofguard NIC.
+
+    .DESCRIPTION
+    If a virtual machine has been compromised, its IP address can be spoofed 
+    and malicious transmissions can bypass firewall policies. You create a 
+    SpoofGuard policy for specific networks that allows you to authorize the IP
+    addresses reported by VMware Tools and alter them if necessary to prevent 
+    spoofing. SpoofGuard inherently trusts the MAC addresses of virtual machines
+    collected from the VMX files and vSphere SDK. Operating separately from 
+    Firewall rules, you can use SpoofGuard to block traffic determined to be
+    spoofed.
+
+    Use the Revoke-NsxSpoofguardNicApproval cmdlet to remove the specified IP
+    from the list of approved IPs for the specified Spoofguard NIC.
+
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1) | Revoke-NsxSpoofguardNicApproval -RevokeAllApprovedIps -publish
+    
+    Revoke all approved IPs for vm evil-vm and immediately publish the policy.
+    
+    .EXAMPLE
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-vm evil-vm | Get-NetworkAdapter|  select -First 1) | Revoke-NsxSpoofguardNicApproval -IpAddress 1.2.3.4
+
+    Revoke the approval for IP 1.2.3.4 from the first nic on vm evil-vm.
+
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="IpList")]
+
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateScript( { Validate-SpoofguardNic $_ } )]
+            [System.xml.xmlElement]$SpoofguardNic,
+        [Parameter (Mandatory=$True, ParameterSetName="IpList")]
+            [ValidateNotNullOrEmpty()]
+            [string[]]$IpAddress,
+        [Parameter (Mandatory=$True, ParameterSetName="RevokeAll")]
+            [ValidateNotNullOrEmpty()]
+            [switch]$RevokeAllApprovedIps,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,        
+        [Parameter (Mandatory=$False)]
+            [switch]$Publish=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #We need to modify the spoofguardNic XML element, so we need to clone it.
+        $_SpoofguardNic = $SpoofguardNic.CloneNode($true)
+
+        [System.XML.XMLDocument]$xmlDoc = $_SpoofguardNic.OwnerDocument
+        [System.XML.XMLElement]$spoofguardList = $XMLDoc.CreateElement("spoofguardList")
+        $spoofguardList.appendChild($_SpoofguardNic) | out-null
+
+        #Get and Remove the policyId element we put there...
+        $policyId = $_SpoofguardNic.policyId
+        $_SpoofguardNic.RemoveChild($_SpoofguardNic.SelectSingleNode('descendant::policyId')) | out-null
+
+        #if approvedIpAddress element does not exist, bail
+        [system.xml.xmlElement]$approvedIpAddressNode = $_SpoofguardNic.SelectsingleNode('descendant::approvedIpAddress')
+        if ( -not $approvedIpAddressNode -or (-not ($approvedIpAddressNode.SelectSingleNode('descendant::ipAddress')))) { 
+
+            Write-Warning "Nic $($_SpoofguardNic.NicName) has no approved IPs"
+        }
+        else {
+        
+            [system.xml.xmlElement]$publishedIpAddressNode = $_SpoofguardNic.SelectsingleNode('descendant::publishedIpAddress')
+
+            $approvedIpCollection = $approvedIpAddressNode.selectNodes("descendant::ipAddress")
+            $publishedIpCollection = $publishedIpAddressNode.selectNodes("descendant::ipAddress")
+
+            #If there are IPs detected, and revoke all is on, kill em all...
+            If ( $PSCmdlet.ParameterSetName -eq "RevokeAll" ) {
+                
+                foreach ( $node in $approvedIpCollection ) { 
+                    $approvedIpAddressNode.RemoveChild($node) | out-null
+                }                
+            } 
+
+            else {
+                #$IPAddress is mandatory...
+                foreach ( $ip in $ipAddress ) { 
+
+                    $currentApprovedIpNode = $approvedIpCollection | ? { $_.'#Text' -eq $ip }
+                    $currentPublishedIpNode = $publishedIpCollection | ? { $_.'#Text' -eq $ip }
+
+                    if ( -not $currentApprovedIpNode ) {                            
+                        write-warning "IP Address $ip is not currently approved on Nic $($_SpoofguardNic.NicName)."
+                    }
+                    else { 
+                        $approvedIpAddressNode.RemoveChild($currentApprovedIpNode) | out-null
+                        if ( $currentPublishedIpNode ) { 
+
+                            $publishedIpAddressNode.RemoveChild($currentPublishedIpNode) | out-null
+                        }
+                    }
+                }
+            }
+
+            If ($confirm ) { 
+
+                $message  = "Do you want to remove the specified IP Addresses from the approved list of the NIC $($_SpoofguardNic.nicName)?."
+                $question = "Removal is permenant.  Proceed?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+
+                #Do the post
+                $body = $spoofguardList.OuterXml
+                $URI = "/api/4.0/services/spoofguard/$($policyId)?action=approve"
+                $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+
+                #Now we Publish...
+                if ( $publish) { 
+                    $URI = "/api/4.0/services/spoofguard/$($policyId)?action=publish"
+                    $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+                }
+
+                Get-NsxSpoofguardPolicy -objectId $policyId -connection $connection | Get-NsxSpoofguardNic -MAC $_SpoofguardNic.detectedMacAddress -connection $connection
+            }
+        }
+    }
+    end {}
+}
+
 
 #########
 ######### 
@@ -2708,7 +7311,7 @@ function New-NsxLogicalRouterInterfaceSpec {
         Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "isConnected" -xmlElementText $Connected
 
         switch ($ConnectedTo){
-            { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl]) -or ( $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+            { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
             { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
         }  
 
@@ -2720,22 +7323,19 @@ function New-NsxLogicalRouterInterfaceSpec {
             [System.XML.XMLElement]$xmlAddressGroups = $XMLDoc.CreateElement("addressGroups")
             $xmlVnic.appendChild($xmlAddressGroups) | out-null
             $AddressGroupParameters = @{
-                xmldoc = $xmlDoc 
                 xmlAddressGroups = $xmlAddressGroups
             }
 
             if ( $PsBoundParameters.ContainsKey("PrimaryAddress" )) { $AddressGroupParameters.Add("PrimaryAddress",$PrimaryAddress) }
             if ( $PsBoundParameters.ContainsKey("SubnetPrefixLength" )) { $AddressGroupParameters.Add("SubnetPrefixLength",$SubnetPrefixLength) }
              
-            New-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
         
         }
         $xmlVnic
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterInterfaceSpec
-
 
 function Get-NsxLogicalRouter {
 
@@ -2758,7 +7358,11 @@ function Get-NsxLogicalRouter {
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
-            [string]$Name
+            [string]$Name,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -2767,7 +7371,7 @@ function Get-NsxLogicalRouter {
 
         "Name" { 
             $URI = "/api/4.0/edges?pageSize=$pagesize&startIndex=00" 
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             
             #Edge summary XML is returned as paged data, means we have to handle it.  
             #Then we have to query for full information on a per edge basis.
@@ -2799,7 +7403,7 @@ function Get-NsxLogicalRouter {
                         $startingIndex += $pagesize
                         $URI = "/api/4.0/edges?pageSize=$pagesize&startIndex=$startingIndex"
                 
-                        $response = invoke-nsxrestmethod -method "get" -uri $URI
+                        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                         $pagingInfo = $response.pagedEdgeList.edgePage.pagingInfo
                     
 
@@ -2815,7 +7419,7 @@ function Get-NsxLogicalRouter {
             foreach ($edgesummary in $edgesummaries) {
 
                 $URI = "/api/4.0/edges/$($edgesummary.objectID)" 
-                $response = invoke-nsxrestmethod -method "get" -uri $URI
+                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 $import = $response.edge.ownerDocument.ImportNode($edgesummary, $true)
                 $response.edge.appendChild($import) | out-null                
                 $edges += $response.edge
@@ -2835,10 +7439,10 @@ function Get-NsxLogicalRouter {
         "objectId" { 
 
             $URI = "/api/4.0/edges/$objectId" 
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $edge = $response.edge
             $URI = "/api/4.0/edges/$objectId/summary" 
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $import = $edge.ownerDocument.ImportNode($($response.edgeSummary), $true)
             $edge.AppendChild($import) | out-null
             $edge
@@ -2846,7 +7450,6 @@ function Get-NsxLogicalRouter {
         }
     }
 }
-Export-ModuleMember -Function Get-NsxLogicalRouter
 
 function New-NsxLogicalRouter {
 
@@ -2907,23 +7510,27 @@ function New-NsxLogicalRouter {
             [System.Xml.XmlElement[]]$Interface,       
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl]$ResourcePool,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
                 $true
             })]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$Datastore,
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [switch]$EnableHA=$false,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$HADatastore=$datastore
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore=$datastore,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -2941,7 +7548,7 @@ function New-NsxLogicalRouter {
 
         switch ($ManagementPortGroup){
 
-            { $_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl] -or $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+            { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
             { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
 
         }
@@ -2987,7 +7594,7 @@ function New-NsxLogicalRouter {
         $URI = "/api/4.0/edges"
 
         Write-Progress -activity "Creating Logical Router $Name"    
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         Write-Progress -activity "Creating Logical Router $Name"  -completed
         $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)] 
 
@@ -2998,16 +7605,15 @@ function New-NsxLogicalRouter {
             $body = $xmlHA.OuterXml
             $URI = "/api/4.0/edges/$edgeId/highavailability/config"
             Write-Progress -activity "Enable HA on Logical Router $Name"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Enable HA on Logical Router $Name" -completed
 
         }
-        Get-NsxLogicalRouter -objectID $edgeId
+        Get-NsxLogicalRouter -objectID $edgeId -connection $connection
 
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouter
 
 function Remove-NsxLogicalRouter {
 
@@ -3037,7 +7643,12 @@ function Remove-NsxLogicalRouter {
             [ValidateScript({ Validate-LogicalRouter $_ })]
             [System.Xml.XmlElement]$LogicalRouter,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -3061,7 +7672,7 @@ function Remove-NsxLogicalRouter {
         if ($decision -eq 0) {
             $URI = "/api/4.0/edges/$($LogicalRouter.Edgesummary.ObjectId)"
             Write-Progress -activity "Remove Logical Router $($LogicalRouter.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
             write-progress -activity "Remove Logical Router $($LogicalRouter.Name)" -completed
 
         }
@@ -3069,7 +7680,6 @@ function Remove-NsxLogicalRouter {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouter
 
 function Set-NsxLogicalRouterInterface {
 
@@ -3117,7 +7727,11 @@ function Set-NsxLogicalRouterInterface {
             [switch]$Connected=$true,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [switch]$Confirm=$true   
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -3165,14 +7779,13 @@ function Set-NsxLogicalRouterInterface {
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($Interface.logicalRouterId)/interfaces/?action=patch"
         Write-Progress -activity "Updating Logical Router interface configuration for interface $($Interface.Index)."
-        invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Updating Logical Router interface configuration for interface $($Interface.Index)." -completed
 
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxLogicalRouterInterface
 
 function New-NsxLogicalRouterInterface {
 
@@ -3219,7 +7832,11 @@ function New-NsxLogicalRouterInterface {
             [switch]$Connected=$true,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [switch]$Confirm=$true   
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection 
     )
 
     begin {}
@@ -3250,14 +7867,13 @@ function New-NsxLogicalRouterInterface {
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($LogicalRouter.Id)/interfaces/?action=patch"
         Write-Progress -activity "Creating Logical Router interface."
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Creating Logical Router interface." -completed
         $response.interfaces
     }
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterInterface
 function Remove-NsxLogicalRouterInterface {
 
     <#
@@ -3282,7 +7898,11 @@ function Remove-NsxLogicalRouterInterface {
             [System.Xml.XmlElement]$Interface,       
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [switch]$Confirm=$true   
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection   
     )
 
     begin {
@@ -3309,14 +7929,13 @@ function Remove-NsxLogicalRouterInterface {
         # #Do the delete
         $URI = "/api/4.0/edges/$($Interface.logicalRouterId)/interfaces/$($Interface.Index)"
         Write-Progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)."
-        invoke-nsxrestmethod -method "delete" -uri $URI
+        invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection
         Write-progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)." -completed
 
     }
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterInterface
 
 function Get-NsxLogicalRouterInterface {
 
@@ -3350,7 +7969,11 @@ function Get-NsxLogicalRouterInterface {
             [string]$Name,
         [Parameter (Mandatory=$True,ParameterSetName="Index")]
             [ValidateRange(1,1000)]
-            [int]$Index
+            [int]$Index,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {}
@@ -3360,7 +7983,7 @@ function Get-NsxLogicalRouterInterface {
         if ( -not ($PsBoundParameters.ContainsKey("Index") )) { 
             #All Interfaces on LR
             $URI = "/api/4.0/edges/$($LogicalRouter.Id)/interfaces/"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $PsBoundParameters.ContainsKey("name") ) {
                 $return = $response.interfaces.interface | ? { $_.name -eq $name }
                 if ( $return ) { 
@@ -3378,7 +8001,7 @@ function Get-NsxLogicalRouterInterface {
 
             #Just getting a single named Interface
             $URI = "/api/4.0/edges/$($LogicalRouter.Id)/interfaces/$Index"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $return = $response.interface
             if ( $return ) {
                 Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "logicalRouterId" -xmlElementText $($LogicalRouter.Id)
@@ -3388,7 +8011,6 @@ function Get-NsxLogicalRouterInterface {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterInterface
 
 
 
@@ -3398,7 +8020,7 @@ Export-ModuleMember -Function Get-NsxLogicalRouterInterface
 
 ###Private functions
 
-function New-NsxEdgeVnicAddressGroup {
+function PrivateAdd-NsxEdgeVnicAddressGroup {
 
     #Private function that Edge (ESG and LogicalRouter) VNIC creation leverages
     #To create valid address groups (primary and potentially secondary address) 
@@ -3409,9 +8031,6 @@ function New-NsxEdgeVnicAddressGroup {
     param (
         [Parameter (Mandatory=$true)]
             [System.XML.XMLElement]$xmlAddressGroups,
-        [Parameter (Mandatory=$true)]
-            [ValidateNotNullorEmpty()]
-            [System.XML.XMLDocument]$xmlDoc,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
             [string]$PrimaryAddress,
@@ -3427,6 +8046,7 @@ function New-NsxEdgeVnicAddressGroup {
 
     process {
 
+        [System.XML.XMLDocument]$xmlDoc = $xmlAddressGroups.OwnerDocument
         [System.XML.XMLElement]$xmlAddressGroup = $xmlDoc.CreateElement("addressGroup")
         $xmlAddressGroups.appendChild($xmlAddressGroup) | out-null
         Add-XmlElement -xmlRoot $xmlAddressGroup -xmlElementName "primaryAddress" -xmlElementText $PrimaryAddress
@@ -3444,6 +8064,60 @@ function New-NsxEdgeVnicAddressGroup {
 }
 
 ###End Private functions
+
+function New-NsxAddressSpec {
+ 
+    <#
+    .SYNOPSIS
+    Creates a new NSX Address Group Spec.
+
+    .DESCRIPTION
+    NSX ESGs and DLRs interfaces can be configured with multiple 'Address 
+    Groups'.  This allows a single interface to have IP addresses defined in 
+    different subnets, each complete with their own Primary Address, Netmask and
+    zero or more Secondary Addresses.  
+
+    In order to configure an interface in this way with PowerNSX, multiple 
+    'AddressGroupSpec' objects can be created using New-NsxAddressSpec,
+    and then specified when calling New/Set cmdlets for the associated 
+    interfaces. 
+    
+
+    #>
+  
+    param (
+         [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$PrimaryAddress,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [int]$SubnetPrefixLength,       
+        [Parameter (Mandatory=$false)]
+            [string[]]$SecondaryAddresses=@()
+
+    )
+
+    begin {}
+
+    process {
+
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlAddressGroup = $xmlDoc.CreateElement("addressGroup")
+        Add-XmlElement -xmlRoot $xmlAddressGroup -xmlElementName "primaryAddress" -xmlElementText $PrimaryAddress
+        Add-XmlElement -xmlRoot $xmlAddressGroup -xmlElementName "subnetPrefixLength" -xmlElementText $SubnetPrefixLength.ToString()
+        if ( $SecondaryAddresses ) { 
+            [System.XML.XMLElement]$xmlSecondaryAddresses = $XMLDoc.CreateElement("secondaryAddresses")
+            $xmlAddressGroup.appendChild($xmlSecondaryAddresses) | out-null
+            foreach ($Address in $SecondaryAddresses) { 
+                Add-XmlElement -xmlRoot $xmlSecondaryAddresses -xmlElementName "ipAddress" -xmlElementText $Address
+            }
+        }
+
+        $xmlAddressGroup
+    }
+
+    end{}
+}
 
 function New-NsxEdgeInterfaceSpec {
 
@@ -3546,18 +8220,18 @@ function New-NsxEdgeInterfaceSpec {
         if ( $PsBoundParameters.ContainsKey("ConnectedTo")) { 
             switch ($ConnectedTo){
 
-                { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl]) -or ( $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+                { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
                 { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
             }  
             Add-XmlElement -xmlRoot $xmlVnic -xmlElementName "portgroupId" -xmlElementText $PortGroupID
         }
 
+        [System.XML.XMLElement]$xmlAddressGroups = $XMLDoc.CreateElement("addressGroups")
+        $xmlVnic.appendChild($xmlAddressGroups) | out-null
         if ( $PsBoundParameters.ContainsKey("PrimaryAddress")) {
-            #For now, only supporting one addressgroup - will refactor later
-            [System.XML.XMLElement]$xmlAddressGroups = $XMLDoc.CreateElement("addressGroups")
-            $xmlVnic.appendChild($xmlAddressGroups) | out-null
+            #Only supporting one addressgroup - User must use New-NsxAddressSpec to specify multiple.
+
             $AddressGroupParameters = @{
-                xmldoc = $xmlDoc 
                 xmlAddressGroups = $xmlAddressGroups
             }
 
@@ -3566,7 +8240,7 @@ function New-NsxEdgeInterfaceSpec {
             if ( $PsBoundParameters.ContainsKey("SecondaryAddresses" )) { $AddressGroupParameters.Add("SecondaryAddresses",$SecondaryAddresses) }
              
 
-            New-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
         }
 
         $xmlVnic
@@ -3575,7 +8249,6 @@ function New-NsxEdgeInterfaceSpec {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeInterfaceSpec
 
 function New-NsxEdgeSubInterfaceSpec {
 
@@ -3650,7 +8323,7 @@ function New-NsxEdgeSubInterfaceSpec {
         if ( $PsBoundParameters.ContainsKey("Network")) { 
             switch ($Network){
 
-                { ($_ -is [VMware.VimAutomation.ViCore.Impl.V1.Host.Networking.DistributedPortGroupImpl]) -or ( $_ -is [VMware.VimAutomation.Vds.Impl.VDObjectImpl] ) }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
+                { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
                 { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
             }  
 
@@ -3669,7 +8342,6 @@ function New-NsxEdgeSubInterfaceSpec {
             [System.XML.XMLElement]$xmlAddressGroups = $XMLDoc.CreateElement("addressGroups")
             $xmlVnic.appendChild($xmlAddressGroups) | out-null
             $AddressGroupParameters = @{
-                xmldoc = $xmlDoc 
                 xmlAddressGroups = $xmlAddressGroups
             }
 
@@ -3677,7 +8349,7 @@ function New-NsxEdgeSubInterfaceSpec {
             if ( $PsBoundParameters.ContainsKey("SubnetPrefixLength" )) { $AddressGroupParameters.Add("SubnetPrefixLength",$SubnetPrefixLength) }
             if ( $PsBoundParameters.ContainsKey("SecondaryAddresses" )) { $AddressGroupParameters.Add("SecondaryAddresses",$SecondaryAddresses) }
              
-            New-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
         }
 
         $xmlVnic
@@ -3686,7 +8358,6 @@ function New-NsxEdgeSubInterfaceSpec {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeSubInterfaceSpec
 
 function Set-NsxEdgeInterface {
 
@@ -3695,61 +8366,87 @@ function Set-NsxEdgeInterface {
     Conigures an NSX Edge Services Gateway Interface.
 
     .DESCRIPTION
-    NSX ESGs can host up to 10 interfaces and up to 200 subinterfaces, each of which 
-    can be configured with multiple properties.  
+    NSX ESGs can host up to 10 interfaces and up to 200 subinterfaces, each of 
+    which can be configured with multiple properties.  
 
     ESGs support interfaces connected to either VLAN backed port groups or NSX
     Logical Switches.
 
-    Use Set-NsxEdgeInterface to change (including overwriting) the configuration of an
-    interface.
+    Use Set-NsxEdgeInterface to change (including overwriting) the configuration
+    of an interface.
 
     .EXAMPLE
-    Get an interface, then update it.
-    
-    PS C:\>$interface = Get-NsxEdge testesg | Get-NsxEdgeInterface -Index 4
-
-    PS C:\> $interface | Set-NsxEdgeInterface -Name "vNic4" -Type internal 
+    $interface = Get-NsxEdge testesg | Get-NsxEdgeInterface -Index 4
+    $interface | Set-NsxEdgeInterface -Name "vNic4" -Type internal 
         -ConnectedTo $ls4 -PrimaryAddress $ip4 -SubnetPrefixLength 24
 
+    Get an interface, then update it.
+    
+    .EXAMPLE
+    $add1 = New-NsxAddressSpec -PrimaryAddress 11.11.11.11 -SubnetPrefixLength 24 -SecondaryAddresses 11.11.11.12, 11.11.11.13
+    $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
+
+    Get-NsxEdge testesg | Get-NsxEdgeInterface -index 5 | Set-NSxEdgeInterface -ConnectedTo $ls4 -AddressSpec $add1,$add2
+
+    Adds two addresses, precreated via New-AddressSpec to ESG testesg vnic 5
+    
     #>
 
+    [CmdLetBinding(DefaultParameterSetName="SingleAddressGroup")]
+
     param (
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateScript({ Validate-EdgeInterface $_ })]
             [System.Xml.XmlElement]$Interface,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateSet ("internal","uplink","trunk")]
             [string]$Type,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ConnectedTo,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [ValidateNotNullOrEmpty()]
             [string]$PrimaryAddress,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [ValidateNotNullOrEmpty()]
             [string]$SubnetPrefixLength,       
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [string[]]$SecondaryAddresses=@(),
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
+            [ValidateScript({ Validate-AddressGroupSpec $_ })]
+            [System.Xml.XmlElement[]]$AddressSpec,
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateRange(1,9128)]
             [int]$MTU=1500,       
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [switch]$EnableProxyArp=$false,       
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [switch]$EnableSendICMPRedirects=$true,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
             [switch]$Connected=$true,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
             [ValidateNotNullOrEmpty()]
-            [switch]$Confirm=$true   
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -3792,24 +8489,34 @@ function Set-NsxEdgeInterface {
         $VnicSpec = New-NsxEdgeInterfaceSpec @vNicSpecParams
         write-debug "$($MyInvocation.MyCommand.Name) : vNic Spec is $($VnicSpec.outerxml | format-xml) "
 
-        #Construct the XML
-        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-        [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("vnics")
-        $import = $xmlDoc.ImportNode(($VnicSpec), $true)
-        $xmlVnics.AppendChild($import) | out-null
+
+        #Construct the vnics XML Element
+        [System.XML.XMLElement]$xmlVnics = $VnicSpec.OwnerDocument.CreateElement("vnics")
+        $xmlVnics.AppendChild($VnicSpec) | out-null
+
+        #Import any user specified address groups.
+        if ( $PsBoundParameters.ContainsKey('AddressSpec')) { 
+
+            [System.Xml.XmlElement]$AddressGroups = $VnicSpec.SelectSingleNode('descendant::addressGroups') 
+            foreach ( $spec in $AddressSpec ) { 
+                $import = $VnicSpec.OwnerDocument.ImportNode(($spec), $true)
+                $AddressGroups.AppendChild($import) | out-null
+            }
+        }
 
         # #Do the post
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($Interface.edgeId)/vnics/?action=patch"
         Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)."
-        invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)." -completed
 
+        write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
+        Get-NsxEdge -objectId $($Interface.edgeId) -connection $connection | Get-NsxEdgeInterface -index "$($Interface.Index)" -connection $connection
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeInterface
 
 function Clear-NsxEdgeInterface {
 
@@ -3842,7 +8549,11 @@ function Clear-NsxEdgeInterface {
             [System.Xml.XmlElement]$Interface,       
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [switch]$Confirm=$true   
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -3870,14 +8581,13 @@ function Clear-NsxEdgeInterface {
         # #Do the delete
         $URI = "/api/4.0/edges/$($interface.edgeId)/vnics/$($interface.Index)"
         Write-Progress -activity "Clearing Edge Services Gateway interface configuration for interface $($interface.Index)."
-        invoke-nsxrestmethod -method "delete" -uri $URI
+        invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection
         Write-progress -activity "Clearing Edge Services Gateway interface configuration for interface $($interface.Index)." -completed
 
     }
 
     end {}
 }
-Export-ModuleMember -Function Clear-NsxEdgeInterface
 
 function Get-NsxEdgeInterface {
 
@@ -3921,7 +8631,11 @@ function Get-NsxEdgeInterface {
             [string]$Name,
         [Parameter (Mandatory=$True,ParameterSetName="Index")]
             [ValidateRange(0,9)]
-            [int]$Index
+            [int]$Index,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {}
@@ -3931,12 +8645,20 @@ function Get-NsxEdgeInterface {
         if ( -not ($PsBoundParameters.ContainsKey("Index") )) { 
             #All interfaces on Edge
             $URI = "/api/4.0/edges/$($Edge.Id)/vnics/"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $PsBoundParameters.ContainsKey("name") ) {
+
+               write-debug "$($MyInvocation.MyCommand.Name) : Getting vNic by Name"
+
                 $return = $response.vnics.vnic | ? { $_.name -eq $name }
-                Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "edgeId" -xmlElementText $($Edge.Id)
+                if ( $return ) {
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "edgeId" -xmlElementText $($Edge.Id)
+                }
             } 
             else {
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Getting all vNics"
+
                 $return = $response.vnics.vnic
                 foreach ( $vnic in $return ) { 
                     Add-XmlElement -xmlDoc ([system.xml.xmldocument]$vnic.OwnerDocument) -xmlRoot $vnic -xmlElementName "edgeId" -xmlElementText $($Edge.Id)
@@ -3945,9 +8667,11 @@ function Get-NsxEdgeInterface {
         }
         else {
 
-            #Just getting a single named vNic
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting vNic by Index"
+
+            #Just getting a single vNic by index
             $URI = "/api/4.0/edges/$($Edge.Id)/vnics/$Index"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $return = $response.vnic
             Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "edgeId" -xmlElementText $($Edge.Id)
         }
@@ -3955,7 +8679,6 @@ function Get-NsxEdgeInterface {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeInterface
 
 function New-NsxEdgeSubInterface {
 
@@ -4025,7 +8748,11 @@ function New-NsxEdgeSubInterface {
             [switch]$EnableSendICMPRedirects,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [switch]$Connected=$true
+            [switch]$Connected=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
 
@@ -4034,20 +8761,25 @@ function New-NsxEdgeSubInterface {
         throw "Specified interface $($interface.Name) is of type $($interface.type) but must be of type trunk to host a subinterface. "
     }
 
-    #Remove our crap so the put doesnt barf later.
-    $EdgeId = $interface.edgeId
-    $NodeToRemove = $interface.SelectSingleNode("descendant::edgeId")
-    write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
-    $interface.RemoveChild($NodeToRemove) | out-null
+    #Create private xml element
+    $_Interface = $Interface.CloneNode($true)
+
+    #Store the edgeId and remove it from the XML as we need to post it...
+    $edgeId = $_Interface.edgeId
+    $NodetoRemove = $($_Interface.SelectSingleNode('descendant::edgeId'))
+    write-debug "Node to remove parent: $($nodetoremove.ParentNode | format-xml)"
+
+    $_Interface.RemoveChild( $NodeToRemove ) | out-null
+    
 
     #Get or create the subinterfaces node. 
-    [System.XML.XMLDocument]$xmlDoc = $interface.OwnerDocument
-    if ( $interface | get-member -memberType Properties -Name subInterfaces) { 
-        [System.XML.XMLElement]$xmlSubInterfaces = $interface.subInterfaces
+    [System.XML.XMLDocument]$xmlDoc = $_Interface.OwnerDocument
+    if ( $_Interface | get-member -memberType Properties -Name subInterfaces) { 
+        [System.XML.XMLElement]$xmlSubInterfaces = $_Interface.subInterfaces
     }
     else {
         [System.XML.XMLElement]$xmlSubInterfaces = $xmlDoc.CreateElement("subInterfaces")
-        $interface.AppendChild($xmlSubInterfaces) | out-null
+        $_Interface.AppendChild($xmlSubInterfaces) | out-null
     }
 
     #generate the vnic XML 
@@ -4077,13 +8809,12 @@ function New-NsxEdgeSubInterface {
     $xmlSubInterfaces.AppendChild($import) | out-null
 
     # #Do the post
-    $body = $Interface.OuterXml
-    $URI = "/api/4.0/edges/$($EdgeId)/vnics/$($Interface.Index)"
-    Write-Progress -activity "Updating Edge Services Gateway interface configuration for $($interface.Name)."
-    invoke-nsxrestmethod -method "put" -uri $URI -body $body
-    Write-progress -activity "Updating Edge Services Gateway interface configuration for $($interface.Name)." -completed
+    $body = $_Interface.OuterXml
+    $URI = "/api/4.0/edges/$($EdgeId)/vnics/$($_Interface.Index)"
+    Write-Progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)."
+    invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
+    Write-progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)." -completed
 }
-Export-ModuleMember -Function New-NsxEdgeSubInterface
 
 function Remove-NsxEdgeSubInterface {
 
@@ -4119,41 +8850,51 @@ function Remove-NsxEdgeSubInterface {
             [ValidateScript({ Validate-EdgeSubInterface $_ })]
             [System.Xml.XmlElement]$Subinterface,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
-    if ( $confirm ) { 
+    Begin {}
 
-        $message  = "Interface ($Subinterface.Name) will be removed."
-        $question = "Proceed with interface reconfiguration for interface $($Subinterface.index)?"
+    Process { 
+        if ( $confirm ) { 
 
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $message  = "Interface $($Subinterface.Name) will be removed."
+            $question = "Proceed with interface reconfiguration for interface $($Subinterface.index)?"
 
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-        if ( $decision -eq 1 ) {
-            return
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            if ( $decision -eq 1 ) {
+                return
+            }
         }
+
+        #Get the vnic xml
+        $ParentVnic = $(Get-NsxEdge -connection $connection -objectId $SubInterface.edgeId).vnics.vnic | ? { $_.index -eq $subInterface.vnicId }
+
+        #Remove the node using xpath query.
+        $NodeToRemove = $ParentVnic.subInterfaces.SelectSingleNode("descendant::subInterface[index=$($subInterface.Index)]")
+        write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
+        $ParentVnic.Subinterfaces.RemoveChild($NodeToRemove) | out-null
+
+        #Put the modified VNIC xml
+        $body = $ParentVnic.OuterXml
+        $URI = "/api/4.0/edges/$($SubInterface.edgeId)/vnics/$($ParentVnic.Index)"
+        Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)."
+        invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." -completed
+
     }
-
-    #Get the vnic xml
-    $ParentVnic = $(Get-NsxEdge -objectId $SubInterface.edgeId).vnics.vnic | ? { $_.index -eq $subInterface.vnicId }
-
-    #Remove the node using xpath query.
-    $NodeToRemove = $ParentVnic.subInterfaces.SelectSingleNode("descendant::subInterface[index=$($subInterface.Index)]")
-    write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
-    $ParentVnic.Subinterfaces.RemoveChild($NodeToRemove) | out-null
-
-    #Put the modified VNIC xml
-    $body = $ParentVnic.OuterXml
-    $URI = "/api/4.0/edges/$($SubInterface.edgeId)/vnics/$($ParentVnic.Index)"
-    Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)."
-    invoke-nsxrestmethod -method "put" -uri $URI -body $body
-    Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." -completed
+    End {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeSubInterface
 
 function Get-NsxEdgeSubInterface {
 
@@ -4204,34 +8945,291 @@ function Get-NsxEdgeSubInterface {
             if ($PsBoundParameters.ContainsKey("Index")) { 
 
                 $subint = $Interface.subInterfaces.subinterface | ? { $_.index -eq $Index }
+
                 if ( $subint ) {
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
-                    $subint
+                    $_subint = $subint.CloneNode($true)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
+                    $_subint
                 }
             }
             elseif ( $PsBoundParameters.ContainsKey("name")) {
                     
                 $subint = $Interface.subInterfaces.subinterface | ? { $_.name -eq $name }
                 if ($subint) { 
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
-                    $subint
+                    $_subint = $subint.CloneNode($true)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
+                    $_subint
                 }
             } 
             else {
                 #All Subinterfaces on interface
                 foreach ( $subint in $Interface.subInterfaces.subInterface ) {
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
-                    $subInt
+                    $_subint = $subint.CloneNode($true)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
+                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "vnicId" -xmlElementText $($Interface.index)
+                    $_subint
                 }
             }
         }
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeSubInterface
+
+function Get-NsxEdgeInterfaceAddress {
+    
+    <#
+   .SYNOPSIS
+    Retrieves the address configuration for the specified interface
+
+    .DESCRIPTION
+    NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
+    allows a single interface to have IP addresses defined in different subnets,
+    each complete with their own Primary Address, Netmask and zero or more 
+    Secondary Addresses.  
+
+    The Get-NsxEdgeInterfaceAddress cmdlet retrieves the addresses for
+    the specific interface.
+    
+    .EXAMPLE
+    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress
+
+    Retrieves all the address groups defined on vNic 9 of the ESG esgtest.
+
+    .EXAMPLE
+    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4
+
+    Retrieves the address config with primary address 1.2.3.4 defined on vNic 9 of the ESG esgtest.
+    
+    #>
+
+    param (
+
+         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [System.Xml.XmlElement]$Interface,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$PrimaryAddress  
+        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        $_Interface = ($Interface.CloneNode($True))
+        [System.Xml.XmlElement]$AddressGroups = $_Interface.SelectSingleNode('descendant::addressGroups')
+
+        #Need to use an xpath query here, as dot notation will throw in strict mode if there is no childnode.
+        If ( $AddressGroups.SelectSingleNode('descendant::addressGroup')) { 
+
+            $GroupCollection = $AddressGroups.addressGroup
+            if ( $PsBoundParameters.ContainsKey('PrimaryAddress')) {
+                $GroupCollection = $GroupCollection | ? { $_.primaryAddress -eq $PrimaryAddress }
+            }
+
+            foreach ( $AddressGroup in $GroupCollection ) { 
+                Add-XmlElement -xmlRoot $AddressGroup -xmlElementName "edgeId" -xmlElementText $Interface.EdgeId
+                Add-XmlElement -xmlRoot $AddressGroup -xmlElementName "interfaceIndex" -xmlElementText $Interface.Index
+
+            }
+
+            $GroupCollection
+        }
+    }
+
+    end {}
+}
+
+function Add-NsxEdgeInterfaceAddress {
+    
+    <#
+   .SYNOPSIS
+    Adds a new address to the specified ESG interface
+
+    .DESCRIPTION
+    NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
+    allows a single interface to have IP addresses defined in different subnets,
+    each complete with their own Primary Address, Netmask and zero or more 
+    Secondary Addresses.  
+
+    The Add-NsxEdgeInterfaceAddress cmdlet adds a new address to an
+    existing ESG interface.
+    
+    .EXAMPLE
+    get-nsxedge esgtest | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -PrimaryAddress 44.44.44.44 -SubnetPrefixLength 24  -SecondaryAddresses 44.44.44.45,44.44.44.46
+    
+    Adds a new primary address and multiple secondary addresses to vNic 9 on edge esgtest
+    
+    .EXAMPLE
+    $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
+    $add3 = New-NsxAddressSpec -PrimaryAddress 33.33.33.33 -SubnetPrefixLength 24 -SecondaryAddresses 33.33.33.34
+
+    get-nsxedge testesg | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -AddressSpec $add2,$add3
+
+    Adds two new addresses to testesg's vnic9 using address specs.
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="AddressGroupSpec")]
+            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [System.Xml.XmlElement]$Interface,
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+            [ValidateNotNullOrEmpty()]
+            [string]$PrimaryAddress,
+        [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
+            [ValidateNotNullOrEmpty()]
+            [string]$SubnetPrefixLength,       
+        [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+            [string[]]$SecondaryAddresses=@(),
+        [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
+            [ValidateScript({ Validate-AddressGroupSpec $_ })]
+            [System.Xml.XmlElement[]]$AddressSpec,
+        [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
+        [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {}
+    process { 
+
+        [System.Xml.XmlElement]$_Interface = $Interface.CloneNode($True)
+
+        #Store the edgeId and remove it from the XML as we need to put it...
+        $edgeId = $_Interface.edgeId
+        $NodetoRemove = $($_Interface.SelectSingleNode('descendant::edgeId'))
+        $_Interface.RemoveChild( $NodeToRemove ) | out-null
+
+        [System.Xml.XmlElement]$AddressGroups = $_Interface.SelectSingleNode('descendant::addressGroups')
+
+        if ( $PSCmdlet.ParameterSetName -eq "DirectAddress") { 
+            if ( $PsBoundParameters.ContainsKey('SecondaryAddresses')) { 
+                PrivateAdd-NsxEdgeVnicAddressGroup -xmlAddressGroups $AddressGroups -PrimaryAddress $PrimaryAddress -SubnetPrefixLength $SubnetPrefixLength -SecondaryAddresses $SecondaryAddresses 
+            }
+            else {
+                PrivateAdd-NsxEdgeVnicAddressGroup -xmlAddressGroups $AddressGroups -PrimaryAddress $PrimaryAddress -SubnetPrefixLength $SubnetPrefixLength -SecondaryAddresses $SecondaryAddresses 
+            }
+        }
+
+        else { 
+            #Import any user specified address groups.
+            foreach ( $spec in $AddressSpec ) { 
+                $import = $_Interface.OwnerDocument.ImportNode(($spec), $true)
+                $AddressGroups.AppendChild($import) | out-null
+            }
+        }
+
+        #Do the post
+        $body = $_Interface.OuterXml
+        $URI = "/api/4.0/edges/$($edgeId)/vnics/$($_Interface.Index)"
+        Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)."
+        $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)." -completed
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
+        Get-NsxEdge -objectId $($edgeId) -connection $connection | Get-NsxEdgeInterface -index "$($_Interface.Index)" -connection $connection
+    }
+
+    end {}
+}
+
+function Remove-NsxEdgeInterfaceAddress {
+    
+    <#
+   .SYNOPSIS
+    Removes the specified address configuration for the specified interface
+
+    .DESCRIPTION
+    NSX ESGs interfaces can be configured with multiple 'Address Groups'.  This 
+    allows a single interface to have IP addresses defined in different subnets,
+    each complete with their own Primary Address, Netmask and zero or more 
+    Secondary Addresses.  
+
+    The Remove-NsxEdgeInterfaceAddress cmdlet removes the address specified
+    from the specified interface.
+    
+    .EXAMPLE
+    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4 | Remove-NsxEdgeInterfaceAddress
+
+    Removes the address group with primary address 1.2.3.4 defined on vNic 9 of the ESG esgtest.
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeInterfaceAddress $_ })]
+            [System.Xml.XmlElement]$InterfaceAddress,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $InterfaceAddress.edgeId
+        $InterfaceIndex = $InterfaceAddress.interfaceIndex
+        $Edge = Get-NsxEdge -objectId $edgeId -connection $connection 
+        $Interface = $Edge | Get-NsxEdgeInterface -index $InterfaceIndex -connection $connection
+        if ( -not $Interface ) { Throw "Interface index $InterfaceIndex was not found on edge $edgeId."}
+
+        #Remove the edgeId and interfaceIndex elements from the XML as we need to post it...
+        $Interface.RemoveChild( $($Interface.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Need to do an xpath query here to query for an address that matches the one passed in.  
+        $xpathQuery = "//addressGroups/addressGroup[primaryAddress=`"$($InterfaceAddress.primaryAddress)`"]"
+        write-debug "$($MyInvocation.MyCommand.Name) : XPath query for addressgroup nodes to remove is: $xpathQuery"
+        $addressGroupToRemove = $Interface.SelectSingleNode($xpathQuery)
+
+        if ( $addressGroupToRemove ) { 
+
+            write-debug "$($MyInvocation.MyCommand.Name) : addressGroupToRemove Element is: `n $($addressGroupToRemove.OuterXml | format-xml) "
+            $Interface.AddressGroups.RemoveChild($addressGroupToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($EdgeId)/vnics/$InterfaceIndex"
+            $body = $Interface.OuterXml 
+       
+            
+            if ( $confirm ) { 
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }    
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            }
+        }
+        else {
+            Throw "Address $($InterfaceAddress.PrimaryAddress) was not found in the configuration for interface $InterfaceIndex on Edge $edgeId"
+        }
+    }
+
+    end {}
+}
 
 function Get-NsxEdge {
 
@@ -4262,7 +9260,11 @@ function Get-NsxEdge {
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
-            [string]$Name
+            [string]$Name,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -4271,7 +9273,7 @@ function Get-NsxEdge {
 
         "Name" { 
             $URI = "/api/4.0/edges?pageSize=$pagesize&startIndex=00" 
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             
             #Edge summary XML is returned as paged data, means we have to handle it.  
             #Then we have to query for full information on a per edge basis.
@@ -4303,7 +9305,7 @@ function Get-NsxEdge {
                         $startingIndex += $pagesize
                         $URI = "/api/4.0/edges?pageSize=$pagesize&startIndex=$startingIndex"
                 
-                        $response = invoke-nsxrestmethod -method "get" -uri $URI
+                        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                         $pagingInfo = $response.pagedEdgeList.edgePage.pagingInfo
                     
 
@@ -4319,7 +9321,7 @@ function Get-NsxEdge {
             foreach ($edgesummary in $edgesummaries) {
 
                 $URI = "/api/4.0/edges/$($edgesummary.objectID)" 
-                $response = invoke-nsxrestmethod -method "get" -uri $URI
+                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 $import = $response.edge.ownerDocument.ImportNode($edgesummary, $true)
                 $response.edge.appendChild($import) | out-null                
                 $edges += $response.edge
@@ -4339,10 +9341,10 @@ function Get-NsxEdge {
         "objectId" { 
 
             $URI = "/api/4.0/edges/$objectId" 
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $edge = $response.edge
             $URI = "/api/4.0/edges/$objectId/summary" 
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $import = $edge.ownerDocument.ImportNode($($response.edgeSummary), $true)
             $edge.AppendChild($import) | out-null
             $edge
@@ -4350,7 +9352,6 @@ function Get-NsxEdge {
         }
     }
 }
-Export-ModuleMember -Function Get-NsxEdge
 
 function New-NsxEdge {
 
@@ -4395,53 +9396,74 @@ function New-NsxEdge {
             [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ResourcePoolImpl]$ResourcePool,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
                 $true
             })]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.ClusterImpl]$Cluster,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$Datastore,
-        [Parameter (Mandatory=$true)]
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [String]$Username="admin",
+        [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [String]$Password,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [switch]$EnableHA=$false,
-        [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.DatastoreManagement.DatastoreImpl]$HADatastore=$datastore,
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore=$datastore,
         [Parameter (Mandatory=$false)]
             [ValidateSet ("compact","large","xlarge","quadlarge")]
             [string]$FormFactor="compact",
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.FolderImpl]$VMFolder,
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.FolderInterop]$VMFolder,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [String]$Tenant,
-         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
-            [String]$PrimaryDNSServer,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [String]$SecondaryDNSServer,
-        [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
-            [String]$DNSDomainName,
+            [String]$Hostname=$Name,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [switch]$EnableSSH=$false,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [switch]$AutoGenerateRules=$true,
+        [Parameter (Mandatory=$false)]
+            [switch]$FwEnabled=$true,
+        [Parameter (Mandatory=$false)]
+            [switch]$FwDefaultPolicyAllow=$false,
+        [Parameter (Mandatory=$false)]
+            [switch]$FwLoggingEnabled=$true,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [switch]$EnableHa=$false,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(6,900)]
+            [int]$HaDeadTime,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,9)]
+            [int]$HaVnic,
+        [Parameter (Mandatory=$false)]
+            [switch]$EnableSyslog=$false,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string[]]$SyslogServer,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("udp","tcp",IgnoreCase=$true)]
+            [string]$SyslogProtocol,
        [Parameter (Mandatory=$true)]
             [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
-            [System.Xml.XmlElement[]]$Interface       
+            [System.Xml.XmlElement[]]$Interface,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection  
     )
 
     begin {}
@@ -4453,10 +9475,12 @@ function New-NsxEdge {
         $xmlDoc.appendChild($xmlRoot) | out-null
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "fqdn" -xmlElementText $Hostname
+
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
-        if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant}
+        if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant }
 
-
+        #Appliances element
         [System.XML.XMLElement]$xmlAppliances = $XMLDoc.CreateElement("appliances")
         $xmlRoot.appendChild($xmlAppliances) | out-null
         
@@ -4475,15 +9499,101 @@ function New-NsxEdge {
         Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $datastore.extensiondata.moref.value
         if ( $VMFolder ) { Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VMFolder.extensiondata.moref.value}
 
+        #Create the features element.
+        [System.XML.XMLElement]$xmlFeatures = $XMLDoc.CreateElement("features")
+        $xmlRoot.appendChild($xmlFeatures) | out-null
+
         if ( $EnableHA ) {
+          
+            #Define the HA appliance
             [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
             $xmlAppliances.appendChild($xmlAppliance) | out-null
             Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
             Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $HAdatastore.extensiondata.moref.value
             if ( $VMFolder ) { Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VMFolder.extensiondata.moref.value}
-               
+            
+            #configure HA
+            [System.XML.XMLElement]$xmlHA = $XMLDoc.CreateElement("highAvailability")
+            $xmlFeatures.appendChild($xmlHA) | out-null
+
+            Add-XmlElement -xmlRoot $xmlHA -xmlElementName "enabled" -xmlElementText "true"
+            if ( $PsBoundParameters.containsKey('HaDeadTime')) { 
+                Add-XmlElement -xmlRoot $xmlHA -xmlElementName "declareDeadTime" -xmlElementText $HaDeadTime.ToString()
+            }    
+
+            if ( $PsBoundParameters.containsKey('HaVnic')) { 
+                Add-XmlElement -xmlRoot $xmlHA -xmlElementName "vnic" -xmlElementText $HaVnic.ToString()
+            }    
         }
 
+        #Create the syslog element
+        [System.XML.XMLElement]$xmlSyslog = $XMLDoc.CreateElement("syslog")
+        $xmlFeatures.appendChild($xmlSyslog) | out-null
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "enabled" -xmlElementText $EnableSyslog.ToString().ToLower()
+        
+        if ( $PsBoundParameters.containsKey('SyslogProtocol')) { 
+            Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "protocol" -xmlElementText $SyslogProtocol.ToString()
+        }
+
+        if ( $PsBoundParameters.containsKey('SyslogServer')) { 
+
+            [System.XML.XMLElement]$xmlServerAddresses = $XMLDoc.CreateElement("serverAddresses")
+            $xmlSyslog.appendChild($xmlServerAddresses) | out-null
+            foreach ( $server in $SyslogServer ) { 
+                Add-XmlElement -xmlRoot $xmlServerAddresses -xmlElementName "ipAddress" -xmlElementText $server.ToString()
+            }
+        }
+
+        #Create the fw element 
+        [System.XML.XMLElement]$xmlFirewall = $XMLDoc.CreateElement("firewall")
+        $xmlFeatures.appendChild($xmlFirewall) | out-null
+        Add-XmlElement -xmlRoot $xmlFirewall -xmlElementName "enabled" -xmlElementText $FwEnabled.ToString().ToLower()
+
+        [System.XML.XMLElement]$xmlDefaultPolicy = $XMLDoc.CreateElement("defaultPolicy")
+        $xmlFirewall.appendChild($xmlDefaultPolicy) | out-null
+        Add-XmlElement -xmlRoot $xmlDefaultPolicy -xmlElementName "loggingEnabled" -xmlElementText $FwLoggingEnabled.ToString().ToLower()
+
+        if ( $FwDefaultPolicyAllow ) { 
+            Add-XmlElement -xmlRoot $xmlDefaultPolicy -xmlElementName "action" -xmlElementText "accept"
+        } 
+        else {
+            Add-XmlElement -xmlRoot $xmlDefaultPolicy -xmlElementName "action" -xmlElementText "deny"
+        }            
+
+        #Rule Autoconfiguration
+        if ( $AutoGenerateRules ) { 
+            [System.XML.XMLElement]$xmlAutoConfig = $XMLDoc.CreateElement("autoConfiguration")
+            $xmlRoot.appendChild($xmlAutoConfig) | out-null
+            Add-XmlElement -xmlRoot $xmlAutoConfig -xmlElementName "enabled" -xmlElementText $AutoGenerateRules.ToString().ToLower()
+
+        }
+
+        #CLI Settings
+        if ( $PsBoundParameters.ContainsKey('EnableSSH') -or $PSBoundParameters.ContainsKey('Password') ) {
+
+            [System.XML.XMLElement]$xmlCliSettings = $XMLDoc.CreateElement("cliSettings")
+            $xmlRoot.appendChild($xmlCliSettings) | out-null
+            
+            if ( $PsBoundParameters.ContainsKey('Password') ) { 
+                Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "userName" -xmlElementText $UserName
+                Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "password" -xmlElementText $Password
+
+            }
+            if ( $PsBoundParameters.ContainsKey('EnableSSH') ) { Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "remoteAccess" -xmlElementText $EnableSsh.ToString().ToLower() }
+        }
+
+        #DNS Settings
+        if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') -or $PSBoundParameters.ContainsKey('SecondaryDNSServer') -or $PSBoundParameters.ContainsKey('DNSDomainName') ) {
+
+            [System.XML.XMLElement]$xmlDnsClient = $XMLDoc.CreateElement("dnsClient")
+            $xmlRoot.appendChild($xmlDnsClient) | out-null
+            
+            if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "primaryDns" -xmlElementText $PrimaryDnsServer }
+            if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "secondaryDns" -xmlElementText $SecondaryDNSServer }
+            if ( $PsBoundParameters.ContainsKey('DNSDomainName') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "domainName" -xmlElementText $DNSDomainName }
+        }
+
+        #Nics
         [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("vnics")
         $xmlRoot.appendChild($xmlVnics) | out-null
         foreach ( $VnicSpec in $Interface ) {
@@ -4493,32 +9603,103 @@ function New-NsxEdge {
 
         }
 
+
         # #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/4.0/edges"
         Write-Progress -activity "Creating Edge Services Gateway $Name"    
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Creating Edge Services Gateway $Name" -completed
         $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)] 
 
-        if ( $EnableHA ) {
-            
-            [System.XML.XMLElement]$xmlHA = $XMLDoc.CreateElement("highAvailability")
-            Add-XmlElement -xmlRoot $xmlHA -xmlElementName "enabled" -xmlElementText "true"
-            $body = $xmlHA.OuterXml
-            $URI = "/api/4.0/edges/$edgeId/highavailability/config"
-            
-            Write-Progress -activity "Enable HA on edge $Name"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
-            write-progress -activity "Enable HA on edge $Name" -completed
-
-        }
-        Get-NsxEdge -objectID $edgeId
+        Get-NsxEdge -objectID $edgeId -connection $connection
 
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxEdge
+
+function Repair-NsxEdge {
+
+    <#
+    .SYNOPSIS
+    Resyncs or Redploys the specified NSX Edge Services Gateway appliance.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The Repair-NsxEdge cmdlet allows a Resync or Redploy operation to be 
+    performed on the specified Edges appliance.
+
+    WARNING: Repair operations can cause connectivity loss.  Use with caution.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Repair-NsxEdge -Operation Redeploy
+
+    Redeploys the ESG Edge01.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Repair-NsxEdge -Operation ReSync -Confirm:$false
+
+    Resyncs the ESG Edge01 without confirmation.
+    
+    #>
+
+    [CmdletBinding()]
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #The Edge object to be repaired.  Accepted on pipline
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$True)]
+            #WARNING: This operation can potentially cause a datapath outage depending on the deployment architecture.
+            #Specify the repair operation to be performed on the Edge.  
+            #If ForceSync - The edge appliance is rebooted 
+            #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
+            [ValidateSet("ForceSync", "Redeploy")]
+            [switch]$Operation,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        $URI = "/api/4.0/edges/$($Edge.Id)?action=$($Operation.ToLower())"
+               
+        if ( $confirm ) { 
+            $message  = "WARNING: An Edge Services Gateway $Operation is disruptive to Edge services and may cause connectivity loss depending on the deployment architecture."
+            $question = "Proceed with Redeploy of Edge Services Gateway $($Edge.Name)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Repairing Edge Services Gateway $($Edge.Name)"
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+            write-progress -activity "Reparing Edge Services Gateway $($Edge.Name)" -completed
+            Get-NsxEdge -objectId $($Edge.Id) -connection $connection
+        }
+    }
+
+    end {}
+}
 
 function Set-NsxEdge {
 
@@ -4557,7 +9738,12 @@ function Set-NsxEdge {
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -4591,15 +9777,14 @@ function Set-NsxEdge {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed
-            Get-NsxEdge -objectId $($Edge.Id)
+            Get-NsxEdge -objectId $($Edge.Id) -connection $connection
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdge
 
 function Remove-NsxEdge {
 
@@ -4627,7 +9812,12 @@ function Remove-NsxEdge {
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -4651,7 +9841,7 @@ function Remove-NsxEdge {
         if ($decision -eq 0) {
             $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)"
             Write-Progress -activity "Remove Edge Services Gateway $($Edge.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection| out-null
             write-progress -activity "Remove Edge Services Gateway $($Edge.Name)" -completed
 
         }
@@ -4659,7 +9849,2204 @@ function Remove-NsxEdge {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdge
+
+function Enable-NsxEdgeSsh { 
+
+    <#
+    .SYNOPSIS
+    Enables the SSH server on an existing NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    This cmdlet enables the ssh server on the specified Edge Services Gateway.  
+    If rule autogeneration is configured on the Edge, the Edge firewall is 
+    automatically configured to allow incoming connections.
+
+    .EXAMPLE
+    Enable SSH on edge Edge01
+
+    C:\PS> Get-NsxEdge Edge01 | Enable-NsxEdgeSsh
+    
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/cliremoteaccess?enable=true"
+        Write-Progress -activity "Enable SSH on Edge Services Gateway $($Edge.Name)"
+        invoke-nsxrestmethod -method "post" -uri $URI -connection $connection| out-null
+        write-progress -activity "Enable SSH on Edge Services Gateway $($Edge.Name)" -completed
+
+    }
+
+    end {}
+}
+
+function Disable-NsxEdgeSsh {
+
+    <#
+    .SYNOPSIS
+    Disables the SSH server on an existing NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    This cmdlet disables the ssh server on the specified Edge Services Gateway.  
+
+    .EXAMPLE
+    Disable SSH on edge Edge01
+
+    C:\PS> Get-NsxEdge Edge01 | Disable-NsxEdgeSsh
+    
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Disabling SSH will prevent remote SSH connections to this edge."
+            $question = "Proceed with disabling SSH service on $($Edge.Name)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/cliremoteaccess?enable=false"
+            Write-Progress -activity "Disable SSH on Edge Services Gateway $($Edge.Name)"
+            invoke-nsxrestmethod -method "post" -uri $URI -connection $connection| out-null
+            write-progress -activity "Disable SSH on Edge Services Gateway $($Edge.Name)" -completed
+        }
+    }
+
+    end {}
+
+}
+
+#########
+#########
+# Edge NAT related functions
+function Set-NsxEdgeNat {
+    
+    <#
+    .SYNOPSIS
+    Configures global NAT configuration of an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    You can configure NAT rules to provide access to services running on 
+    privately addressed virtual machines.  There are two types of NAT rules that
+    can be configured: SNAT and DNAT. 
+
+    The Set-NsxEdgeNat cmdlet configures the global NAT configuration of
+    the specified Edge Services Gateway.
+    
+    
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeNat $_ })]
+            [System.Xml.XmlElement]$EdgeNat,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeNat = $EdgeNat.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeNat.edgeId
+        $_EdgeNat.RemoveChild( $($_EdgeNat.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled') ) { 
+            if ( $Enabled ) { 
+                $_EdgeNat.enabled = 'true'
+            }
+            else {
+                $_EdgeNat.enabled = 'false'
+            }
+        }
+
+        $URI = "/api/4.0/edges/$($EdgeId)/nat/config"
+        $body = $_EdgeNat.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway NAT update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeNat
+        }
+    }
+
+    end {}
+}
+
+function Get-NsxEdgeNat {
+    
+    <#
+    .SYNOPSIS
+    Gets global NAT configuration of an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    You can configure NAT rules to provide access to services running on 
+    privately addressed virtual machines.  There are two types of NAT rules that
+    can be configured: SNAT and DNAT. 
+
+    The Get-NsxEdgeNat cmdlet retreives the global NAT configuration of
+    the specified Edge Services Gateway.
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeNat = $Edge.features.nat.CloneNode($True)
+        Add-XmlElement -xmlRoot $_EdgeNat -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_EdgeNat
+    }
+
+    end {}
+}
+
+function Get-NsxEdgeNatRule {
+    
+    <#
+    .SYNOPSIS
+    Retreives NAT rules from the spcified NSX Edge Services Gateway NAT 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    The Get-NsxEdgeNatRule cmdlet retreives the nat rules from the 
+    nat configuration specified.
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeNat $_ })]
+            [System.Xml.XmlElement]$EdgeNat,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$RuleId,
+        [Parameter (Mandatory=$false)]
+            [switch]$ShowInternal=$false    
+        
+    )
+    
+    begin {
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeNat = ($EdgeNat.CloneNode($True))
+        $_EdgeNatRules = $_EdgeNat.SelectSingleNode('descendant::natRules')
+
+        #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called natRule.
+        If ( $_EdgeNatRules.SelectSingleNode('descendant::natRule')) { 
+
+            $RuleCollection = $_EdgeNatRules.natRule
+            if ( $PsBoundParameters.ContainsKey('RuleId')) {
+                $RuleCollection = $RuleCollection | ? { $_.ruleId -eq $RuleId }
+            }
+
+            if ( -not $ShowInternal ) {
+                $RuleCollection = $RuleCollection | ? { $_.ruleType -eq 'user' }
+            }
+
+            foreach ( $Rule in $RuleCollection ) { 
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "edgeId" -xmlElementText $EdgeNat.EdgeId
+            }
+
+            $RuleCollection
+        }
+    }
+
+    end {}
+}
+
+function New-NsxEdgeNatRule {
+    
+    <#
+    .SYNOPSIS
+    Creates a new NAT rule and adds it to the specified ESGs NAT configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    The New-NsxEdgeNatRule cmdlet creates a new NAT rule in the nat 
+    configuration specified.
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeNat $_ })]
+            [System.Xml.XmlElement]$EdgeNat,       
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(0,200)]
+            [int]$Vnic,                  
+        [Parameter (Mandatory=$True)]
+            [string]$OriginalAddress,
+        [Parameter (Mandatory=$True)]
+            [string]$TranslatedAddress,
+        [Parameter (Mandatory=$True)]
+            [Validateset("dnat","snat",ignorecase=$false)]
+            [string]$action,
+        [Parameter (Mandatory=$false)]
+            [string]$Protocol,
+        [Parameter (Mandatory=$False)]
+            [string]$Description,   
+        [Parameter (Mandatory=$False)]
+            [switch]$LoggingEnabled=$false,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled=$true, 
+        [Parameter (Mandatory=$false)]
+            [string]$OriginalPort,        
+        [Parameter (Mandatory=$false)]
+            [string]$TranslatedPort,
+        [Parameter (Mandatory=$false)]
+            [string]$IcmpType,
+        [Parameter (Mandatory=$false)]
+            [int]$AboveRuleId, 
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+        
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $EdgeId = $EdgeNat.edgeId
+       
+        #Create the new rules + rule element.
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        if ( -not $PsBoundParameters.ContainsKey('AboveRuleId') ) { 
+            $Rules = $xmlDoc.CreateElement('natRules') 
+            $Rule = $xmlDoc.CreateElement('natRule') 
+            $xmlDoc.AppendChild($Rules) | out-null
+            $Rules.AppendChild($Rule)  | out-null
+            $URI = "/api/4.0/edges/$EdgeId/nat/config/rules"
+
+        }
+        else { 
+            $Rule = $xmlDoc.CreateElement('natRule') 
+            $xmlDoc.AppendChild($Rule) | out-null
+            $URI = "/api/4.0/edges/$EdgeId/nat/config/rules?aboveRuleId=$($AboveRuleId.toString())"
+        }
+
+        #Append the mandatory props
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "originalAddress" -xmlElementText $OriginalAddress.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "translatedAddress" -xmlElementText $TranslatedAddress.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "action" -xmlElementText $Action.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "loggingEnabled" -xmlElementText $LoggingEnabled.ToString().tolower()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "enabled" -xmlElementText $Enabled.ToString().tolower()
+
+        #Now the optional ones
+        if ( $PsBoundParameters.ContainsKey("Protocol") ) { 
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "protocol" -xmlElementText $Protocol.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("Description") ) { 
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("OriginalPort") ) { 
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "originalPort" -xmlElementText $OriginalPort.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("TranslatedPort") ) { 
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "translatedPort" -xmlElementText $TranslatedPort.ToString()
+        }
+    
+        if ( $PsBoundParameters.ContainsKey("IcmpType") ) { 
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "icmpType" -xmlElementText $IcmpType.ToString()
+        }
+
+        if ( -not $PsBoundParameters.ContainsKey('AboveRuleId') ) { 
+            $body = $Rules.OuterXml 
+        }
+        else {
+            $body = $Rule.OuterXml 
+        }
+
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+        $ruleid = $response.Headers.location -replace "/api/4.0/edges/$edgeid/nat/config/rules/","" 
+        Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxEdgeNat | Get-NsxEdgeNatRule -ruleid $ruleid
+    }
+
+    end {}
+}
+
+function Remove-NsxEdgeNatRule {
+    
+    <#
+    .SYNOPSIS
+    Removes a NAT Rule from the specified ESGs NAT configuration. 
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    NSX Edge provides network address translation (NAT) service to protect the 
+    IP addresses of internal (private)  networks from the public network.
+
+    The Remove-NsxEdgeNatRule cmdlet removes a specific NAT rule from the NAT
+    configuration of the specified Edge Services Gateway.
+
+    Rules to be removed can be constructed via a PoSH pipline filter outputing
+    rule objects as produced by Get-NsxEdgeNatRule and passing them on the
+    pipeline to Remove-NsxEdgeNatRule.
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeNatRule $_ })]
+            [System.Xml.XmlElement]$NatRule,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the rule config for our Edge
+        $edgeId = $NatRule.edgeId
+        $ruleId = $NatRule.ruleId
+
+    
+        $URI = "/api/4.0/edges/$EdgeId/nat/config/rules/$ruleId"
+       
+            
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway nat rule update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $EdgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+        }
+    }
+
+    end {}
+}
+
+
+
+#########
+#########
+# Edge Certificate related functions
+
+function Get-NsxEdgeCsr {
+ 
+    <#
+    .SYNOPSIS
+    Gets SSL Certificate Signing Requests from an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    Certificate Signing Requests define the subject details to be included in
+    an SSL certificate and are the object that is signed by a Certificate 
+    Authority in order to provide a valid certificate
+
+    The Get-NsxEdgeCsr cmdlet retreives csr's definined on the specified Edge 
+    Services Gateway, or with the specified objectId
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Edge")]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+            [string]$objectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {}
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('objectId')) {
+
+            #Just getting a single named csr by id group
+            $URI = "/api/2.0/services/truststore/csr/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response ) {
+                if ( $response.SelectSingleNode('descendant::csr')) {
+                    $response.csr
+                }
+            }
+            
+        }
+        else {
+
+            $URI = "/api/2.0/services/truststore/csr/scope/$($Edge.Id)"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+            if ( $response ) { 
+                if ( $response.SelectSingleNode('descendant::csrs/csr')) {
+                    $response.csrs.csr
+                }
+            }
+        }
+    }
+
+    end {}
+}
+
+function New-NsxEdgeCsr{
+
+    <#
+    .SYNOPSIS
+    Creates a new SSL Certificate Signing Requests on an existing NSX Edge 
+    Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    Certificate Signing Requests define the subject details to be included in
+    an SSL certificate and are the object that is signed by a Certificate 
+    Authority in order to provide a valid certificate
+
+    The New-NsxEdgeCsr cmdlet creates a new csr on the specified Edge Services 
+    Gateway.
+
+    
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,                              
+        [Parameter (Mandatory=$True)]
+            [string]$CommonName,   
+        [Parameter (Mandatory=$True)]
+            [string]$Organisation,   
+        [Parameter (Mandatory=$True)]
+            [string]$Country,   
+        [Parameter (Mandatory=$True)]
+            [string]$OrganisationalUnit, 
+        [Parameter (Mandatory=$False)]
+            [ValidateSet(2048,3072)]
+            [int]$Keysize=2048, 
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("RSA", "DSA", IgnoreCase=$false )]
+            [string]$Algorithm="RSA",
+        [Parameter (Mandatory=$False)]
+            [string]$Description, 
+        [Parameter (Mandatory=$False)]
+            [string]$Name,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+    }
+
+    process {
+
+
+        $edgeId = $Edge.Id
+
+        #Create the new csr element and subject child element.
+        [System.Xml.XmlDocument] $xmlDoc = New-Object System.Xml.XmlDocument
+        $csr = $xmlDoc.CreateElement('csr')
+        $subject = $xmlDoc.CreateElement('subject')
+        $csr.AppendChild($subject) | out-null
+
+        #Common Name
+        $CnAttribute = $xmlDoc.CreateElement('attribute') 
+        $subject.AppendChild($CnAttribute) | out-null
+        Add-XmlElement -xmlRoot $CnAttribute -xmlElementName "key" -xmlElementText "CN"
+        Add-XmlElement -xmlRoot $CnAttribute -xmlElementName "value" -xmlElementText $CommonName.ToString()
+
+        #Organisation
+        $OAttribute = $xmlDoc.CreateElement('attribute') 
+        $subject.AppendChild($OAttribute) | out-null
+        Add-XmlElement -xmlRoot $OAttribute -xmlElementName "key" -xmlElementText "O"
+        Add-XmlElement -xmlRoot $OAttribute -xmlElementName "value" -xmlElementText $Organisation.ToString()
+
+        #OU
+        $OuAttribute = $xmlDoc.CreateElement('attribute') 
+        $subject.AppendChild($OuAttribute) | out-null
+        Add-XmlElement -xmlRoot $OuAttribute -xmlElementName "key" -xmlElementText "OU"
+        Add-XmlElement -xmlRoot $OuAttribute -xmlElementName "value" -xmlElementText $OrganisationalUnit.ToString()
+
+        #Country
+        $CAttribute = $xmlDoc.CreateElement('attribute') 
+        $subject.AppendChild($CAttribute) | out-null
+        Add-XmlElement -xmlRoot $CAttribute -xmlElementName "key" -xmlElementText "C"
+        Add-XmlElement -xmlRoot $CAttribute -xmlElementName "value" -xmlElementText $Country.ToString()
+
+        #Algo
+        Add-XmlElement -xmlRoot $csr -xmlElementName "algorithm" -xmlElementText $Algorithm.ToString()
+
+        #KeySize
+        Add-XmlElement -xmlRoot $csr -xmlElementName "keySize" -xmlElementText $Keysize.ToString()
+       
+        #Name
+        if ( $PsBoundParameters.ContainsKey('Name')) { 
+            Add-XmlElement -xmlRoot $csr -xmlElementName "name" -xmlElementText $Name.ToString()
+        }
+
+        #Description
+        if ( $PsBoundParameters.ContainsKey('Description')) { 
+            Add-XmlElement -xmlRoot $csr -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+
+
+        $URI = "/api/2.0/services/truststore/csr/$edgeId"
+        $body = $csr.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $EdgeId"
+        $response = Invoke-NsxRestMethod -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+        $response.csr
+        
+    }
+
+    end {}
+}
+
+function Remove-NsxEdgeCsr{
+
+    <#
+    .SYNOPSIS
+    Remvoves the specificed SSL Certificate Signing Request from an existing NSX
+    Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    Certificate Signing Requests define the subject details to be included in
+    an SSL certificate and are the object that is signed by a Certificate 
+    Authority in order to provide a valid certificate
+
+    The Remove-NsxEdgeCsr cmdlet removes a csr from the specified Edge Services 
+    Gateway.
+
+    CSRs to be removed can be constructed via a PoSH pipline filter outputing
+    csr objects as produced by Get-NsxEdgeCsr and passing them on the
+    pipeline to Remove-NsxEdgeCsr.
+
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeCsr $_ })]
+            [System.Xml.XmlElement]$Csr,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "CSR removal is permanent."
+            $question = "Proceed with removal of CSR $($Csr.objectId)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/2.0/services/truststore/csr/$($csr.objectId)"
+            
+            Write-Progress -activity "Remove CSR $($Csr.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            write-progress -activity "Remove CSR $($Csr.Name)" -completed
+
+        }
+    }
+
+    end {}
+}
+
+function Get-NsxEdgeCertificate{
+    
+    <#
+    .SYNOPSIS
+    Gets SSL Certificate from an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    SSL Certificates are used to provide encyption and trust validation for the 
+    services that use them.
+
+    The Get-NsxEdgeCertificate cmdlet retreives certificates definined on the 
+    specified Edge Services Gateway, or with the specified objectId
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Edge")]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+            [string]$objectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {}
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('objectId')) {
+
+            #Just getting a single named csr by id group
+            $URI = "/api/2.0/services/truststore/certificate/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response ) {
+                if ( $response.SelectSingleNode('descendant::certificate')) {
+                    $response.certificate
+                }
+            }
+            
+        }
+        else {
+
+            $URI = "/api/2.0/services/truststore/certificate/scope/$($Edge.Id)"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+            if ( $response ) { 
+                if ( $response.SelectSingleNode('descendant::certificates/certificate')) {
+                    $response.certificates.certificate
+                }
+            }
+        }
+    }
+
+    end {}
+}
+
+function New-NsxEdgeSelfSignedCertificate{
+
+    <#
+    .SYNOPSIS
+    Signs an NSX Edge Certificate Signing Request on an existing NSX Edge 
+    Services Gateway to create a new Self Signed Certificate
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    Certificate Signing Requests define the subject details to be included in
+    an SSL certificate and are the object that is signed by a Certificate 
+    Authority in order to provide a valid certificate.
+
+    The New-NsxEdgeCertificate cmdlet signs an existing csr on the specified 
+    Edge Services Gateway to create a Self Signed Certificate.
+    
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeCSR $_ })]
+            [System.Xml.XmlElement]$CSR,                              
+        [Parameter (Mandatory=$False)]
+            [int]$NumberOfDays=365,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+    }
+
+    process {
+
+
+        $edgeId = $Csr.Scope.Id
+
+
+        $URI = "/api/2.0/services/truststore/csr/$($csr.objectId)?noOfDays=$NumberOfDays"
+       
+        Write-Progress -activity "Update Edge Services Gateway $EdgeId"
+        $response = Invoke-NsxRestMethod -method "Put" -uri $URI -connection $connection
+        write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+        $response.Certificate
+        
+    }
+
+    end {}
+}
+
+function Remove-NsxEdgeCertificate{
+    
+    <#
+    .SYNOPSIS
+    Remvoves the specificed SSL Certificate from an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL Certificates are used by a variety of services within NSX, including SSL
+    VPN and Load Balancing.
+
+    SSL Certificates are used to provide encyption and trust validation for the 
+    services that use them.
+
+    The Remove-NsxEdgeCertificate cmdlet removes a certificate from the 
+    specified Edge Services Gateway.
+
+    Certificates to be removed can be constructed via a PoSH pipeline filter 
+    outputing certificate objects as produced by Get-NsxEdgeCertificate and 
+    passing them on the pipeline to Remove-NsxEdgeCertificate.
+
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeCertificate $_ })]
+            [System.Xml.XmlElement]$Certificate,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ( $confirm ) { 
+            $message  = "Certificate removal is permanent."
+            $question = "Proceed with removal of Certificate $($Certificate.objectId)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            $URI = "/api/2.0/services/truststore/certificate/$($certificate.objectId)"
+            
+            Write-Progress -activity "Remove Certificate $($Csr.Name)"
+            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            write-progress -activity "Remove Certificate $($Csr.Name)" -completed
+
+        }
+    }
+
+    end {}
+}
+
+
+#########
+#########
+# Edge SSL VPN related functions
+
+function Get-NsxSslVpn {
+  
+    <#
+    .SYNOPSIS
+    Gets global SSLVPN configuration of an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL VPN allows remote users to connect securely to private networks behind an
+    NSX Edge Services gateway and access servers and applications 
+    in the private networks.
+
+    The Get-NsxSslVpn cmdlet retreives the global SSLVPN configuration of
+    the specified Edge Services Gateway.
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $Edge.features.sslvpnConfig.CloneNode($True)
+        Add-XmlElement -xmlRoot $_EdgeSslVpn -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_EdgeSslVpn
+    }
+
+    end {}
+}
+
+function Set-NsxSslVpn {
+
+    #To do, portal customisation, server ip config...
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableCompression,
+        [Parameter (Mandatory=$False)]
+            [switch]$ForceVirtualKeyboard,
+        [Parameter (Mandatory=$False)]
+            [switch]$RandomizeVirtualkeys,
+        [Parameter (Mandatory=$False)]
+            [switch]$PreventMultipleLogon,
+        [Parameter (Mandatory=$False)]
+            [string]$ClientNotification,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnablePublicUrlAccess,
+        [Parameter (Mandatory=$False)]
+            [int]$ForcedTimeout,
+        [Parameter (Mandatory=$False)]
+            [int]$SessionIdleTimeout,
+        [Parameter (Mandatory=$False)]
+            [switch]$ClientAutoReconnect,
+        [Parameter (Mandatory=$False)]
+            [switch]$ClientUpgradeNotification,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableLogging,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
+            [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            [ipaddress]$ServerAddress,
+        [Parameter (Mandatory=$False)]
+            [int]$ServerPort,
+        [Parameter (Mandatory=$False)]
+            [string]$CertificateID,    
+        [Parameter (Mandatory=$False)]
+            [switch]$Enable_AES128_SHA,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enable_AES256_SHA,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enable_DES_CBC3_SHA,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+         #Create private xml element
+        $_EdgeSslVpn = $SslVpn.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeSslVpn.edgeId
+
+        $_EdgeSslVpn.RemoveChild( $($_EdgeSslVpn.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled')) { 
+            $_EdgeSslVpn.enabled = $Enabled.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('EnableCompression')) { 
+            $_EdgeSslVpn.advancedConfig.enableCompression = $EnableCompression.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('ForceVirtualKeyboard')) { 
+            $_EdgeSslVpn.advancedConfig.ForceVirtualKeyboard = $ForceVirtualKeyboard.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('RandomizeVirtualkeys')) { 
+            $_EdgeSslVpn.advancedConfig.RandomizeVirtualkeys = $RandomizeVirtualkeys.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('PreventMultipleLogon')) { 
+            $_EdgeSslVpn.advancedConfig.PreventMultipleLogon = $PreventMultipleLogon.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('EnablePublicUrlAccess')) { 
+            $_EdgeSslVpn.advancedConfig.EnablePublicUrlAccess = $EnablePublicUrlAccess.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('ClientNotification')) { 
+            $_EdgeSslVpn.advancedConfig.ClientNotification = $ClientNotification.toString()
+        }
+        if ( $PsBoundParameters.ContainsKey('ForcedTimeout')) { 
+            $_EdgeSslVpn.advancedConfig.timeout.ForcedTimeout = $ForcedTimeout.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('SessionIdleTimeout')) { 
+            $_EdgeSslVpn.advancedConfig.timeout.SessionIdleTimeout = $SessionIdleTimeout.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('ClientAutoReconnect')) { 
+            $_EdgeSslVpn.clientConfiguration.AutoReconnect = $ClientAutoReconnect.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('ClientUpgradeNotification')) { 
+            $_EdgeSslVpn.clientConfiguration.UpgradeNotification = $ClientUpgradeNotification.ToString().tolower()
+        }
+        if ( $PsBoundParameters.ContainsKey("EnableLogging")) { 
+            $_EdgeSslVpn.logging.enable = $EnableLogging.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey("LogLevel")) { 
+            $_EdgeSslVpn.logging.logLevel = $LogLevel.ToString().ToLower()
+        }
+
+
+        if ( $PsBoundParameters.ContainsKey("ServerAddress") -or
+            $PsBoundParameters.ContainsKey("ServerPort") -or
+            $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") -or
+            $PsBoundParameters.ContainsKey("Enable_AES128_SHA") -or
+            $PsBoundParameters.ContainsKey("Enable_AES256_SHA")) 
+        {
+            
+            if ( -not $_EdgeSslVpn.SelectSingleNode('descendant::serverSettings') ) {
+                [System.Xml.XmlElement]$serverSettings = $_EdgeSslVpn.ownerDocument.CreateElement('serverSettings') 
+                $_EdgeSslVpn.AppendChild($serverSettings) | out-null
+            }
+            else { 
+                [System.Xml.XmlElement]$ServerSettings = $_EdgeSslVpn.serverSettings
+            }
+
+            if ( $PsBoundParameters.ContainsKey("ServerAddress")) { 
+                #Set ServerAddress
+                if ( -not $serverSettings.SelectSingleNode('descendant::serverAddresses') ) {
+                    [System.Xml.XmlElement]$serverAddresses = $_EdgeSslVpn.ownerDocument.CreateElement('serverAddresses') 
+                    $serverSettings.AppendChild($serverAddresses) | out-null
+                }
+                else { 
+                    [System.Xml.XmlElement]$serverAddresses = $serverSettings.serverAddresses
+                }
+
+                if ( -not $serverAddresses.SelectSingleNode('descendant::ipAddress') ) {
+                    Add-XmlElement -xmlRoot $serverAddresses -xmlElementName "ipAddress" -xmlElementText $($ServerAddress.IPAddresstoString)
+                }
+                else {
+                    $serverAddresses.ipAddress = [string]$ServerAddress.IPAddresstoString
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("ServerPort")) { 
+                
+                if ( -not $serverSettings.SelectSingleNode('descendant::port') ) {
+                    Add-XmlElement -xmlRoot $serverSettings -xmlElementName "port" -xmlElementText $ServerPort.ToString()
+                }
+                else {
+                    $serverSettings.port = $ServerPort.ToString()
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("CertificateID")) { 
+
+                if ( -not $serverSettings.SelectSingleNode('descendant::certificateId') ) {
+                    Add-XmlElement -xmlRoot $serverSettings -xmlElementName "certificateId" -xmlElementText $CertificateID
+                }
+                else {
+                    $serverSettings.certificateId = $CertificateID
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") -or
+                $PsBoundParameters.ContainsKey("Enable_AES128_SHA") -or
+                $PsBoundParameters.ContainsKey("Enable_AES256_SHA")) { 
+
+                if ( -not $_EdgeSslVpn.serverSettings.SelectSingleNode('descendant::cipherList') ) {
+                    [System.Xml.XmlElement]$cipherList = $serverSettings.ownerDocument.CreateElement('cipherList') 
+                    $serverSettings.AppendChild($cipherList) | out-null
+                }
+                else { 
+                    [System.Xml.XmlElement]$cipherList = $serverSettings.cipherList
+                }
+
+                if ( $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") ) { 
+                    $cipher = $cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'DES-CBC3-SHA'}
+                    if ( ( -not $cipher ) -and $Enable_DES_CBC3_SHA ) {
+                        Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "DES-CBC3-SHA"
+                    }
+                    elseif ( $cipher -and ( -not $Enable_DES_CBC3_SHA )) { 
+                        $cipherList.RemoveChild( $cipher )| out-null
+                    }
+                }
+
+
+                if ( $PsBoundParameters.ContainsKey("Enable_AES128_SHA") ) { 
+                    $cipher = $cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'AES128-SHA'}
+                    if ( ( -not $cipher ) -and $Enable_AES128_SHA ) {
+                        Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "AES128-SHA"
+                    }
+                    elseif ( $cipher -and ( -not $Enable_AES128_SHA )) { 
+                        $CipherList.RemoveChild( $cipher )| out-null
+                    }
+                }
+
+                if ( $PsBoundParameters.ContainsKey("Enable_AES256_SHA") ) { 
+                    $cipher = $cipherList.SelectNodes("descendant::cipher") | ? { $_.'#Text' -eq 'AES256-SHA'}
+                    if ( ( -not $cipher ) -and $Enable_AES256_SHA ) {
+                        Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "AES256-SHA"
+                    }
+                    elseif ( $cipher -and ( -not $Enable_AES256_SHA )) { 
+                        $CipherList.RemoveChild( $cipher ) | out-null
+                    }
+                }
+            }
+        }
+
+        $URI = "/api/4.0/edges/$EdgeId/sslvpn/config"
+        $body = $_EdgeSslVpn.OuterXml 
+       
+        
+        if ( $confirm ) { 
+            $message  = "Edge Services Gateway SSL VPN update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxSslVpn
+        }
+    }
+
+    end {}
+}
+
+function New-NsxSslVpnAuthServer {
+
+
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMinLength=1,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMaxLength=63,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMinAlphabet=0,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMinDigit=0,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,63)]
+            [int]$PasswordMinSpecialChar=0,
+        [Parameter (Mandatory=$False)]
+            [switch]$PasswordAllowUsernameInPassword=$false,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordLifetime=30,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordExpiryNotificationTime=25,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordLockoutRetryCount=3,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordLockoutRetryDuration=2,
+        [Parameter (Mandatory=$False)]
+            [int]$PasswordLockoutDuration=2,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("Local")]
+            [string]$ServerType="Local",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    Begin{}
+
+    Process {
+
+        #Create private xml element
+        $_EdgeSslVpn = $SslVpn.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_EdgeSslVpn.edgeId
+
+        $_EdgeSslVpn.RemoveChild( $($_EdgeSslVpn.SelectSingleNode('descendant::edgeId')) ) | out-null
+
+        #Get the AuthServers node, and create a new PrimaryAuthServer in it.
+        $PrimaryAuthServers = $_EdgeSslVpn.SelectSingleNode('descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers')
+
+        Switch ( $ServerType ) { 
+
+            "Local" { 
+
+                #Like highlander, there can be only one! :)
+
+                if ( $PrimaryAuthServers.SelectsingleNode('descendant::localAuthServer') ) { 
+
+                    throw "Local Authentication source already exists.  Use Set-NsxEdgeSslVpnAuthServer to modify an existing server."
+                }
+                else { 
+
+                    #Construct the Local Server XML Element.  
+                    $AuthServer = $PrimaryAuthServers.ownerDocument.CreateElement('com.vmware.vshield.edge.sslvpn.dto.LocalAuthServerDto')
+                    $PrimaryAuthServers.AppendChild($AuthServer) | out-null
+
+                    $PasswordPolicy = $AuthServer.ownerDocument.CreateElement('passwordPolicy')
+                    $AccountLockoutPolicy = $AuthServer.ownerDocument.CreateElement('accountLockoutPolicy')
+                    $AuthServer.AppendChild($PasswordPolicy) | out-null
+                    $AuthServer.AppendChild($AccountLockoutPolicy) | out-null
+
+                    #No need to check if user specified as we are defaulting to the documented defaults for all props as per API guide.
+
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "minLength" -xmlElementText $PasswordMinLength.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "maxLength" -xmlElementText $PasswordMaxLength.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "minAlphabets" -xmlElementText $PasswordMinAlphabet.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "minDigits" -xmlElementText $PasswordMinDigit.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "minSpecialChar" -xmlElementText $PasswordMinSpecialChar.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "allowUserIdWithinPassword" -xmlElementText $PasswordAllowUsernameInPassword.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "passwordLifeTime" -xmlElementText $PasswordLifetime.ToString()
+                    Add-XmlElement -xmlRoot $PasswordPolicy -xmlElementName "expiryNotification" -xmlElementText $PasswordExpiryNotificationTime.ToString()
+                    Add-XmlElement -xmlRoot $AccountLockoutPolicy -xmlElementName "retryCount" -xmlElementText $PasswordLockoutRetryCount.ToString()
+                    Add-XmlElement -xmlRoot $AccountLockoutPolicy -xmlElementName "retryDuration" -xmlElementText $PasswordLockoutRetryDuration.ToString()
+                    Add-XmlElement -xmlRoot $AccountLockoutPolicy -xmlElementName "lockoutDuration" -xmlElementText $PasswordLockoutDuration.ToString()
+                }
+            }
+            default { Throw "Server type not supported." }
+        }
+
+        $URI = "/api/4.0/edges/$EdgeId/sslvpn/config"
+        $body = $_EdgeSslVpn.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        #Totally cheating here while we only support local auth server. Will have to augment this later...
+        Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxSslVpn | Get-NsxSslVpnAuthServer -Servertype local
+    }
+
+    end{}
+}
+
+function Get-NsxSslVpnAuthServer {
+  
+    <#
+    .SYNOPSIS
+    Gets SSLVPN Authentication Servers from an existing NSX Edge Services 
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL VPN allows remote users to connect securely to private networks behind an
+    NSX Edge Services gateway and access servers and applications 
+    in the private networks.
+
+    Authentication Servers define how the SSL VPN server authenticates user
+    connections
+
+    The Get-NsxSslVpnAuthServer cmdlet retreives the SSL VPN authentication 
+    sources configured on the specified Edge Services Gateway.
+
+    
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [ValidateSet("local",IgnoreCase=$false)]
+            [string]$ServerType
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+        $PrimaryAuthenticationServers = $_EdgeSslVpn.SelectNodes('descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers/*')
+        if ( $PrimaryAuthenticationServers ) { 
+
+            foreach ( $Server in $PrimaryAuthenticationServers ) { 
+                Add-XmlElement -xmlRoot $Server -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('ServerType')) { 
+                    $Server | ? { $_.authServerType -eq $ServerType }
+                } else {
+                    $Server
+                }
+            }
+        }
+        $SecondaryAuthenticationServers = $_EdgeSslVpn.SelectNodes('descendant::authenticationConfiguration/passwordAuthentication/secondaryAuthServers/*')
+        if ( $SecondaryAuthenticationServers ) { 
+
+            foreach ( $Server in $SecondaryAuthenticationServers ) { 
+                Add-XmlElement -xmlRoot $Server -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                $Server
+            }
+        }
+    }
+
+    end {}
+}
+
+function New-NsxSslVpnUser{
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$UserName,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Password,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$FirstName,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$LastName,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,
+        [Parameter (Mandatory=$False)]
+            [switch]$DisableUser=$False,
+        [Parameter (Mandatory=$False)]
+            [switch]$PasswordNeverExpires=$False,
+        [Parameter (Mandatory=$False)]
+            [switch]$AllowPasswordChange=$True,
+        [Parameter (Mandatory=$False)]
+            [switch]$ForcePasswordChangeOnNextLogin,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    Begin{}
+
+    Process {
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $SslVpn.edgeId
+
+        #Create the user element
+        $User = $SslVpn.ownerDocument.CreateElement('user')
+
+        #Mandatory and defaults
+        Add-XmlElement -xmlRoot $User -xmlElementName "userId" -xmlElementText $UserName.ToString()
+        Add-XmlElement -xmlRoot $User -xmlElementName "password" -xmlElementText $Password.ToString()
+        Add-XmlElement -xmlRoot $User -xmlElementName "disableUserAccount" -xmlElementText $DisableUser.ToString().ToLower()
+        Add-XmlElement -xmlRoot $User -xmlElementName "passwordNeverExpires" -xmlElementText $PasswordNeverExpires.ToString().ToLower()
+        if ( $AllowPasswordChange ) {
+            $xmlAllowChangePassword = $User.OwnerDocument.CreateElement('allowChangePassword')
+            $User.AppendChild($xmlAllowChangePassword) | out-null
+            Add-XmlElement -xmlRoot $xmlAllowChangePassword -xmlElementName "changePasswordOnNextLogin" -xmlElementText $AllowPasswordChange.ToString().ToLower()
+        }
+        elseif ( $ForcePasswordChangeOnNextLogin ) { 
+            throw "Must enable allow password change to force user to change on next logon."
+        }
+
+        # Optionals...
+        if ( $PsBoundParameters.ContainsKey('FirstName')) {
+            Add-XmlElement -xmlRoot $User -xmlElementName "firstName" -xmlElementText $FirstName.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('LastName')) {
+            Add-XmlElement -xmlRoot $User -xmlElementName "lastName" -xmlElementText $LastName.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('Description')) {
+            Add-XmlElement -xmlRoot $User -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/auth/localserver/users/"
+        $body = $User.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnUser -UserName $UserName
+    }
+}
+
+function Get-NsxSslVpnUser {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [string]$UserName
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+
+        $Users = $_EdgeSslVpn.SelectNodes('descendant::users/*')
+        if ( $Users ) { 
+            foreach ( $User in $Users ) { 
+                Add-XmlElement -xmlRoot $User -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('UserName')) { 
+                    $User | ? { $_.UserId -eq $UserName }
+                } 
+                else {
+                    $User
+                }
+            }
+        }
+    }
+
+    end {}
+}
+
+function Remove-NsxSslVpnUser {
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpnUser $_ })]
+            [System.Xml.XmlElement]$SslVpnUser,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our Edge
+        $edgeId = $SslVpnUser.edgeId
+        $userId = $SslVpnUser.objectId
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/auth/localserver/users/$userId"
+   
+        if ( $confirm ) { 
+            $message  = "User deletion is permanent."
+            $question = "Proceed with deletion of user $($SslVpnUser.UserId) ($($userId)) from edge $($edgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId" -completed
+        }
+    }
+
+    end {}
+}
+
+function New-NsxSslVpnIpPool {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$IpRange,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$Netmask,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [ipaddress]$Gateway,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$PrimaryDnsServer,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$SecondaryDnsServer,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$DnsSuffix,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [ipAddress]$WinsServer,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled=$True,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    Begin{}
+
+    Process {
+
+        #Store the edgeId.
+        $edgeId = $SslVpn.edgeId
+
+        #Create the ipAddressPool element
+        $IpAddressPool = $SslVpn.ownerDocument.CreateElement('ipAddressPool')
+
+        #Mandatory and defaults
+        Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "ipRange" -xmlElementText $IpRange.ToString()
+        Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "netmask" -xmlElementText $($NetMask.IpAddressToString)
+        Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "gateway" -xmlElementText $($Gateway.IpAddressToString)
+
+        # Optionals...
+        if ( $PsBoundParameters.ContainsKey('Description')) {      
+                Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('PrimaryDNSServer')) {
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "primaryDns" -xmlElementText $($PrimaryDnsServer.IpAddressToString)
+        }
+        if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer')) {
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "secondaryDns" -xmlElementText $($SecondaryDNSServer.IpAddressToString)
+        }
+        if ( $PsBoundParameters.ContainsKey('DnsSuffix')) {
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "dnsSuffix" -xmlElementText $DnsSuffix.ToString()
+        }
+        if ( $PsBoundParameters.ContainsKey('WinsServer')) {
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "winsServer" -xmlElementText $($WinsServer.IpAddressToString)
+        }
+
+        if ( -not $Enabled ) { 
+            Add-XmlElement -xmlRoot $IpAddressPool -xmlElementName "enabled" -xmlElementText "false"
+        }
+
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/ippools/"
+        $body = $IpAddressPool.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnIpPool -IpRange $IpRange
+    }
+}
+
+
+function Get-NsxSslVpnIpPool {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [string]$IpRange
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+
+        $IpPools = $_EdgeSslVpn.SelectNodes('descendant::ipAddressPools/*')
+        if ( $IpPools ) { 
+            foreach ( $IpPool in $IpPools ) { 
+                Add-XmlElement -xmlRoot $IpPool -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('IpRange')) { 
+                    $IpPool | ? { $_.ipRange -eq $IpRange }
+                } 
+                else {
+                    $IpPool
+                }
+            }
+        }
+    }
+
+    end {}
+}
+
+
+function Remove-NsxSslVpnIpPool {
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpnIpPool $_ })]
+            [System.Xml.XmlElement]$SslVpnIpPool,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    
+    begin {
+    }
+
+    process {
+
+        $edgeId = $SslVpnIpPool.edgeId
+        $poolId = $SslVpnIpPool.objectId
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/ippools/$poolId"
+   
+        if ( $confirm ) { 
+            $message  = "Ip Pool deletion is permanent."
+            $question = "Proceed with deletion of pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $($edgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId" -completed
+        }
+    }
+
+    end {}
+}
+
+
+function New-NsxSslVpnPrivateNetwork {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Network,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Ports,
+        [Parameter (Mandatory=$False)]
+            [switch]$BypassTunnel=$False,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description,
+        [Parameter (Mandatory=$False)]
+            [switch]$OptimiseTcp=$True,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled=$True,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    Begin{}
+
+    Process {
+
+        #Store the edgeId.
+        $edgeId = $SslVpn.edgeId
+
+        #Create the ipAddressPool element
+        $PrivateNetwork = $SslVpn.ownerDocument.CreateElement('privateNetwork')
+
+        #Mandatory and defaults
+        Add-XmlElement -xmlRoot $PrivateNetwork -xmlElementName "network" -xmlElementText $Network.ToString()
+        
+        # Optionals...
+        if ( $PsBoundParameters.ContainsKey('Description')) {      
+                Add-XmlElement -xmlRoot $PrivateNetwork -xmlElementName "description" -xmlElementText $Description.ToString()
+        }
+        if ( -not $BypassTunnel ) {
+            [system.Xml.XmlElement]$sendOverTunnel = $PrivateNetwork.ownerDocument.CreateElement('sendOverTunnel')
+            $PrivateNetwork.AppendChild($SendOverTunnel) | out-null
+            Add-XmlElement -xmlRoot $SendOverTunnel -xmlElementName "optimize" -xmlElementText $OptimiseTcp.ToString().ToLower()
+            if ( $PsBoundParameters.ContainsKey('Ports')) { 
+                Add-XmlElement -xmlRoot $SendOverTunnel -xmlElementName "ports" -xmlElementText $Ports.ToString()
+            }
+        }
+        elseif ( $OptimiseTcp ) { 
+            write-warning "TCP Optimisation is not applicable when tunnel bypass is enabled."
+        }
+        elseif ( $PsBoundParameters.ContainsKey('Ports') ) { 
+            throw "Unable to specify ports when tunnel bypass is enabled."
+        }
+
+        if ( -not $Enabled ) { 
+            Add-XmlElement -xmlRoot $PrivateNetwork -xmlElementName "enabled" -xmlElementText "false"
+        }
+
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/privatenetworks"
+        $body = $PrivateNetwork.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnPrivateNetwork -Network $Network
+    }
+}
+
+
+function Get-NsxSslVpnPrivateNetwork {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [string]$Network
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+
+        $Networks = $_EdgeSslVpn.SelectNodes('descendant::privateNetworks/*')
+        if ( $Networks ) { 
+            foreach ( $Net in $Networks ) { 
+                Add-XmlElement -xmlRoot $Net -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('Network')) { 
+                    $Net | ? { $_.Network -eq $Network }
+                } 
+                else {
+                    $Net
+                }
+            }
+        }
+    }
+
+    end {}
+}
+
+
+function Remove-NsxSslVpnPrivateNetwork {
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpnPrivateNetwork $_ })]
+            [System.Xml.XmlElement]$SslVpnPrivateNetwork,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection 
+    )
+    
+    begin {
+    }
+
+    process {
+
+        $edgeId = $SslVpnPrivateNetwork.edgeId
+        $networkId = $SslVpnPrivateNetwork.objectId
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/privatenetworks/$networkId"
+   
+        if ( $confirm ) { 
+            $message  = "Private network deletion is permanent."
+            $question = "Proceed with deletion of network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $($edgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId" -completed
+        }
+    }
+
+    end {}
+}
+
+
+function New-NsxSslVpnClientInstallationPackage {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$True)]
+            [string]$Name,
+        [Parameter (Mandatory=$True)]
+            [ipAddress[]]$Gateway,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,65535)]
+            [Int]$Port,
+        [Parameter (Mandatory=$False)]
+            [switch]$CreateLinuxClient,
+        [Parameter (Mandatory=$False)]
+            [switch]$CreateMacClient,
+        [Parameter (Mandatory=$False)]
+            [string]$Description, 
+        [Parameter (Mandatory=$False)]
+            [switch]$StartClientOnLogon,
+        [Parameter (Mandatory=$False)]
+            [switch]$HideSystrayIcon,
+        [Parameter (Mandatory=$False)]
+            [switch]$RememberPassword,
+        [Parameter (Mandatory=$False)]
+            [switch]$SilentModeOperation,
+        [Parameter (Mandatory=$False)]
+            [switch]$SilentModeInstallation,
+        [Parameter (Mandatory=$False)]
+            [switch]$HideNetworkAdaptor,
+        [Parameter (Mandatory=$False)]
+            [switch]$CreateDesktopIcon,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnforceServerSecurityCertValidation,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    Begin{}
+
+    Process {
+
+        #Store the edgeId.
+        $edgeId = $SslVpn.edgeId
+
+        #Create the ipAddressPool element
+        $clientInstallPackage = $SslVpn.ownerDocument.CreateElement('clientInstallPackage')
+ 
+        #gatewayList element
+        [system.Xml.XmlElement]$gatewayList = $clientInstallPackage.ownerDocument.CreateElement('gatewayList')
+        $clientInstallPackage.AppendChild($gatewayList) | out-null
+        foreach ($gatewayitem in $gateway) { 
+            [system.Xml.XmlElement]$gatewayNode = $gatewayList.ownerDocument.CreateElement('gateway')
+            $gatewayList.AppendChild($gatewayNode) | out-null
+            Add-XmlElement -xmlRoot $gatewayNode -xmlElementName "hostName" -xmlElementText $gatewayitem
+            if ( $PSBoundParameters.ContainsKey('port')) { 
+                Add-XmlElement -xmlRoot $gatewayNode -xmlElementName "port" -xmlElementText $Port
+            }
+        }
+
+
+        #Mandatory and defaults
+        Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "profileName" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "enabled" -xmlElementText $Enabled.ToString().ToLower()
+
+        # Optionals...
+        if ( $PsBoundParameters.ContainsKey('StartClientOnLogon')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "startClientOnLogon" -xmlElementText $StartClientOnLogon.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('hideSystrayIcon')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "hideSystrayIcon" -xmlElementText $hideSystrayIcon.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('rememberPassword')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "rememberPassword" -xmlElementText $rememberPassword.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('silentModeOperation')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "silentModeOperation" -xmlElementText $silentModeOperation.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('silentModeInstallation')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "silentModeInstallation" -xmlElementText $silentModeInstallation.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('hideNetworkAdaptor')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "hideNetworkAdaptor" -xmlElementText $hideNetworkAdaptor.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('createDesktopIcon')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "createDesktopIcon" -xmlElementText $createDesktopIcon.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('enforceServerSecurityCertValidation')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "enforceServerSecurityCertValidation" -xmlElementText $enforceServerSecurityCertValidation.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('createLinuxClient')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "createLinuxClient" -xmlElementText $createLinuxClient.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('createMacClient')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "createMacClient" -xmlElementText $createMacClient.ToString().ToLower()
+        }
+        if ( $PsBoundParameters.ContainsKey('description')) {      
+                Add-XmlElement -xmlRoot $clientInstallPackage -xmlElementName "description" -xmlElementText $description.ToString().ToLower()
+        }
+
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/installpackages/"
+        $body = $clientInstallPackage.OuterXml 
+       
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnClientInstallationPackage -Name $Name
+    }
+}
+
+
+function Get-NsxSslVpnClientInstallationPackage {
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$false,Position=1)]
+            [string]$Name
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        #We append the Edge-id to the associated XML to enable pipeline workflows and 
+        #consistent readable output
+
+        $_EdgeSslVpn = $SslVpn.CloneNode($True)
+
+        $Packages = $_EdgeSslVpn.SelectNodes('descendant::clientInstallPackages/*')
+        if ( $Packages ) { 
+            foreach ( $Package in $Packages ) { 
+                Add-XmlElement -xmlRoot $Package -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
+                if ( $PsBoundParameters.ContainsKey('Name')) { 
+                    $Package | ? { $_.ProfileName -eq $Name }
+                } 
+                else {
+                    $Package
+                }
+            }
+        }
+    }
+
+    end {}
+}
+
+
+function Remove-NsxSslVpnClientInstallationPackage {
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-EdgeSslVpnClientPackage $_ })]
+            [System.Xml.XmlElement]$EdgeSslVpnClientPackage,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection 
+    )
+    
+    begin {
+    }
+
+    process {
+
+        $edgeId = $EdgeSslVpnClientPackage.edgeId
+        $packageId = $EdgeSslVpnClientPackage.objectId
+
+        $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/installpackages/$packageId"
+   
+        if ( $confirm ) { 
+            $message  = "Installation Package deletion is permanent."
+            $question = "Proceed with deletion of installation package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $($edgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }    
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId" -completed
+        }
+    }
+
+    end {}
+}
+
 
 #########
 #########
@@ -4719,6 +12106,7 @@ function Set-NsxEdgeRouting {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableOspf,
@@ -4752,7 +12140,11 @@ function Set-NsxEdgeRouting {
             [ipAddress]$DefaultGatewayAddress,
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,255)]
-            [int]$DefaultGatewayAdminDistance        
+            [int]$DefaultGatewayAdminDistance,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection  
 
     )
     
@@ -4959,15 +12351,15 @@ function Set-NsxEdgeRouting {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeRouting
+
 
 function Get-NsxEdgeRouting {
     
@@ -5018,7 +12410,7 @@ function Get-NsxEdgeRouting {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeRouting 
+
 
 # Static Routing
 
@@ -5096,7 +12488,7 @@ function Get-NsxEdgeStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeStaticRoute
+
 
 function New-NsxEdgeStaticRoute {
     
@@ -5132,6 +12524,7 @@ function New-NsxEdgeStaticRoute {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,200)]
@@ -5147,7 +12540,11 @@ function New-NsxEdgeStaticRoute {
             [string]$Network,
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,255)]
-            [int]$AdminDistance        
+            [int]$AdminDistance,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -5209,15 +12606,15 @@ function New-NsxEdgeStaticRoute {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute -Network $Network -NextHop $NextHop
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute -Network $Network -NextHop $NextHop
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeStaticRoute
+
 
 function Remove-NsxEdgeStaticRoute {
     
@@ -5259,7 +12656,12 @@ function Remove-NsxEdgeStaticRoute {
             [ValidateScript({ Validate-EdgeStaticRoute $_ })]
             [System.Xml.XmlElement]$StaticRoute,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -5269,7 +12671,7 @@ function Remove-NsxEdgeStaticRoute {
 
         #Get the routing config for our Edge
         $edgeId = $StaticRoute.edgeId
-        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+        $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('descendant::edgeId')) ) | out-null
@@ -5301,7 +12703,7 @@ function Remove-NsxEdgeStaticRoute {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -5312,7 +12714,7 @@ function Remove-NsxEdgeStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeStaticRoute
+
 
 # Prefixes
 
@@ -5403,7 +12805,7 @@ function Get-NsxEdgePrefix {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgePrefix
+
 
 function New-NsxEdgePrefix {
     
@@ -5445,7 +12847,11 @@ function New-NsxEdgePrefix {
             [string]$Name,       
         [Parameter (Mandatory=$True)]
             [ValidateNotNullorEmpty()]
-            [string]$Network      
+            [string]$Network,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -5494,15 +12900,15 @@ function New-NsxEdgePrefix {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgePrefix -Network $Network -Name $Name
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgePrefix -Network $Network -Name $Name
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgePrefix
+
 
 function Remove-NsxEdgePrefix {
     
@@ -5542,7 +12948,12 @@ function Remove-NsxEdgePrefix {
             [ValidateScript({ Validate-EdgePrefix $_ })]
             [System.Xml.XmlElement]$Prefix,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -5552,7 +12963,7 @@ function Remove-NsxEdgePrefix {
 
         #Get the routing config for our Edge
         $edgeId = $Prefix.edgeId
-        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+        $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('child::edgeId')) ) | out-null
@@ -5584,7 +12995,7 @@ function Remove-NsxEdgePrefix {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -5595,7 +13006,7 @@ function Remove-NsxEdgePrefix {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgePrefix
+
 
 # BGP
 
@@ -5650,7 +13061,7 @@ function Get-NsxEdgeBgp {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeBgp
+
 
 function Set-NsxEdgeBgp {
     
@@ -5682,6 +13093,7 @@ function Set-NsxEdgeBgp {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableBGP,
@@ -5693,7 +13105,11 @@ function Set-NsxEdgeBgp {
         [Parameter (Mandatory=$False)]
             [switch]$GracefulRestart,
         [Parameter (Mandatory=$False)]
-            [switch]$DefaultOriginate
+            [switch]$DefaultOriginate,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -5803,15 +13219,15 @@ function Set-NsxEdgeBgp {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeBgp
+
 
 function Get-NsxEdgeBgpNeighbour {
     
@@ -5904,7 +13320,7 @@ function Get-NsxEdgeBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeBgpNeighbour
+
 
 function New-NsxEdgeBgpNeighbour {
     
@@ -5945,6 +13361,7 @@ function New-NsxEdgeBgpNeighbour {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateNotNullorEmpty()]
@@ -5963,7 +13380,11 @@ function New-NsxEdgeBgpNeighbour {
             [int]$KeepAliveTimer,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
-            [string]$Password     
+            [string]$Password,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -6021,9 +13442,9 @@ function New-NsxEdgeBgpNeighbour {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-                Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
+                Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
             }
         }
         else {
@@ -6033,7 +13454,7 @@ function New-NsxEdgeBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeBgpNeighbour
+
 
 function Remove-NsxEdgeBgpNeighbour {
     
@@ -6071,7 +13492,12 @@ function Remove-NsxEdgeBgpNeighbour {
             [ValidateScript({ Validate-EdgeBgpNeighbour $_ })]
             [System.Xml.XmlElement]$BgpNeighbour,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -6121,7 +13547,7 @@ function Remove-NsxEdgeBgpNeighbour {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -6132,7 +13558,7 @@ function Remove-NsxEdgeBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeBgpNeighbour
+
 
 # OSPF
 
@@ -6188,7 +13614,7 @@ function Get-NsxEdgeOspf {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeOspf
+
 
 function Set-NsxEdgeOspf {
     
@@ -6220,6 +13646,7 @@ function Set-NsxEdgeOspf {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableOSPF,
@@ -6228,7 +13655,11 @@ function Set-NsxEdgeOspf {
         [Parameter (Mandatory=$False)]
             [switch]$GracefulRestart,
         [Parameter (Mandatory=$False)]
-            [switch]$DefaultOriginate
+            [switch]$DefaultOriginate,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -6324,15 +13755,15 @@ function Set-NsxEdgeOspf {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-            Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxEdgeOspf
+
 
 function Get-NsxEdgeOspfArea {
     
@@ -6405,7 +13836,7 @@ function Get-NsxEdgeOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeOspfArea
+
 
 function Remove-NsxEdgeOspfArea {
     
@@ -6444,7 +13875,12 @@ function Remove-NsxEdgeOspfArea {
             [ValidateScript({ Validate-EdgeOspfArea $_ })]
             [System.Xml.XmlElement]$OspfArea,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -6454,7 +13890,7 @@ function Remove-NsxEdgeOspfArea {
 
         #Get the routing config for our Edge
         $edgeId = $OspfArea.edgeId
-        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+        $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('descendant::edgeId')) ) | out-null
@@ -6490,7 +13926,7 @@ function Remove-NsxEdgeOspfArea {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -6501,7 +13937,7 @@ function Remove-NsxEdgeOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeOspfArea
+
 
 function New-NsxEdgeOspfArea {
     
@@ -6544,6 +13980,7 @@ function New-NsxEdgeOspfArea {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,4294967295)]
@@ -6556,7 +13993,11 @@ function New-NsxEdgeOspfArea {
             [string]$AuthenticationType="none",
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
-            [string]$Password
+            [string]$Password,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -6627,9 +14068,9 @@ function New-NsxEdgeOspfArea {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-                Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeOspfArea -AreaId $AreaId
+                Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeOspfArea -AreaId $AreaId
             }
         }
         else {
@@ -6639,7 +14080,7 @@ function New-NsxEdgeOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeOspfArea
+
 
 function Get-NsxEdgeOspfInterface {
     
@@ -6724,7 +14165,7 @@ function Get-NsxEdgeOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeOspfInterface
+
 
 function Remove-NsxEdgeOspfInterface {
     
@@ -6768,7 +14209,12 @@ function Remove-NsxEdgeOspfInterface {
             [ValidateScript({ Validate-EdgeOspfInterface $_ })]
             [System.Xml.XmlElement]$OspfInterface,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -6778,7 +14224,7 @@ function Remove-NsxEdgeOspfInterface {
 
         #Get the routing config for our Edge
         $edgeId = $OspfInterface.edgeId
-        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+        $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('descendant::edgeId')) ) | out-null
@@ -6814,7 +14260,7 @@ function Remove-NsxEdgeOspfInterface {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -6823,9 +14269,9 @@ function Remove-NsxEdgeOspfInterface {
         }
     }
 
-    end {}
+    end {}  
 }
-Export-ModuleMember -Function Remove-NsxEdgeOspfInterface
+
 
 function New-NsxEdgeOspfInterface {
     
@@ -6861,6 +14307,7 @@ function New-NsxEdgeOspfInterface {
             [ValidateScript({ Validate-EdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,4294967295)]
@@ -6881,7 +14328,11 @@ function New-NsxEdgeOspfInterface {
             [ValidateRange(1,65535)]
             [int]$Cost,
         [Parameter (Mandatory=$false)]
-            [switch]$IgnoreMTU
+            [switch]$IgnoreMTU,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -6948,9 +14399,9 @@ function New-NsxEdgeOspfInterface {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-                Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface -AreaId $AreaId
+                Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface -AreaId $AreaId
             }
         }
         else {
@@ -6960,7 +14411,7 @@ function New-NsxEdgeOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeOspfInterface
+
 
 # Redistribution Rules
 
@@ -7044,7 +14495,7 @@ function Get-NsxEdgeRedistributionRule {
             if ( $bgp ) {
 
                 $_bgp = $bgp.CloneNode($True)
-                if ( $_bgp.SelectSingleNode('child::redistribution/rules') ) { 
+                if ( $_bgp.SelectSingleNode('child::redistribution/rules/rule') ) { 
 
                     $BgpRuleCollection = $_bgp.redistribution.rules.rule
 
@@ -7068,7 +14519,7 @@ function Get-NsxEdgeRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxEdgeRedistributionRule
+
 
 function Remove-NsxEdgeRedistributionRule {
     
@@ -7106,7 +14557,12 @@ function Remove-NsxEdgeRedistributionRule {
             [ValidateScript({ Validate-EdgeRedistributionRule $_ })]
             [System.Xml.XmlElement]$RedistributionRule,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -7116,7 +14572,7 @@ function Remove-NsxEdgeRedistributionRule {
 
         #Get the routing config for our Edge
         $edgeId = $RedistributionRule.edgeId
-        $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
+        $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('child::edgeId')) ) | out-null
@@ -7164,7 +14620,7 @@ function Remove-NsxEdgeRedistributionRule {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -7175,7 +14631,7 @@ function Remove-NsxEdgeRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxEdgeRedistributionRule
+
 
 function New-NsxEdgeRedistributionRule {
     
@@ -7226,7 +14682,12 @@ function New-NsxEdgeRedistributionRule {
             [ValidateSet("permit","deny",IgnoreCase=$false)]
             [String]$Action="permit",  
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true  
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -7304,9 +14765,9 @@ function New-NsxEdgeRedistributionRule {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-                (Get-NsxEdge -objectId $EdgeId | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner $Learner)[-1]
+                (Get-NsxEdge -objectId $EdgeId  -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner $Learner)[-1]
                 
             }
         }
@@ -7314,7 +14775,7 @@ function New-NsxEdgeRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxEdgeRedistributionRule
+
 
 #########
 #########
@@ -7369,6 +14830,7 @@ function Set-NsxLogicalRouterRouting {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableOspf,
@@ -7408,7 +14870,11 @@ function Set-NsxLogicalRouterRouting {
             [ipAddress]$DefaultGatewayAddress,
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,255)]
-            [int]$DefaultGatewayAdminDistance        
+            [int]$DefaultGatewayAdminDistance,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -7648,15 +15114,15 @@ function Set-NsxLogicalRouterRouting {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting
+            Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxLogicalRouterRouting
+
 
 function Get-NsxLogicalRouterRouting {
     
@@ -7704,7 +15170,7 @@ function Get-NsxLogicalRouterRouting {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterRouting 
+
 
 # Static Routing
 
@@ -7779,7 +15245,7 @@ function Get-NsxLogicalRouterStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterStaticRoute
+
 
 function New-NsxLogicalRouterStaticRoute {
     
@@ -7812,6 +15278,7 @@ function New-NsxLogicalRouterStaticRoute {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,200)]
@@ -7827,7 +15294,11 @@ function New-NsxLogicalRouterStaticRoute {
             [string]$Network,
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,255)]
-            [int]$AdminDistance        
+            [int]$AdminDistance,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -7889,15 +15360,15 @@ function New-NsxLogicalRouterStaticRoute {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $Network -NextHop $NextHop
+            Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $Network -NextHop $NextHop
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterStaticRoute
+
 
 function Remove-NsxLogicalRouterStaticRoute {
     
@@ -7936,7 +15407,12 @@ function Remove-NsxLogicalRouterStaticRoute {
             [ValidateScript({ Validate-LogicalRouterStaticRoute $_ })]
             [System.Xml.XmlElement]$StaticRoute,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -7946,7 +15422,7 @@ function Remove-NsxLogicalRouterStaticRoute {
 
         #Get the routing config for our LogicalRouter
         $logicalrouterId = $StaticRoute.logicalrouterId
-        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
@@ -7978,7 +15454,7 @@ function Remove-NsxLogicalRouterStaticRoute {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -7989,7 +15465,7 @@ function Remove-NsxLogicalRouterStaticRoute {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterStaticRoute
+
 
 # Prefixes
 
@@ -8077,7 +15553,7 @@ function Get-NsxLogicalRouterPrefix {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterPrefix
+
 
 function New-NsxLogicalRouterPrefix {
     
@@ -8112,7 +15588,11 @@ function New-NsxLogicalRouterPrefix {
             [string]$Name,       
         [Parameter (Mandatory=$True)]
             [ValidateNotNullorEmpty()]
-            [string]$Network      
+            [string]$Network,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -8161,15 +15641,15 @@ function New-NsxLogicalRouterPrefix {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -Network $Network -Name $Name
+            Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -Network $Network -Name $Name
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterPrefix
+
 
 function Remove-NsxLogicalRouterPrefix {
     
@@ -8202,7 +15682,12 @@ function Remove-NsxLogicalRouterPrefix {
             [ValidateScript({ Validate-LogicalRouterPrefix $_ })]
             [System.Xml.XmlElement]$Prefix,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection 
     )
     
     begin {
@@ -8212,7 +15697,7 @@ function Remove-NsxLogicalRouterPrefix {
 
         #Get the routing config for our LogicalRouter
         $logicalrouterId = $Prefix.logicalrouterId
-        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
@@ -8244,7 +15729,7 @@ function Remove-NsxLogicalRouterPrefix {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -8255,7 +15740,7 @@ function Remove-NsxLogicalRouterPrefix {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterPrefix
+
 
 
 # BGP
@@ -8308,7 +15793,7 @@ function Get-NsxLogicalRouterBgp {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterBgp
+
 
 function Set-NsxLogicalRouterBgp {
     
@@ -8336,6 +15821,7 @@ function Set-NsxLogicalRouterBgp {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableBGP,
@@ -8347,7 +15833,11 @@ function Set-NsxLogicalRouterBgp {
         [Parameter (Mandatory=$False)]
             [switch]$GracefulRestart,
         [Parameter (Mandatory=$False)]
-            [switch]$DefaultOriginate
+            [switch]$DefaultOriginate,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -8457,15 +15947,15 @@ function Set-NsxLogicalRouterBgp {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection 
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgp
+            Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgp
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxLogicalRouterBgp
+
 
 function Get-NsxLogicalRouterBgpNeighbour {
     
@@ -8555,7 +16045,7 @@ function Get-NsxLogicalRouterBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterBgpNeighbour
+
 
 function New-NsxLogicalRouterBgpNeighbour {
     
@@ -8593,6 +16083,7 @@ function New-NsxLogicalRouterBgpNeighbour {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateNotNullorEmpty()]
@@ -8617,7 +16108,11 @@ function New-NsxLogicalRouterBgpNeighbour {
             [int]$KeepAliveTimer,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
-            [string]$Password     
+            [string]$Password,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -8678,9 +16173,9 @@ function New-NsxLogicalRouterBgpNeighbour {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-                Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
+                Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
             }
         }
         else {
@@ -8690,7 +16185,7 @@ function New-NsxLogicalRouterBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterBgpNeighbour
+
 
 function Remove-NsxLogicalRouterBgpNeighbour {
     
@@ -8725,7 +16220,12 @@ function Remove-NsxLogicalRouterBgpNeighbour {
             [ValidateScript({ Validate-LogicalRouterBgpNeighbour $_ })]
             [System.Xml.XmlElement]$BgpNeighbour,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -8735,7 +16235,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
 
         #Get the routing config for our LogicalRouter
         $logicalrouterId = $BgpNeighbour.logicalrouterId
-        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
@@ -8775,7 +16275,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -8786,7 +16286,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterBgpNeighbour
+
 
 # OSPF
 
@@ -8839,7 +16339,7 @@ function Get-NsxLogicalRouterOspf {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterOspf
+
 
 function Set-NsxLogicalRouterOspf {
     
@@ -8868,6 +16368,7 @@ function Set-NsxLogicalRouterOspf {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
             [switch]$EnableOSPF,
@@ -8882,7 +16383,11 @@ function Set-NsxLogicalRouterOspf {
         [Parameter (Mandatory=$False)]
             [switch]$GracefulRestart,
         [Parameter (Mandatory=$False)]
-            [switch]$DefaultOriginate
+            [switch]$DefaultOriginate,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -9009,15 +16514,15 @@ function Set-NsxLogicalRouterOspf {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-            Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspf
+            Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspf
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Set-NsxLogicalRouterOspf
+
 
 function Get-NsxLogicalRouterOspfArea {
     
@@ -9087,7 +16592,7 @@ function Get-NsxLogicalRouterOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterOspfArea
+
 
 function Remove-NsxLogicalRouterOspfArea {
     
@@ -9123,7 +16628,12 @@ function Remove-NsxLogicalRouterOspfArea {
             [ValidateScript({ Validate-LogicalRouterOspfArea $_ })]
             [System.Xml.XmlElement]$OspfArea,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -9133,7 +16643,7 @@ function Remove-NsxLogicalRouterOspfArea {
 
         #Get the routing config for our LogicalRouter
         $logicalrouterId = $OspfArea.logicalrouterId
-        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
@@ -9169,7 +16679,7 @@ function Remove-NsxLogicalRouterOspfArea {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -9180,7 +16690,7 @@ function Remove-NsxLogicalRouterOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterOspfArea
+
 
 function New-NsxLogicalRouterOspfArea {
     
@@ -9220,6 +16730,7 @@ function New-NsxLogicalRouterOspfArea {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,4294967295)]
@@ -9232,7 +16743,11 @@ function New-NsxLogicalRouterOspfArea {
             [string]$AuthenticationType="none",
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
-            [string]$Password
+            [string]$Password,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -9303,9 +16818,9 @@ function New-NsxLogicalRouterOspfArea {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-                Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $AreaId
+                Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $AreaId
             }
         }
         else {
@@ -9315,7 +16830,7 @@ function New-NsxLogicalRouterOspfArea {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterOspfArea
+
 
 function Get-NsxLogicalRouterOspfInterface {
     
@@ -9397,7 +16912,7 @@ function Get-NsxLogicalRouterOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterOspfInterface
+
 
 function Remove-NsxLogicalRouterOspfInterface {
     
@@ -9438,7 +16953,12 @@ function Remove-NsxLogicalRouterOspfInterface {
             [ValidateScript({ Validate-LogicalRouterOspfInterface $_ })]
             [System.Xml.XmlElement]$OspfInterface,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -9448,7 +16968,7 @@ function Remove-NsxLogicalRouterOspfInterface {
 
         #Get the routing config for our LogicalRouter
         $logicalrouterId = $OspfInterface.logicalrouterId
-        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
@@ -9484,7 +17004,7 @@ function Remove-NsxLogicalRouterOspfInterface {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -9495,7 +17015,7 @@ function Remove-NsxLogicalRouterOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterOspfInterface
+
 
 function New-NsxLogicalRouterOspfInterface {
     
@@ -9528,6 +17048,7 @@ function New-NsxLogicalRouterOspfInterface {
             [ValidateScript({ Validate-LogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,4294967295)]
@@ -9548,7 +17069,11 @@ function New-NsxLogicalRouterOspfInterface {
             [ValidateRange(1,65535)]
             [int]$Cost,
         [Parameter (Mandatory=$false)]
-            [switch]$IgnoreMTU
+            [switch]$IgnoreMTU,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -9615,9 +17140,9 @@ function New-NsxLogicalRouterOspfInterface {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-                Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId $AreaId
+                Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId $AreaId
             }
         }
         else {
@@ -9627,7 +17152,7 @@ function New-NsxLogicalRouterOspfInterface {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterOspfInterface
+
 
 # Redistribution Rules
 
@@ -9732,7 +17257,7 @@ function Get-NsxLogicalRouterRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxLogicalRouterRedistributionRule
+
 
 function Remove-NsxLogicalRouterRedistributionRule {
     
@@ -9769,7 +17294,12 @@ function Remove-NsxLogicalRouterRedistributionRule {
             [ValidateScript({ Validate-LogicalRouterRedistributionRule $_ })]
             [System.Xml.XmlElement]$RedistributionRule,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -9779,7 +17309,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
 
         #Get the routing config for our LogicalRouter
         $logicalrouterId = $RedistributionRule.logicalrouterId
-        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId | Get-NsxLogicalRouterRouting
+        $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
         $routing.RemoveChild( $($routing.SelectSingleNode('child::logicalrouterId')) ) | out-null
@@ -9827,7 +17357,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -9838,7 +17368,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLogicalRouterRedistributionRule
+
 
 function New-NsxLogicalRouterRedistributionRule {
     
@@ -9886,7 +17416,12 @@ function New-NsxLogicalRouterRedistributionRule {
             [ValidateSet("permit","deny",IgnoreCase=$false)]
             [String]$Action="permit",  
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$true  
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -9964,9 +17499,9 @@ function New-NsxLogicalRouterRedistributionRule {
             else { $decision = 0 } 
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
-                (Get-NsxLogicalRouter -objectId $LogicalRouterId | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner $Learner)[-1]
+                (Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner $Learner)[-1]
                 
             }
         }
@@ -9974,7 +17509,7 @@ function New-NsxLogicalRouterRedistributionRule {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLogicalRouterRedistributionRule
+
 
 #########
 #########
@@ -10003,11 +17538,21 @@ function Get-NsxSecurityGroup {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Get SecurityGroups by objectid
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Get SecurityGroups by name
             [string]$name,
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            #Scopeid - default globalroot-0
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Include default system security group
+            [switch]$IncludeSystem=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -10020,26 +17565,43 @@ function Get-NsxSecurityGroup {
         if ( -not $objectId ) { 
             #All Security GRoups
             $URI = "/api/2.0/services/securitygroup/scope/$scopeId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
-            if  ( $Name  ) { 
-                $response.list.securitygroup | ? { $_.name -eq $name }
-            } else {
-                $response.list.securitygroup
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::list/securitygroup')) {
+                if  ( $Name  ) { 
+                    $sg = $response.list.securitygroup | ? { $_.name -eq $name }
+                } else {
+                    $sg = $response.list.securitygroup
+                }
+                #Filter default if switch not set
+                if ( -not $IncludeSystem ) { 
+                    $sg| ? { ( $_.objectId -ne 'securitygroup-1') }
+                }
+                else { 
+                    $sg
+                }
             }
-
         }
         else {
 
             #Just getting a single Security group
             $URI = "/api/2.0/services/securitygroup/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
-            $response.securitygroup 
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::securitygroup')) {
+                $sg = $response.securitygroup 
+            }
+            #Filter default if switch not set
+            if ( -not $IncludeSystem ) { 
+                $sg | ? { ( $_.objectId -ne 'securitygroup-1') }
+            }
+            else { 
+                $sg
+            }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxSecurityGroup
+
 
 function New-NsxSecurityGroup   {
 
@@ -10094,7 +17656,11 @@ function New-NsxSecurityGroup   {
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$ExcludeMember,
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -10142,13 +17708,13 @@ function New-NsxSecurityGroup   {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/securitygroup/bulk/$scopeId"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxSecuritygroup -objectId $response
+        Get-NsxSecuritygroup -objectId $response -connection $connection
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxSecurityGroup
+
 
 function Remove-NsxSecurityGroup {
 
@@ -10167,24 +17733,34 @@ function Remove-NsxSecurityGroup {
     to be corrected before publish operations will succeed again.
 
     .EXAMPLE
-    Example1: Remove the SecurityGroup TestSG
-    PS C:\> Get-NsxSecurityGroup TestSG | Remove-NsxSecurityGroup
+    Get-NsxSecurityGroup TestSG | Remove-NsxSecurityGroup
 
-    Example2: Remove the SecurityGroup $sg without confirmation.
-    PS C:\> $sg | Remove-NsxSecurityGroup -confirm:$false
+    Remove the SecurityGroup TestSG
+    
+    .EXAMPLE
+    $sg | Remove-NsxSecurityGroup -confirm:$false
 
+    Remove the SecurityGroup $sg without confirmation.
+    
     
     #>
 
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #SecurityGroup object as returned by get-nsxsecuritygroup
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$SecurityGroup,
         [Parameter (Mandatory=$False)]
+            #Disable confirmation prompt
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
-            [switch]$force=$false
+            #Force deletion of in use or system objects
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
 
     )
@@ -10195,37 +17771,653 @@ function Remove-NsxSecurityGroup {
 
     process {
 
+        if (($SecurityGroup.ObjectId -eq 'securitygroup-1') -and ( -not $force)) {
+            write-warning "Not removing $($SecurityGroup.Name) as it is a default SecurityGroup.  Use -Force to force deletion." 
+        }
+        else {
+            if ( $confirm ) { 
+                $message  = "Security Group removal is permanent."
+                $question = "Proceed with removal of Security group $($SecurityGroup.Name)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove Security Group $($SecurityGroup.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Security Group $($SecurityGroup.Name)" -completed
+
+            }
+        }
+    }
+
+    end {}
+}
+
+
+function Add-NsxSecurityGroupMember {
+    
+    <#
+    .SYNOPSIS
+    Adds a new member to an existing NSX Security Group.
+
+    .DESCRIPTION
+    An NSX Security Group is a grouping construct that provides a powerful
+    grouping function that can be used in DFW Firewall Rules and the NSX
+    Service Composer.
+
+    This cmdlet adds a new member to an existing NSX Security Group.
+
+    A Security Group can consist of Static Includes and Excludes as well as 
+    dynamic matching properties.  At this time, this cmdlet supports only static 
+    include/exclude members.
+
+    A valid PowerCLI session is required to pass certain types of objects 
+    supported by the IncludeMember and ExcludeMember parameters.
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            [switch]$FailIfExists=$false,
+        [Parameter (Mandatory=$true)]
+            [ValidateScript({ Validate-SecurityGroupMember $_ })]
+            [object[]]$Member,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+    }
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('Member') ) { 
+            foreach ( $_Member in $Member) { 
+
+                #This is probably not safe - need to review all possible input types to confirm.
+                if ($_Member -is [System.Xml.XmlElement] ) {
+                    $MemberMoref = $_Member.objectId
+                } else { 
+                    $MemberMoref = $_Member.ExtensionData.MoRef.Value
+                }
+
+                $URI = "/api/2.0/services/securitygroup/$($securityGroup.objectId)/members/$($MemberMoref)?failIfExists=$($FailIfExists.ToString().ToLower())"
+                Write-Progress -activity "Adding member $MemberMoref to Security Group $($securityGroup.objectId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+                write-progress -activity "Adding member $MemberMoref to Security Group $($securityGroup.objectId)" -completed   
+            }
+        }   
+        Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
+    }
+
+    end {}
+}
+
+
+function Remove-NsxSecurityGroupMember {
+    
+    <#
+    .SYNOPSIS
+    Removes a member from an existing NSX Security Group.
+
+    .DESCRIPTION
+    An NSX Security Group is a grouping construct that provides a powerful
+    grouping function that can be used in DFW Firewall Rules and the NSX
+    Service Composer.
+
+    This cmdlet removes a member from an existing NSX Security Group.
+
+    A Security Group can consist of Static Includes and Excludes as well as 
+    dynamic matching properties.  At this time, this cmdlet supports only static 
+    include/exclude members.
+
+    A valid PowerCLI session is required to pass certain types of objects 
+    supported by the IncludeMember and ExcludeMember parameters.
+
+    #>
+
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            [switch]$FailIfAbsent=$true,
+        [Parameter (Mandatory=$true)]
+            [ValidateScript({ Validate-SecurityGroupMember $_ })]
+            [object[]]$Member,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+    }
+
+    process {
+
+        if ( $PsBoundParameters.ContainsKey('Member') ) { 
+            foreach ( $_Member in $Member) { 
+
+                #This is probably not safe - need to review all possible input types to confirm.
+                if ($_Member -is [System.Xml.XmlElement] ) {
+                    $MemberMoref = $_Member.objectId
+                } else { 
+                    $MemberMoref = $_Member.ExtensionData.MoRef.Value
+                }
+
+                $URI = "/api/2.0/services/securitygroup/$($securityGroup.objectId)/members/$($MemberMoref)?failIfAbsent=$($FailIfAbsent.ToString().ToLower())"
+                Write-Progress -activity "Deleting member $MemberMoref from Security Group $($securityGroup.objectId)"
+                $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+                write-progress -activity "Deleting member $MemberMoref from Security Group $($securityGroup.objectId)" -completed   
+            }
+        }   
+        Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
+    }
+
+    end {}
+}
+
+
+function New-NsxSecurityTag {
+
+    <#
+    .SYNOPSIS
+    Creates a new NSX Security Tag
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of 
+    NSX such as Security Groups match criteria. Security Tags are applied to a 
+    Virtual Machine.
+
+    This cmdlet creates a new NSX Security Tag
+
+    .EXAMPLE
+    PS C:\> New-NSXSecurityTag -name ST-Web-DMZ -description Security Tag for 
+    the Web Tier
+
+    #>
+    param (
+
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [string]$Description,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+
+    }
+    process { 
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("securityTag")
+        [System.XML.XMLElement]$XmlNodes = $Xmldoc.CreateElement("type")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+        $xmlRoot.appendChild($xmlnodes) | out-null
+        
+    
+        #Mandatory fields
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "objectTypeName" -xmlElementText "SecurityTag"
+        Add-XmlElement -xmlRoot $xmlnodes -xmlElementName "typeName" -xmlElementText "SecurityTag"
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+
+        #Optional fields
+        if ( $PsBoundParameters.ContainsKey('Description')) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText "$Description"
+        }
+
+        #Do the post
+        $body = $xmlroot.OuterXml
+        $URI = "/api/2.0/services/securitytags/tag"
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+
+        #Return our shiny new tag...
+        Get-NsxSecurityTag -name $Name -connection $connection
+    }
+        
+    end {}
+}
+
+
+function Get-NsxSecurityTag {
+
+    <#
+    .SYNOPSIS
+    Retrieves an NSX Security Tag
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of 
+    NSX such as Security Groups match criteria. Security Tags are applied to a 
+    Virtual Machine.
+
+    This cmdlet retrieves existing NSX Security Tags
+    
+    .EXAMPLE
+    Get-NSXSecurityTag
+
+    Gets all Security Tags
+    
+    .EXAMPLE
+    Get-NSXSecurityTag -name ST-Web-DMZ 
+
+    Gets a specific Security Tag by name
+    #>
+
+   param (
+
+        [Parameter (Mandatory=$false, Position=1)]
+            #Get Security Tag by name
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            #Get security tag by objectId
+            [string]$objectId,
+        [Parameter (Mandatory=$false)]
+            #Include system security tags
+            [switch]$IncludeSystem=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    ) 
+
+ 
+
+
+    process {
+     
+        if ( -not $PsBoundParameters.ContainsKey('objectId')) { 
+            #either all or by name
+            $URI = "/api/2.0/services/securitytags/tag"
+            [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::securityTags/securityTag')) { 
+                if  ( $PsBoundParameters.ContainsKey('Name')) { 
+                    $tags = $response.securitytags.securitytag | ? { $_.name -eq $name }
+                } else {
+                    $tags = $response.securitytags.securitytag
+                }
+
+                if ( -not $IncludeSystem ) { 
+                    $tags | ? { ( $_.systemResource -ne 'true') }
+                }
+                else { 
+                    $tags
+                }
+            }
+        }
+        else {
+
+            #Just getting a single Security group by object id
+            $URI = "/api/2.0/services/securitytags/tag/$objectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::securityTag')) { 
+                $tags = $response.securitytag
+            }
+
+            if ( -not $IncludeSystem ) { 
+                $tags | ? { ( $_.systemResource -ne 'true') }
+            }
+            else { 
+                $tags
+            }
+        }
+    }
+
+    end {}
+}
+
+
+function Remove-NsxSecurityTag {
+
+    <#
+    .SYNOPSIS
+    Removes the specified NSX Security Tag.
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of 
+    NSX such as Security Groups match criteria. Security Tags are applied to a 
+    Virtual Machine.
+
+    This cmdlet removes the specified NSX Security Tag
+
+    If the object is currently in use the api will return an error.  Use -force 
+    to override but be aware that the firewall rulebase will become invalid and 
+    will need to be corrected before publish operations will succeed again.
+
+    .EXAMPLE
+    PS C:\> Get-NsxSecurityTag TestSecurityTag | Remove-NsxSecurityTag
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript( { Validate-SecurityTag $_ })]
+            [System.Xml.XmlElement]$SecurityTag,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if (($SecurityTag.systemResource -eq 'true') -and ( -not $force)) {
+            write-warning "Not removing $($SecurityTag.Name) as it is a default SecurityTag.  Use -Force to force deletion." 
+        }
+        else {
+            if ( $confirm ) { 
+                $message  = "Removal of Security Tags may impact desired Security Posture and expose your infrastructure. Please understand the impact of this change"
+                $question = "Proceed with removal of Security Tag $($SecurityTag.Name)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)?force=$($Force.ToString().ToLower())"
+                
+                Write-Progress -activity "Remove Security Tag $($SecurityTag.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Security Tag $($SecurityTag.Name)" -completed
+
+            }
+        }
+    }
+
+    end {}
+}
+
+
+function Get-NsxSecurityTagAssignment {
+
+    <#
+    .SYNOPSIS
+    This cmdlet is used to retrive a list of virtual machines assigned a
+    particular NSX Security Tag.
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of
+    NSX such as Security Groups match criteria. Security Tags are applied to a
+    Virtual Machine.
+
+    This cmdlet is used to retrive a list of virtual machines assigned a
+    particular NSX Security Tag.
+
+    .EXAMPLE
+    Get-NsxSecurityTag ST-Web-DMZ | Get-NsxSecurityTagAssignment
+    
+    Specify a single security tag to find all virtual machines the tag is assigned to.
+
+
+    .EXAMPLE
+    Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | Get-NsxSecurityTagAssignment
+    
+    Retrieve all virtual machines that are assigned a security tag containing 'dmz' in the security tag name
+
+
+    .EXAMPLE
+    Get-VM Web-01 | Get-NsxSecurityTagAssignment
+    
+    Specify a virtual machine to retrieve all the assigned security tags
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Tag")]
+
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Tag")]
+            [ValidateScript( { Validate-SecurityTag $_ })]
+            [System.Xml.XmlElement]$SecurityTag,
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+
+    begin {}
+    process {
+
+        switch ( $PSCmdlet.ParameterSetName ) {
+
+            'Tag' {
+
+                $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)/vm"
+                [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+                if ( $response.SelectSingleNode('descendant::basicinfolist/basicinfo') ) {
+                    $nodes = $response.SelectNodes('descendant::basicinfolist/basicinfo')
+
+                    foreach ($node in $nodes) {
+
+                        #Get the VI VM object...
+                        $vm = Get-Vm -Server $Connection.VIConnection -id "VirtualMachine-$($node.objectId)"
+                        [pscustomobject]@{
+                            "SecurityTag" = $SecurityTag;
+                            "VirtualMachine" = $vm
+                        }
+                    }
+                }
+            }
+
+            'VirtualMachine' {
+
+                #I know this is inneficient, but attempt at refactoring has led down a rabbit hole I dont have time for at the moment.
+                # 'Ill be back...''
+                $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
+                Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)"
+                Get-NsxSecurityTag -connection $connection | Get-NsxSecurityTagAssignment -connection $connection | Where-Object {($_.VirtualMachine.id -replace "VirtualMachine-","") -eq $($vmMoid)}
+            }
+        }
+    }
+
+    end {}
+}
+
+
+function New-NsxSecurityTagAssignment {
+
+    <#
+    .SYNOPSIS
+    This cmdlet assigns is used to assign NSX Security Tags to a virtual machine.
+
+    .DESCRIPTION
+    A NSX Security Tag is an arbitrary string. It is used in other functions of
+    NSX such as Security Groups match criteria. Security Tags are applied to a
+    Virtual Machine.
+
+    This cmdlet is used to assign NSX Security Tags to a virtual machine.
+
+    .EXAMPLE
+    Get-VM Web-01 | New-NsxSecurityTagAssignment -ApplyTag -SecurityTag (Get-NsxSecurityTag ST-Web-DMZ)
+    
+    Assign a single security tag to a virtual machine
+
+    .EXAMPLE
+    Get-NsxSecurityTag ST-Web-DMZ | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine (Get-VM Web-01)
+    
+    Assign a single security tag to a virtual machine
+
+    .EXAMPLE
+    Get-VM Web-01 | New-NsxSecurityTagAssignment -ApplyTag -SecurityTag $( Get-NsxSecurityTag | ? {$_.name -like "*prod*"} )
+    
+    Assign all security tags containing "prod" in the name to a virtual machine
+
+    .EXAMPLE
+    Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine (Get-VM web01,app01,db01)
+    
+    Assign all security tags containing "DMZ" in the name to multiple virtual machines
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="VirtualMachine")]
+
+    param (
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName = "SecurityTag")]
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop[]]$VirtualMachine,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName = "VirtualMachine")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "SecurityTag")]
+            [ValidateScript( { Validate-SecurityTag $_ })]
+            [System.Xml.XmlElement[]]$SecurityTag,
+        [Parameter (Mandatory=$true, ParameterSetName = "VirtualMachine")]
+            [switch]$ApplyTag,
+        [Parameter (Mandatory=$true, ParameterSetName = "SecurityTag")]
+            [switch]$ApplyToVm,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+
+    begin {}
+
+    process {
+
+        foreach ( $tag in $SecurityTag) {
+
+            $TagIdentifierString = $Tag.objectid
+
+            foreach ( $vm in $VirtualMachine) { 
+                $vmMoid = $vm.ExtensionData.MoRef.Value
+
+                $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
+                Write-Progress -activity "Adding Security Tag $($TagIdentifierString) to Virtual Machine $($vmMoid)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+                Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed
+            }
+        }
+    }
+
+    end{}
+}
+
+
+function Remove-NsxSecurityTagAssignment {
+
+    <#
+    .SYNOPSIS
+    This cmdlet is used to remove NSX Security Tags assigned to a virtual machine
+
+    .DESCRIPTION
+    A NSX Security Tag is a arbitrary string. It is used in other functions of
+    NSX such as Security Groups match criteria. Security Tags are applied to a
+    Virtual Machine.
+
+    This cmdlet assigns is used to remove NSX Security Tags assigned to a virtual machine
+
+    .EXAMPLE
+    Get-NsxSecurityTag ST-WEB-DMZ | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment 
+    
+    Gets all assigment of Security Tag ST-WEB-DMZ and removes its assignment from all VMs with confirmation.
+
+    .EXAMPLE
+    Get-VM Web01 | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment 
+    
+    Removes all security tags assigned to Web01 virtual machine.
+
+
+
+    #>
+       [CmdLetBinding()]
+
+    param (
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateScript ({ Validate-TagAssignment $_ })]
+            [PSCustomObject]$TagAssignment,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+    
         if ( $confirm ) { 
-            $message  = "Security Group removal is permanent."
-            $question = "Proceed with removal of Security group $($SecurityGroup.Name)?"
+            $message  = "Removing Security Tag $($TagAssignment.SecurityTag.Name) from $($TagAssignment.VirtualMachine.name) may impact desired Security Posture and expose your infrastructure."
+            $question = "Proceed with removal of Security Tag?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
             $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-        }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove Security Group $($SecurityGroup.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
-            write-progress -activity "Remove Security Group $($SecurityGroup.Name)" -completed
 
+        } 
+        else { $decision = 0 }
+
+        if ($decision -eq 0) {  
+
+            $URI = "/api/2.0/services/securitytags/tag/$($TagAssignment.SecurityTag.ObjectId)/vm/$($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)"
+            Write-Progress -activity "Removing Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            Write-Progress -activity "Adding Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)" -completed
         }
     }
 
-    end {}
-}
-Export-ModuleMember -Function Remove-NsxSecurityGroup
 
-function Get-NsxIPSet {
+    end{}
+}
+
+
+function Get-NsxIpSet {
 
     <#
     .SYNOPSIS
@@ -10249,11 +18441,21 @@ function Get-NsxIPSet {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Objectid of IPSet
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Name of IPSet
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            #ScopeId of IPSet - default is globalroot-0
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Return 'Readonly' (system) ipsets as well
+            [switch]$IncludeReadOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -10266,27 +18468,45 @@ function Get-NsxIPSet {
         if ( -not $objectID ) { 
             #All IPSets
             $URI = "/api/2.0/services/ipset/scope/$scopeId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
-            if ( $name ) {
-                $response.list.ipset | ? { $_.name -eq $name }
-            } else {
-                $response.list.ipset
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::list/ipset')) {
+                if ( $name ) {
+                    $ipsets = $response.list.ipset | ? { $_.name -eq $name } 
+                } else {
+                    $ipsets = $response.list.ipset 
+                }
+            }
+
+            if ( -not $IncludeReadOnly ) { 
+                $ipsets | ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+            }
+            else { 
+                $ipsets
             }
         }
         else {
 
             #Just getting a single named Security group
             $URI = "/api/2.0/services/ipset/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
-            $response.ipset
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::ipset')) {
+                $ipsets = $response.ipset 
+            }
+
+            if ( -not $IncludeReadOnly ) { 
+                $ipsets | ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+            }
+            else { 
+                $ipsets
+            }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxIPSet
 
-function New-NsxIPSet  {
+
+function New-NsxIpSet  {
     <#
     .SYNOPSIS
     Creates a new NSX IPSet.
@@ -10324,7 +18544,11 @@ function New-NsxIPSet  {
         [Parameter (Mandatory=$false)]
             [string]$IPAddresses,
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -10344,15 +18568,15 @@ function New-NsxIPSet  {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/ipset/$scopeId"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxIPSet -objectid $response
+        Get-NsxIPSet -objectid $response -connection $connection
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxIPSet
 
-function Remove-NsxIPSet {
+
+function Remove-NsxIpSet {
 
     <#
     .SYNOPSIS
@@ -10380,9 +18604,14 @@ function Remove-NsxIPSet {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$IPSet,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            [switch]$force=$false
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
 
     )
@@ -10393,35 +18622,40 @@ function Remove-NsxIPSet {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "IPSet removal is permanent."
-            $question = "Proceed with removal of IP Set $($IPSet.Name)?"
-
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if ($ipset.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+            write-warning "Not removing $($Ipset.Name) as it is set as read-only.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove IP Set $($IPSet.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
-            write-progress -activity "Remove IP Set $($IPSet.Name)" -completed
+        else { 
+            if ( $confirm ) { 
+                $message  = "IPSet removal is permanent."
+                $question = "Proceed with removal of IP Set $($IPSet.Name)?"
 
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+            
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove IP Set $($IPSet.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove IP Set $($IPSet.Name)" -completed
+            }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxIPSet
+
 
 function Get-NsxMacSet {
 
@@ -10444,11 +18678,21 @@ function Get-NsxMacSet {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Get Mac sets by objectid
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Get mac sets by name
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            #ScopeId - defaults to globalroot-0
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Include mac sets with readonly attribute
+            [switch]$IncludeReadOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -10461,25 +18705,45 @@ function Get-NsxMacSet {
         if ( -not $objectID ) { 
             #All IPSets
             $URI = "/api/2.0/services/macset/scope/$scopeId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
-            if ( $name ) {
-                $response.list.macset | ? { $_.name -eq $name }
-            } else {
-                $response.list.macset
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::list/macset')) {
+                if ( $name ) {
+                    $macsets = $response.list.macset | ? { $_.name -eq $name }
+                } else {
+                    $macsets = $response.list.macset
+                }
+
+                #Filter readonly if switch not set
+                if ( -not $IncludeReadOnly ) { 
+                    $macsets| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                }
+                else { 
+                    $macsets
+                }
             }
         }
         else {
 
             #Just getting a single named MACset
             $URI = "/api/2.0/services/macset/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
-            $response.macset
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( $response.SelectSingleNode('descendant::macset')) {
+                $macsets = $response.macset
+            }
+
+            #Filter readonly if switch not set
+            if ( -not $IncludeReadOnly ) { 
+                $macsets| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+            }
+            else { 
+                $macsets
+            }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxMACSet
+
 
 function New-NsxMacSet  {
     <#
@@ -10513,7 +18777,11 @@ function New-NsxMacSet  {
         [Parameter (Mandatory=$false)]
             [string]$MacAddresses,
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -10533,13 +18801,13 @@ function New-NsxMacSet  {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/macset/$scopeId"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxMacSet -objectid $response
+        Get-NsxMacSet -objectid $response -connection $connection
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxMacSet
+
 
 function Remove-NsxMacSet {
 
@@ -10564,12 +18832,19 @@ function Remove-NsxMacSet {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #Macset as retrieved by get-nsxmacset to remove
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$MacSet,
         [Parameter (Mandatory=$False)]
+            #Set to false to disable prompt on deletion
             [switch]$confirm=$true,
         [Parameter (Mandatory=$False)]
-            [switch]$force=$false
+            #Enable force to remove objects in use, or set to readonly (system)
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -10578,35 +18853,40 @@ function Remove-NsxMacSet {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "MACSet removal is permanent."
-            $question = "Proceed with removal of MAC Set $($MACSet.Name)?"
-
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if ($macset.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+            write-warning "Not removing $($MacSet.Name) as it is set as read-only.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove MAC Set $($MACSet.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
-            write-progress -activity "Remove MAC Set $($MACSet.Name)" -completed
+        else { 
+            if ( $confirm ) { 
+                $message  = "MACSet removal is permanent."
+                $question = "Proceed with removal of MAC Set $($MACSet.Name)?"
 
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove MAC Set $($MACSet.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove MAC Set $($MACSet.Name)" -completed
+
+            }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxMacSet
+
 
 function Get-NsxService {
 
@@ -10639,13 +18919,24 @@ function Get-NsxService {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Return service by objectId
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Return service by name
             [string]$Name,
         [Parameter (Mandatory=$false,ParameterSetName="Port",Position=1)]
+            #Return services that have a either a matching port, or are defiuned by a range into which the specified port falls
             [int]$Port,
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            #Scopeid - default is globalroot-0
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Include services with readonly attribute
+            [switch]$IncludeReadOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -10659,20 +18950,38 @@ function Get-NsxService {
 
             "objectId" {
 
-                  #Just getting a single named service group
+                #Just getting a single named service group
                 $URI = "/api/2.0/services/application/$objectId"
-                $response = invoke-nsxrestmethod -method "get" -uri $URI
-                $response.application
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( $response.SelectSingleNode('descendant::application')) {
+                    $svcs = $response.application
+                    #Filter readonly if switch not set
+                    if ( -not $IncludeReadOnly ) { 
+                        $svcs| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                    }
+                    else { 
+                        $svcs
+                    }
+                }
             }
 
             "Name" { 
                 #All Services
                 $URI = "/api/2.0/services/application/scope/$scopeId"
-                $response = invoke-nsxrestmethod -method "get" -uri $URI
-                if  ( $name ) { 
-                    $response.list.application | ? { $_.name -eq $name }
-                } else {
-                    $response.list.application
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( $response.SelectSingleNode('descendant::list/application')) {
+                    if  ( $name ) { 
+                        $svcs = $response.list.application | ? { $_.name -eq $name }
+                    } else {
+                        $svcs = $response.list.application
+                    }
+                    #Filter readonly if switch not set
+                    if ( -not $IncludeReadOnly ) { 
+                        $svcs| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                    }
+                    else { 
+                        $svcs
+                    }
                 }
             }
 
@@ -10681,42 +18990,50 @@ function Get-NsxService {
                 # Service by port
 
                 $URI = "/api/2.0/services/application/scope/$scopeId"
-                $response = invoke-nsxrestmethod -method "get" -uri $URI
-                foreach ( $application in $response.list.application ) {
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( $response.SelectSingleNode('descendant::list/application')) {        
+                    foreach ( $application in $response.list.application ) {
 
-                    if ( $application | get-member -memberType Properties -name element ) {
-                        write-debug "$($MyInvocation.MyCommand.Name) : Testing service $($application.name) with ports: $($application.element.value)"
+                        if ( $application | get-member -memberType Properties -name element ) {
+                            write-debug "$($MyInvocation.MyCommand.Name) : Testing service $($application.name) with ports: $($application.element.value)"
 
-                        #The port configured on a service is stored in element.value and can be
-                        #either an int, range (expressed as inta-intb, or a comma separated list of ints and/or ranges
-                        #So we split the value on comma, the replace the - with .. in a range, and wrap parentheses arount it
-                        #Then, lean on PoSH native range handling to force the lot into an int array... 
-                        
-                        switch -regex ( $application.element.value ) {
+                            #The port configured on a service is stored in element.value and can be
+                            #either an int, range (expressed as inta-intb, or a comma separated list of ints and/or ranges
+                            #So we split the value on comma, the replace the - with .. in a range, and wrap parentheses arount it
+                            #Then, lean on PoSH native range handling to force the lot into an int array... 
+                            
+                            switch -regex ( $application.element.value ) {
 
-                            "^[\d,-]+$" { 
+                                "^[\d,-]+$" { 
 
-                                [string[]]$valarray = $application.element.value.split(",") 
-                                foreach ($val in $valarray)  { 
+                                    [string[]]$valarray = $application.element.value.split(",") 
+                                    foreach ($val in $valarray)  { 
 
-                                    write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"  
-                                    [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' ) 
-                                    #Then test if the port int array contains what we are looking for...
-                                    if ( $ports.contains($port) ) { 
-                                        write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
-                                        $application
-                                        break
+                                        write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"  
+                                        [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' ) 
+                                        #Then test if the port int array contains what we are looking for...
+                                        if ( $ports.contains($port) ) { 
+                                            write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
+                                            #Filter readonly if switch not set
+                                            if ( -not $IncludeReadOnly ) { 
+                                                $application| ? { -not ( $_.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                                            }
+                                            else { 
+                                                $application
+                                            }
+                                            break
+                                        }
                                     }
                                 }
-                            }
 
-                            default { #do nothing, port number is not numeric.... 
-                                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                default { #do nothing, port number is not numeric.... 
+                                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                }
                             }
                         }
-                    }
-                    else {
-                        write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - element not defined"                           
+                        else {
+                            write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - element not defined"                           
+                        }
                     }
                 }
             }
@@ -10725,7 +19042,7 @@ function Get-NsxService {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxService
+
 
 function New-NsxService  {
 
@@ -10776,7 +19093,11 @@ function New-NsxService  {
             })]
             [string]$port,
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -10800,13 +19121,13 @@ function New-NsxService  {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/application/$scopeId"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxService -objectId $response
+        Get-NsxService -objectId $response -connection $connection
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxService
+
 
 function Remove-NsxService {
 
@@ -10821,9 +19142,9 @@ function Remove-NsxService {
     This cmdlet removes the NSX service specified.
 
     .EXAMPLE
-    PS C:\> New-NsxService -Name TestService -Description "Test creation of a
-     service" -Protocol TCP -port 1234
+    Get-NsxService -Name TestService | Remove-NsxService
 
+    Removes the service TestService
     #>    
  
     param (
@@ -10832,9 +19153,14 @@ function Remove-NsxService {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$Service,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            [switch]$force=$false
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -10843,9 +19169,278 @@ function Remove-NsxService {
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "Service removal is permanent."
-            $question = "Proceed with removal of Service $($Service.Name)?"
+        if ($Service.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+            write-warning "Not removing $($Service.Name) as it is set as read-only.  Use -Force to force deletion." 
+        }
+        else {
+            if ( $confirm ) { 
+                $message  = "Service removal is permanent."
+                $question = "Proceed with removal of Service $($Service.Name)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/application/$($Service.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/application/$($Service.objectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove Service $($Service.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Service $($Service.Name)" -completed
+
+            }
+        }
+    }
+
+    end {}
+}
+
+
+Function Get-NsxServiceGroup {
+
+
+    <#
+    .SYNOPSIS
+    Retrieves a list of NSX Service Groups.
+
+    .DESCRIPTION
+    Lists all created NSX Service Groups. Service groups contain a mixture of 
+    selected ports to represent a potential grouping of like ports.
+
+    This cmdlet retrieves the service group of the specified configuration.
+
+    .EXAMPLE
+    Get-NsxServiceGroup
+
+    Retrieves all NSX Service Groups
+
+    .EXAMPLE
+    Get-NsxServiceGroup Heartbeat
+
+    Retrieves the default NSX Service Group called Heartbeat
+
+    .EXAMPLE
+    Get-NsxServiceGroup | ? {$_.name -match ("Exchange")} | select name
+
+    Retrieves all Services Groups that have the string "Exchange" in their 
+    name property
+    e.g:
+    ----
+    Microsoft Exchange 2003
+    MS Exchange 2007 Transport Servers
+    MS Exchange 2007 Unified Messaging Centre
+    MS Exchange 2007 Client Access Server
+    Microsoft Exchange 2007
+    MS Exchange 2007 Mailbox Servers
+    Microsoft Exchange 2010
+    MS Exchange 2010 Client Access Servers
+    MS Exchange 2010 Transport Servers
+    MS Exchange 2010 Mailbox Servers
+    MS Exchange 2010 Unified Messaging Server
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+    param (
+
+    [Parameter (Mandatory=$false,Position=1,ParameterSetName="Name")]
+        [ValidateNotNullorEmpty()]
+        [string]$Name,
+    [Parameter (Mandatory=$false)]
+        [string]$scopeId="globalroot-0",
+    [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+        [string]$objectId,
+    [Parameter (Mandatory=$False)]
+        #PowerNSX Connection object.
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        if ( -not $objectId ) {
+            #All Sections
+
+            $URI = "/api/2.0/services/applicationgroup/scope/$scopeId"
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+
+            if ($response.SelectSingleNode("child::list/applicationGroup")){
+                $servicegroup = $response.list.applicationGroup
+            
+                if ($PsBoundParameters.ContainsKey("Name")){
+                    $servicegroup | ? {$_.name -eq $name}
+                }
+                else {
+    
+                    $servicegroup
+                }
+            }
+
+        }
+        else {
+
+            $URI = "/api/2.0/services/applicationgroup/$objectid"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            
+            $response.applicationGroup
+        }
+
+    }
+
+    end {}
+}
+
+
+function Get-NsxServiceGroupMember {
+
+    <#
+    .SYNOPSIS
+    Retrieves a list of services within an NSX Service Groups.
+
+    .DESCRIPTION
+    Lists all serivces associated to an NSX Service Groups. Service groups 
+    contain a mixture of selected ports to represent a potential grouping 
+    of like ports.
+
+    This cmdlet retrieves the member services within a Service Group for 
+    specific or all Service Groups
+
+    .EXAMPLE
+    Get-NsxServiceGroup | Get-NsxServiceGroupMember
+
+    Retrieves all members of all Service Groups. You are brave.
+    
+    .EXAMPLE
+    Get-NsxServiceGroup Heartbeat | Get-NsxServiceGroupMember
+
+    Retrieves all members of the Service Group Heartbeat
+    e.g:
+
+    objectId           : application-70
+    objectTypeName     : Application
+    vsmUuid            : 42019B98-63EC-995F-6CBB-FF738D027F92
+    nodeId             : 0dd7c0dd-a194-4df1-a14b-56a1617c2f0f
+    revision           : 2
+    type               : type
+    name               : Vmware-VCHeartbeat
+    scope              : scope
+    clientHandle       :
+    extendedAttributes :
+    isUniversal        : false
+    universalRevision  : 0
+
+    objectId           : application-180
+    objectTypeName     : Application
+    vsmUuid            : 42019B98-63EC-995F-6CBB-FF738D027F92
+    nodeId             : 0dd7c0dd-a194-4df1-a14b-56a1617c2f0f
+    revision           : 2
+    type               : type
+    name               : Vmware-Heartbeat-PrimarySecondary
+    scope              : scope
+    clientHandle       :
+    extendedAttributes :
+    isUniversal        : false
+    universalRevision  : 0
+
+
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-ServiceOrServiceGroup $_ })]
+            [System.Xml.XmlElement]$ServiceGroup,
+        [Parameter (Mandatory=$false)]
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            [string]$objectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin{
+
+    }
+    process{
+
+        if ($ServiceGroup.SelectSingleNode("child::member")){
+            $ServiceGroup.member
+        }
+
+    }
+
+    end{}
+}
+
+
+function Remove-NsxServiceGroup {
+
+    <#
+    .SYNOPSIS
+    Removes the specified NSX Service Group.
+
+    .DESCRIPTION
+     A service group is a container that includes Services and other Service
+    Groups. These Service Groups are used by the NSX Distributed Firewall 
+    when creating firewall rules. They can also be referenced by Service 
+    Composer's Security Policies.
+
+    This cmdlet removes the specified Service Group.
+
+    .EXAMPLE
+    Get-NsxServiceGroup Heartbeat | Remove-NsxServiceGroup
+
+    This will remove the Service Group Heartbeat. All members of the Service 
+    Group are not affected.
+
+    .EXAMPLE
+    Get-NsxServiceGroup | Remove-NsxServiceGroup -confirm:$false
+
+    This will retrieve and remove ALL Service Groups without confirmation 
+    prompt. 
+
+    #>
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-ServiceGroup $_ })]
+            [System.Xml.XmlElement]$ServiceGroup,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+        )
+
+
+
+    begin{
+
+    }
+    process{
+
+
+        if ( $confirm ) {
+            $message  = "Service Group removal is permanent."
+            $question = "Proceed with removal of Service group $($ServiceGroup.Name)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -10853,25 +19448,153 @@ function Remove-NsxService {
 
             $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
         }
-        else { $decision = 0 } 
+        else { $decision = 0 }
         if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/application/$($Service.objectId)?force=true"
+            if ( $force ) {
+                $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectid)?force=true"
             }
             else {
-                $URI = "/api/2.0/services/application/$($Service.objectId)?force=false"
+                $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectid)?force=false"
             }
-            
-            Write-Progress -activity "Remove Service $($Service.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
-            write-progress -activity "Remove Service $($Service.Name)" -completed
 
+            Write-Progress -activity "Remove Service Group $($ServiceGroup.Name)"
+            Invoke-NsxRestMethod -method "delete" -uri $URI -connection $connection | out-null
+            Write-progress -activity "Remove Service Group $($ServiceGroup.Name)" -completed
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxService
+
+
+function New-NsxServiceGroup {
+
+    <#
+    .SYNOPSIS
+    Creates a new Service Group to which new Services or Service Groups can 
+    be added.
+
+    .DESCRIPTION
+    A service group is a container that includes Services and other Service
+    Groups. These Service Groups are used by the NSX Distributed Firewall 
+    when creating firewall rules. They can also be referenced by Service 
+    Composer's Security Policies.
+
+    .EXAMPLE
+    New-NsxServiceGroup PowerNSX-SVG
+
+    Creates a new Service Group called PowerNSX-SVG
+
+
+    objectId           : applicationgroup-53
+    objectTypeName     : ApplicationGroup
+    vsmUuid            : 42019B98-63EC-995F-6CBB-FF738D027F92
+    nodeId             : 0dd7c0dd-a194-4df1-a14b-56a1617c2f0f
+    revision           : 1
+    type               : type
+    name               : PowerNSX-SVG
+    description        :
+    scope              : scope
+    clientHandle       :
+    extendedAttributes :
+    isUniversal        : false
+    universalRevision  : 0
+    inheritanceAllowed : false
+
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Description = "",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("applicationGroup")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+
+        $body = $xmlroot.OuterXml
+
+        $method = "POST"
+        $uri = "/api/2.0/services/applicationgroup/globalroot-0"
+        $response = invoke-nsxrestmethod -uri $uri -method $method -body $body -connection $connection
+
+        Get-NsxServiceGroup $Name
+
+    }
+
+    end {}
+}
+
+
+function Add-NsxServiceGroupMember {
+
+    <#
+    .SYNOPSIS
+    Adds a single Service, numerous Services, or a Service Group to a Service 
+    Group
+
+    .DESCRIPTION
+    Adds the defined Service or Service Group to an NSX Service Groups. Service
+    groups contain a mixture of selected ports to represent a potential 
+    grouping of like ports.
+
+    This cmdlet adds the defined Services or Service Groups within a Service 
+    Group for specific or all Service Groups
+
+    .EXAMPLE
+    PS C:\> Get-NsxServiceGroup Heartbeat | Add-NsxServiceGroupMember -Member $Service1
+
+
+    PS C:\> get-nsxservicegroup Service-Group-4 | Add-NsxServiceGroupMember $Service1,$Service2
+
+    #>
+
+    param (
+        #Mastergroup added from Get-NsxServiceGroup
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-ServiceGroup $_ })]
+            [System.Xml.XmlElement]$ServiceGroup,
+        [Parameter (Mandatory=$true,Position=1)]
+            [ValidateScript({ Validate-ServiceOrServiceGroup $_ })]
+            #The [] in XmlElement means it can expect more than one object!
+            [System.Xml.XmlElement[]]$Member,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+
+        foreach ($Mem in $Member){
+            $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectId)/members/$($Mem.objectId)"
+            $response = invoke-nsxrestmethod -method "PUT" -uri $URI -connection $connection
+            Write-Progress -activity "Adding Service or Service Group $($Mem) to Service Group $($ServiceGroup)"
+        }
+
+    }
+    end {}
+}
 
 #########
 #########
@@ -10926,7 +19649,7 @@ function New-NsxSourceDestNode {
             write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
             #Proper PowerCLI Object passed
             #If passed object is a NIC, we have to do some more digging
-            if (  $item -is [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter] ) {
+            if (  $item -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
                    
                 write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
                 #Naming based on DFW UI standard
@@ -10964,7 +19687,8 @@ function New-NsxAppliedToListNode {
 
         [object[]]$itemlist,
         [System.XML.XMLDocument]$xmlDoc,
-        [switch]$ApplyToDFW
+        [switch]$ApplyToDFW,
+        [switch]$ApplyToAllEdges
 
     )
 
@@ -10973,6 +19697,75 @@ function New-NsxAppliedToListNode {
     #Iterate the appliedTo passed and build appliedTo nodes.
     #$xmlRoot.appendChild($xmlReturn) | out-null
 
+
+    foreach ($item in $itemlist) {
+        write-debug "$($MyInvocation.MyCommand.Name) : Building appliedTo node for $($item.name)"
+        #Build the return XML element
+        [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement("appliedTo")
+
+        if ( $item -is [system.xml.xmlelement] ) {
+
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as xml element"
+            
+            if ( $item.SelectSingleNode('descendant::edgeSummary')) { 
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is an edge object"
+
+                if ( $ApplyToAllEdges ) {
+                    #Apply to all edges is default off, so this means the user asked for something stupid
+                    throw "Cant specify Edge Object in applied to list and ApplyToAllEdges simultaneously."
+                }
+
+                #We have an edge, and edges have the details we need in their EdgeSummary element:
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.edgeSummary.objectId
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.edgeSummary.name
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.edgeSummary.objectTypeName
+
+
+            }
+            else {
+
+                #Something specific passed in applied to list, turn off Apply to DFW.
+                $ApplyToDFW = $false
+
+                #XML representation of NSX object passed - ipset, sec group or logical switch
+                #get appropritate name, value.
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.objectTypeName
+            }   
+        } 
+        else {
+
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
+            #Proper PowerCLI Object passed
+            #If passed object is a NIC, we have to do some more digging
+            if (  $item -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+               
+                write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
+                #Naming based on DFW UI standard
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
+
+                #Getting the NIC identifier is a bit of hackery at the moment, if anyone can show me a more deterministic or simpler way, then im all ears. 
+                $nicIndex = [array]::indexof($item.parent.NetworkAdapters.name,$item.name)
+                if ( -not ($nicIndex -eq -1 )) { 
+                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
+                } else {
+                    throw "Unable to determine nic index in parent object.  Make sure the NIC object is valid"
+                }
+            }
+            else {
+                #any other accepted PowerCLI object, we just need to grab details from the moref.
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.extensiondata.moref.type
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.extensiondata.moref.value 
+            }
+        }
+
+        $xmlReturn.appendChild($xmlItem) | out-null
+    }
+
     if ( $ApplyToDFW ) {
 
         [System.XML.XMLElement]$xmlAppliedTo = $XMLDoc.CreateElement("appliedTo")
@@ -10980,56 +19773,17 @@ function New-NsxAppliedToListNode {
         Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "name" -xmlElementText "DISTRIBUTED_FIREWALL"
         Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "type" -xmlElementText "DISTRIBUTED_FIREWALL"
         Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "value" -xmlElementText "DISTRIBUTED_FIREWALL"
-
-    } else {
-
-
-        foreach ($item in $itemlist) {
-            write-debug "$($MyInvocation.MyCommand.Name) : Building appliedTo node for $($item.name)"
-            #Build the return XML element
-            [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement("appliedTo")
-
-            if ( $item -is [system.xml.xmlelement] ) {
-
-                write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as xml element"
-                #XML representation of NSX object passed - ipset, sec group or logical switch
-                #get appropritate name, value.
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.objectTypeName
-                  
-            } else {
-
-                write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
-                #Proper PowerCLI Object passed
-                #If passed object is a NIC, we have to do some more digging
-                if (  $item -is [VMware.VimAutomation.ViCore.Types.V1.VirtualDevice.NetworkAdapter] ) {
-                   
-                    write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
-                    #Naming based on DFW UI standard
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
-
-                    #Getting the NIC identifier is a bit of hackery at the moment, if anyone can show me a more deterministic or simpler way, then im all ears. 
-                    $nicIndex = [array]::indexof($item.parent.NetworkAdapters.name,$item.name)
-                    if ( -not ($nicIndex -eq -1 )) { 
-                        Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
-                    } else {
-                        throw "Unable to determine nic index in parent object.  Make sure the NIC object is valid"
-                    }
-                }
-                else {
-                    #any other accepted PowerCLI object, we just need to grab details from the moref.
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.extensiondata.moref.type
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.extensiondata.moref.value 
-                }
-            }
-
-        
-            $xmlReturn.appendChild($xmlItem) | out-null
-        }
     }
+
+    if ( $ApplyToAllEdges ) {
+    
+        [System.XML.XMLElement]$xmlAppliedTo = $XMLDoc.CreateElement("appliedTo")
+        $xmlReturn.appendChild($xmlAppliedTo) | out-null
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "name" -xmlElementText "ALL_EDGES"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "type" -xmlElementText "ALL_EDGES"
+        Add-XmlElement -xmlRoot $xmlAppliedTo -xmlElementName "value" -xmlElementText "ALL_EDGES"
+    }
+    
     $xmlReturn
 }
 
@@ -11064,7 +19818,11 @@ function Get-NsxFirewallSection {
             [string]$Name,
         [Parameter (Mandatory=$false)]
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
-            [string]$sectionType="layer3sections"
+            [string]$sectionType="layer3sections",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -11078,7 +19836,7 @@ function Get-NsxFirewallSection {
             #All Sections
 
             $URI = "/api/4.0/firewall/$scopeID/config"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
             $return = $response.firewallConfiguration.$sectiontype.section
 
@@ -11093,7 +19851,7 @@ function Get-NsxFirewallSection {
         else {
             
             $URI = "/api/4.0/firewall/$scopeID/config/$sectionType/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $response.section
         }
 
@@ -11101,7 +19859,7 @@ function Get-NsxFirewallSection {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxFirewallSection
+
 
 function New-NsxFirewallSection  {
 
@@ -11133,7 +19891,11 @@ function New-NsxFirewallSection  {
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$sectionType="layer3sections",
         [Parameter (Mandatory=$false)]
-            [string]$scopeId="globalroot-0"
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -11152,14 +19914,14 @@ function New-NsxFirewallSection  {
         
         $URI = "/api/4.0/firewall/$scopeId/config/$sectionType"
         
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
         $response.section
         
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxFirewallSection
+
 
 function Remove-NsxFirewallSection {
 
@@ -11188,9 +19950,14 @@ function Remove-NsxFirewallSection {
             [ValidateNotNull()]
             [System.Xml.XmlElement]$Section,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            [switch]$force=$false
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -11227,7 +19994,7 @@ function Remove-NsxFirewallSection {
                 }
                 
                 Write-Progress -activity "Remove Section $($Section.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI | out-null
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
                 write-progress -activity "Remove Section $($Section.Name)" -completed
             }
         }
@@ -11235,7 +20002,7 @@ function Remove-NsxFirewallSection {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxFirewallSection 
+
 
 function Get-NsxFirewallRule {
 
@@ -11279,7 +20046,11 @@ function Get-NsxFirewallRule {
             [string]$ScopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
-            [string]$RuleType="layer3sections"
+            [string]$RuleType="layer3sections",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -11293,7 +20064,7 @@ function Get-NsxFirewallRule {
 
             $URI = "/api/4.0/firewall/$scopeID/config/$ruletype/$($Section.Id)"
             
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response | get-member -name Section -Membertype Properties){
                 if ( $response.Section | get-member -name Rule -Membertype Properties ){
                     if ( $PsBoundParameters.ContainsKey("Name") ) { 
@@ -11323,7 +20094,7 @@ function Get-NsxFirewallRule {
             #for a query such as we are doing here is now called 
             #'filteredfirewallConfiguration'.  Why? :|
 
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ($response.firewallConfiguration) { 
                 if ( $PsBoundParameters.ContainsKey("Name") ) { 
                     $response.firewallConfiguration.layer3Sections.Section.rule | ? { $_.name -eq $Name }
@@ -11347,7 +20118,7 @@ function Get-NsxFirewallRule {
 
     end {}
 }
-Export-ModuleMember -Function Get-NsxFirewallRule
+
 
 function New-NsxFirewallRule  {
 
@@ -11410,6 +20181,10 @@ function New-NsxFirewallRule  {
             [ValidateScript({ Validate-FirewallAppliedTo $_ })]
             [object[]]$AppliedTo,
         [Parameter (Mandatory=$false)]
+            [switch]$ApplyToDfw=$true,
+        [Parameter (Mandatory=$false)]
+            [switch]$ApplyToAllEdges=$false,
+        [Parameter (Mandatory=$false)]
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$false)]
@@ -11419,7 +20194,16 @@ function New-NsxFirewallRule  {
             [ValidateNotNullorEmpty()]
             [string]$Tag,
         [Parameter (Mandatory=$false)]
-            [string]$ScopeId="globalroot-0"
+            [string]$ScopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Specifies that New-NsxFirewall rule will return the actual rule that was created rather than the deprecated behaviour of returning the complete containing section
+            #This option exists to allow existing scripts that use this function to be easily updated to set it to $false and continue working (For now!).
+            #This option is deprecated and will be removed in a future version.
+            [switch]$ReturnRule=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -11474,11 +20258,11 @@ function New-NsxFirewallRule  {
         }
 
         #Applied To
-        if ( -not ( $AppliedTo )) { 
-            $xmlAppliedToList = New-NsxAppliedToListNode -xmlDoc $xmlDoc -ApplyToDFW 
+        if ( -not $PsBoundParameters.ContainsKey('AppliedTo')) { 
+            $xmlAppliedToList = New-NsxAppliedToListNode -xmlDoc $xmlDoc -ApplyToDFW:$ApplyToDfw -ApplyToAllEdges:$ApplyToAllEdges 
         }
         else {
-            $xmlAppliedToList = New-NsxAppliedToListNode -itemlist $AppliedTo -xmlDoc $xmlDoc 
+            $xmlAppliedToList = New-NsxAppliedToListNode -itemlist $AppliedTo -xmlDoc $xmlDoc -ApplyToDFW:$ApplyToDfw -ApplyToAllEdges:$ApplyToAllEdges
         }
         $xmlRule.appendChild($xmlAppliedToList) | out-null
 
@@ -11487,7 +20271,17 @@ function New-NsxFirewallRule  {
 
             Add-XmlElement -xmlRoot $xmlRule -xmlElementName "tag" -xmlElementText $tag
         }
-        
+
+
+        #GetThe existing rule Ids and store them - we check for a rule that isnt contained here in the response so we can presnet back to user with rule id
+        if ( $Section.SelectSingleNode("child::rule") )  { 
+            $ExistingIds = @($Section.rule.id)
+        }
+        else {
+            $ExistingIds = @()
+        }
+
+
         #Append the new rule to the section
         $xmlrule = $Section.ownerDocument.ImportNode($xmlRule, $true)
         switch ($Position) {
@@ -11502,14 +20296,19 @@ function New-NsxFirewallRule  {
         #Need the IfMatch header to specify the current section generation id
     
         $IfMatchHeader = @{"If-Match"=$generationNumber}
-        $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -extraheader $IfMatchHeader
+        $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -extraheader $IfMatchHeader -connection $connection
 
-        $response.section
-        
+        if ( $ReturnRule ) { 
+            $response.section.rule | where { ( -not ($ExistingIds.Contains($_.id))) }
+        }
+        else {
+            $response.section
+            write-warning 'The -ReturnRule:$false option is deprecated and will be removed in a future version.  Please update your scripts so that they accept the return object of New-NsxFirewallRule to be the newly created rule rather than the full section.'
+        }
     }
     end {}
 }
-Export-ModuleMember -Function New-NsxFirewallRule
+
 
 
 function Remove-NsxFirewallRule {
@@ -11536,9 +20335,14 @@ function Remove-NsxFirewallRule {
             [ValidateNotNull()]
             [System.Xml.XmlElement]$Rule,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            [switch]$force=$false
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -11560,14 +20364,14 @@ function Remove-NsxFirewallRule {
         else { $decision = 0 } 
         if ($decision -eq 0) {
         
-            $section = get-nsxFirewallSection $Rule.parentnode.name
+            $section = get-nsxFirewallSection $Rule.parentnode.name -connection $connection
             $generationNumber = $section.generationNumber
             $IfMatchHeader = @{"If-Match"=$generationNumber}
             $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)/rules/$($Rule.id)"
           
             
             Write-Progress -activity "Remove Rule $($Rule.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI  -extraheader $IfMatchHeader | out-null
+            invoke-nsxrestmethod -method "delete" -uri $URI  -extraheader $IfMatchHeader -connection $connection | out-null
             write-progress -activity "Remove Rule $($Rule.Name)" -completed
 
         }
@@ -11575,7 +20379,196 @@ function Remove-NsxFirewallRule {
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxFirewallRule
+
+function Get-NsxFirewallExclusionListMember {
+
+    <#
+    .SYNOPSIS
+    Gets the virtual machines that are excluded from the distributed firewall
+
+    .DESCRIPTION
+    The 'Exclusion List' is a list of virtual machines which are excluded from
+    the distributed firewall rules. They are not protected and/or limited by it.
+
+    If a virtual machine has multiple vNICs, all of them are excluded from 
+    protection.
+
+    VMware recommends that you place the following service virtual machines in 
+    the Exclusion List
+    * vCenter Server.
+    * Partner service virtual machines.
+    * Virtual machines that require promiscuous mode.
+
+    This cmdlet retrieves all VMs on the exclusion list and returns PowerCLI VM
+    objects.
+
+    .EXAMPLE
+    Get-NsxFirewallExclusionListMember
+
+    Retreives the entire contents of the exclusion list
+
+    .EXAMPLE
+    Get-NsxFirewallExclusionListMember | ? { $_.name -match 'myvm'}
+
+    Retreives a specific vm from the exclusion list if it exists.
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$False)]
+        #PowerNSX Connection object.
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process{
+        # Build URL and catch response into XML format
+        $URI = "/api/2.1/app/excludelist"
+        [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $Connection
+
+        # If there are any VMs found, iterate and return them
+        #Martijn - I removed the array build here, as:
+        #### a) I preferred to just output VM objects so that the get- | remove- pipline works
+        #### b) outputting the VM obj immediately works nicer in a pipeline (object appears immediately) 
+        ####   as opposed to building the array internally where the whole pipeline has to be processed before the user gets any output.
+        #### c) Its also less lines :)
+
+        $nodes = $response.SelectNodes('descendant::VshieldAppConfiguration/excludeListConfiguration/excludeMember')
+        if ($nodes){
+            foreach ($node in $nodes){
+                # output the VI VM object...
+                Get-VM -Server $Connection.VIConnection -id "VirtualMachine-$($node.member.objectId)"
+            }
+        }
+    }
+
+    end {}
+}
+
+
+function Add-NsxFirewallExclusionListMember {
+
+    <#
+    .SYNOPSIS
+    Adds a virtual machine to the exclusion list, which are excluded from the 
+    distributed firewall
+
+    .DESCRIPTION
+    The 'Exclusion List' is a list of virtual machines which are excluded from
+    the distributed firewall rules. They are not protected and/or limited by it.
+
+    If a virtual machine has multiple vNICs, all of them are excluded from 
+    protection.
+
+    VMware recommends that you place the following service virtual machines in 
+    the Exclusion List
+    * vCenter Server.
+    * Partner service virtual machines.
+    * Virtual machines that require promiscuous mode.
+
+    This cmdlet adds a VM to the exclusion list
+
+    .EXAMPLE
+    Add-NsxFirewallExclusionListMember -VirtualMachine (Get-VM -Name myVM)
+
+    Adds the VM myVM to the exclusion list
+    .EXAMPLE
+    Get-VM | ? { $_.name -match 'mgt'} | Add-NsxFirewallExclusionListMember
+
+    Adds all VMs with mgt in their name to the exclusion list.
+    #>
+
+    param (
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+        [ValidateNotNullorEmpty()]
+        [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+        [Parameter (Mandatory=$False)]
+        #PowerNSX Connection object.
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+        # Get VM MOID
+        $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
+        # Build URL
+        $URI = "/api/2.1/app/excludelist/$vmMoid"
+
+        try {
+            $response = invoke-nsxrestmethod -method "PUT" -uri $URI -connection $connection
+        }
+        catch {
+            Throw "Unable to add VM $VirtualMachine to Exclusion list. $_"
+        }
+    }
+
+end {}
+}
+
+
+function Remove-NsxFirewallExclusionListMember {
+
+    <#
+    .SYNOPSIS
+    Removes a virtual machine from the exclusion list, which are excluded from 
+    the distributed firewall
+
+    .DESCRIPTION
+    The 'Exclusion List' is a list of virtual machines which are excluded from
+    the distributed firewall rules. They are not protected and/or limited by it.
+
+    If a virtual machine has multiple vNICs, all of them are excluded from 
+    protection.
+
+    VMware recommends that you place the following service virtual machines in 
+    the Exclusion List
+    * vCenter Server.
+    * Partner service virtual machines.
+    * Virtual machines that require promiscuous mode.
+
+    This cmdlet removes a VM to the exclusion list
+
+    .EXAMPLE
+    Remove-NsxFirewallExclusionListMember -VirtualMachine (Get-VM -Name myVM)
+
+    Removes the VM myVM from the exclusion list
+
+    .EXAMPLE
+    Get-NsxFirewallExclusionListMember | Remove-NsxFirewallExclusionlistMember
+
+    Removes all vms from the exclusion list.
+    #>
+
+    param (
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+        [ValidateNotNullorEmpty()]
+        [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+        [Parameter (Mandatory=$False)]
+        #PowerNSX Connection object.
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+        # Get VM MOID
+        $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
+        # Build URL
+        $URI = "/api/2.1/app/excludelist/$vmMoid"
+
+        try {
+            $response = invoke-nsxrestmethod -method "DELETE" -uri $URI -connection $connection
+        }
+        catch {
+            Throw "Unable to remove VM $VirtualMachine from Exclusion list. $_"
+        }
+    }
+
+    end {}
+}
+
 
 
 ########
@@ -11629,7 +20622,7 @@ function Get-NsxLoadBalancer {
 
     }      
 }
-Export-ModuleMember -Function Get-NsxLoadBalancer
+
 
 function Set-NsxLoadBalancer {
 
@@ -11665,7 +20658,11 @@ function Set-NsxLoadBalancer {
             [switch]$EnableLogging,
         [Parameter (Mandatory=$False)]
             [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
-            [string]$LogLevel
+            [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
 
@@ -11716,15 +20713,15 @@ function Set-NsxLoadBalancer {
         $body = $_LoadBalancer.OuterXml 
 
         Write-Progress -activity "Update Edge Services Gateway $($edgeId)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection 
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
-        Get-NsxEdge -objectId $($edgeId) | Get-NsxLoadBalancer
+        Get-NsxEdge -objectId $($edgeId)  -connection $connection | Get-NsxLoadBalancer
     }
 
     end{
     }
 }
-Export-ModuleMember -Function Set-NsxLoadBalancer
+
 
 function Get-NsxLoadBalancerMonitor {
 
@@ -11789,7 +20786,290 @@ function Get-NsxLoadBalancerMonitor {
     }
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerMonitor
+
+
+function New-NsxLoadBalancerMonitor {
+ 
+    <#
+    .SYNOPSIS
+    Creates a new LoadBalancer Service Monitor on the specified 
+    Edge Services Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    Service monitors define health check parameters for a particular type of 
+    network traffic. When you associate a service monitor with a pool, the pool 
+    members are monitored according to the service monitor parameters.
+    
+    This cmdlet creates a new LoadBalancer Service monitor on a specified 
+    Load Balancer
+    
+    .EXAMPLE
+    
+    PS C:\> Get-NsxEdge LB2 | Get-NsxLoadBalancer | New-NsxLoadBalancerMonitor 
+    -Name Web-Monitor -interval 10 -Timeout 10 -MaxRetries 3 -Type 
+    HTTPS -Method GET -Url "/WAPI/api/status" -Expected "200 OK"
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="HTTP")]
+
+    param (
+   
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="UDP")]
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
+        [Parameter (Mandatory=$true, ParameterSetName="HTTP")]
+            [switch]$TypeHttp,
+        [Parameter (Mandatory=$true, ParameterSetName="HTTPS")]
+            [switch]$TypeHttps,
+        [Parameter (Mandatory=$true, ParameterSetName="TCP")]
+            [switch]$TypeTcp,
+        [Parameter (Mandatory=$true, ParameterSetName="ICMP")]
+            [switch]$TypeIcmp,
+        [Parameter (Mandatory=$true, ParameterSetName="UDP")]
+            [switch]$TypeUdp,
+        [Parameter (Mandatory=$true, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$true, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$true, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$true, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$true, ParameterSetName="UDP")]
+           [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$true, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$true, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$true, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$true, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$true, ParameterSetName="UDP")]
+            [ValidateNotNullOrEmpty()]
+            [string]$Interval,
+        [Parameter (Mandatory=$true, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$true, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$true, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$true, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$true, ParameterSetName="UDP")]
+            [ValidateNotNullOrEmpty()]
+            [string]$Timeout,
+        [Parameter (Mandatory=$true, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$true, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$true, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$true, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$true, ParameterSetName="UDP")]
+            [ValidateNotNullOrEmpty()]
+            [string]$MaxRetries,
+        [Parameter (Mandatory=$true, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$true, ParameterSetName="HTTPS")]
+            [ValidateSet("GET","POST","OPTIONS", IgnoreCase=$False)]
+            [string]$Method,
+        [Parameter (Mandatory=$true, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$true, ParameterSetName="HTTPS")]
+            [ValidateNotNullOrEmpty()]
+            [string]$Url,
+        [Parameter (Mandatory=$false, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$false, ParameterSetName="HTTPS")]
+            [ValidateNotNullOrEmpty()]
+            [string]$Expected,
+        [Parameter (Mandatory=$false, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$false, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$false, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$false, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$false, ParameterSetName="UDP")]
+            [ValidateNotNullOrEmpty()]
+            [string]$Send,
+        [Parameter (Mandatory=$false, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$false, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$false, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$false, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$false, ParameterSetName="UDP")]
+            [ValidateNotNullOrEmpty()]
+            [string]$Receive,
+        [Parameter (Mandatory=$false, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$false, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$false, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$false, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$false, ParameterSetName="UDP")]
+            [ValidateNotNullOrEmpty()]
+            [string]$Extension,
+        [Parameter (Mandatory=$false, ParameterSetName="HTTP")]
+        [Parameter (Mandatory=$false, ParameterSetName="HTTPS")]
+        [Parameter (Mandatory=$false, ParameterSetName="TCP")]
+        [Parameter (Mandatory=$false, ParameterSetName="ICMP")]
+        [Parameter (Mandatory=$false, ParameterSetName="UDP")]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process {
+        
+
+        #Store the edgeId
+        $edgeId = $LoadBalancer.edgeId
+
+        if ( -not $LoadBalancer.enabled -eq 'true' ) { 
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+        }
+     
+        [System.XML.XMLElement]$xmlmonitor = $LoadBalancer.OwnerDocument.CreateElement("monitor")
+     
+        #Common Elements
+        Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "interval" -xmlElementText $Interval
+        Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "timeout" -xmlElementText $Timeout
+        Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "maxRetries" -xmlElementText $MaxRetries
+        
+        #Optional
+        if ( $PSBoundParameters.ContainsKey('Send')) {
+            Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "send" -xmlElementText $Send
+        }
+        
+        if ( $PSBoundParameters.ContainsKey('Receive')) {
+            Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "receive" -xmlElementText $Receive
+        }
+
+        if ( $PSBoundParameters.ContainsKey('Extension')) {
+            Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "extension" -xmlElementText $Extension
+        }
+
+        #Type specific
+        switch -regex ( $PsCmdlet.ParameterSetName ) {
+
+            "HTTP" {
+                #will match both HTTP and HTTPS due to regex switch handling...
+                if ( $TypeHttp ) { 
+                    Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "type" -xmlElementText "http" 
+                } else {
+                    Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "type" -xmlElementText "https" 
+                }
+
+                if ( $PSBoundParameters.ContainsKey('Method')) {
+                    Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "method" -xmlElementText $Method
+                }
+
+                if ( $PSBoundParameters.ContainsKey('Url')) {
+                    Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "url" -xmlElementText $Url
+                }
+
+                if ( $PSBoundParameters.ContainsKey('Expected')) {
+                    Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "expected" -xmlElementText $Expected
+                }
+            }
+
+            "ICMP" {
+                Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "type" -xmlElementText "icmp" 
+            }
+
+            "TCP" {
+                Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "type" -xmlElementText "tcp" 
+            }
+
+            "UDP" {
+                Add-XmlElement -xmlRoot $xmlmonitor -xmlElementName "type" -xmlElementText "udp" 
+            }
+        }
+
+
+        
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/monitors"
+        $body = $xmlmonitor.OuterXml 
+    
+        Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Monitor Config"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
+
+        get-nsxedge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -name $Name
+    }
+
+    end {}
+}
+
+
+function Remove-NsxLoadBalancerMonitor {
+
+    <#
+    .SYNOPSIS
+    Removes the specified LoadBalancer Monitor.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    Service monitors define health check parameters for a particular type of 
+    network traffic. When you associate a service monitor with a pool, the pool 
+    members are monitored according to the service monitor parameters.
+    
+    This cmdlet removes the specified LoadBalancer Monitor.
+   
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LoadBalancerMonitor $_ })]
+            [System.Xml.XmlElement]$Monitor,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $Monitor.edgeId
+        $MonitorId = $Monitor.monitorId
+            
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/monitors/$MonitorId" 
+        
+        if ( $confirm ) { 
+            $message  = "Monitor removal is permanent."
+            $question = "Proceed with removal of Load Balancer Monitor $($MonitorId)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Monitor $MonitorId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+
+        }
+    }
+
+    end {}
+}
+
 
 function Get-NsxLoadBalancerApplicationProfile {
 
@@ -11832,7 +21112,8 @@ function Get-NsxLoadBalancerApplicationProfile {
             [ValidateScript({ Validate-LoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$true,ParameterSetName="applicationProfileId")]
-            [string]$applicationProfileId,
+            [alias("applicationProfileId")]
+            [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
             [string]$Name
 
@@ -11842,26 +21123,28 @@ function Get-NsxLoadBalancerApplicationProfile {
 
     process { 
         
-        if ( $PsBoundParameters.ContainsKey('Name')) { 
-            $AppProfiles = $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
-        }
-        elseif ( $PsBoundParameters.ContainsKey('monitorId') ) { 
-            $AppProfiles = $loadbalancer.applicationProfile | ? { $_.monitorId -eq $applicationProfileId }
-        }
-        else { 
-            $AppProfiles = $loadbalancer.applicationProfile 
-        }
+        if ( $LoadBalancer.SelectSingleNode('descendant::applicationProfile')) { 
+            if ( $PsBoundParameters.ContainsKey('Name')) { 
+                $AppProfiles = $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
+            }
+            elseif ( $PsBoundParameters.ContainsKey('objectId') ) { 
+                $AppProfiles = $loadbalancer.applicationProfile | ? { $_.applicationProfileId -eq $objectId }
+            }
+            else { 
+                $AppProfiles = $loadbalancer.applicationProfile 
+            }
 
-        foreach ( $AppProfile in $AppProfiles ) { 
-            $_AppProfile = $AppProfile.CloneNode($True)
-            Add-XmlElement -xmlRoot $_AppProfile -xmlElementName "edgeId" -xmlElementText $LoadBalancer.edgeId
-            $_AppProfile
+            foreach ( $AppProfile in $AppProfiles ) { 
+                $_AppProfile = $AppProfile.CloneNode($True)
+                Add-XmlElement -xmlRoot $_AppProfile -xmlElementName "edgeId" -xmlElementText $LoadBalancer.edgeId
+                $_AppProfile
+            }
         }
     }
 
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerApplicationProfile
+
 
 function New-NsxLoadBalancerApplicationProfile {
  
@@ -11906,10 +21189,34 @@ function New-NsxLoadBalancerApplicationProfile {
             [string]$Type,  
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
-            [switch]$insertXForwardedFor=$false    
+            [switch]$InsertXForwardedFor=$false,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [switch]$SslPassthrough=$false,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("ssl_sessionid", "cookie", "sourceip",  "msrdp", IgnoreCase=$false)]
+            [string]$PersistenceMethod,
+        [Parameter (Mandatory=$False)]
+            [int]$PersistenceExpiry,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$CookieName,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("insert", "prefix", "app")]
+            [string]$CookieMode,           
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
         
     )
-    # Lot more to do here - need persistence settings dependant on the type selected... as well as cookie settings, and cert selection...
+    # Still a bit to do here - need cert selection...
+    # Also - There are many combinations of valid (and invalid) options.  Unfortunately.
+    # the NSX API does not perform the validation of these combinations (It will
+    # accept combinations of params that the UI will not), the NSX UI does
+    # So I need to be doing validation in here as well - this is still to be done, but required
+    # so user has sane experience...
+
 
     begin {
     }
@@ -11930,19 +21237,36 @@ function New-NsxLoadBalancerApplicationProfile {
         [System.XML.XMLElement]$xmlapplicationProfile = $_LoadBalancer.OwnerDocument.CreateElement("applicationProfile")
         $_LoadBalancer.appendChild($xmlapplicationProfile) | out-null
      
+        #Mandatory Params and those with Default values
         Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "template" -xmlElementText $Type
         Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "insertXForwardedFor" -xmlElementText $insertXForwardedFor 
-        
+        Add-XmlElement -xmlRoot $xmlapplicationProfile -xmlElementName "sslPassthrough" -xmlElementText $SslPassthrough 
+
+        #Optionals.
+        If ( $PsBoundParameters.ContainsKey('PersistenceMethod')) {
+            [System.XML.XMLElement]$xmlPersistence = $_LoadBalancer.OwnerDocument.CreateElement("persistence")
+            $xmlapplicationProfile.appendChild($xmlPersistence) | out-null
+            Add-XmlElement -xmlRoot $xmlPersistence -xmlElementName "method" -xmlElementText $PersistenceMethod 
+            If ( $PsBoundParameters.ContainsKey('CookieName')) {
+                Add-XmlElement -xmlRoot $xmlPersistence -xmlElementName "cookieName" -xmlElementText $CookieName 
+            }
+            If ( $PsBoundParameters.ContainsKey('CookieMode')) {
+                Add-XmlElement -xmlRoot $xmlPersistence -xmlElementName "cookieMode" -xmlElementText $CookieMode 
+            }
+            If ( $PsBoundParameters.ContainsKey('PersistenceExpiry')) {
+                Add-XmlElement -xmlRoot $xmlPersistence -xmlElementName "expire" -xmlElementText $PersistenceExpiry 
+            }
+        }
         
         $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
         $body = $_LoadBalancer.OuterXml 
     
         Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Config"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
-        $updatedEdge = Get-NsxEdge -objectId $($edgeId)
+        $updatedEdge = Get-NsxEdge -objectId $($edgeId) -connection $connection
         
         $applicationProfiles = $updatedEdge.features.loadbalancer.applicationProfile
         foreach ($applicationProfile in $applicationProfiles) { 
@@ -11956,7 +21280,7 @@ function New-NsxLoadBalancerApplicationProfile {
 
         $body = $updatedEdge.features.loadbalancer.OuterXml
         Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Config"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
         #filter output for our newly created app profile - name is safe as it has to be unique.
@@ -11967,7 +21291,82 @@ function New-NsxLoadBalancerApplicationProfile {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLoadBalancerApplicationProfile
+
+
+function Remove-NsxLoadBalancerApplicationProfile {
+
+    <#
+    .SYNOPSIS
+    Removes the specified LoadBalancer Application Profile.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly 
+    among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    Application profiles define the behavior of a particular type of network 
+    traffic. After configuring a profile, you associate the profile with a 
+    virtual server. The virtual server then processes traffic according to the 
+    values specified in the profile. Using profiles enhances your control over 
+    managing network traffic, and makes traffic‐management tasks easier and more
+    efficient.
+    
+    This cmdlet removes the specified LoadBalancer Application Profile.
+   
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LoadBalancerApplicationProfile $_ })]
+            [System.Xml.XmlElement]$ApplicationProfile,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process { 
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $ApplicationProfile.edgeId
+        $AppProfileId = $ApplicationProfile.applicationProfileId
+
+            
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/applicationprofiles/$AppProfileId" 
+        
+        if ( $confirm ) { 
+            $message  = "Application Profile removal is permanent."
+            $question = "Proceed with removal of Application Profile $($AppProfileId)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 } 
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Application Profile $AppProfileId"
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+
+        }
+    }
+
+    end {}
+}
+
 
 function New-NsxLoadBalancerMemberSpec {
 
@@ -12052,7 +21451,7 @@ function New-NsxLoadBalancerMemberSpec {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLoadBalancerMemberSpec
+
 
 function New-NsxLoadBalancerPool {
  
@@ -12117,7 +21516,11 @@ function New-NsxLoadBalancerPool {
             [System.Xml.XmlElement]$Monitor,
         [Parameter (Mandatory=$false)]
             [ValidateScript({ Validate-LoadBalancerMemberSpec $_ })]
-            [System.Xml.XmlElement[]]$MemberSpec
+            [System.Xml.XmlElement[]]$MemberSpec,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {
@@ -12160,10 +21563,10 @@ function New-NsxLoadBalancerPool {
         $body = $_LoadBalancer.OuterXml 
     
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Load Balancer Config"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
-        $UpdatedEdge = Get-NsxEdge -objectId $($EdgeId)
+        $UpdatedEdge = Get-NsxEdge -objectId $($EdgeId) -connection $connection
         $return = $UpdatedEdge.features.loadBalancer.pool | ? { $_.name -eq $Name }
         Add-XmlElement -xmlroot $return -xmlElementName "edgeId" -xmlElementText $edgeId
         $return
@@ -12171,7 +21574,7 @@ function New-NsxLoadBalancerPool {
 
     end {}
 }
-Export-ModuleMember -Function New-NsxLoadBalancerPool
+
 
 function Get-NsxLoadBalancerPool {
 
@@ -12242,7 +21645,7 @@ function Get-NsxLoadBalancerPool {
 
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerPool
+
 
 function Remove-NsxLoadBalancerPool {
 
@@ -12276,7 +21679,12 @@ function Remove-NsxLoadBalancerPool {
             [ValidateScript({ Validate-LoadBalancerPool $_ })]
             [System.Xml.XmlElement]$LoadBalancerPool,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -12287,7 +21695,7 @@ function Remove-NsxLoadBalancerPool {
         $poolId = $LoadBalancerPool.poolId
 
         #Get and remove the edgeId element
-        $LoadBalancer = Get-nsxEdge -objectId $edgeId | Get-NsxLoadBalancer
+        $LoadBalancer = Get-nsxEdge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer
         $LoadBalancer.RemoveChild( $($LoadBalancer.SelectSingleNode('child::edgeId')) ) | out-null
 
         $PoolToRemove = $LoadBalancer.SelectSingleNode("child::pool[poolId=`"$poolId`"]")
@@ -12302,7 +21710,7 @@ function Remove-NsxLoadBalancerPool {
         
         if ( $confirm ) { 
             $message  = "Pool removal is permanent."
-            $question = "Proceed with removal of Pool $poolId"
+            $question = "Proceed with removal of Pool $($poolId)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -12313,16 +21721,16 @@ function Remove-NsxLoadBalancerPool {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing pool $poolId"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
-            Get-NSxEdge -objectID $edgeId | Get-NsxLoadBalancer
+            Get-NSxEdge -objectID $edgeId -connection $connection | Get-NsxLoadBalancer
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLoadBalancerPool
+
 
 function Get-NsxLoadBalancerPoolMember {
 
@@ -12390,7 +21798,7 @@ function Get-NsxLoadBalancerPoolMember {
 
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerPoolMember
+
 
 function Add-NsxLoadBalancerPoolMember {
 
@@ -12443,7 +21851,11 @@ function Add-NsxLoadBalancerPoolMember {
             [int]$MinimumConnections=0,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [int]$MaximumConnections=0
+            [int]$MaximumConnections=0,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -12473,13 +21885,13 @@ function Add-NsxLoadBalancerPoolMember {
         $body = $_LoadBalancerPool.OuterXml 
     
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Pool config for $($_LoadBalancerPool.poolId)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         #Get updated pool
         $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/pools/$($_LoadBalancerPool.poolId)"
         Write-Progress -activity "Retrieving Updated Pool for $($EdgeId)" -status "Pool $($_LoadBalancerPool.poolId)"
-        $return = invoke-nsxrestmethod -method "get" -uri $URI
+        $return = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         $Pool = $return.pool
         Add-XmlElement -xmlroot $Pool -xmlElementName "edgeId" -xmlElementText $edgeId
         $Pool
@@ -12488,7 +21900,7 @@ function Add-NsxLoadBalancerPoolMember {
 
     end {}
 }
-Export-ModuleMember -Function Add-NsxLoadBalancerPoolMember
+
 
 function Remove-NsxLoadBalancerPoolMember {
 
@@ -12522,7 +21934,12 @@ function Remove-NsxLoadBalancerPoolMember {
             [ValidateScript({ Validate-LoadBalancerPoolMember $_ })]
             [System.Xml.XmlElement]$LoadBalancerPoolMember,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
@@ -12534,7 +21951,7 @@ function Remove-NsxLoadBalancerPoolMember {
         $poolId = $LoadBalancerPoolMember.poolId
 
         #Get and remove the edgeId and poolId elements
-        $LoadBalancer = Get-nsxEdge -objectId $edgeId | Get-NsxLoadBalancer
+        $LoadBalancer = Get-nsxEdge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer
         $LoadBalancer.RemoveChild( $($LoadBalancer.SelectSingleNode('child::edgeId')) ) | out-null
 
         $LoadBalancerPool = $loadbalancer.SelectSingleNode("child::pool[poolId=`"$poolId`"]")
@@ -12551,7 +21968,7 @@ function Remove-NsxLoadBalancerPoolMember {
         
         if ( $confirm ) { 
             $message  = "Pool Member removal is permanent."
-            $question = "Proceed with removal of Pool Member $memberId?"
+            $question = "Proceed with removal of Pool Member $($memberId)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -12562,16 +21979,16 @@ function Remove-NsxLoadBalancerPoolMember {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Pool config for $poolId"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
-            Get-NSxEdge -objectID $edgeId | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -poolId $poolId
+            Get-NSxEdge -objectID $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -poolId $poolId
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLoadBalancerPoolMember
+
 
 function Get-NsxLoadBalancerVip {
 
@@ -12635,7 +22052,7 @@ function Get-NsxLoadBalancerVip {
 
     end{ }
 }
-Export-ModuleMember -Function Get-NsxLoadBalancerVip
+
 
 function Add-NsxLoadBalancerVip {
 
@@ -12708,7 +22125,11 @@ function Add-NsxLoadBalancerVip {
             [int]$ConnectionLimit=0,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
-            [int]$ConnectionRateLimit=0
+            [int]$ConnectionRateLimit=0,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
         
     )
 
@@ -12750,17 +22171,17 @@ function Add-NsxLoadBalancerVip {
         $body = $_LoadBalancer.OuterXml 
     
         Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Load Balancer Config"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
-        $UpdatedLB = Get-NsxEdge -objectId $EdgeId | Get-NsxLoadBalancer
+        $UpdatedLB = Get-NsxEdge -objectId $EdgeId  -connection $connection | Get-NsxLoadBalancer
         $UpdatedLB
 
     }
 
     end {}
 }
-Export-ModuleMember -Function Add-NsxLoadBalancerVip
+
 
 function Remove-NsxLoadBalancerVip {
 
@@ -12793,36 +22214,28 @@ function Remove-NsxLoadBalancerVip {
             [ValidateScript({ Validate-LoadBalancerVip $_ })]
             [System.Xml.XmlElement]$LoadBalancerVip,
         [Parameter (Mandatory=$False)]
-            [switch]$Confirm=$True
-        
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {
     }
 
     process {
-        
 
-
-        #Store the virtualserverid and edgeId and remove it from the LB XML as we need to post it...
+        #Store the virtualserverid and edgeId
         $VipId = $LoadBalancerVip.VirtualServerId
         $edgeId = $LoadBalancerVip.edgeId
 
-        $LoadBalancer = Get-nsxEdge -objectId $edgeId | Get-NsxLoadBalancer
-        $LoadBalancer.RemoveChild( $($LoadBalancer.SelectSingleNode('child::edgeId')) ) | out-null
-
-        $VIPToRemove = $LoadBalancer.SelectSingleNode("child::virtualServer[virtualServerId=`"$VipId`"]")
-        if ( -not $VIPToRemove ) {
-            throw "VIP $VipId is not defined on Edge $edgeId"
-        } 
-        $LoadBalancer.RemoveChild( $VIPToRemove ) | out-null
-            
-        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
-        $body = $LoadBalancer.OuterXml 
+        $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/virtualservers/$VipId"
     
         if ( $confirm ) { 
             $message  = "VIP removal is permanent."
-            $question = "Proceed with removal of VIP $VipID ob Edge $edgeId?"
+            $question = "Proceed with removal of VIP $VipID on Edge $($edgeId)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -12833,23 +22246,74 @@ function Remove-NsxLoadBalancerVip {
         else { $decision = 0 } 
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Removing VIP $VipId"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-
-            #Get updated loadbalancer
-            $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
-            Write-Progress -activity "Retrieving Updated Load Balancer for $($EdgeId)"
-            $return = invoke-nsxrestmethod -method "get" -uri $URI
-            $lb = $return.loadBalancer
-            Add-XmlElement -xmlroot $lb -xmlElementName "edgeId" -xmlElementText $edgeId
-            $lb
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxLoadBalancerVip
 
+
+
+function Get-NsxLoadBalancerStats{
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Edge Load Balancer statistics for the specified load 
+    balancer
+
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as 
+    firewall, NAT, DHCP, VPN, load balancing, and high availability. 
+
+    The NSX Edge load balancer enables network traffic to follow multiple 
+    paths to a specific destination. It distributes incoming service requests 
+    evenly among multiple servers in such a way that the load distribution is 
+    transparent to users. Load balancing thus helps in achieving optimal 
+    resource utilization, maximizing throughput, minimizing response time, and 
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    This cmdlet retrieves NSX Edge Load Balancer statistics from the specified
+    enabled NSX loadbalancer.
+
+    .EXAMPLE
+    Get-nsxedge edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerStats
+    
+    Retrieves the LB stats for the LB service on Edge01
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #Load Balancer from which to retrieve stats.  Must be enabled.
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+
+        )
+
+    begin {}
+    process {
+
+        #Test that LB is enabled (otherwise there are no results.)
+        if ( $LoadBalancer.Enabled -ne 'true' ) { 
+            Throw "Load balancer feature is not enabled on $($LoadBalancer.EdgeId)"
+        }
+
+        $URI = "/api/4.0/edges/$($LoadBalancer.EdgeId)/loadbalancer/statistics"
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
+        if ( $response.SelectSingleNode("child::loadBalancerStatusAndStats")) { 
+            $response.loadBalancerStatusAndStats
+        }
+    }
+    end {}
+}
 
 
 ########
@@ -12858,7 +22322,7 @@ Export-ModuleMember -Function Remove-NsxLoadBalancerVip
 
 function Get-NsxSecurityPolicy {
 
- <#
+    <#
     .SYNOPSIS
     Retrieves NSX Security Policy
 
@@ -12878,11 +22342,19 @@ function Get-NsxSecurityPolicy {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+            #Set Security Policies by objectId
             [string]$ObjectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+            #Get Security Policies by name
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [switch]$ShowHidden=$False
+            #Include the readonly (system) Security Policies in results.
+            [alias("ShowHidden")]      
+            [switch]$IncludeHidden=$False,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {}
@@ -12892,7 +22364,7 @@ function Get-NsxSecurityPolicy {
         if ( -not $objectId ) { 
             #All Security Policies
             $URI = "/api/2.0/services/policy/securitypolicy/all"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if  ( $Name  ) { 
                 $FinalSecPol = $response.securityPolicies.securityPolicy | ? { $_.name -eq $Name }
             } else {
@@ -12904,11 +22376,11 @@ function Get-NsxSecurityPolicy {
 
             #Just getting a single Security group
             $URI = "/api/2.0/services/policy/securitypolicy/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $FinalSecPol = $response.securityPolicy 
         }
 
-        if ( -not $ShowHidden ) { 
+        if ( -not $IncludeHidden ) { 
             foreach ( $CurrSecPol in $FinalSecPol ) { 
                 if ( $CurrSecPol.SelectSingleNode('child::extendedAttributes/extendedAttribute')) {
                     $hiddenattr = $CurrSecPol.extendedAttributes.extendedAttribute | ? { $_.name -eq 'isHidden'}
@@ -12927,7 +22399,7 @@ function Get-NsxSecurityPolicy {
     }
     end {}
 }
-Export-ModuleMember -Function Get-NsxSecurityPolicy
+
 
 function Remove-NsxSecurityPolicy {
 
@@ -12958,44 +22430,56 @@ function Remove-NsxSecurityPolicy {
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$SecurityPolicy,
         [Parameter (Mandatory=$False)]
-            [switch]$confirm=$true,
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            [switch]$force=$false
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {}
 
     process {
 
-        if ( $confirm ) { 
-            $message  = "Security Policy removal is permanent."
-            $question = "Proceed with removal of Security Policy $($SecurityPolicy.Name)?"
 
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        if ($SecurityPolicy.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isHidden`" and value=`"true`"]") -and ( -not $force)) {
+            write-warning "Not removing $($SecurityPolicy.Name) as it is set as hidden.  Use -Force to force deletion." 
         }
-        else { $decision = 0 } 
-        if ($decision -eq 0) {
-            if ( $force ) { 
-                $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.objectId)?force=true"
-            }
-            else {
-                $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.ObjectId)?force=false"
-            }
-            
-            Write-Progress -activity "Remove Security Policy $($SecurityPolicy.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI | out-null
-            write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed
+        else { 
 
+            if ( $confirm ) { 
+                $message  = "Security Policy removal is permanent."
+                $question = "Proceed with removal of Security Policy $($SecurityPolicy.Name)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                if ( $force ) { 
+                    $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.objectId)?force=true"
+                }
+                else {
+                    $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.ObjectId)?force=false"
+                }
+                
+                Write-Progress -activity "Remove Security Policy $($SecurityPolicy.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed
+
+            }
         }
     }
 
     end {}
 }
-Export-ModuleMember -Function Remove-NsxSecurityPolicy
+
 
 ########
 ########
@@ -13026,7 +22510,11 @@ function Get-NsxSecurityGroupEffectiveMembers {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateNotNull()]
-            [System.Xml.XmlElement]$SecurityGroup
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
     
@@ -13046,22 +22534,22 @@ function Get-NsxSecurityGroupEffectiveMembers {
 
         write-debug "$($MyInvocation.MyCommand.Name) : Getting virtualmachine dynamic includes for SG $($SecurityGroup.Name)"
         $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/virtualmachines"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         if ( $response.GetElementsByTagName("vmnodes").haschildnodes) { $dynamicVMNodes = $response.GetElementsByTagName("vmnodes")} else { $dynamicVMNodes = $null }
 
          write-debug "$($MyInvocation.MyCommand.Name) : Getting ipaddress dynamic includes for SG $($SecurityGroup.Name)"
         $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/ipaddresses"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         if ( $response.GetElementsByTagName("ipNodes").haschildnodes) { $dynamicIPNodes = $response.GetElementsByTagName("ipNodes") } else { $dynamicIPNodes = $null}
 
          write-debug "$($MyInvocation.MyCommand.Name) : Getting macaddress dynamic includes for SG $($SecurityGroup.Name)"
         $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/macaddresses"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         if ( $response.GetElementsByTagName("macNodes").haschildnodes) { $dynamicMACNodes = $response.GetElementsByTagName("macNodes")} else { $dynamicMACNodes = $null}
 
          write-debug "$($MyInvocation.MyCommand.Name) : Getting VNIC dynamic includes for SG $($SecurityGroup.Name)"
         $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/vnics"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection 
         if ( $response.GetElementsByTagName("vnicNodes").haschildnodes) { $dynamicVNICNodes = $response.GetElementsByTagName("vnicNodes")} else { $dynamicVNICNodes = $null }
 
         $return = New-Object psobject
@@ -13079,10 +22567,10 @@ function Get-NsxSecurityGroupEffectiveMembers {
     end {}
 
 }
-Export-ModuleMember -Function Get-NsxSecurityGroupEffectiveMembers
 
 
-function Where-NsxVMUsed {
+
+function Find-NsxWhereVMUsed {
 
     <#
     .SYNOPSIS
@@ -13108,7 +22596,11 @@ function Where-NsxVMUsed {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VirtualMachineImpl]$VM
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VM,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
     
     begin {
@@ -13118,17 +22610,17 @@ function Where-NsxVMUsed {
     process {
      
         #Get Firewall rules
-        $L3FirewallRules = Get-nsxFirewallSection | Get-NsxFirewallRule 
-        $L2FirewallRules = Get-nsxFirewallSection -sectionType layer2sections  | Get-NsxFirewallRule -ruletype layer2sections
+        $L3FirewallRules = Get-nsxFirewallSection -connection $connection | Get-NsxFirewallRule -connection $connection
+        $L2FirewallRules = Get-nsxFirewallSection -sectionType layer2sections -connection $connection  | Get-NsxFirewallRule -ruletype layer2sections -connection $connection
 
         #Get all SGs
-        $securityGroups = Get-NsxSecuritygroup
+        $securityGroups = Get-NsxSecuritygroup -connection $connection
         $MatchedSG = @()
         $MatchedFWL3 = @()
         $MatchedFWL2 = @()
         foreach ( $SecurityGroup in $securityGroups ) {
 
-            $Members = $securityGroup | Get-NsxSecurityGroupEffectiveMembers
+            $Members = $securityGroup | Get-NsxSecurityGroupEffectiveMembers -connection $connection
 
             write-debug "$($MyInvocation.MyCommand.Name) : Checking securitygroup $($securitygroup.name) for VM $($VM.name)"
                     
@@ -13209,7 +22701,7 @@ function Where-NsxVMUsed {
     end {}
 
 }
-Export-ModuleMember -Function Where-NsxVMUsed
+
 
 function Get-NsxBackingPortGroup{
 
@@ -13273,7 +22765,7 @@ function Get-NsxBackingPortGroup{
     end {}
 
 }
-Export-ModuleMember -Function Get-NsxBackingPortGroup
+
 
 function Get-NsxBackingDVSwitch{
 
@@ -13337,5 +22829,6 @@ function Get-NsxBackingDVSwitch{
     end {}
 
 }
-Export-ModuleMember -Function Get-NsxBackingDVSwitch
+
+
 
