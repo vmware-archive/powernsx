@@ -8392,7 +8392,7 @@ function Set-NsxEdgeInterface {
     
     #>
 
-    [CmdLetBinding(DefaultParameterSetName="SingleAddressGroup")]
+    [CmdLetBinding(DefaultParameterSetName="DirectAddress")]
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="DirectAddress")]
