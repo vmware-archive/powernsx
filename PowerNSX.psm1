@@ -79,13 +79,7 @@ function Check-PowerCliAsemblies {
         "VMware.VimAutomation.Vds.Commands",
         "VMware.VimAutomation.Vds.Impl",
         "VMware.VimAutomation.Vds.Interop",
-        "VMware.VimAutomation.Vds.Types",
-        "VMware.VimAutomation.Storage.Commands",
-        "VMware.VimAutomation.Storage.Impl",
-        "VMware.VimAutomation.Storage.Types",
-        "VMware.VimAutomation.Storage.Interop",
-        "VMware.DeployAutomation",
-        "VMware.ImageBuilder"
+        "VMware.VimAutomation.Vds.Types"
     )
 
 
@@ -102,7 +96,6 @@ function Check-PowerCliAsemblies {
 
 #Check required PowerCLI assemblies are loaded.
 Check-PowerCliAsemblies
-
 
 ########
 ########

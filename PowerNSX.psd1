@@ -71,7 +71,15 @@ DotNetFrameworkVersion = '4.0'
 # ProcessorArchitecture = ''
 
 # Modules that must be imported into the global environment prior to importing this module
-# RequiredModules = @()
+# This REQUIRES that PowerCLI v6 be installed (v5 was snapin based).  This will
+# autoload these modules when powernsx loads.  If v5 PowerCLI support is required, these
+# will have to be removed manually. 
+ RequiredModules = @(
+
+    "VMware.VimAutomation.Common",
+    "VMware.VimAutomation.Core",
+    "VMware.VimAutomation.Vds"
+)
 
 # Assemblies that must be loaded prior to importing this module
 # RequiredAssemblies = @()
