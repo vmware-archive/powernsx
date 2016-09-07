@@ -5915,12 +5915,14 @@ function Get-NsxTransportZone {
 
         #Getting all TZ and optionally filtering on name
         $URI = "/api/2.0/vdn/scopes"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         
-        if ( $PsBoundParameters.containsKey('name') ) { 
-            $response.vdnscopes.vdnscope | ? { $_.name -eq $name }
-        } else {
-            $response.vdnscopes.vdnscope
+        if ( $response.SelectsingleNode("child::vdnScopes/vdnScope")) {
+            if ( $PsBoundParameters.containsKey('name') ) { 
+                $response.vdnscopes.vdnscope | ? { $_.name -eq $name }
+            } else {
+                $response.vdnscopes.vdnscope
+            }
         }
     }
 }
@@ -5959,6 +5961,8 @@ function New-NsxTransportZone {
         [Parameter (Mandatory=$true)]
             [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE",IgnoreCase=$false)]
             [string]$ControlPlaneMode,
+        [Parameter (Mandatory=$false)]
+            [switch]$Universal=$false,       
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -5997,7 +6001,7 @@ function New-NsxTransportZone {
 
         # #Do the post
         $body = $xmlScope.OuterXml
-        $URI = "/api/2.0/vdn/scopes"
+        $URI = "/api/2.0/vdn/scopes?isUniversal=$($Universal.ToString().ToLower())"
         Write-Progress -activity "Creating Transport Zone."
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Creating Transport Zone." -completed

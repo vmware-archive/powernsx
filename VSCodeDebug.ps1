@@ -17,7 +17,7 @@ import-module .\PowerNsx.psd1
 connect-nsxserver nsx-m-01a-local -username admin -password VMware1! -viusername administrator@vsphere.local -vipassword VMware1!
 
 # Do something there to call the PowerNSX function you are testing.
-Get-NsxLogicalSwitch
+New-NsxTransportZone TZ1 -Universal -Cluster (Get-Cluster mgmt01) -ControlPlaneMode UNICAST_MODE
 
 # We need a breakpoint here... see note above...
 write-host "Finished"
