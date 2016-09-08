@@ -308,7 +308,8 @@ FunctionsToExport = @(
     'Get-NsxServiceGroup',
     'Get-NsxServiceGroupMember',
     'Remove-NsxServiceGroup',
-    'Get-NsxLoadBalancerStats'
+    'Get-NsxLoadBalancerStats',
+    'Get-NsxFirewallSavedConfiguration'
 )
 
 # Cmdlets to export from this module
