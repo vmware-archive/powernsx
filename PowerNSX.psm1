@@ -20591,8 +20591,6 @@ function Get-NsxFirewallSavedConfiguration {
 
     Retrieves a Distributed Firewall configuration by ObjectId
 
-    .EXAMPLE
-
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
