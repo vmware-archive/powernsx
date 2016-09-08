@@ -20575,12 +20575,11 @@ function Get-NsxFirewallSavedConfiguration {
     .DESCRIPTION
     Retireves saved Distributed Firewall configuration.
 
-    A copy of every
-    published configuration is also saved as a draft. A maximum of 100 
-    configurations can be saved at a time. 90 out of these 100 can be auto 
-    saved configurations from a publish operation. When the limit is reached,
-    the oldest configuration that is not marked for preserve is purged to 
-    make way for a new one.
+     A copy of every published configuration is also saved as a draft. A 
+    maximum of 100 configurations can be saved at a time. 90 out of 
+    these 100 can be auto saved configurations from a publish operation. 
+    When the limit is reached,the oldest configuration that is not marked for
+    preserve is purged to make way for a new one.
 
     .EXAMPLE
     Get-NsxFirewallSavedConfiguration
