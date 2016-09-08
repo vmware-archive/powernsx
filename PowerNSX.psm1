@@ -3864,44 +3864,42 @@ function New-NsxManager{
 
     BEGIN {
 
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Processing Started"
-
         # Check that we have a PowerCLI connection open...
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Verifying PowerCLI connection"
+        Write-Verbose -Message "Verifying PowerCLI connection"
 
         If ( -not (Test-Path Variable:Global:defaultVIServer) ) {
 
-            throw "[$($MyInvocation.MyCommand.Name)] Unable to deploy NSX Manager OVA without a valid PowerCLI connection.  Use Connect-VIServer or Connect-NsxServer to extablish a PowerCLI connection and try again."
+            throw "Unable to deploy NSX Manager OVA without a valid PowerCLI connection.  Use Connect-VIServer or Connect-NsxServer to extablish a PowerCLI connection and try again."
 
         } elseif (Test-Path Variable:Global:defaultVIServer) {
 
-            Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] PowerCLI connection discovered; validating connection state"
+            Write-Verbose -Message "PowerCLI connection discovered; validating connection state"
 
             if (($Global:defaultViServer).IsConnected -eq $true) {
 
-                 Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Currently connected to VI Server: $Global:defaultViServer"
+                 Write-Verbose -Message "Currently connected to VI Server: $Global:defaultViServer"
 
             } else {
 
-                throw "[$($MyInvocation.MyCommand.Name)] Connection to VI Server: $Global:defaultViServer is present, but not connected. You must be connected to a VI Server to continue."
+                throw "Connection to VI Server: $Global:defaultViServer is present, but not connected. You must be connected to a VI Server to continue."
 
             } # end if/else
 
         } # end if/elseif
 
 
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Selecting VMHost for deployment in Cluster: $ClusterName"
+        Write-Verbose -Message "Selecting VMHost for deployment in Cluster: $ClusterName"
         # Chose a target host that is not in Maintenance Mode and select based on available memory
         $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | Select -first 1
 
         # throw an error if there are not any hosts suitable for deployment (ie: all hosts are in maint. mode)
         if ($targetVmHost.Count = 0) {
 
-            throw "[$($MyInvocation.MyCommand.Name)] Unable to deploy NSX Manager to cluster: $ClusterName. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is not in Maintenance Mode."
+            throw "Unable to deploy NSX Manager to cluster: $ClusterName. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is not in Maintenance Mode."
 
         } else {
 
-            Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Deploying to Cluster: $ClusterName and VMHost: $($TargetVMHost.Name)"
+            Write-Verbose -Message "Deploying to Cluster: $ClusterName and VMHost: $($TargetVMHost.Name)"
 
         } # end if/else $targetVmHost.Count
 
@@ -3909,7 +3907,7 @@ function New-NsxManager{
 
     PROCESS {
 
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Setting up OVF configuration"
+        Write-Verbose -Message "Setting up OVF configuration"
         ## Using the PowerCLI command, get OVF draws on the location of the OVA from the defined variable.
         $OvfConfiguration = Get-OvfConfiguration -Ovf $NsxManagerOVF
 
@@ -3943,7 +3941,7 @@ function New-NsxManager{
         if ( $PSBoundParameters.ContainsKey('ManagerMemoryGB') ) {
 
             # Hack VM to reduce Ram for constrained environments.  This is NOT SUITABLE FOR PRODUCTION!!!
-            Write-Warning -Message "[$($MyInvocation.MyCommand.Name)] Changing Memory configuration of NSX Manager VM to $ManagerMemoryGB GB.  Not supported for Production Use!"
+            Write-Warning -Message "Changing Memory configuration of NSX Manager VM to $ManagerMemoryGB GB.  Not supported for Production Use!"
             # start
             Get-VM $Name |
             Set-VM -MemoryGB $ManagerMemoryGB -confirm:$false | 
@@ -4015,7 +4013,7 @@ function New-NsxManager{
 
                     } else {
 
-                        throw "[$($MyInvocation.MyCommand.Name)] Timeout waiting for NSX Manager appliance API to become available."
+                        throw "Timeout waiting for NSX Manager appliance API to become available."
 
                     } # end if/else $decision
 
@@ -4030,8 +4028,6 @@ function New-NsxManager{
     } # end PROCESS block
 
     END {
-
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Processing Complete"
 
     } # end END block
 
