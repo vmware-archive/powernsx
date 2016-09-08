@@ -3760,15 +3760,14 @@ function New-NsxManager{
 
     .NOTES
 		Version: 1.2
-		Last Updated: 20150826
+		Last Updated: 20150908
 		Last Updated By: Kevin Kirkpatrick (github.com/vScripter)
 		Last Update Notes:
         - added a filter when selecting VMHost to only select a host that is reporting a 'Connected' status
         - added logic to throw an error if there are no hosts available in the cluster (either there are none or they are all in maint. mode, etc.)
 		- added Begin/Process/End blocks for language consistency
         - expanded support for -Verbose
-        - added curly braces '{}' to some of the output messages that expect values so that it's easy to decipher if there is an expected value but none returned
-        - modified check for vCenter server to inspect the 'IsConnected' property; ran into some cases where $global:defaultviserver variable is populated but connection is stale/timedout
+        - added logic to check for vCenter server 'IsConnected' status; ran into some cases where $global:defaultviserver variable is populated but connection is stale/timedout
         - misc spacing/formatting to improve readability a little bit
 
     #>
@@ -3869,24 +3868,40 @@ function New-NsxManager{
 
         # Check that we have a PowerCLI connection open...
         Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Verifying PowerCLI connection"
-        If ( -not ($Global:defaultVIServer).IsConnected ) {
 
-            throw "[$($MyInvocation.MyCommand.Name)][ERROR] Unable to deploy NSX Manager OVA without a valid PowerCLI connection.  Use Connect-VIServer or Connect-NsxServer to extablish a PowerCLI connection and try again."
+        If ( -not (Test-Path Variable:Global:defaultVIServer) ) {
 
-        } # end if
+            throw "[$($MyInvocation.MyCommand.Name)] Unable to deploy NSX Manager OVA without a valid PowerCLI connection.  Use Connect-VIServer or Connect-NsxServer to extablish a PowerCLI connection and try again."
 
-        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Selecting VMHost in Cluster {$ClusterName} for deployment"
+        } elseif (Test-Path Variable:Global:defaultVIServer) {
+
+            Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] PowerCLI connection discovered; validating connection state"
+
+            if (($Global:defaultViServer).IsConnected -eq $true) {
+
+                 Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Currently connected to VI Server: $Global:defaultViServer"
+
+            } else {
+
+                throw "[$($MyInvocation.MyCommand.Name)] Connection to VI Server: $Global:defaultViServer is present, but not connected. You must be connected to a VI Server to continue."
+
+            } # end if/else
+
+        } # end if/elseif
+
+
+        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Selecting VMHost for deployment in Cluster: $ClusterName"
         # Chose a target host that is not in Maintenance Mode and select based on available memory
         $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | Select -first 1
 
         # throw an error if there are not any hosts suitable for deployment (ie: all hosts are in maint. mode)
         if ($targetVmHost.Count = 0) {
 
-            throw "[$($MyInvocation.MyCommand.Name)][ERROR] Unable to deploy NSX Manager to cluster {$ClusterName}. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is not in Maintenance Mode."
+            throw "[$($MyInvocation.MyCommand.Name)] Unable to deploy NSX Manager to cluster: $ClusterName. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is not in Maintenance Mode."
 
         } else {
 
-            Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Deploying to Cluster {$ClusterName} and VMHost {$($TargetVMHost).Name}"
+            Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Deploying to Cluster: $ClusterName and VMHost: $($TargetVMHost.Name)"
 
         } # end if/else $targetVmHost.Count
 
@@ -3919,19 +3934,23 @@ function New-NsxManager{
 
         If ( $PSBoundParameters.ContainsKey('FolderName')) {
 
-            Write-Progress -Activity "Moving NSX Manager VM to {$folderName} folder"
+            Write-Progress -Activity "Moving NSX Manager VM to folder: $folderName"
             $VM | Move-VM -Location $FolderName
-            Write-Progress -Activity "Moving NSX Manager VM to {$folderName} folder" -Completed
+            Write-Progress -Activity "Moving NSX Manager VM to folder: $folderName" -Completed
 
         } # end if
 
         if ( $PSBoundParameters.ContainsKey('ManagerMemoryGB') ) {
 
             # Hack VM to reduce Ram for constrained environments.  This is NOT SUITABLE FOR PRODUCTION!!!
-            Write-Warning -Message "Changing Memory configuration of NSX Manager VM to $ManagerMemoryGB GB.  Not supported for Production Use!"
-
-            [void](Get-VM $Name | Set-VM -MemoryGB $ManagerMemoryGB -confirm:$false | Get-VMResourceConfiguration |
-            Set-VMResourceConfiguration -MemReservationMB 0 -CpuReservationMhz 0)
+            Write-Warning -Message "[$($MyInvocation.MyCommand.Name)] Changing Memory configuration of NSX Manager VM to $ManagerMemoryGB GB.  Not supported for Production Use!"
+            # start
+            Get-VM $Name |
+            Set-VM -MemoryGB $ManagerMemoryGB -confirm:$false | 
+            Get-VMResourceConfiguration |
+            Set-VMResourceConfiguration -MemReservationMB 0 -CpuReservationMhz 0 |
+            Out-Null
+            # end
 
         } # end if
 
@@ -3970,7 +3989,7 @@ function New-NsxManager{
                     } # end $connectParams
 
                     # casting to [void]; it inches some performance out by not having to process anything through the pipeline; sans | Out-Null
-                    [void](Connect-NsxServer @connectParams)
+                    Connect-NsxServer @connectParams | Out-Null
                     break
 
                 } catch {
@@ -3996,7 +4015,7 @@ function New-NsxManager{
 
                     } else {
 
-                        throw "[$($MyInvocation.MyCommand.Name)][ERROR] Timeout waiting for NSX Manager appliance API to become available."
+                        throw "[$($MyInvocation.MyCommand.Name)] Timeout waiting for NSX Manager appliance API to become available."
 
                     } # end if/else $decision
 
@@ -4017,6 +4036,7 @@ function New-NsxManager{
     } # end END block
 
 } # end function New-NsxManager
+
 
 function Set-NsxManager {
  
