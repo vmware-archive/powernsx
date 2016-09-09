@@ -3855,52 +3855,42 @@ function New-NsxManager{
             [switch]$EnableSsh=$false
     )
 
-    BEGIN {
+    Begin {
 
         # Check that we have a PowerCLI connection open...
         Write-Verbose -Message "Verifying PowerCLI connection"
 
         If ( -not (Test-Path Variable:Global:defaultVIServer) ) {
-
             throw "Unable to deploy NSX Manager OVA without a valid PowerCLI connection.  Use Connect-VIServer or Connect-NsxServer to extablish a PowerCLI connection and try again."
-
-        } elseif (Test-Path Variable:Global:defaultVIServer) {
-
+        } 
+        else {
             Write-Verbose -Message "PowerCLI connection discovered; validating connection state"
-
             if (($Global:defaultViServer).IsConnected -eq $true) {
-
                  Write-Verbose -Message "Currently connected to VI Server: $Global:defaultViServer"
-
-            } else {
-
-                throw "Connection to VI Server: $Global:defaultViServer is present, but not connected. You must be connected to a VI Server to continue."
-
+            } 
+            else {
+                throw "Connection to VI Server: $Global:defaultViServer is present, but not connected. You must be connected to a vCenter Server to continue."
             } # end if/else
-
         } # end if/elseif
 
-
         Write-Verbose -Message "Selecting VMHost for deployment in Cluster: $ClusterName"
+        
         # Chose a target host that is not in Maintenance Mode and select based on available memory
         $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | Select -first 1
 
         # throw an error if there are not any hosts suitable for deployment (ie: all hosts are in maint. mode)
         if ($targetVmHost.Count = 0) {
-
-            throw "Unable to deploy NSX Manager to cluster: $ClusterName. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is not in Maintenance Mode."
-
-        } else {
-
+            throw "Unable to deploy NSX Manager to cluster: $ClusterName. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is connected and not in Maintenance Mode."
+        } 
+        else {
             Write-Verbose -Message "Deploying to Cluster: $ClusterName and VMHost: $($TargetVMHost.Name)"
-
         } # end if/else $targetVmHost.Count
-
     } # end BEGIN block
 
-    PROCESS {
+    Process {
 
         Write-Verbose -Message "Setting up OVF configuration"
+        
         ## Using the PowerCLI command, get OVF draws on the location of the OVA from the defined variable.
         $OvfConfiguration = Get-OvfConfiguration -Ovf $NsxManagerOVF
 
@@ -4020,7 +4010,7 @@ function New-NsxManager{
 
     } # end PROCESS block
 
-    END {
+    End {
 
     } # end END block
 
