@@ -20685,6 +20685,84 @@ function Remove-NsxFirewallExclusionListMember {
     end {}
 }
 
+function Get-NsxFirewallSavedConfiguration {
+    
+     <#
+    .SYNOPSIS
+    Retrieves saved Distributed Firewall configuration.
+
+    .DESCRIPTION
+    Retireves saved Distributed Firewall configuration.
+
+    A copy of every published configuration is also saved as a draft. A 
+    maximum of 100 configurations can be saved at a time. 90 out of 
+    these 100 can be auto saved configurations from a publish operation. 
+    When the limit is reached,the oldest configuration that is not marked for
+    preserve is purged to make way for a new one.
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration
+
+    Retrieves all saved Distributed Firewall configurations
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration -ObjectId 403
+
+    Retrieves a Distributed Firewall configuration by ObjectId
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+    
+    param (
+
+        [Parameter (Mandatory=$false,ParameterSetName="ObjectId")]
+            [string]$ObjectId,
+        [Parameter (Mandatory=$false,Position=1,ParameterSetName="Name")]
+            [string]$Name,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+        if ( -not ($PsBoundParameters.ContainsKey("ObjectId"))) { 
+            #All Sections
+
+            $URI = "/api/4.0/firewall/globalroot-0/drafts"
+            [system.xml.xmldocument]$Response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ($response.SelectSingleNode("child::firewallDrafts")){
+                
+                $Return = $Response
+
+                if ($PsBoundParameters.ContainsKey("Name")){
+                    $Return.firewallDrafts.firewallDraft | ? {$_.name -eq $Name} 
+                }
+                else {
+            
+                    $Return.firewallDrafts.firewallDraft
+                }
+            }
+        }
+        else {
+            
+            $URI = "/api/4.0/firewall/globalroot-0/drafts/$ObjectId"
+            [system.xml.xmldocument]$Response = Invoke-NsxRestMethod -method "get" -uri $URI -connection $connection
+            
+            if ($Response.SelectSingleNode("child::firewallDraft")){
+                $Response.firewallDraft
+            }
+        }
+    }
+    end {}
+}
 
 
 ########
