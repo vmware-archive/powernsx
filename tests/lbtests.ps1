@@ -62,7 +62,6 @@ $WebVip = get-NsxEdge $name | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -Name
 get-NsxEdge $name | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationRule -name Test -script $script
 
 #Get Application Rule 
-
 get-NsxEdge $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationRule -name Test
 
 
