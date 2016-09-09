@@ -33,7 +33,7 @@ $ip2 = "2.2.2.2"
 $ip3 = "3.3.3.3"
 $ip4 = "4.4.4.4"
 
-
+$script = "acl vmware_page url_beg /vmware redirect location https://www.vmware.com/ if vmware_page"
 
 $ls1 = get-nsxtransportzone | new-nsxlogicalswitch $ls1_name
 $ls2 = get-nsxtransportzone | new-nsxlogicalswitch $ls2_name
@@ -57,6 +57,14 @@ $WebPool = get-NsxEdge $name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -Na
 
 #WebVIP
 $WebVip = get-NsxEdge $name | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -Name WebVip -Description testdesc -IpAddress $ip1 -Protocol http -Port 80 -ApplicationProfile $AppProfile -DefaultPool $WebPool -AccelerationEnabled
+
+#New Application Rule
+get-NsxEdge $name | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationRule -name Test -script $script
+
+#Get Application Rule 
+
+get-NsxEdge $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationRule -name Test
+
 
 #Remove Vip
 get-NsxEdge $name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVip WebVip| Remove-nsxLoadbalancerVip -confirm:$false
