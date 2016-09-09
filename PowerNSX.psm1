@@ -22509,6 +22509,168 @@ function Get-NsxLoadBalancerStats{
     end {}
 }
 
+function Get-NsxLoadBalancerApplicationRule {
+
+    <#
+    .SYNOPSIS
+    Retrieves LoadBalancer Application Rules from the specified LoadBalancer.
+
+    .DESCRIPTION
+    Retrieves LoadBalancer Application Rules from the specified LoadBalancer.
+
+    You can write an application rule to directly manipulate and manage 
+    IP application traffic.
+
+    .EXAMPLE
+    Get-NsxEdge | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerApplicationRule
+
+    Retrieves all Application Rules across all NSX Edges.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerApplicationRule
+
+    Retrieves all Application Rules the NSX Edge named Edge01.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerApplicationRule -name AR-Redirect-VMware
+
+    Retrieves the Application Rule named AR-Redirect-VMware on NSX Edge
+    named Edge01.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerApplicationRule -objectId applicationRule-2
+
+    Retrieves the Application Rule on NSX Edge with the objectId of
+    applicationRule-2.
+
+    #>
+
+[CmdLetBinding(DefaultParameterSetName="Name")]
+    
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
+        [Parameter (Mandatory=$false,ParameterSetName="ObjectId")]
+            [string]$ObjectId,
+        [Parameter (Mandatory=$false,Position=1,ParameterSetName="Name")]
+            [string]$Name
+    
+    )
+    
+    begin {
+
+    }
+
+    process {
+    
+    
+        if ( -not ($PsBoundParameters.ContainsKey("ObjectId"))) { 
+            if ($LoadBalancer.SelectSingleNode("child::applicationRule")){
+                if ($PsBoundParameters.ContainsKey("Name")){
+                    $LoadBalancer.applicationRule | ? {$_.name -eq $Name} 
+                }
+                else {
+                    $LoadBalancer.applicationRule
+                }
+            }
+        }
+        else {
+            if ($LoadBalancer.SelectSingleNode("child::applicationRule/applicationRuleId")){
+                $LoadBalancer.applicationRule | ? {$_.applicationRuleId -eq $ObjectId}
+            }
+        }
+    }
+    end {}
+}
+
+
+function New-NsxLoadBalancerApplicationRule {
+    
+    <#
+    .SYNOPSIS
+    Retrieves LoadBalancer Application Rules from the specified LoadBalancer.
+
+    .DESCRIPTION
+    Retrieves LoadBalancer Application Rules from the specified LoadBalancer.
+
+    You can write an application rule to directly manipulate and manage 
+    IP application traffic.
+
+    .EXAMPLE
+    Get-NsxEdge | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationRule
+    -name AR-Redirect-VMware -script $script
+
+    Applies a new Application Rule across all NSX Edges.
+
+    .EXAMPLE
+    Get-NsxEdge PowerNSX | Get-NsxLoadBalancer | 
+    New-NsxLoadBalancerApplicationRule -name AR-Redirect-VMware 
+    -script $script
+
+    Applies a new Application Rule to the defined NSX Edge.
+
+    #>
+
+[CmdLetBinding(DefaultParameterSetName="Name")]
+    
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [System.Xml.XmlElement]$LoadBalancer,
+        [Parameter (Mandatory=$True)]
+            [string]$Script,
+        [Parameter (Mandatory=$True,Position=1)]
+            [string]$Name,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+   
+    )
+
+    begin {
+
+    }
+
+    process {
+    
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $LoadBalancer.edgeId
+
+        if ( -not $_LoadBalancer.enabled -eq 'true' ) { 
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+        }
+        #Create a new XML document. Use applicationRule as root.
+        [System.XML.XmlDocument]$xmldoc = New-Object System.XML.XmlDocument
+        [System.XML.XMLElement]$xmlAr = $xmldoc.CreateElement("applicationRule")
+        [void]$xmldoc.appendChild($xmlAr)
+
+        # Create children and add to $xmlXR
+        Add-XmlElement -xmlRoot $xmlAr -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlAr -xmlElementName "script" -xmlElementText $Script
+        
+        #Construct Rest Call
+        $URI = "/api/4.0/edges/$($EdgeId)/loadbalancer/config/applicationrules"
+        $body = $xmlAr.OuterXml 
+
+        $Response = Invoke-NsxWebRequest -method "POST" -uri $URI -body $body -connection $Connection
+        
+        [System.XML.XmlDocument]$ApplicationRule = Invoke-NsxRestMethod -method "GET" -URI $Response.headers.location
+        
+        if ($ApplicationRule.SelectSingleNode("child::applicationRule")){
+            $ApplicationRule.applicationRule
+        }
+    }
+    
+    end {}
+}
+
 
 ########
 ########
