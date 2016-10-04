@@ -9781,7 +9781,7 @@ function Repair-NsxEdge {
             #If ForceSync - The edge appliance is rebooted 
             #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
             [ValidateSet("ForceSync", "Redeploy")]
-            [switch]$Operation,
+            [string]$Operation,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
