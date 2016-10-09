@@ -3264,7 +3264,7 @@ function Get-NsxClusterStatus {
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -3339,7 +3339,7 @@ function Invoke-NsxCli {
             #Supress warning about experimental feature.  Defaults to False
             [switch]$SupressWarning,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection = $defaultNSXConnection,
         [Parameter(Mandatory = $false)]
@@ -3441,7 +3441,7 @@ function Get-NsxCliDfwFilter {
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -3495,7 +3495,7 @@ function Get-NsxCliDfwRule {
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -3568,7 +3568,7 @@ function Get-NsxCliDfwAddrSet {
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -3596,6 +3596,7 @@ function Get-NsxHostUvsmLogging {
     <#
     .SYNOPSIS
     Retrieves the Uvsm Logging level from the specified host.
+    INCOMPLETE
 
     .DESCRIPTION
 
@@ -3611,7 +3612,7 @@ function Get-NsxHostUvsmLogging {
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VMHostInterop]$VMHost,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -3648,6 +3649,7 @@ function Set-NsxHostUvsmLogging {
     <#
     .SYNOPSIS
     Sets the Uvsm Logging on the specified host.
+    INCOMPLETE
 
     .DESCRIPTION
 
@@ -3664,7 +3666,7 @@ function Set-NsxHostUvsmLogging {
             [ValidateSet("OFF", "FATAL", "ERROR", "WARN", "INFO", "DEBUG", "TRACE",IgnoreCase=$false)]
             [string]$LogLevel,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -4100,7 +4102,7 @@ function Set-NsxManager {
             #Accept any SSL certificate presented by SSO/vCenter. 
             [switch]$AcceptAnyThumbprint=$True,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -4234,7 +4236,7 @@ function Get-NsxManagerSsoConfig {
 
     param (
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4282,7 +4284,7 @@ function Get-NsxManagerVcenterConfig {
 
     param (
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4325,7 +4327,7 @@ function Get-NsxManagerTimeSettings {
 
     param (
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4377,7 +4379,7 @@ function Get-NsxManagerSyslogServer {
 
     param (
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4426,7 +4428,7 @@ function Get-NsxManagerNetwork {
 
     param (
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4516,7 +4518,7 @@ function Get-NsxManagerBackup {
 
     param (
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4578,7 +4580,7 @@ function Get-NsxManagerComponentSummary {
 
     param (
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4681,7 +4683,7 @@ function Get-NsxManagerSystemSummary {
 
     param (
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4753,12 +4755,15 @@ function New-NsxController {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,        
         [Parameter (Mandatory=$True)]
+            #Pre Created IP Pool object from which controller IP will be allocated
             [ValidateScript({ Validate-IpPool $_ })]
             [System.Xml.XmlElement]$IpPool,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
+            #vSphere DRS Resource Pool into which to deploy Controller VM 
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
+            #vSphere Cluster into which to deploy the Controller VM
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
@@ -4766,17 +4771,26 @@ function New-NsxController {
             })]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,    
         [Parameter (Mandatory=$true)]
+            #vSphere Datastore into which to deploy the Controller VM
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,  
         [Parameter (Mandatory=$true)]
+            #vSphere DVPortGroup OR NSX Logical Switch object to connect the Controller VM to  
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
             [object]$PortGroup,
         [Parameter (Mandatory=$True)]
+            #Controller Password (Must be same on all controllers)
             [string]$Password,
         [Parameter ( Mandatory=$False)]
+            #Block until Controller Status in API is 'RUNNING' (Will timeout with prompt after -WaitTimeout seconds)
+            #Useful if automating the deployment of multiple controllers (first must be running before deploying second controller)
+            #so you dont have to write looping code to check status of controller before continuing.
             [switch]$Wait=$false,
+        [Parameter ( Mandatory=$False)]
+            #Timeout waiting for controller to become 'RUNNING' before user is prompted to continue or cancel.
+            [int]$WaitTimeout = 600,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -4835,7 +4849,6 @@ function New-NsxController {
                 
                 #User wants to wait for Controller API to start.
                 $waitStep = 30
-                $WaitTimeout = 600
                 
                 $Timer = 0
                 while ( $Controller.status -ne 'RUNNING' ) {
@@ -4903,7 +4916,7 @@ function Get-NsxController {
             #ObjectId of the NSX Controller to return.
             [string]$ObjectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -4941,31 +4954,39 @@ function New-NsxIpPool {
      param (
 
         [Parameter (Mandatory=$true, Position=1)]
+            #Name of IP Pool
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true)]
+            #Gateway address 
             [ValidateNotNullOrEmpty()]
             [ipAddress]$Gateway,
         [Parameter (Mandatory=$true)]
+            #Prefix length of network address (1-31)
             [ValidateNotNullOrEmpty()]
             [string]$SubnetPrefixLength,       
         [Parameter (Mandatory=$false)]
+            #IP Address of first DNS Server
             [ValidateNotNullOrEmpty()]
             [ipAddress]$DnsServer1,
         [Parameter (Mandatory=$false)]
+            #IP Address of second DNS Server
             [ValidateNotNullOrEmpty()]
             [ipAddress]$DnsServer2,
         [Parameter (Mandatory=$false)]
+            #DNS Domain Name
             [ValidateNotNullOrEmpty()]
             [string]$DnsSuffix,
         [Parameter (Mandatory=$true)]
+            #First Valid Address in the pool
             [ValidateNotNullOrEmpty()]
             [ipaddress]$StartAddress,       
         [Parameter (Mandatory=$true)]
+            #Last Valid Address in the pool
             [ValidateNotNullOrEmpty()]
             [ipaddress]$EndAddress, 
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5041,11 +5062,13 @@ function Get-NsxIpPool {
 
     param (
         [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+            #Name of the Pool to retrieve
             [string]$Name,
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
+            #ObjectID of the Pool to retrieve
             [string]$ObjectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5090,11 +5113,13 @@ function Get-NsxVdsContext {
 
     param (
         [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+            #Name of VDS context to retrieve 
             [string]$Name,
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
+            #ObjectId of VDS context to retrieve 
             [string]$ObjectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5149,16 +5174,19 @@ function New-NsxVdsContext {
      param (
 
         [Parameter (Mandatory=$true, Position=1)]
+            #PowerCLI VDSwitch Object to configure for NSX 
             [ValidateScript({ Validate-DistributedSwitch $_ })]
             [object]$VirtualDistributedSwitch,
         [Parameter (Mandatory=$true)]
+            #Teaming configuration for NSX Logical Switches
             [ValidateSet("FAILOVER_ORDER", "ETHER_CHANNEL", "LACP_ACTIVE", "LACP_PASSIVE","LOADBALANCE_LOADBASED", "LOADBALANCE_SRCID", "LOADBALANCE_SRCMAC", "LACP_V2",IgnoreCase=$false)]
             [string]$Teaming,
         [Parameter (Mandatory=$true)]
+            #MTU of VTEP interfaces created on the specified VDS.  Minimum of 1600 bytes is required.
             [ValidateRange(1600,9000)]
             [int]$Mtu,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5228,13 +5256,14 @@ function Remove-NsxVdsContext {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #NSX VDS Context Object ID to remove
             [ValidateScript({ Validate-VdsContext $_ })]
             [System.Xml.XmlElement]$VdsContext,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5316,7 +5345,7 @@ function New-NsxClusterVxlanConfig {
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5458,7 +5487,7 @@ function Install-NsxCluster {
             [ValidateNotNullorEmpty()]
             [int]$VxlanPrepTimeout=120,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5571,7 +5600,7 @@ function Remove-NsxCluster {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5711,7 +5740,7 @@ function Remove-NsxClusterVxlanConfig {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5831,7 +5860,7 @@ function New-NsxSegmentIdRange {
             [ValidateRange(5000,16777215)]
             [int]$End,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -5893,7 +5922,7 @@ function Get-NsxSegmentIdRange {
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
             [string]$ObjectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -5943,7 +5972,7 @@ function Remove-NsxSegmentIdRange {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6007,7 +6036,7 @@ function Get-NsxTransportZone {
             [ValidateNotNullOrEmpty()]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6073,7 +6102,7 @@ function New-NsxTransportZone {
         [Parameter (Mandatory=$false)]
             [switch]$Universal=$false,       
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6151,7 +6180,7 @@ function Remove-NsxTransportZone {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6231,7 +6260,7 @@ function Get-NsxLogicalSwitch {
             [alias("virtualWireId")]
             [string]$ObjectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6366,7 +6395,7 @@ function New-NsxLogicalSwitch  {
             [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE",IgnoreCase=$false)]
             [string]$ControlPlaneMode,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6431,7 +6460,7 @@ function Remove-NsxLogicalSwitch {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6513,7 +6542,7 @@ function Get-NsxSpoofguardPolicy {
             [string]$objectId,
         [Parameter (Mandatory=$false, ParameterSetName="ObjectId")]
         [Parameter (Mandatory=$false, ParameterSetName="Name")]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6643,7 +6672,7 @@ function New-NsxSpoofguardPolicy {
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -6766,7 +6795,7 @@ function Remove-NsxSpoofguardPolicy {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6846,7 +6875,7 @@ function Publish-NsxSpoofguardPolicy {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -6960,7 +6989,7 @@ function Get-NsxSpoofguardNic {
         [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
         [Parameter (Mandatory=$false, ParameterSetName = "VM")]
         [Parameter (Mandatory=$false, ParameterSetName = "NIC")]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -7073,7 +7102,7 @@ function Grant-NsxSpoofguardNicApproval {
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -7235,7 +7264,7 @@ function Revoke-NsxSpoofguardNicApproval {
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -7466,7 +7495,7 @@ function Get-NsxLogicalRouter {
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
             [string]$Name,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -7634,7 +7663,7 @@ function New-NsxLogicalRouter {
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore=$datastore,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -7752,7 +7781,7 @@ function Remove-NsxLogicalRouter {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -7835,7 +7864,7 @@ function Set-NsxLogicalRouterInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -7940,7 +7969,7 @@ function New-NsxLogicalRouterInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection 
     )
@@ -8006,7 +8035,7 @@ function Remove-NsxLogicalRouterInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection   
     )
@@ -8077,7 +8106,7 @@ function Get-NsxLogicalRouterInterface {
             [ValidateRange(1,1000)]
             [int]$Index,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -8550,7 +8579,7 @@ function Set-NsxEdgeInterface {
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -8657,7 +8686,7 @@ function Clear-NsxEdgeInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -8739,7 +8768,7 @@ function Get-NsxEdgeInterface {
             [ValidateRange(0,9)]
             [int]$Index,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -8856,7 +8885,7 @@ function New-NsxEdgeSubInterface {
             [ValidateNotNullOrEmpty()]
             [switch]$Connected=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -8959,7 +8988,7 @@ function Remove-NsxEdgeSubInterface {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -9199,7 +9228,7 @@ function Add-NsxEdgeInterfaceAddress {
             [System.Xml.XmlElement[]]$AddressSpec,
         [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9279,7 +9308,7 @@ function Remove-NsxEdgeInterfaceAddress {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9368,7 +9397,7 @@ function Get-NsxEdge {
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
             [string]$Name,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -9567,7 +9596,7 @@ function New-NsxEdge {
             [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
             [System.Xml.XmlElement[]]$Interface,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection  
     )
@@ -9773,7 +9802,7 @@ function Repair-NsxEdge {
             [ValidateSet("ForceSync", "Redeploy")]
             [switch]$Operation,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9847,7 +9876,7 @@ function Set-NsxEdge {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -9921,7 +9950,7 @@ function Remove-NsxEdge {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -9985,7 +10014,7 @@ function Enable-NsxEdgeSsh {
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -10037,7 +10066,7 @@ function Disable-NsxEdgeSsh {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -10114,7 +10143,7 @@ function Set-NsxEdgeNat {
         [Parameter (Mandatory=$False)]
             [switch]$Enabled,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -10344,7 +10373,7 @@ function New-NsxEdgeNatRule {
         [Parameter (Mandatory=$false)]
             [int]$AboveRuleId, 
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -10455,7 +10484,7 @@ function Remove-NsxEdgeNatRule {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10534,7 +10563,7 @@ function Get-NsxEdgeCsr {
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10621,7 +10650,7 @@ function New-NsxEdgeCsr{
         [Parameter (Mandatory=$False)]
             [string]$Name,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10732,7 +10761,7 @@ function Remove-NsxEdgeCsr{
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10801,7 +10830,7 @@ function Get-NsxEdgeCertificate{
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10871,7 +10900,7 @@ function New-NsxEdgeSelfSignedCertificate{
         [Parameter (Mandatory=$False)]
             [int]$NumberOfDays=365,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -10934,7 +10963,7 @@ function Remove-NsxEdgeCertificate{
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11074,7 +11103,7 @@ function Set-NsxSslVpn {
         [Parameter (Mandatory=$False)]
             [switch]$Enable_DES_CBC3_SHA,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -11301,7 +11330,7 @@ function New-NsxSslVpnAuthServer {
             [ValidateSet("Local")]
             [string]$ServerType="Local",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -11478,7 +11507,7 @@ function New-NsxSslVpnUser{
         [Parameter (Mandatory=$False)]
             [switch]$ForcePasswordChangeOnNextLogin,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -11579,7 +11608,7 @@ function Remove-NsxSslVpnUser {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11646,7 +11675,7 @@ function New-NsxSslVpnIpPool {
         [Parameter (Mandatory=$False)]
             [switch]$Enabled=$True,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11750,7 +11779,7 @@ function Remove-NsxSslVpnIpPool {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11809,7 +11838,7 @@ function New-NsxSslVpnPrivateNetwork {
         [Parameter (Mandatory=$False)]
             [switch]$Enabled=$True,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -11913,7 +11942,7 @@ function Remove-NsxSslVpnPrivateNetwork {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection 
     )
@@ -11988,7 +12017,7 @@ function New-NsxSslVpnClientInstallationPackage {
         [Parameter (Mandatory=$False)]
             [switch]$Enabled=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -12118,7 +12147,7 @@ function Remove-NsxSslVpnClientInstallationPackage {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection 
     )
@@ -12248,7 +12277,7 @@ function Set-NsxEdgeRouting {
             [ValidateRange(0,255)]
             [int]$DefaultGatewayAdminDistance,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection  
 
@@ -12648,7 +12677,7 @@ function New-NsxEdgeStaticRoute {
             [ValidateRange(0,255)]
             [int]$AdminDistance,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -12765,7 +12794,7 @@ function Remove-NsxEdgeStaticRoute {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -12955,7 +12984,7 @@ function New-NsxEdgePrefix {
             [ValidateNotNullorEmpty()]
             [string]$Network,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -13057,7 +13086,7 @@ function Remove-NsxEdgePrefix {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -13213,7 +13242,7 @@ function Set-NsxEdgeBgp {
         [Parameter (Mandatory=$False)]
             [switch]$DefaultOriginate,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -13488,7 +13517,7 @@ function New-NsxEdgeBgpNeighbour {
             [ValidateNotNullorEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -13601,7 +13630,7 @@ function Remove-NsxEdgeBgpNeighbour {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -13763,7 +13792,7 @@ function Set-NsxEdgeOspf {
         [Parameter (Mandatory=$False)]
             [switch]$DefaultOriginate,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -13984,7 +14013,7 @@ function Remove-NsxEdgeOspfArea {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -14101,7 +14130,7 @@ function New-NsxEdgeOspfArea {
             [ValidateNotNullorEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -14318,7 +14347,7 @@ function Remove-NsxEdgeOspfInterface {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -14436,7 +14465,7 @@ function New-NsxEdgeOspfInterface {
         [Parameter (Mandatory=$false)]
             [switch]$IgnoreMTU,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -14666,7 +14695,7 @@ function Remove-NsxEdgeRedistributionRule {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -14791,7 +14820,7 @@ function New-NsxEdgeRedistributionRule {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -14978,7 +15007,7 @@ function Set-NsxLogicalRouterRouting {
             [ValidateRange(0,255)]
             [int]$DefaultGatewayAdminDistance,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -15402,7 +15431,7 @@ function New-NsxLogicalRouterStaticRoute {
             [ValidateRange(0,255)]
             [int]$AdminDistance,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -15516,7 +15545,7 @@ function Remove-NsxLogicalRouterStaticRoute {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -15696,7 +15725,7 @@ function New-NsxLogicalRouterPrefix {
             [ValidateNotNullorEmpty()]
             [string]$Network,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -15791,7 +15820,7 @@ function Remove-NsxLogicalRouterPrefix {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection 
     )
@@ -15941,7 +15970,7 @@ function Set-NsxLogicalRouterBgp {
         [Parameter (Mandatory=$False)]
             [switch]$DefaultOriginate,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16216,7 +16245,7 @@ function New-NsxLogicalRouterBgpNeighbour {
             [ValidateNotNullorEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -16329,7 +16358,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -16491,7 +16520,7 @@ function Set-NsxLogicalRouterOspf {
         [Parameter (Mandatory=$False)]
             [switch]$DefaultOriginate,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -16737,7 +16766,7 @@ function Remove-NsxLogicalRouterOspfArea {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -16851,7 +16880,7 @@ function New-NsxLogicalRouterOspfArea {
             [ValidateNotNullorEmpty()]
             [string]$Password,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17062,7 +17091,7 @@ function Remove-NsxLogicalRouterOspfInterface {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17177,7 +17206,7 @@ function New-NsxLogicalRouterOspfInterface {
         [Parameter (Mandatory=$false)]
             [switch]$IgnoreMTU,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17403,7 +17432,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17525,7 +17554,7 @@ function New-NsxLogicalRouterRedistributionRule {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17656,7 +17685,7 @@ function Get-NsxSecurityGroup {
             #Include default system security group
             [switch]$IncludeSystem=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -17764,7 +17793,7 @@ function New-NsxSecurityGroup   {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -17946,7 +17975,7 @@ function Add-NsxSecurityGroupMember {
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18014,7 +18043,7 @@ function Remove-NsxSecurityGroupMember {
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18074,7 +18103,7 @@ function New-NsxSecurityTag {
         [Parameter (Mandatory=$false)]
             [string]$Description,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18237,7 +18266,7 @@ function Remove-NsxSecurityTag {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18324,7 +18353,7 @@ function Get-NsxSecurityTagAssignment {
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18421,7 +18450,7 @@ function New-NsxSecurityTagAssignment {
         [Parameter (Mandatory=$true, ParameterSetName = "SecurityTag")]
             [switch]$ApplyToVm,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18487,7 +18516,7 @@ function Remove-NsxSecurityTagAssignment {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18559,7 +18588,7 @@ function Get-NsxIpSet {
             #Return 'Readonly' (system) ipsets as well
             [switch]$IncludeReadOnly=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18652,7 +18681,7 @@ function New-NsxIpSet  {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18715,7 +18744,7 @@ function Remove-NsxIpSet {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18796,7 +18825,7 @@ function Get-NsxMacSet {
             #Include mac sets with readonly attribute
             [switch]$IncludeReadOnly=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -18885,7 +18914,7 @@ function New-NsxMacSet  {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -18948,7 +18977,7 @@ function Remove-NsxMacSet {
             #Enable force to remove objects in use, or set to readonly (system)
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -19040,7 +19069,7 @@ function Get-NsxService {
             #Include services with readonly attribute
             [switch]$IncludeReadOnly=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -19201,7 +19230,7 @@ function New-NsxService  {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19264,7 +19293,7 @@ function Remove-NsxService {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19364,7 +19393,7 @@ Function Get-NsxServiceGroup {
     [Parameter (Mandatory=$false,ParameterSetName="objectId")]
         [string]$objectId,
     [Parameter (Mandatory=$False)]
-        #PowerNSX Connection object.
+        #PowerNSX Connection object
         [ValidateNotNullOrEmpty()]
         [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -19474,7 +19503,7 @@ function Get-NsxServiceGroupMember {
         [Parameter (Mandatory=$false)]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19531,7 +19560,7 @@ function Remove-NsxServiceGroup {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         )
@@ -19618,7 +19647,7 @@ function New-NsxServiceGroup {
             [ValidateNotNullOrEmpty()]
             [string]$Description = "",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19684,7 +19713,7 @@ function Add-NsxServiceGroupMember {
             #The [] in XmlElement means it can expect more than one object!
             [System.Xml.XmlElement[]]$Member,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -19926,7 +19955,7 @@ function Get-NsxFirewallSection {
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$sectionType="layer3sections",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -19999,7 +20028,7 @@ function New-NsxFirewallSection  {
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20061,7 +20090,7 @@ function Remove-NsxFirewallSection {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20154,7 +20183,7 @@ function Get-NsxFirewallRule {
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -20307,7 +20336,7 @@ function New-NsxFirewallRule  {
             #This option is deprecated and will be removed in a future version.
             [switch]$ReturnRule=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20446,7 +20475,7 @@ function Remove-NsxFirewallRule {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20522,7 +20551,7 @@ function Get-NsxFirewallExclusionListMember {
 
     param (
         [Parameter (Mandatory=$False)]
-        #PowerNSX Connection object.
+        #PowerNSX Connection object
         [ValidateNotNullOrEmpty()]
         [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20590,7 +20619,7 @@ function Add-NsxFirewallExclusionListMember {
         [ValidateNotNullorEmpty()]
         [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
-        #PowerNSX Connection object.
+        #PowerNSX Connection object
         [ValidateNotNullOrEmpty()]
         [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20652,7 +20681,7 @@ function Remove-NsxFirewallExclusionListMember {
         [ValidateNotNullorEmpty()]
         [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$False)]
-        #PowerNSX Connection object.
+        #PowerNSX Connection object
         [ValidateNotNullOrEmpty()]
         [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -20766,7 +20795,7 @@ function Set-NsxLoadBalancer {
             [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
             [string]$LogLevel,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -21014,7 +21043,7 @@ function New-NsxLoadBalancerMonitor {
         [Parameter (Mandatory=$false, ParameterSetName="TCP")]
         [Parameter (Mandatory=$false, ParameterSetName="ICMP")]
         [Parameter (Mandatory=$false, ParameterSetName="UDP")]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -21140,7 +21169,7 @@ function Remove-NsxLoadBalancerMonitor {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -21311,7 +21340,7 @@ function New-NsxLoadBalancerApplicationProfile {
             [ValidateSet("insert", "prefix", "app")]
             [string]$CookieMode,           
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -21436,7 +21465,7 @@ function Remove-NsxLoadBalancerApplicationProfile {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -21624,7 +21653,7 @@ function New-NsxLoadBalancerPool {
             [ValidateScript({ Validate-LoadBalancerMemberSpec $_ })]
             [System.Xml.XmlElement[]]$MemberSpec,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -21788,7 +21817,7 @@ function Remove-NsxLoadBalancerPool {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -21959,7 +21988,7 @@ function Add-NsxLoadBalancerPoolMember {
             [ValidateNotNullOrEmpty()]
             [int]$MaximumConnections=0,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -22043,7 +22072,7 @@ function Remove-NsxLoadBalancerPoolMember {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -22233,7 +22262,7 @@ function Add-NsxLoadBalancerVip {
             [ValidateNotNullOrEmpty()]
             [int]$ConnectionRateLimit=0,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
         
@@ -22323,7 +22352,7 @@ function Remove-NsxLoadBalancerVip {
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -22458,7 +22487,7 @@ function Get-NsxSecurityPolicy {
             [alias("ShowHidden")]      
             [switch]$IncludeHidden=$False,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -22541,7 +22570,7 @@ function Remove-NsxSecurityPolicy {
         [Parameter (Mandatory=$False)]
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -22618,7 +22647,7 @@ function Get-NsxSecurityGroupEffectiveMembers {
             [ValidateNotNull()]
             [System.Xml.XmlElement]$SecurityGroup,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -22704,7 +22733,7 @@ function Find-NsxWhereVMUsed {
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VM,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
