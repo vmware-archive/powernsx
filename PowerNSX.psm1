@@ -19281,7 +19281,6 @@ Function Get-NsxServiceGroup {
                     $servicegroup | ? {$_.name -eq $name}
                 }
                 else {
-    
                     $servicegroup
                 }
             }
@@ -19354,15 +19353,13 @@ function Get-NsxServiceGroupMember {
 
 
 
-    #>
+
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-ServiceOrServiceGroup $_ })]
             [System.Xml.XmlElement]$ServiceGroup,
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
-        [Parameter (Mandatory=$false)]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
@@ -19371,18 +19368,12 @@ function Get-NsxServiceGroupMember {
     )
 
     begin{
-
     }
     process{
 
-        if ($ServiceGroup.SelectSingleNode("child::member")){
-            $ServiceGroup.member
-        }
 
     }
-
     end{}
-}
 
 
 function Remove-NsxServiceGroup {
