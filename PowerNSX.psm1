@@ -19211,20 +19211,34 @@ function New-NsxService  {
             "ORACLE_TNS","FTP","SUN_RPC_TCP",
             "SUN_RPC_UDP","MS_RPC_TCP",
             "MS_RPC_UDP","NBNS_BROADCAST",
-            "NBDG_BROADCAST")]
+            "NBDG_BROADCAST","IPV6ICMP","IPV6NONXT",
+            "IPV6OPTS","ORACLE_TNS","ICMP")]
             [string]$Protocol,
         [Parameter (Mandatory=$true)]
             [ValidateScript({
-                if ( ($Protocol -eq "TCP" ) -or ( $protocol -eq "UDP")) { 
+                if (( $Protocol -eq "IPV6ICMP") -or ($Protocol -eq "ICMP")) {
+                    if ( ($_ -eq "multicast-listener-done" ) -or ($_ -eq "neighbor-advertisement" ) -or ($_ -eq "multicast-listener-report" ) -or ($_ -eq "echo-reply" ) -or ($_ -eq "time-exceeded" ) -or ($_ -eq "packet-too-big" ) -or ($_ -eq "parameter-problem" ) -or ($_ -eq "echo-request" ) -or ($_ -eq "router-advertisement" ) -or ($_ -eq "multicast-listener-query" )  -or ($_ -eq "neighbor-solicitation" )  -or ($_ -eq "redirect" )  -or ($_ -eq "destination-unreachable" ) -or ($_ -eq "router-solicitation" )) 
+                    {
+                        $true
+                    } 
+                    else 
+                        { 
+                            throw "IPV6 ICMP and ICMP code not accepted."
+                        }
+                }
+                if (( $Protocol -eq "TCP" ) -or ( $Protocol -eq "UDP" )) { 
                     if ( $_ -match "^[\d,-]+$" ) { $true } else { throw "TCP or UDP port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges." }
-                } else {
+                
+                else {
                     #test we can cast to int
                     if ( ($_ -as [int]) -and ( (1..65535) -contains $_) ) { 
                         $true 
-                    } else { 
+                    } 
+                    else { 
                         throw "Non TCP or UDP port numbers must be a single integer between 1-65535."
                     }
                 }
+                } 
             })]
             [string]$port,
         [Parameter (Mandatory=$false)]
@@ -19419,7 +19433,6 @@ Function Get-NsxServiceGroup {
                     $servicegroup | ? {$_.name -eq $name}
                 }
                 else {
-    
                     $servicegroup
                 }
             }
@@ -19492,15 +19505,13 @@ function Get-NsxServiceGroupMember {
 
 
 
-    #>
+
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-ServiceOrServiceGroup $_ })]
             [System.Xml.XmlElement]$ServiceGroup,
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
-        [Parameter (Mandatory=$false)]
             [string]$objectId,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -19509,19 +19520,13 @@ function Get-NsxServiceGroupMember {
     )
 
     begin{
-
     }
     process{
 
-        if ($ServiceGroup.SelectSingleNode("child::member")){
-            $ServiceGroup.member
-        }
 
     }
-
     end{}
 }
-
 
 function Remove-NsxServiceGroup {
 

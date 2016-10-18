@@ -29,10 +29,14 @@ $testIPSetName = "testIpSet"
 $testIPs = "1.1.1.1,2.2.2.2"
 $TestServiceName1 = "testService1"
 $testServiceName2 = "testService2"
+$testServiceName3 = "testService3"
+$testServiceName4 = "testService4"
 $testPort = "80"
 $testPortRange = "80-88"
 $testPortSet = "80,88"
 $testServiceProto = "tcp"
+$TestServiceProtoIPv6ICMP = "IPV6ICMP"
+$TestServiceProtoIPv4ICMP = "ICMP"
 $testlsname = "testls"
 $TestMacSetName1 = "testMacSet1"
 $TestMacSetName2 = "testMacSet2"
@@ -64,6 +68,8 @@ $TestSG1 = New-NsxSecurityGroup -Name $testSGName1 -Description "Test SG1" -Incl
 $TestSG2 = New-NsxSecurityGroup -Name $testSGName2 -Description "Test SG2" -IncludeMember $TestIpSet
 $TestService1 = New-NsxService -Name $TestServiceName1 -Protocol $TestServiceProto -port $testPort
 $TestService2 = New-NsxService -Name $TestServiceName2 -Protocol $TestServiceProto -port "$testPort,$testPortRange,$testPortSet"
+$TestService3 = New-NsxService -name $TestServiceName3 -Protocol $TestServiceProtoIPv6ICMP -port "echo-reply"
+$TestService4 = New-NsxService -name $TestServiceName4 -Protocol $TestServiceProtoIPv4ICMP -port "parameter-problem"
 
 
 #Create Section
@@ -103,6 +109,8 @@ Get-NsxMacSet $TestMacSetName2 | remove-nsxmacset -confirm:$false
 Get-NsxIPSet $TestIPSetName | remove-NsxIPSet -confirm:$False
 Get-NsxService $TestServiceName1 | remove-nsxservice -confirm:$False
 Get-NsxService $TestServiceName2 | remove-nsxservice -confirm:$False
+Get-NsxService $TestServiceName3 | remove-nsxservice -confirm:$False
+Get-NsxService $TestServiceName4 | remove-nsxservice -confirm:$False
 Get-NSxEdge $dfwedgename | remove-nsxedge -confirm:$false
 start-sleep 10
 Get-NsxTransportZone | get-nsxLogicalSwitch $testlsname | remove-nsxlogicalswitch -confirm:$false
