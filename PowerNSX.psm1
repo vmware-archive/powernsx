@@ -19068,15 +19068,6 @@ function New-NsxService  {
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [string]$Description = "",
-         [CmdletBinding()]
-    param (
-
-        [Parameter (Mandatory=$true)]
-            [ValidateNotNullOrEmpty()]
-            [string]$Name,
-        [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
-            [string]$Description = "",
         [Parameter (Mandatory=$true)]
             [ValidateSet ("TCP","UDP",
             "ORACLE_TNS","FTP","SUN_RPC_TCP",
@@ -19397,7 +19388,7 @@ function Get-NsxServiceGroupMember {
 
     }
     end{}
-
+}
 
 function Remove-NsxServiceGroup {
 
