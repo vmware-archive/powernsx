@@ -256,7 +256,7 @@ $DrawnLogicalRouterHash = @{}
 [int]$visTagDefault = 0
 
 $OutputFile = join-path $OutputDir "$( [io.path]::GetFileNameWithoutExtension($CaptureBundle)).vsdx" 
-$MyDir = split-path $myinvocation.MyCommand.Source
+$MyDir = split-path $myinvocation.MyCommand.Path
 $NSXShapeFile = "$MyDir\nsxdiagram.vssx"
 if ( -not (test-path $NSXShapeFile) ) { throw "Visio Shape file not found.  Ensure it exists in the same directory as this script." }
 
