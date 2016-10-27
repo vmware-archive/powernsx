@@ -17782,7 +17782,6 @@ function New-NsxSecurityGroup   {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
@@ -18674,7 +18673,6 @@ function New-NsxIpSet  {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
             [string]$IPAddresses,
@@ -18907,7 +18905,6 @@ function New-NsxMacSet  {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
             [string]$MacAddresses,
@@ -19204,7 +19201,6 @@ function New-NsxService  {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
             [string]$Description = "",
         [Parameter (Mandatory=$true)]
             [ValidateSet ("TCP","UDP",
@@ -19644,7 +19640,6 @@ function New-NsxServiceGroup {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
             [string]$Description = "",
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
