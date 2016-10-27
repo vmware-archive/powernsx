@@ -20306,7 +20306,7 @@ function New-NsxFirewallRule  {
             [ValidateNotNullOrEmpty()]
             [switch]$NegateDestination,
         [Parameter (Mandatory=$false)]
-            [ValidateScript ({ Validate-Service $_ })]
+            [ValidateScript ({ Validate-ServiceOrServiceGroup $_ })]
             [System.Xml.XmlElement[]]$Service,
         [Parameter (Mandatory=$false)]
             [string]$Comment="",
