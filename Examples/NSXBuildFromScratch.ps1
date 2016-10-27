@@ -111,13 +111,13 @@ $BooksvAppLocation = "C:\Temp\3_Tier-App-v1.5.ova"
 # Topology Details.  No need to modify below here 
 
 #Names
-$TsTransitLsName = "Transit"
-$TsWebLsName = "Web"
-$TsAppLsName = "App"
-$TsDbLsName = "Db"
-$TsMgmtLsName = "Mgmt"
-$TsEdgeName = "Edge01"
-$TsLdrName = "Dlr01"
+$TransitLsName = "Transit"
+$WebLsName = "Web"
+$AppLsName = "App"
+$DbLsName = "Db"
+$MgmtLsName = "Mgmt"
+$EdgeName = "Edge01"
+$LdrName = "Dlr01"
 
 #Topology
 $EdgeInternalPrimaryAddress = "172.16.1.1"
@@ -166,18 +166,22 @@ $AppAppProfileName = "AppAppProfile"
 $VipProtocol = "http"
 $HttpPort = "80"
 
-## Securiry Groups
-$WebSgName = "SGWeb"
+## Security Groups
+$WebSgName = "SG-Web"
 $WebSgDescription = "Web Security Group"
-$AppSgName = "SGApp"
+$AppSgName = "SG-App"
 $AppSgDescription = "App Security Group"
-$DbSgName = "SGDb"
+$DbSgName = "SG-Db"
 $DbSgDescription = "DB Security Group"
-$BooksSgName = "SGBooks"
+$BooksSgName = "SG-Bookstore"
 $BooksSgDescription = "Books ALL Security Group"
+## Security Tags
+$WebStName = "ST-Web"
+$AppStName = "ST-App"
+$DbStName = "ST-DB"
 
 #DFW
-$FirewallSectionName = "Bookstore"
+$FirewallSectionName = "Bookstore Application"
 $LBMonitorName = "default_http_monitor"
 
 ###############################################
@@ -404,11 +408,11 @@ write-host -foregroundcolor Green "NSX Books application deployment beginning.`n
 write-host -foregroundcolor "Green" "Creating Logical Switches..."
 
 ## Creates four logical switches
-$TsTransitLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TsTransitLsName
-$TsWebLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TsWebLsName
-$TsAppLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TsAppLsName
-$TsDbLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TsDbLsName
-$TsMgmtLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TsMgmtLsName
+$TransitLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TransitLsName
+$WebLs = Get-NsxTransportZone | New-NsxLogicalSwitch $WebLsName
+$AppLs = Get-NsxTransportZone | New-NsxLogicalSwitch $AppLsName
+$DbLs = Get-NsxTransportZone | New-NsxLogicalSwitch $DbLsName
+$MgmtLs = Get-NsxTransportZone | New-NsxLogicalSwitch $MgmtLsName
 
 
 ######################################
@@ -416,25 +420,25 @@ $TsMgmtLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TsMgmtLsName
 
 # DLR Appliance has the uplink router interface created first.
 write-host -foregroundcolor "Green" "Creating DLR"
-$TsLdrvNic0 = New-NsxLogicalRouterInterfaceSpec -type Uplink -Name $TsTransitLsName -ConnectedTo $TsTransitLs -PrimaryAddress $LdrUplinkPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits
+$LdrvNic0 = New-NsxLogicalRouterInterfaceSpec -type Uplink -Name $TransitLsName -ConnectedTo $TransitLs -PrimaryAddress $LdrUplinkPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits
 
 # The DLR is created with the first vnic defined, and the datastore and cluster on which the Control VM will be deployed.
-$TsLdr = New-NsxLogicalRouter -name $TsLdrName -ManagementPortGroup $TsMgmtLs -interface $TsLdrvNic0 -cluster $EdgeCluster -datastore $EdgeDataStore
+$Ldr = New-NsxLogicalRouter -name $LdrName -ManagementPortGroup $MgmtLs -interface $LdrvNic0 -cluster $EdgeCluster -datastore $EdgeDataStore
 
 ## Adding DLR interfaces after the DLR has been deployed. This can be done any time if new interfaces are required.
 write-host -foregroundcolor Green "Adding Web LIF to DLR"
-$TsLdr | New-NsxLogicalRouterInterface -Type Internal -name $TsWebLsName  -ConnectedTo $TsWebLs -PrimaryAddress $LdrWebPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits | out-null
+$Ldr | New-NsxLogicalRouterInterface -Type Internal -name $WebLsName  -ConnectedTo $WebLs -PrimaryAddress $LdrWebPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits | out-null
 write-host -foregroundcolor Green "Adding App LIF to DLR"
-$TsLdr | New-NsxLogicalRouterInterface -Type Internal -name $TsAppLsName  -ConnectedTo $TsAppLs -PrimaryAddress $LdrAppPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits | out-null
+$Ldr | New-NsxLogicalRouterInterface -Type Internal -name $AppLsName  -ConnectedTo $AppLs -PrimaryAddress $LdrAppPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits | out-null
 write-host -foregroundcolor Green "Adding DB LIF to DLR"
-$TsLdr | New-NsxLogicalRouterInterface -Type Internal -name $TsDbLsName  -ConnectedTo $TsDbLs -PrimaryAddress $LdrDbPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits | out-null
+$Ldr | New-NsxLogicalRouterInterface -Type Internal -name $DbLsName  -ConnectedTo $DbLs -PrimaryAddress $LdrDbPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits | out-null
 
 ## DLR Routing - default route from DLR with a next-hop of the Edge.
 write-host -foregroundcolor Green "Setting default route on DLR to $EdgeInternalPrimaryAddress"
 
 ##The first line pulls the uplink name coz we cant assume we know the index ID
-$TsLdrTransitInt = get-nsxlogicalrouter | get-nsxlogicalrouterinterface | ? { $_.name -eq $TsTransitLsName}
-Get-NsxLogicalRouter $TsLdrName | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -DefaultGatewayVnic $TsLdrTransitInt.index -DefaultGatewayAddress $EdgeInternalPrimaryAddress -confirm:$false | out-null
+$LdrTransitInt = get-nsxlogicalrouter | get-nsxlogicalrouterinterface | ? { $_.name -eq $TransitLsName}
+Get-NsxLogicalRouter $LdrName | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -DefaultGatewayVnic $LdrTransitInt.index -DefaultGatewayAddress $EdgeInternalPrimaryAddress -confirm:$false | out-null
 
 
 ######################################
@@ -442,19 +446,19 @@ Get-NsxLogicalRouter $TsLdrName | Get-NsxLogicalRouterRouting | Set-NsxLogicalRo
 
 ## Defining the uplink and internal interfaces to be used when deploying the edge. Note there are two IP addreses on these interfaces. $EdgeInternalSecondaryAddress and $EdgeUplinkSecondaryAddress are the VIPs
 $edgevnic0 = New-NsxEdgeinterfacespec -index 0 -Name "Uplink" -type Uplink -ConnectedTo $EdgeUplinkNetwork -PrimaryAddress $EdgeUplinkPrimaryAddress -SecondaryAddress $EdgeUplinkSecondaryAddress -SubnetPrefixLength $DefaultSubnetBits
-$edgevnic1 = New-NsxEdgeinterfacespec -index 1 -Name $TsTransitLsName -type Internal -ConnectedTo $TsTransitLs -PrimaryAddress $EdgeInternalPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits -SecondaryAddress $EdgeInternalSecondaryAddress
+$edgevnic1 = New-NsxEdgeinterfacespec -index 1 -Name $TransitLsName -type Internal -ConnectedTo $TransitLs -PrimaryAddress $EdgeInternalPrimaryAddress -SubnetPrefixLength $DefaultSubnetBits -SecondaryAddress $EdgeInternalSecondaryAddress
 
 ## Deploy appliance with the defined uplinks
 write-host -foregroundcolor "Green" "Creating Edge"
-$TSEdge1 = New-NsxEdge -name $TsEdgeName -cluster $EdgeCluster -datastore $EdgeDataStore -Interface $edgevnic0, $edgevnic1 -Password $AppliancePassword -FwDefaultPolicyAllow
+$Edge1 = New-NsxEdge -name $EdgeName -cluster $EdgeCluster -datastore $EdgeDataStore -Interface $edgevnic0, $edgevnic1 -Password $AppliancePassword -FwDefaultPolicyAllow
 
 
 #####################################
 # Load LoadBalancer
 
-# Enanble Loadbalancing on $TSedgeName
-write-host -foregroundcolor "Green" "Enabling LoadBalancing on $TsEdgeName"
-Get-NsxEdge $TsEdgeName | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled | out-null
+# Enanble Loadbalancing on $edgeName
+write-host -foregroundcolor "Green" "Enabling LoadBalancing on $EdgeName"
+Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled | out-null
 
 #Get default monitor.
 $monitor =  get-nsxedge | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name $LBMonitorName
@@ -466,11 +470,11 @@ $webpoolmember1 = New-NsxLoadBalancerMemberSpec -name $Web01Name -IpAddress $Web
 $webpoolmember2 = New-NsxLoadBalancerMemberSpec -name $Web02Name -IpAddress $Web02Ip -Port $HttpPort
 
 # ... And create the web pool
-$WebPool =  Get-NsxEdge $TsEdgeName | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name $WebPoolName -Description "Web Tier Pool" -Transparent:$false -Algorithm $LbAlgo -Memberspec $webpoolmember1, $webpoolmember2 -Monitor $Monitor
+$WebPool =  Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name $WebPoolName -Description "Web Tier Pool" -Transparent:$false -Algorithm $LbAlgo -Memberspec $webpoolmember1, $webpoolmember2 -Monitor $Monitor
 
 # Now method two for the App Pool  Create the pool with empty membership.
 write-host -foregroundcolor "Green" "Creating App Pool"
-$AppPool = Get-NsxEdge $TsEdgeName | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name $AppPoolName -Description "App Tier Pool" -Transparent:$false -Algorithm $LbAlgo -Monitor $Monitor
+$AppPool = Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name $AppPoolName -Description "App Tier Pool" -Transparent:$false -Algorithm $LbAlgo -Monitor $Monitor
 
 # ... And now add the pool members
 $AppPool = $AppPool | Add-NsxLoadBalancerPoolMember -name $App01Name -IpAddress $App01Ip -Port $HttpPort
@@ -478,41 +482,41 @@ $AppPool = $AppPool | Add-NsxLoadBalancerPoolMember -name $App02Name -IpAddress 
 
 # Create App Profiles. It is possible to use the same but for ease of operations this will be two here.
 write-host -foregroundcolor "Green" "Creating Application Profiles for Web and App"
-$WebAppProfile = Get-NsxEdge $TsEdgeName | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationProfile -Name $WebAppProfileName  -Type $VipProtocol
-$AppAppProfile = Get-NsxEdge $TsEdgeName | Get-NsxLoadBalancer | new-NsxLoadBalancerApplicationProfile -Name $AppAppProfileName  -Type $VipProtocol
+$WebAppProfile = Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationProfile -Name $WebAppProfileName  -Type $VipProtocol
+$AppAppProfile = Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | new-NsxLoadBalancerApplicationProfile -Name $AppAppProfileName  -Type $VipProtocol
 
 # Create the VIPs for the relevent WebPools. Using the Secondary interfaces.
 write-host -foregroundcolor "Green" "Creating VIPs"
-Get-NsxEdge $TsEdgeName | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -name $WebVipName -Description $WebVipName -ipaddress $EdgeUplinkSecondaryAddress -Protocol $VipProtocol -Port $HttpPort -ApplicationProfile $WebAppProfile -DefaultPool $WebPool -AccelerationEnabled | out-null
-Get-NsxEdge $TsEdgeName | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -name $AppVipName -Description $AppVipName -ipaddress $EdgeInternalSecondaryAddress -Protocol $VipProtocol -Port $HttpPort -ApplicationProfile $AppAppProfile -DefaultPool $AppPool -AccelerationEnabled | out-null
+Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -name $WebVipName -Description $WebVipName -ipaddress $EdgeUplinkSecondaryAddress -Protocol $VipProtocol -Port $HttpPort -ApplicationProfile $WebAppProfile -DefaultPool $WebPool -AccelerationEnabled | out-null
+Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -name $AppVipName -Description $AppVipName -ipaddress $EdgeInternalSecondaryAddress -Protocol $VipProtocol -Port $HttpPort -ApplicationProfile $AppAppProfile -DefaultPool $AppPool -AccelerationEnabled | out-null
 
 
 ####################################
 # OSPF
 
 write-host -foregroundcolor Green "Configuring Edge OSPF"
-Get-NsxEdge $TsEdgeName | Get-NsxEdgerouting | set-NsxEdgeRouting -EnableOspf -RouterId $EdgeUplinkPrimaryAddress -confirm:$false | out-null
+Get-NsxEdge $EdgeName | Get-NsxEdgerouting | set-NsxEdgeRouting -EnableOspf -RouterId $EdgeUplinkPrimaryAddress -confirm:$false | out-null
 
 #Remove the dopey area 51 NSSA - just to show example of complete OSPF configuration including area creation.
-Get-NsxEdge $TsEdgeName | Get-NsxEdgerouting | Get-NsxEdgeOspfArea -AreaId 51 | Remove-NsxEdgeOspfArea -confirm:$false
+Get-NsxEdge $EdgeName | Get-NsxEdgerouting | Get-NsxEdgeOspfArea -AreaId 51 | Remove-NsxEdgeOspfArea -confirm:$false
 
 #Create new Area 0 for OSPF
-Get-NsxEdge $TsEdgeName | Get-NsxEdgerouting | New-NsxEdgeOspfArea -AreaId $TransitOspfAreaId -Type normal -confirm:$false | out-null
+Get-NsxEdge $EdgeName | Get-NsxEdgerouting | New-NsxEdgeOspfArea -AreaId $TransitOspfAreaId -Type normal -confirm:$false | out-null
 
 #Area to interface mapping
-Get-NsxEdge $TsEdgeName | Get-NsxEdgerouting | New-NsxEdgeOspfInterface -AreaId $TransitOspfAreaId -vNic 1 -confirm:$false | out-null
+Get-NsxEdge $EdgeName | Get-NsxEdgerouting | New-NsxEdgeOspfInterface -AreaId $TransitOspfAreaId -vNic 1 -confirm:$false | out-null
 
 write-host -foregroundcolor Green "Configuring Logicalrouter OSPF"
-Get-NsxLogicalRouter $TsLdrName | Get-NsxLogicalRouterRouting | set-NsxLogicalRouterRouting -EnableOspf -EnableOspfRouteRedistribution -RouterId $LdrUplinkPrimaryAddress -ProtocolAddress $LdrUplinkProtocolAddress -ForwardingAddress $LdrUplinkPrimaryAddress  -confirm:$false | out-null
+Get-NsxLogicalRouter $LdrName | Get-NsxLogicalRouterRouting | set-NsxLogicalRouterRouting -EnableOspf -EnableOspfRouteRedistribution -RouterId $LdrUplinkPrimaryAddress -ProtocolAddress $LdrUplinkProtocolAddress -ForwardingAddress $LdrUplinkPrimaryAddress  -confirm:$false | out-null
 
 #Remove the dopey area 51 NSSA - just to show example of complete OSPF configuration including area creation.
-Get-NsxLogicalRouter $TsLdrName | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId 51 | Remove-NsxLogicalRouterOspfArea -confirm:$false
+Get-NsxLogicalRouter $LdrName | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId 51 | Remove-NsxLogicalRouterOspfArea -confirm:$false
 
 #Create new Area
-Get-NsxLogicalRouter $TsLdrName | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfArea -AreaId $TransitOspfAreaId -Type normal -confirm:$false | out-null
+Get-NsxLogicalRouter $LdrName | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfArea -AreaId $TransitOspfAreaId -Type normal -confirm:$false | out-null
 
 #Area to interface mapping
-$TsLdrTransitInt = get-nsxlogicalrouter | get-nsxlogicalrouterinterface | ? { $_.name -eq $TsTransitLsName}
+$LdrTransitInt = get-nsxlogicalrouter | get-nsxlogicalrouterinterface | ? { $_.name -eq $TransitLsName}
 Get-NsxLogicalRouter $TsLdrName | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfInterface -AreaId $TransitOspfAreaId -vNic $TsLdrTransitInt.index -confirm:$false | out-null
 
 
@@ -529,9 +533,9 @@ write-host -foregroundcolor "Green" "Deploying 'The Bookstore' application "
 # If that isnt the case, we need to get the VDS by name....:
 
 $ComputeVDS = Get-Cluster $ComputeClusterName | Get-VMHost | Get-VDSWitch
-$WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $TsWebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
-$AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $TsAppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
-$DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $TsDbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
+$WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
+$AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
+$DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
 
 # Compute details - finds the host with the least used memory for deployment.
 $VMHost = $Computecluster | Get-VMHost | Sort MemoryUsageGB | Select -first 1
@@ -540,9 +544,9 @@ $VMHost = $Computecluster | Get-VMHost | Sort MemoryUsageGB | Select -first 1
 $OvfConfiguration = Get-OvfConfiguration -Ovf $BooksvAppLocation
 
 # Network attachment.
-$OvfConfiguration.vxw_dvs_24_universalwire_1_sid_50000_Universal_Web01 = $WebNetwork.Name
-$OvfConfiguration.vxw_dvs_24_universalwire_2_sid_50001_Universal_App01 = $AppNetwork.Name
-$OvfConfiguration.vxw_dvs_24_universalwire_3_sid_50002_Universal_Db01 = $DbNetwork.Name
+$OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_1_sid_50000_Universal_Web01.value = $WebNetwork.name
+$OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_2_sid_50001_Universal_App01.value = $AppNetwork.name
+$OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_3_sid_50002_Universal_Db01.value = $DbNetwork.name
 
 # VM details.
 $OvfConfiguration.common.app_ip.Value = $EdgeInternalSecondaryAddress
@@ -570,8 +574,17 @@ Start-vApp $vAppName | out-null
 write-host -foregroundcolor Green "Getting Services"
 
 # Assume these services exist which they do in a default NSX deployment.
-$httpservice = Get-NsxService HTTP
-$mysqlservice = Get-NsxService MySQL
+$httpservice = New-NsxService -name "tcp-80" -protocol tcp -port "80"
+$mysqlservice = New-NsxService -name "tcp-3306" -protocol tcp -port "3306"
+
+#Create Security Tags
+
+$WebSt = New-NsxSecurityTag -name $WebStName
+$AppSt = New-NsxSecurityTag -name $AppStName
+$DbSt = New-NsxSecurityTag -name $DbStName
+
+
+# Create IP Sets
 
 write-host -foregroundcolor "Green" "Creating Source IP Groups"
 $AppVIP_IpSet = New-NsxIPSet -Name AppVIP_IpSet -IPAddresses $EdgeInternalSecondaryAddress
@@ -580,10 +593,21 @@ $InternalESG_IpSet = New-NsxIPSet -name InternalESG_IpSet -IPAddresses $EdgeInte
 write-host -foregroundcolor "Green" "Creating Security Groups"
 
 #Create SecurityGroups and with static includes
-$WebSg = New-NsxSecurityGroup -name $WebSgName -description $WebSgDescription -includemember (get-vm | ? {$_.name -match "Web0"})
-$AppSg = New-NsxSecurityGroup -name $AppSgName -description $AppSgDescription -includemember (get-vm | ? {$_.name -match "App0"})
-$DbSg = New-NsxSecurityGroup -name $DbSgName -description $DbSgDescription -includemember (get-vm | ? {$_.name -match "Db0"})
+$WebSg = New-NsxSecurityGroup -name $WebSgName -description $WebSgDescription -includemember $WebSt
+$AppSg = New-NsxSecurityGroup -name $AppSgName -description $AppSgDescription -includemember $AppSt
+$DbSg = New-NsxSecurityGroup -name $DbSgName -description $DbSgDescription -includemember $DbSt
 $BooksSg = New-NsxSecurityGroup -name $BooksSgName -description $BooksSgName -includemember $WebSg, $AppSg, $DbSg
+
+# Apply Security Tag to VM's for Security Group membership
+
+$WebVMs = Get-Vm | ? {$_.name -match ("Web0")}
+$AppVMs = Get-Vm | ? {$_.name -match ("App0")}
+$DbVMs = Get-Vm | ? {$_.name -match ("Db0")}
+
+
+Get-NsxSecurityTag $WebStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $WebVMs | Out-Null
+Get-NsxSecurityTag $AppStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $AppVMs | Out-Null
+Get-NsxSecurityTag $DbStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $DbVMs | Out-Null
 
 #Building firewall section with value defined in $FirewallSectionName
 write-host -foregroundcolor "Green" "Creating Firewall Section"
