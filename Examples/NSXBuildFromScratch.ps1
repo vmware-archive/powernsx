@@ -565,8 +565,13 @@ $OvfConfiguration.common.DB_Gateway.Value = $LdrDbPrimaryAddress
 # Run the deployment.
 Import-vApp -Source $BooksvAppLocation -OvfConfiguration $OvfConfiguration -Name Books -Location $ComputeCluster -VMHost $Vmhost -Datastore $ComputeDatastore | out-null
 write-host -foregroundcolor "Green" "Starting $vAppName vApp components"
-Start-vApp $vAppName | out-null
-
+try {
+    Start-vApp $vAppName | out-null
+    }
+catch {
+    Write-Warning "Something is wrong with the vApp. Check if it has finished deploying. Press a key to continue";
+    $Key = [console]::ReadKey($true)
+}
 
 #####################################
 # Microseg config
@@ -605,9 +610,9 @@ $AppVMs = Get-Vm | ? {$_.name -match ("App0")}
 $DbVMs = Get-Vm | ? {$_.name -match ("Db0")}
 
 
-Get-NsxSecurityTag $WebStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $WebVMs | Out-Null
-Get-NsxSecurityTag $AppStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $AppVMs | Out-Null
-Get-NsxSecurityTag $DbStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $DbVMs | Out-Null
+$WebSt | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $WebVMs | Out-Null
+$AppSt | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $AppVMs | Out-Null
+$DbSt | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $DbVMs | Out-Null
 
 #Building firewall section with value defined in $FirewallSectionName
 write-host -foregroundcolor "Green" "Creating Firewall Section"
