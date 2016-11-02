@@ -182,6 +182,215 @@ namespace PKI {
     }  
 }  
 
+function Read-HostWithDefault { 
+
+    param(
+
+        [string]$Default,
+        [string]$Prompt
+    )
+    
+    if ($default) {
+        $response = read-host -prompt "$Prompt [$Default]"
+        if ( $response -eq "" ) {
+            $Default
+        }
+        else {
+            $response
+        }
+    }
+    else { 
+        read-host -prompt $Prompt
+    }
+}
+
+function ConvertFrom-Bitmask { 
+
+    param (
+        [Parameter(Mandatory=$true)]
+            [ValidateRange(1,32)]
+            [int]$Bitmask
+    )
+
+    [ipaddress]$base = "255.255.255.255"
+    $invertedmask = [ipaddress]($base.address - [convert]::toint64(([math]::pow(2,(32-$bitmask)) -bxor $base.Address) + 1))
+    [ipaddress]$subnetmask = "$(255-$($invertedmask.GetAddressBytes()[3]))." +
+        "$(255-$($invertedmask.GetAddressBytes()[2]))." + 
+        "$(255-$($invertedmask.GetAddressBytes()[1]))." + 
+        "$(255-$($invertedmask.GetAddressBytes()[0]))"
+
+    $subnetmask
+}
+
+function ConvertTo-Bitmask { 
+
+    param (
+        [Parameter(Mandatory=$true)]
+            [ipaddress]$subnetmask
+    )
+
+
+    $bitcount = 0
+    $boundaryoctetfound = $false
+    $boundarybitfound = $false
+    #start at most sig end.
+    foreach ($octet in $subnetmask.GetAddressBytes()) {
+
+        switch ($octet) { 
+            "255" { 
+                if ( $boundaryoctetfound ) { 
+                    throw "SubnetMask specified is not valid.  Specify a valid mask and try again."
+                } else {
+                    $bitcount += 8
+                }
+            }
+
+            "0" { $boundaryoctetfound = $true }
+
+            default {
+                if ( $boundaryoctetfound ) { 
+                    throw "SubnetMask specified is not valid.  Specify a valid mask and try again."
+                }
+                else {
+                    $boundaryoctetfound = $true
+                    $boundaryoctet = $_
+
+                    for ( $i = 7; $i -ge 0 ; $i-- ) { 
+                        if ( $boundaryoctet -band [math]::pow(2,$i) ) { 
+                            if ( $boundarybitfound) { 
+                                #Already hit boundary - mask isnt valid.
+                                throw "SubnetMask specified is not valid.  Specify a valid mask and try again."
+                            }
+                            $bitcount++
+                        }
+                        else { 
+                            $boundarybitfound = $true
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    $bitcount
+}
+
+function Get-NetworkFromHostAddress {
+        
+    [CmdletBinding(DefaultParameterSetName="mask")]
+
+    param (
+        [Parameter(Mandatory=$true,ParameterSetName="cidr")]
+        [Parameter(Mandatory=$true,ParameterSetName="mask")]
+            [ipaddress]$Address,
+        [Parameter(Mandatory=$true,ParameterSetName="mask")]
+            [ipaddress]$SubnetMask,
+        [Parameter(Mandatory=$true,ParameterSetName="cidr")]
+            [ValidateRange(1,32)]
+            [int]$BitMask
+            
+    )
+
+    if ( $PsCmdlet.ParameterSetName -eq 'cidr') { 
+        $SubnetMask = convertfrom-bitmask -bitmask $BitMask
+    }
+
+    $NetAddress = ""
+    for ( $i = 0; $i -le 3; $i++ ) {
+        
+        $NetAddress += "$($Address.GetAddressBytes()[$i] -band $SubnetMask.GetAddressBytes()[$i])."
+    }
+    [ipaddress]($NetAddress -replace "\.$","")
+}
+
+function Test-AddressInNetwork { 
+
+    [CmdletBinding(DefaultParameterSetName="mask")]
+    param (
+        [Parameter(Mandatory=$true,ParameterSetName="mask")]
+            [ipaddress]$SubnetMask,
+        [Parameter(Mandatory=$true,ParameterSetName="cidr")]
+            [ValidateRange(1,32)]
+            [int]$Bitmask,
+        [Parameter(Mandatory=$true)]
+            [ipaddress]$Network,
+        [Parameter(Mandatory=$true)]
+            [ipaddress]$Address
+    )
+
+    if ( $PsCmdlet.ParameterSetName -eq 'cidr') { 
+        $SubnetMask = convertfrom-bitmask -bitmask $BitMask
+    }
+    $Network -eq (Get-NetworkFromHostAddress -Address $Address -SubnetMask $SubnetMask)
+}
+
+function Get-NetworkRange { 
+    
+    #Im well aware that this is very inefficient, but I need it quickly, and CPUs are cheap ;)
+
+    [CmdletBinding(DefaultParameterSetName="mask")]
+    param (
+        [Parameter(Mandatory=$true,ParameterSetName="mask")]
+            [ipaddress]$SubnetMask,
+        [Parameter(Mandatory=$true,ParameterSetName="cidr")]
+            [ValidateRange(1,32)]
+            [int]$Bitmask,
+        [Parameter(Mandatory=$true)]
+            [ipaddress]$Network
+    )
+
+    if ( $PsCmdlet.ParameterSetName -eq 'cidr') { 
+        $SubnetMask = convertfrom-bitmask -bitmask $BitMask
+    }
+
+    #Check that the network specified is a valid network address
+    if ( -not (( Get-NetworkFromHostAddress -address $network -subnetmask $subnetmask ) -eq $network  )) { 
+        throw "Specified Network address is not valid (Does not lie on subnet boundary)"
+    }
+
+    $Range = New-Object System.Collections.Arraylist
+    $CurrAddressBytes = @( $Network.GetAddressBytes()[0], $Network.GetAddressBytes()[1], $Network.GetAddressBytes()[2], $Network.GetAddressBytes()[3])
+
+    do { 
+
+
+        $CurrAddressBytes[3] += 1
+        if ( $CurrAddressBytes[3] -eq 256 ) {
+            $CurrAddressBytes[3] = 0
+            $CurrAddressBytes[2] += 1
+
+            if ( $CurrAddressBytes[2] -eq 256 ) { 
+                $CurrAddressBytes[2] = 0
+                $CurrAddressBytes[1] + 1
+
+                if ( $CurrAddressBytes[1] -eq 256 ) { 
+                    $CurrAddressBytes[1] = 0
+                    $CurrAddressBytes[0] + 1
+
+                    if ( $CurrAddressBytes[0] -eq 256 ) { 
+                        break
+                    }
+                }
+            }
+        }
+
+        $currentaddress = "$($CurrAddressBytes[0]).$($CurrAddressBytes[1]).$($CurrAddressBytes[2]).$($CurrAddressBytes[3])"
+        $Range.Add($currentaddress) | out-null
+
+    } while ( Test-AddressInNetwork -network $network -subnetmask $subnetmask -address $currentaddress )
+    
+    #remove last and second last (last is above range, second last is broadcast address...  )
+    $range.RemoveAt($range.Count - 1 )
+    $BroadCastAddress = $range[-1]
+    $range.RemoveAt($range.Count - 1 )
+
+    [pscustomobject]@{ 
+        "NetworkAddress" = $network
+        "ValidAddressRange" = $range
+        "Broadcast" = $BroadCastAddress
+    }
+}
+
 function Add-XmlElement {
 
     #Internal function used to simplify the exercise of adding XML text Nodes.
@@ -23203,6 +23412,791 @@ function Get-NsxBackingDVSwitch{
 
     end {}
 
+}
+
+function Copy-NsxEdge{
+
+    <#
+    .SYNOPSIS
+    Creates a new NSX Edge Services Gateway based on the configuration of an
+    existing one.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured 
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    This cmdlet creates a new Nsx Edge Services Gateway based on the 
+    configuration of an existing one.
+
+    There are numerous properties that are not possible to clone, and must be
+    either configured in the call to Copy-NsxEdge (such as interface IPs), or 
+    will need to be manually configured on the new NSX Edge after the fact
+    (such as certificate configuration).
+
+    Note that this operation does not strictly clone the Edge, internal object 
+    identifiers such as NAT and FW rule ids etc. will not be consistent between 
+    source and destination Edges.  This is a limitation imposed by the NSX API. 
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
+    param (
+        
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-Edge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
+        [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
+            [ValidateScript({
+                if ( $_ -eq $null ) { throw "Must specify Cluster."}
+                if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
+                $true
+            })]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [String]$Username="admin",
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [String]$Password,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("compact","large","xlarge","quadlarge",IgnoreCase=$false)]
+            [string]$FormFactor,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.FolderInterop]$VMFolder,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [String]$Tenant,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [String]$Hostname=$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [switch]$EnableSSH,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [switch]$AutoGenerateRules,
+        [Parameter (Mandatory=$false)]
+            [switch]$FwEnabled,
+        [Parameter (Mandatory=$false)]
+            [switch]$FwDefaultPolicyAllow,
+        [Parameter (Mandatory=$false)]
+            [switch]$FwLoggingEnabled,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [switch]$EnableHa,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(6,900)]
+            [int]$HaDeadTime,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(0,9)]
+            [int]$HaVnic,
+        [Parameter (Mandatory=$false)]
+            [switch]$EnableSyslog,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string[]]$SyslogServer,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("udp","tcp",IgnoreCase=$true)]
+            [string]$SyslogProtocol,
+        [Parameter (Mandatory=$false)]
+            [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
+            [System.Xml.XmlElement[]]$Interface,
+        [Parameter (Mandatory=$false)]
+            #Any self signed certificates found on the source edge will be regenerated on the destination edge as new certificates with the fqdn as the cn (all other details duplicated), and services configured to use the regenerated certificate.  Set this to $false to disable autogeneration of certificates (services will have to be manually reconfigured to use a different certificate)
+            [switch]$CertFixUps=$true,
+        [Parameter (Mandatory=$false)]
+            #Any self signed certificates generated on the new edge will have the fqdn as the cn.  Set -SelfSignedCertificateCN to change the CN used (for all Self Signed certificates)
+            [string]$SelfSignedCertificateCN,  
+        [Parameter (Mandatory=$false)]
+            #Any NAT rules found on the source edge that specify any 'local' ip (defined on any interface), will be regenerated on the destination edge with the ip updated to the eqivalent IP on the new edge.  Set this to $false to disable automatic fixups of NAT rules.  Any rules referencing edge local ip addresses will need to be manually updated.
+            [switch]$NatRuleFixups=$true,
+        [Parameter (Mandatory=$false)]
+            #If routerId is defined and matches any 'local' ip (defined on any interface), it will be updated to match the equivalent IP on the new edge.  Set to $false to disable automatic fixup.  RouterID will need to be manually updated in this caes. 
+            [switch]$RouterIdFixup=$true,
+        [Parameter (Mandatory=$false)]
+            #Number of days any regenerated certificates are valid for.  Defaults to 365
+            [int]$CertValidNumberOfDays=365,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection  
+    )
+
+    begin {}
+    process { 
+
+        #Clone the Edge Element so we can modify without barfing up the source object.
+        $_Edge = $Edge.CloneNode($true)
+        [System.XML.XMLDocument]$xmlDoc = $_Edge.OwnerDocument        
+        
+
+        #------------------
+        #Cleanups.  Required to remove internal ids and certain exported config
+        #that is not relevant to the new edge.
+
+        #Remove EdgeSummary...
+        $edgeSummary = $_Edge.SelectSingleNode('descendant::edgeSummary')
+        if ( $edgeSummary ) {
+            $_Edge.RemoveChild($edgeSummary) | out-null
+        }
+
+        #------------------
+        #Naming
+        $_Edge.name = $Name
+        $_Edge.fqdn = $Hostname
+        
+        if ( $PsBoundParameters.ContainsKey('Tenant')) { 
+            $_Edge.tenant = $Tenant 
+        }
+
+        #Appliances element
+        $FirstAppliance = $_Edge.SelectSingleNode("descendant::appliances/appliance") | ? { $_.highAvailabilityIndex -eq "0" }
+        switch ($psCmdlet.ParameterSetName){
+            "Default"  { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Invoked with Default ParameterSet"
+                if ( $FirstAppliance ) { 
+                    $resPoolId = $FirstAppliance.resourcePoolId
+                }
+                if ( -not $resPoolId ) { throw "Unable to determine existing edges resource pool.  Try again and specify appliance resource pool." }
+            }
+            "Cluster"  { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Invoked with Cluster ParameterSet"
+                $ResPoolId = $($cluster | get-resourcepool | ? { $_.parent.id -eq $cluster.id }).extensiondata.moref.value 
+            }
+            "ResourcePool"  { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Invoked with ResourcePool ParameterSet"
+                $ResPoolId = $ResourcePool.extensiondata.moref.value 
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('Datastore')) { 
+            $datastoreId = $datastore.extensiondata.moref.value
+        } 
+        else {
+            $datastoreId = $FirstAppliance.datastoreId
+            if ( -not $datastoreId ) { throw "Unable to determine existing edges resource pool.  Try again and specify appliance resource pool." }            
+        }
+
+        if ( $PsBoundParameters.ContainsKey('VMFolder')) { 
+            $VMFolderId = $VMFolder.extensiondata.moref.value
+        } 
+        else {
+            $VMFolderId = $FirstAppliance.vmFolderId
+            if ( -not $VMFolderId ) { throw "Unable to determine existing edges resource pool.  Try again and specify appliance resource pool." }            
+        }
+      
+
+        #Ditch the old appliances nodes completely and rebuild.
+        [system.xml.xmlElement]$xmlAppliances = $_Edge.SelectSingleNode("descendant::appliances")
+        $oldAppliancesNodes = $xmlAppliances.SelectNodes("child::appliance")
+        foreach ( $node in $oldAppliancesNodes) {
+    
+            write-debug "$($MyInvocation.MyCommand.Name) : Removing appliance node from Edge XML with moref $($node.vmId)"        
+            $null = $xmlAppliances.RemoveChild($node)
+        }
+
+        
+        #If user has overridden appliance size...
+        if ( $PsBoundParameters.ContainsKey("Formfactor")) { 
+            write-debug "$($MyInvocation.MyCommand.Name) : Setting formfactor to $formfactor"                    
+            $xmlAppliances.applianceSize = $FormFactor
+        }
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Creating new primary appliance node with ResourcePool moref: $ResPoolId, Datastore moref: $datastoreid, Folder moref: $VMFolderId."        
+
+        [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
+        $xmlAppliances.appendChild($xmlAppliance) | out-null
+        Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
+        Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $datastoreId
+        Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VmFolderId
+
+        #Kill the version props on edge and all features
+        $VersionNodes = $_Edge.SelectNodes("descendant::version") 
+        foreach ($node in $VersionNodes) {
+            $null = $node.ParentNode.RemoveChild($Node)
+        }
+
+        #Kill any NAT Rule IDs/Tags (must be regenerated by API)
+        [System.Xml.XmlNodeList]$NATRuleIds = $_Edge.SelectNodes("child::features/nat/natRules/natRule/ruleId")
+        foreach ($node in $NATRuleIds) {
+            $null = $node.ParentNode.RemoveChild($Node)
+        }
+        [System.Xml.XmlNodeList]$NATRuleTags = $_Edge.SelectNodes("child::features/nat/natRules/natRule/ruleTag")
+        foreach ($node in $NATRuleTags) {
+            $null = $node.ParentNode.RemoveChild($Node)
+        }
+
+        #check for bgp neighbour credentials (cant be retrieved using API)
+        [System.Xml.XmlNodeList]$peerPasswords = $_Edge.SelectNodes("child::features/routing/bgp/bgpNeighbours/bgpNeighbour/password")
+        foreach ($node in $peerPasswords) { 
+            write-warning "BGP peer password defined for peer $($node.ParentNode.ipAddress).  Password will be cleared on duplicated edge and must be manually reconfigured."
+            $null = $node.ParentNode.RemoveChild($node)
+        }
+
+        #Check if IPSec is enabled - if so, warn about the removal of the global PSK
+        if ( $_Edge.features.ipsec.enabled -eq 'true') { 
+            write-warning "The IPSec feature is enabled.  The global and any site specific Pre Shared Keys will be set to a random value on the duplicated edge and must be manually reconfigured."
+        }
+        [System.Xml.XmlNodeList]$pskNodes = $_Edge.features.ipsec.selectNodes("descendant::psk")
+        foreach ($node in $pskNodes) { 
+
+            #just invent a random 8 char (lower/upper/int) string and set the PSK to it.
+            $randomString = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
+            $node."#text" = $randomString
+            Write-Warning "IPSec PSK for site $($node.ParentNode.tostring()) set to $randomString.  Please update manually as required."
+        }
+
+        #Check for self signed certificates.
+        #For the moment, the idea is that SS certs will be regenerated on the destination appliance, and services that use them reconfigured appropriately.  The fqdn is used as the cert CN, unless overridden.  Certs cannot be actually created until the edge is deployed, so we have to wait until later to generate them and update services... Any external certs (or if the user disables the SS cert regeneration) that cause services to have an invalid config will result in warning, but we will still attempt to provision the edge (dont know yet if invalid certs in config cause edge API to throw, but initial testing indicates it doesnt...  Will rethink if this proves inaccurate...)
+        $SSCertificates = @()
+        $Certificates = $edge | Get-NsxEdgeCertificate -connection $Connection
+        foreach ( $cert in $Certificates ) { 
+            if ( $cert.certificateType -eq 'certificate_self_signed') { 
+                if ( $CertFixUps ) { 
+                    write-warning "Found self signed certificate $($cert.name) on source edge.  Certificate will be regenerated on duplicated edge." 
+                    #Store the certificate for later use once the edge is created with the replacement certificate.
+                    $SSCertificates += $cert
+                }
+                else { 
+                    write-warning "Found self signed certificate $($cert.name) on source edge.  Any service using this certificate will have an invalid configuration on the duplicated edge and must be manually corrected." 
+                }
+            }
+            else { 
+                write-warning "Found certificate $($cert.name) on source edge which is signed by an external CA.  This certificate cannot be exported and must be manually reimported/generated on the destination edge.  Any service using this certificate will have an invalid configuration on the duplicated edge and must be manually corrected." 
+            }
+        }
+       
+        #Get the features element.
+        [System.XML.XMLElement]$xmlFeatures = $_Edge.SelectSingleNode("child::features")
+
+        if ( $EnableHA -or ( $_Edge.features.highAvailability.enabled -eq "true" )) {
+            
+            #Generate the HA Appliance node if user enabled HA, or if the source edge had it enabled.
+            #If user specced HADatastore then use that val rather than val of source edge...
+            If ( $PSBoundParameters.ContainsKey("HAdatastore")) { 
+                $HADatastoreId = $HAdatastore.extensiondata.moref.value
+            }
+            #Else if the source edge has a HA appliance, use that appliances datastore
+            elseif ( $xmlAppliances.SelectSingleNode("appliance[highAvailabilityIndex=1]") ) { 
+                $HADatastoreId = $xmlAppliances.SelectSingleNode("appliance[highAvailabilityIndex=1]").datastoreId
+            }
+            #Else, use the first appliances datastore
+            else { 
+                $HAdatastoreId = $datastoreId
+            }
+
+            write-debug "$($MyInvocation.MyCommand.Name) : Source edge is HA or user requested HA.  Generating secondary appliance node with Datastore moref: $HAdatastoreId "
+
+            #Define the HA appliance node
+            [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
+            $null = $xmlAppliances.appendChild($xmlAppliance)
+            Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
+            Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $HAdatastoreid
+            Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VMFolderid
+            
+            #configure HA if not already enabled.  HaDeadtime node exists even on non HA edges...
+            $_Edge.features.highAvailability.enabled = "true"
+
+            if ( $PsBoundParameters.containsKey('HaDeadTime')) { 
+                $_Edge.features.highAvailability.declareDeadTime = $HaDeadTime.ToString()
+            }    
+
+            #Node is not guaranteed to exist, have to test first.  Love the consistency
+            if ( $PsBoundParameters.containsKey('HaVnic')) { 
+                if ( $_Edge.SelectSingleNode("features/highAvailability/vnic"))  {
+                    $_Edge.features.highAvailability.vnic = $HAvnic.ToString()
+                }
+                else { 
+                    Add-XmlElement -xmlRoot $_Edge.features.highAvailability -xmlElementName "vnic" -xmlElementText $HaVnic.ToString()
+                }
+            }    
+        }
+
+        #Configure the syslog element
+        if ( $PSBoundParameters.ContainsKey("EnableSyslog")) {
+
+            write-debug "$($MyInvocation.MyCommand.Name) : Enabling Syslog"
+            $_Edge.features.syslog.enabled = $EnableSyslog.ToString().ToLower()
+        }
+        
+        if ( $PsBoundParameters.containsKey('SyslogProtocol')) { 
+
+            write-debug "$($MyInvocation.MyCommand.Name) : Configuring Syslog Protocol"            
+            $_Edge.features.syslog.protocol = $SyslogProtocol.ToString()
+        }
+
+        #If user specified syslog server address, then we have to kill any existing config.
+        if ( $PsBoundParameters.containsKey('SyslogServer')) { 
+            $ExistingSyslogServerAddress = $_Edge.features.syslog.SelectSingleNode("serverAddresses")
+            if ( $ExistingSyslogServerAddress )  { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Removing Existing Syslog servers (overidden by user)"
+                $_Edge.features.syslog.RemoveChild($ExistingSyslogServerAddress)
+            }
+
+            [System.XML.XMLElement]$xmlServerAddresses = $XMLDoc.CreateElement("serverAddresses")
+            $_Edge.features.syslog.appendChild($xmlServerAddresses) | out-null
+            foreach ( $server in $SyslogServer ) { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Adding syslog server element for $server"
+                Add-XmlElement -xmlRoot $xmlServerAddresses -xmlElementName "ipAddress" -xmlElementText $server.ToString()
+            }
+        }
+
+        #Enable/Disable FW 
+        if ( $PSBoundParameters.ContainsKey("FwEnabled")) { 
+            write-debug "$($MyInvocation.MyCommand.Name) : Setting Firewall to $FwEnabled"            
+            $_Edge.features.firewall.enabled = $FwEnabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("FwLoggingEnabled")) { 
+            write-debug "$($MyInvocation.MyCommand.Name) : Setting Firewall Logging to $FwLoggingEnabled"                        
+            $_Edge.features.firewall.loggingEnabled = $FwLoggingEnabled.ToString().ToLower()
+        }
+
+        #Override fw default policy if user specifies...
+        if ( $PsBoundParameters.ContainsKey("FwDefaultPolicyAllow")) { 
+            if ( $FwDefaultPolicyAllow ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : Setting default firewall policy to accept"            
+                $_Edge.features.firewwall.defaultPolicy.action = "accept"
+            } 
+            else {
+                write-debug "$($MyInvocation.MyCommand.Name) : Setting default firewall policy to deny"                            
+                $_Edge.features.firewwall.defaultPolicy.action = "deny"
+            }            
+        }
+
+        #Override Rule Autoconfiguration if user specifies
+        if ( $PsBoundParameters.ContainsKey("AutoGenerateRules")) { 
+            if ( $AutoGenerateRules ) { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Configuring rule autoconfiguration as $AutoGenerateRules"
+                $_Edge.autoConfiguration.enabled = $AutoGenerateRules.ToString().ToLower()
+            }
+        }
+        #Credential Settings
+        $_Edge.cliSettings.userName = $UserName
+        Add-XmlElement -xmlRoot $_Edge.cliSettings -xmlElementName "password" -xmlElementText $Password 
+
+        if ( $PsBoundParameters.ContainsKey('EnableSSH') ) { 
+            write-debug "$($MyInvocation.MyCommand.Name) : Configuring SSH to be $EnableSssh"
+            $_Edge.cliSettings.remoteAccess = $EnableSsh.ToString().ToLower() 
+        }
+
+        #DNS Settings
+        if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') -or $PSBoundParameters.ContainsKey('SecondaryDNSServer') -or $PSBoundParameters.ContainsKey('DNSDomainName') ) {
+
+            if ( -not $_Edge.SelectSingleNode("child::dnsClient")) { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Generating dnsClient element"
+                [System.XML.XMLElement]$xmlDnsClient = $XMLDoc.CreateElement("dnsClient")
+                $null = $_Edge.appendChild($xmlDnsClient)
+            }
+
+            if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') ) { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Setting Primary DNS to $PrimaryDnsServer"
+                if ( -not $_Edge.dnsClient.SelectSingleNode("primaryDNS")) { 
+                    Add-XmlElement -xmlRoot $_Edge.dnsClient -xmlElementName "primaryDns" -xmlElementText $PrimaryDnsServer 
+                }
+                else { 
+                    $_Edge.dnsClient.primaryDNS = $PrimaryDnsServer
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer') ) { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Setting Secondary DNS to $SecondaryDnsServer"
+                if ( -not $_Edge.dnsClient.SelectSingleNode("secondaryDNS")) {
+                    Add-XmlElement -xmlRoot $_Edge.dnsClient -xmlElementName "secondaryDNS" -xmlElementText $SecondaryDNSServer 
+                }
+                else { 
+                    $_Edge.dnsClient.secondaryDNS = $SecondaryDNSServer
+                }
+            }
+
+            if ( $PsBoundParameters.ContainsKey('DNSDomainName') ) { 
+                write-debug "$($MyInvocation.MyCommand.Name) : Setting DNS domain name to $DNSDomainName"
+                if ( -not $_Edge.dnsClient.SelectSingleNode("domainName")) { 
+                    Add-XmlElement -xmlRoot $_Edge.dnsClient -xmlElementName "domainName" -xmlElementText $DNSDomainName 
+                }
+                else { 
+                    $_Edge.dnsClient.domainName = $DNSDomainName
+                }
+            }
+        }
+
+        #Nics...These are either:
+        #   a) Specified as Interface Spec as per normal edge creation (for scripting)
+        #   b) Taken from source Edge, and primary/secondary address prompted for.
+        
+        #Setup hashtable to store source/dest replacement IPs.
+        $updatedIps = @{}
+        
+        #Get all existing IPs on the source edge so we check for conflicts.  Much easier with strict off...
+        Set-StrictMode -Off
+        $AllExistingAddresses = $_Edge.vnics.vnic.addressGroups.addressGroup.primaryAddress + $_Edge.vnics.vnic.addressGroups.addressGroup.secondaryAddresses.ipAddress
+        Set-StrictMode -Version latest
+
+        foreach ( $Vnic in $_Edge.vnics.vnic ) {
+
+            write-debug "$($MyInvocation.MyCommand.Name) : Processing VNIC $($Vnic.name)"
+
+            #First check if user has specified any interface specs:
+            $UserVnic = $false
+            if ( $PsBoundParameters.ContainsKey("Interface")) { 
+                
+                #have they specified one for this specific vnic?
+                $UserVnic = $Interface | ? { $_.index -eq $Vnic.Index }
+                If ( $UserVnic ) { 
+
+                    #If so, we have to validate to ensure its valid.
+                    [System.Array]$UserVnicAddressGroups = $UserVnic.Addressgroups.AddressGroup
+                    [System.Array]$VnicAddressGroups = $Vnic.Addressgroups.AddressGroup
+
+                    #Check the right number of addressgroups.  If different number, we cant guarantee that we can modify any service configuration for new listener addresses, or that the default route is still valid. 
+                    if ( $UserVnicAddressGroups.count -ne  $VnicAddressGroups.count ) { 
+                        Throw "Source Vnic '$($vnic.Name)' has different number of addressgroups ($($VnicAddressGroups.count)) to specified Vnic '$($UserVnic.Name)' ($($UserVnicAddressGroups.count)) "
+                    }
+
+                    for ( $i=0; ($i -le ($VnicAddressGroups.count -1)); $i++ ) {
+                        write-debug "$($MyInvocation.MyCommand.Name) : Validating AddressGroup $i specified for Vnic $($vnic.name)"
+                        $addressGroup = $VnicAddressGroups[$i]
+                        $ExistingPrimaryAddress = $addressGroup.primaryAddress
+                        $AddressGroupNetMask = $addressGroup.subnetMask
+                        $AddressGroupNetwork = Get-NetworkFromHostAddress -Address $ExistingPrimaryAddress -SubnetMask $addressGroupNetmask
+
+                        $NewPrimaryAddress = $UserVnicAddressGroups[$i].PrimaryAddress
+                        $NewAddressGroupNetMask = ConvertFrom-Bitmask -bitmask ($UserVnicAddressGroups[$i].subnetPrefixLength)
+                        
+                        write-debug "$($MyInvocation.MyCommand.Name) : Existing Primary Address: $ExistingPrimaryAddress, AddressGroup Mask: $AddressGroupNetMask, AddressGroup Network: $AddressGroupNetwork, New Primary Address: $newPrimaryAddress, New AddressGroup NetMask: $NewAddressGroupNetMask"
+
+                        if ( ( -not (Test-AddressInNetwork -Network $AddressGroupNetwork -SubnetMask $AddressGroupNetMask -Address $NewPrimaryAddress)) -or ($AllExistingAddresses.contains($NewPrimaryAddress)) -or ($updatedIps.containsvalue($NewPrimaryAddress)) -or ( $NewAddressGroupNetMask -ne $AddressGroupNetMask ) -or (( -not ( [ipaddress]::TryParse($NewPrimaryAddress, [ref][ipaddress]$null))))) { 
+                            Throw "New Vnic '$($UserVnic.Name)', addressgroup $i Primary address ($NewPrimaryAddress/$NewAddressGroupNetMask) is not valid, not in same subnet as the original address, has different netmask, or conflicts with an interface address on the source edge."
+                        }
+
+                        #IP is valid, add it to the updated ips hash
+                        $updatedIps.Add($ExistingPrimaryAddress, $NewPrimaryAddress)
+                    
+                        #Check secondary addresses
+                        if ( $addressGroup.SelectSingleNode("secondaryAddresses")) { 
+                            #If we have them, check they are the right number.
+                            [System.Array]$VnicSecondaryAddresses = $addressGroup.secondaryAddresses.ipAddress
+                            [System.Array]$UserVnicSecondaryAddresses = $UserVnicAddressGroups[$i].secondaryAddresses.ipAddress
+
+                            #Check the right number of secondary addresses.  If different number, we cant guarantee that we can modify any service configuration for new listener addresses, or that the default route is still valid. 
+                            if ( $UserVnicSecondaryAddresses.count -ne  $VnicSecondaryAddresses.count ) { 
+                                Throw "Source Vnic '$($vnic.Name)', addressgroup $i has different number of secondary addresses ($($VnicSecondaryAddresses.count) to specified Vnic '$($UserVnic.Name)', addressgroup $i ($($UserVnicSecondaryAddresses.count)) "
+                            }
+                            
+                            for ($j=0; ($j -le ($VnicSecondaryAddresses.Count -1)); $j++) { 
+                                $ExistingSecondaryAddress = $VnicSecondaryAddresses[$j]
+                                $NewSecondaryAddress = $UserVnicSecondaryAddresses[$j]
+                                
+                                while ( ( -not (Test-AddressInNetwork -Network $AddressGroupNetwork -SubnetMask $AddressGroupNetMask -Address $NewSecondaryAddress)) -or ($AllExistingAddresses.contains($NewSecondaryAddress)) -or ($updatedIps.containsvalue($NewSecondaryAddress)) -or ( -not ( [ipaddress]::TryParse($NewSecondaryAddress, [ref][ipaddress]$null)))) { 
+                                    Throw "New Vnic '$($UserVnic.Name)', addressgroup $i secondary address ($NewSecondaryAddress) is not valid, not in same subnet as the original address, or conflicts with an interface address on the source edge."
+                                }
+                                                            
+                                #Keep source/dest ip replacement, so that we can reconfigure services listening on them  to use new address...
+                                $updatedIps.Add($ExistingsecondaryAddress, $NewSecondaryAddress)
+
+                                #No need to 'update' anything.  We just have to do validation in this loop, and track the whole egde old to new ip mapping.  Assuming we validate, we simply replace $addressgroup.secondaryAddresses.ipaddress 
+                            }
+                           
+                            #Have to do this and first with selectsingle node otherwise PoSH can return a string object if we reference after we remove all child nodes.  This ensures we get an XmlElement back
+                            [system.xml.xmlelement]$SecondaryAddressesXml = $addressgroup.selectSingleNode("child::secondaryAddresses")
+
+                            #secondary addresses are valid.  Replace the array in the addressgroup xml        
+                            $addressGroup.secondaryAddresses.RemoveAll()
+                            foreach ( $address in  $UserVnicAddressGroups[$i].secondaryAddresses.ipAddress ) {
+                                Add-XmlElement -xmlRoot $SecondaryAddressesXml -xmlElementName "ipAddress" -xmlElementText $address
+                            }
+                        }
+                    }
+
+                    write-debug "$($MyInvocation.MyCommand.Name) : User defined vnic spec for this vnic has been specified by user.  Importing spec."                                       
+                    $null = $_Edge.vnics.RemoveChild($vnic)
+                    $import = $xmlDoc.ImportNode(($UserVnic), $true)
+                    $null = $_Edge.vnics.AppendChild($import)
+                }
+            }
+            if ( -not $userVnic ) {
+                #User has not specified interface information on the command line.
+                if ( $Vnic.SelectSingleNode("addressGroups/addressGroup")) {
+
+                    #Only process if there is already addressing information...
+                    write-debug "$($MyInvocation.MyCommand.Name) : No user defined vnic spec for this vnic has been specified. Prompting user for details"
+                    foreach ( $addressGroup in $Vnic.addressGroups.addressGroup ) {
+                        $removedAddressGroup = $False 
+                        if ( $addressGroup.SelectSingleNode("primaryAddress")) { 
+                            $ExistingPrimaryAddress = $addressGroup.primaryAddress
+                            $AddressGroupNetMask = $addressGroup.subnetMask
+                            $AddressGroupNetwork = Get-NetworkFromHostAddress -Address $ExistingPrimaryAddress -SubnetMask $addressGroupNetMask
+
+                            write-debug "$($MyInvocation.MyCommand.Name) : Existing Primary Address: $ExistingPrimaryAddress, AddressGroup Mask: $AddressGroupNetMask, AddressGroup Network: $AddressGroupNetwork"
+                            $NewPrimaryAddress = Read-Host -Prompt "Enter new primary address for source edge addressgroup with existing IP $($addressGroup.PrimaryAddress) on vnic $($vnic.index)"
+                            
+                            while ( ( -not (Test-AddressInNetwork -Network $AddressGroupNetwork -SubnetMask $AddressGroupNetMask -Address $NewPrimaryAddress)) -or ($AllExistingAddresses.contains($NewPrimaryAddress)) -or ($updatedIps.containsvalue($NewPrimaryAddress)) -or ( -not ( [ipaddress]::TryParse($NewPrimaryAddress, [ref][ipaddress]$null)))) { 
+                                write-warning "New Primary address is not valid, not in same subnet as the original address, or conflicts with an interface address on the source edge."
+                                $NewPrimaryAddress = Read-Host -Prompt "Enter new primary address for source edge addressgroup with existing IP $($addressGroup.PrimaryAddress) on vnic $($vnic.index)"                        
+                            }
+                            
+                            #Keep source/dest ip replacement, so that we can reconfigure services listening on them  to use new address...
+                            $updatedIps.Add($ExistingPrimaryAddress, $NewPrimaryAddress)
+                            
+                            #Update element...
+                            $addressGroup.PrimaryAddress = $newPrimaryAddress.ToString()
+
+                        }
+                        if ( $addressGroup.SelectSingleNode("secondaryAddresses")) { 
+
+                            $NewSecondaryAddresses = @()
+                            #Have to iterate through a node collection here, so if the user 'blanks' the secondary ip, we have a node (not a string) to remove...
+                            foreach ($secondaryAddress in $addressGroup.secondaryAddresses.selectNodes('*')) { 
+
+                                $NewSecondaryAddress = Read-Host -Prompt "Enter new secondary address for source edge addressgroup with existing secondary IP $($secondaryAddress."#text") on vnic $($vnic.index)"
+                                write-debug "$($MyInvocation.MyCommand.Name) : Existing Secondary Address: $secondaryAddress, AddressGroup Mask: $AddressGroupNetMask, AddressGroup Network: $AddressGroupNetwork"
+                                
+                                while ( ( -not (Test-AddressInNetwork -Network $AddressGroupNetwork -SubnetMask $AddressGroupNetMask -Address $NewSecondaryAddress)) -or ($AllExistingAddresses.contains($NewSecondaryAddress))  -or ($updatedIps.containsvalue($NewSecondaryAddress)) -or ( -not ( [ipaddress]::TryParse($NewSecondaryAddress, [ref][ipaddress]$null)))) { 
+                                    write-warning "New Secondary address is not valid, not in same subnet as the original address, or conflicts with an interface address on the source edge."
+                                    $NewSecondaryAddress = Read-Host -Prompt "Enter new secondary address for source edge addressgroup with existing secondary IP $($secondaryAddress."#text") on vnic $($vnic.index)"
+                                }
+                            
+                                #Keep source/dest ip replacement, so that we can reconfigure services listening on them  to use new address...
+                                $updatedIps.Add($secondaryAddress."#text" , $NewSecondaryAddress)
+
+                                #Collect the validated ip in an array
+                                $NewSecondaryAddresses += $NewSecondaryAddress
+                            }
+
+                            #Have to do this and first with selectsingle node otherwise PoSH can return a string object if we reference after we remove all child nodes.  This ensures we get an XmlElement back
+                            [system.xml.xmlelement]$SecondaryAddressesXml = $addressgroup.selectSingleNode("child::secondaryAddresses")
+
+                            #secondary addresses are valid.  Replace the array in the addressgroup xml
+                            $addressGroup.secondaryAddresses.RemoveAll()
+                            foreach ( $address in  $NewSecondaryAddresses ) {
+                                Add-XmlElement -xmlRoot $SecondaryAddressesXml -xmlElementName "ipAddress" -xmlElementText $address
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        #Update any listening services that bind to IPs that have been replaced...
+        #Ipsec...
+        [System.Xml.XmlNodeList]$ipsecSiteNodes = $_Edge.SelectNodes("descendant::features/ipsec/sites/site")
+        foreach ( $node in $ipsecSiteNodes ) {
+            
+            if ( -not $updatedIps.Contains($node.localIp )) { 
+                throw "Unable to determine new Local Ip Address for IPSec site $($node.name).  This should not happen."
+            }
+            else {
+                write-warning "Updating listener address for IpSec service $($node.name).  Previous Address : $($node.localIp), Updated Address $($updatedIps.item($($node.localIp)))"
+                #Update the ipsec listener with the IP that replaced the original listen ip
+                $node.localIp = $updatedIps.($node.localIp).ToString()
+            }
+        }
+
+        #LB
+        [System.Xml.XmlNodeList]$LBVips = $_Edge.SelectNodes("descendant::features/loadBalancer/virtualServer")
+        foreach ( $node in $LBVips ) {
+            
+            if ( -not $updatedIps.Contains($node.ipAddress )) { 
+                throw "Unable to determine new Local Ip Address for LoadBalancer VIP $($node.name) with ip address $($node.ipAddress).  This should not happen."
+            }
+            else {
+                write-warning "Updating listener address for LoadBalancer VIP $($node.name).  Previous Address : $($node.ipAddress), Updated Address $($updatedIps.item($($node.ipAddress)))"            
+                #Update the LB listener with the IP that replaced the original listen ip
+                $node.ipAddress = $updatedIps.item($node.ipAddress).ToString()
+            }
+        }
+
+        #SSLVPN
+        [System.Xml.XmlElement]$SSLVpnListeners = $_Edge.SelectSingleNode("descendant::features/sslvpnConfig/serverSettings/serverAddresses")
+        if ( $SSLVpnListeners ) { 
+
+                #Not sure if the API will allow and empty serverAddresses element, but just in case.. testing for it here.
+                if ( $SSLVpnListeners.SelectNodes("child::ipAddress") ) {  
+                foreach ( $node in $SSLVpnListeners ) {
+                    
+                    if ( -not $updatedIps.Contains($node.ipAddress )) { 
+                        throw "Unable to determine new listener address for SSL VPN Server with existing ip address $($node.ipAddress).  This should not happen."
+                    }
+                    else {
+                        write-warning "Updating listener address for SSL VPN Server .  Previous Address : $($node.ipAddress), Updated Address $($updatedIps.item($($node.ipAddress)))"                    
+                        #Update the LB listener with the IP that replaced the original listen ip
+                        $node.ipAddress = $updatedIps.item($node.ipAddress).ToString()
+                    }
+                }
+            }
+        }
+
+        #RouterId Fixup.
+        If ( $RouterIdFixup ) {
+            [System.Xml.XmlElement]$RoutingConfig = $_Edge.SelectSingleNode("descendant::features/routing/routingGlobalConfig")
+            if ( $RoutingConfig.SelectSingleNode("child::routerId")) {
+                #RouterId is defined.  Update it.
+                if ( -not $updatedIps.Contains($RoutingConfig.routerId )) { 
+                    write-warning "Unable to update Router Id as existing ID does not belong to any interface address of the original edge. RouterId for the new edge will need to be manually updated."
+                }
+                else {
+                    write-warning "Updating Router ID.  Previous ID : $($RoutingConfig.routerId), Updated ID : $($updatedIps.item($($RoutingConfig.routerId)))"            
+                    #Update the LB listener with the IP that replaced the original listen ip
+                    $RoutingConfig.routerId = $($updatedIps.item($($RoutingConfig.routerId))).ToString()
+                }
+            }
+        }
+
+        #NatFixups
+        If ( $NatRuleFixups ) {
+            $UserRules = $_Edge.selectnodes("descendant::features/nat/natRules/natRule[ruleType=`'user`']")
+            if ( $UserRules ) {
+                #There are User defined NAT rules on the Edge. 
+                foreach ( $Rule in $UserRules ) { 
+                    if ( $updatedIps.Contains($Rule.originalAddress )) { 
+                        
+                        write-warning "Updating user defined NAT Rule with source edge interface address found as original address. Previous Address : $($Rule.originalAddress), Updated ID : $($($updatedIps.item($($Rule.originalAddress))))"            
+                        #Update the LB listener with the IP that replaced the original listen ip
+                        $Rule.originalAddress = $($updatedIps.item($($Rule.originalAddress))).ToString()
+                    }
+                    if ( $updatedIps.Contains($Rule.translatedAddress )) { 
+                        
+                        write-warning "Updating user defined NAT Rule with source edge interface address found as translated address. Previous Address : $($Rule.translatedAddress), Updated ID : $($($updatedIps.item($($Rule.translatedAddress))))"            
+                        #Update the LB listener with the IP that replaced the original listen ip
+                        $Rule.translatedAddress = $($updatedIps.item($($Rule.translatedAddress))).ToString()
+                    }
+                }   
+            }
+        }
+
+        # #Do the post
+        write-debug "$($MyInvocation.MyCommand.Name) : Performing initial creation post of new Edge XML to NSX API"
+        
+        $body = $_Edge.OuterXml
+        $URI = "/api/4.0/edges"
+        Write-Progress -activity "Creating Edge Services Gateway $Name"    
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Creating Edge Services Gateway $Name" -completed
+        $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)] 
+        $NewEdge = Get-NsxEdge -objectID $edgeId -connection $connection
+        
+        write-debug "$($MyInvocation.MyCommand.Name) : Created Edge $edgeid"
+        
+        #Now we have any post deployment fixup.  Things like certificates and local object creation have to be done after the edge is created.   
+        #Clone the NewEdge Element so we can modify without barfing up the original object (we need it for new-csr...).
+        $_NewEdge = $NewEdge.CloneNode($true)
+
+        #And Remove EdgeSummary from newedge XML...
+        $edgeSummary = $_NewEdge.SelectSingleNode('descendant::edgeSummary')
+        if ( $edgeSummary ) {
+            $null = $_NewEdge.RemoveChild($edgeSummary)
+        }
+
+        if ( $CertFixUps ) {
+            #Check for any certificates that need to be created on the new edge.
+            if (($SSCertificates.count -ge 1 ) -and ( $CertFixUps ) ) {
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Self signed Certificates found on source Edge.  Re-generating them."
+                
+                #Need an appropriate CN - either fqdn or user defined.  Defaults to hostname.
+                if ( $SelfSignedCertificateCN ) { 
+                    $CertCN = $SelfSignedCertificateCN
+                } 
+                else {
+                    $CertCN = $HostName
+                }
+                
+                #Hashtable to store old to new mapping of cert ids.
+                $UpdatedSSCerts = @{}
+                foreach ( $cert in $SSCertificates ) {
+                    #Recreate SS Certs on destination edge.
+                    $subject = $cert.x509Certificate.subject -split ","
+                    $org = ($subject | ? { $_ -match 'O='}) -replace '^O=','' 
+                    $ou = ($subject | ? { $_ -match 'OU='}) -replace '^OU=','' 
+                    $c = ($subject | ? { $_ -match 'C='}) -replace '^C=','' 
+                    if ( $cert.selectsinglenode("child::description") ) { 
+                        $desc = $cert.description
+                    }
+                    else { 
+                        $desc = "PowerNSX Regenerated Self Signed certificate"
+                    }
+
+                    write-warning "Creating cert on new edge with CN : $CertCN, C : $c, O : $org, OU : $ou, Keysize : $($cert.x509Certificate.publicKeyLength), Algo : $($cert.x509Certificate.publicKeyAlgo), Desc : $desc, Name : $CertCN"
+                    
+                    $NewCSR = $NewEdge | New-NsxEdgeCsr -CommonName $CertCN -Country $c -Organisation $org -OrganisationalUnit $ou -Keysize $cert.x509Certificate.publicKeyLength -Algorithm $cert.x509Certificate.publicKeyAlgo -Description $desc -Name $CertCN -Connection $Connection
+                    $NewCert = $NewCSR | New-NsxEdgeSelfSignedCertificate -NumberOfDays $CertValidNumberOfDays -Connection $Connection
+                    $UpdatedSSCerts.add($cert.objectId, $newCert.objectId)
+                    write-debug "$($MyInvocation.MyCommand.Name) : Add cert mapping - Old Cert : $($cert.objectId), New Cert : $($newCert.objectId)"
+                    
+                }
+
+                #Fixup cert references in IPSec VPN...
+                if ( $_NewEdge.features.ipsec.global.SelectSingleNode("child::serviceCertificate") ) { 
+                    if ( $UpdatedSSCerts.item($_NewEdge.features.ipsec.global.serviceCertificate) ) { 
+                        write-warning "Fixing up cert for IpSec listener : Old Cert : $($_NewEdge.features.ipsec.global.serviceCertificate), New Cert : $($UpdatedSSCerts.item($_NewEdge.features.ipsec.global.serviceCertificate))"                                    
+                        $_NewEdge.features.ipsec.global.serviceCertificate = $UpdatedSSCerts.item($_NewEdge.features.ipsec.global.serviceCertificate)
+                    }
+                    else { 
+                        write-warning "Unable to configure valid cert for IPSec VPN Server with current invalid cert $($_NewEdge.features.ipsec.global.serviceCertificate).  This may be due to the use of an externally signed certificate on the source Edge.  The service will have to be manually updated." 
+                    }
+                }
+
+                #LB cert Fixup
+                $appProfileCerts = $_NewEdge.features.loadBalancer.applicationProfile.SelectNodes("descendant::serviceCertificate") 
+                foreach ( $cert in $appProfileCerts ) { 
+                    $AppProfile = $cert.ParentNode.ParentNode.name
+                    if ( $cert.ParentNode.ToString() -eq 'clientSsl' ) {
+                        $certType = "Virtual Server Certificate"
+                    }
+                    else {
+                        $certType = "Pool Certificate"
+                    }
+                    if ( $UpdatedSSCerts.item($cert."#text") ) { 
+                        write-warning "Fixing up cert for Load Balancer application profile $AppProfile $certType : Old Cert : $($cert."#text"), New Cert : $($UpdatedSSCerts.item($cert."#text"))"                
+                        $cert."#text" = $UpdatedSSCerts.item($cert."#text")
+                    }
+                    else { 
+                        write-warning "Unable to configure valid cert for Load Balancer Application Profile $AppProfile $certType with current invalid cert $($cert."#text").  This may be due to the use of an externally signed certificate on the source Edge.  The application Profile will have to be manually updated."                     
+                    }
+                }
+
+                #SSLVPN cert Fixup
+                if ( $_NewEdge.features.sslvpnConfig.serverSettings.SelectSingleNode("child::certificateId") ) {
+                    if ( $UpdatedSSCerts.item($_NewEdge.features.sslvpnConfig.serverSettings.certificateId) ) { 
+                        write-warning "Fixing up cert for SSLVPN server : Old Cert : $($_NewEdge.features.sslvpnConfig.serverSettings.certificateId), New Cert : $($UpdatedSSCerts.item($_NewEdge.features.sslvpnConfig.serverSettings.certificateId))"
+                        $_NewEdge.features.sslvpnConfig.serverSettings.certificateId = $UpdatedSSCerts.item($_NewEdge.features.sslvpnConfig.serverSettings.certificateId)
+                    }
+                    else { 
+                        write-warning "Unable to configure valid cert for SSL VPN Server with current invalid cert $($_NewEdge.features.sslvpnConfig.serverSettings.certificateId).  This may be due to the use of an externally signed certificate on the source Edge.  The service will have to be manually updated." 
+                    }
+                }
+            }
+        }
+
+        #final update of edge config including cert fixups etc.
+        $body = $_NewEdge.OuterXml
+        $URI = "/api/4.0/edges/$edgeid"
+        Write-Progress -activity "Updating Edge Services Gateway $Name"    
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        Write-progress -activity "Updating Edge Services Gateway $Name" -completed
+        
+        #Get final updated Edge object and return to user.
+        Get-NsxEdge -objectID $edgeId -connection $connection
+
+    }
+    end {}
 }
 
 
