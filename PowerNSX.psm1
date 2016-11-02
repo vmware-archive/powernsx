@@ -23528,8 +23528,14 @@ function Copy-NsxEdge{
             #Any NAT rules found on the source edge that specify any 'local' ip (defined on any interface), will be regenerated on the destination edge with the ip updated to the eqivalent IP on the new edge.  Set this to $false to disable automatic fixups of NAT rules.  Any rules referencing edge local ip addresses will need to be manually updated.
             [switch]$NatRuleFixups=$true,
         [Parameter (Mandatory=$false)]
-            #If routerId is defined and matches any 'local' ip (defined on any interface), it will be updated to match the equivalent IP on the new edge.  Set to $false to disable automatic fixup.  RouterID will need to be manually updated in this caes. 
+            #If routerId is defined and matches any 'local' ip (defined on any interface), it will be updated to match the equivalent IP on the new edge.  Set to $false to disable automatic fixup.  RouterID will need to be manually updated in this case. 
             [switch]$RouterIdFixup=$true,
+        [Parameter (Mandatory=$false)]
+            #Any user defined local firewall rules with locally scoped objects (ipsets, services, servicegroups) referenced will be updated to match the equivalent object on the new edge.  Set to $false to disable automatic fixup.  User defined firewall rules will not be duplicated and will need to be manually recreated in this case. 
+            [switch]$FirewallFixups=$true,
+        [Parameter (Mandatory=$false)]
+            #Any locally scoped objects (ipsets, services, servicegroups and servicegroup membership) defined within the edges local scope will be recreated on the new edge. This is required for FirewallFixups.
+            [switch]$LocalObjectFixups=$true,
         [Parameter (Mandatory=$false)]
             #Number of days any regenerated certificates are valid for.  Defaults to 365
             [int]$CertValidNumberOfDays=365,
@@ -23548,8 +23554,8 @@ function Copy-NsxEdge{
         
 
         #------------------
-        #Cleanups.  Required to remove internal ids and certain exported config
-        #that is not relevant to the new edge.
+        #Basic Cleanup and reconfig required to remove internal ids and certain exported config
+        #that is not relevant to the new edge before initial post.
 
         #Remove EdgeSummary...
         $edgeSummary = $_Edge.SelectSingleNode('descendant::edgeSummary')
@@ -23557,7 +23563,6 @@ function Copy-NsxEdge{
             $_Edge.RemoveChild($edgeSummary) | out-null
         }
 
-        #------------------
         #Naming
         $_Edge.name = $Name
         $_Edge.fqdn = $Hostname
@@ -23664,7 +23669,10 @@ function Copy-NsxEdge{
         }
 
         #Check for self signed certificates.
-        #For the moment, the idea is that SS certs will be regenerated on the destination appliance, and services that use them reconfigured appropriately.  The fqdn is used as the cert CN, unless overridden.  Certs cannot be actually created until the edge is deployed, so we have to wait until later to generate them and update services... Any external certs (or if the user disables the SS cert regeneration) that cause services to have an invalid config will result in warning, but we will still attempt to provision the edge (dont know yet if invalid certs in config cause edge API to throw, but initial testing indicates it doesnt...  Will rethink if this proves inaccurate...)
+        #For the moment, the idea is that SS certs will be regenerated on the destination appliance, and services that use them reconfigured appropriately.  
+        #The fqdn is used as the cert CN, unless overridden.  Certs cannot be actually created until the edge is deployed, so we have to wait until later to generate them and update services...
+        #Any external certs (or if the user disables the SS cert regeneration) that cause services to have an invalid config will result in warning, 
+        #but we will still attempt to provision the edge (dont know yet if invalid certs in config cause edge API to throw, but initial testing indicates it doesnt...  Will rethink if this proves inaccurate...)
         $SSCertificates = @()
         $Certificates = $edge | Get-NsxEdgeCertificate -connection $Connection
         foreach ( $cert in $Certificates ) { 
@@ -24067,13 +24075,13 @@ function Copy-NsxEdge{
                 foreach ( $Rule in $UserRules ) { 
                     if ( $updatedIps.Contains($Rule.originalAddress )) { 
                         
-                        write-warning "Updating user defined NAT Rule with source edge interface address found as original address. Previous Address : $($Rule.originalAddress), Updated ID : $($($updatedIps.item($($Rule.originalAddress))))"            
+                        write-warning "Updating user defined NAT Rule with source edge interface address found as original address. Previous Address : $($Rule.originalAddress), Updated address : $($($updatedIps.item($($Rule.originalAddress))))"            
                         #Update the LB listener with the IP that replaced the original listen ip
                         $Rule.originalAddress = $($updatedIps.item($($Rule.originalAddress))).ToString()
                     }
                     if ( $updatedIps.Contains($Rule.translatedAddress )) { 
                         
-                        write-warning "Updating user defined NAT Rule with source edge interface address found as translated address. Previous Address : $($Rule.translatedAddress), Updated ID : $($($updatedIps.item($($Rule.translatedAddress))))"            
+                        write-warning "Updating user defined NAT Rule with source edge interface address found as translated address. Previous Address : $($Rule.translatedAddress), Updated address : $($($updatedIps.item($($Rule.translatedAddress))))"            
                         #Update the LB listener with the IP that replaced the original listen ip
                         $Rule.translatedAddress = $($updatedIps.item($($Rule.translatedAddress))).ToString()
                     }
@@ -24081,7 +24089,33 @@ function Copy-NsxEdge{
             }
         }
 
-        # #Do the post
+        #FW/Local Object stuff.  Dealing with these complicates things, but general approach is as follows:
+        #    - Get any Locally scoped Services and save for recreation later.  Remove from edge xml
+        #    - get fw config(user rules only).  Remove from edge xml 
+        #    - initial create of the edge
+        #    - create objects in new scope
+        #    - update firewall xml with new objects
+        #    - push firewall changes to new edge.
+
+        #Local Object fixups
+        #Locally scoped objects like ipsets and services/servicegroups can exist on the edge.  If FW rules and other (LB only?) config are using them, they have to be recreated.
+        $LocalServices = Get-NsxService -scopeId $_Edge.id | ? { $_.scope.id -eq $_Edge.id } #getting by scope id includes inherited services from globalscope-0, we need to filter for services explicitly defined on this edge too :(
+        $LocalServiceGroups = Get-NsxServiceGroup -scopeId $_Edge.id | ? { $_.scope.id -eq $_Edge.id }
+        $LocalIpSets = Get-NsxIpSet -scopeId $_Edge.id | ? { $_.scope.id -eq $_Edge.id } 
+
+
+        #Firewall Fixups
+        #The FW can potentially contain grouping objects or service objects that exist only in the edge scope.  API wont let us push invalid FW config, so get user rules here and remove them:
+        $UserFWRules = $_Edge.SelectNodes("descendant::features/firewall/firewallRules/firewallRule[ruleType=`'user`']")
+        if ( $UserFWRules ) { 
+            foreach ($rule in $UserFwRules ) { 
+                $null = $_Edge.features.firewall.firewallRules.RemoveChild($rule)
+            }
+        }
+        
+        ####################################
+        # Intial Deployment
+        ####################################
         write-debug "$($MyInvocation.MyCommand.Name) : Performing initial creation post of new Edge XML to NSX API"
         
         $body = $_Edge.OuterXml
@@ -24090,11 +24124,144 @@ function Copy-NsxEdge{
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Creating Edge Services Gateway $Name" -completed
         $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)] 
-        $NewEdge = Get-NsxEdge -objectID $edgeId -connection $connection
+
         
         write-debug "$($MyInvocation.MyCommand.Name) : Created Edge $edgeid"
         
-        #Now we have any post deployment fixup.  Things like certificates and local object creation have to be done after the edge is created.   
+
+        ##################################
+        # Post Initial Deployment fixup
+        ##################################
+        #Now we have any post deployment fixup.  Things like local object (services/groups/ipsets), certificates and local object creation have to be done after the edge is created.   
+        #First - object creation.  We use hashtables to track old -> new id mappings.
+
+        if ( -not $LocalObjectFixups ) {
+            write-warning "Local object recreation is disabled.  Any edge scoped user defined firewall rules will also not be duplicated as a result."
+        }
+        else {
+            #Services:
+            $UpdatedServices = @{}
+            foreach ( $Service in $LocalServices ) { 
+
+                write-warning "Recreating local service $($Service.name) on new edge."
+                $NewServiceId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/application/$edgeId" -body $Service.OuterXml
+                $UpdatedServices.Add($Service.objectId, $NewServiceId)
+            }
+
+            #ServiceGroups:
+            $UpdatedServiceGroups = @{}
+            foreach ( $ServiceGroup in $LocalServiceGroups ) { 
+                #Need to create without membership as they may contain other servicegroups not yet created, so first we create the servicegroups, then update their membership...
+
+                #Clone the xmlelement so we can modify it
+                $_ServiceGroup = $ServiceGroup.CloneNode($true)
+                if ( $_ServiceGroup.SelectNodes('child::member') ) {
+                    #If it has a membership, then remove it. 
+                    foreach ( $node in $_ServiceGroup.SelectNodes('child::member')) { 
+                        $null = $_ServiceGroup.RemoveChild($node)
+                    }
+                }
+                write-warning "Recreating local ServiceGroup $($ServiceGroup.name) on new edge."
+                
+                $NewServiceGroupId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/applicationgroup/$edgeId" -body $_ServiceGroup.OuterXml
+                $UpdatedServiceGroups.Add($_ServiceGroup.objectId, $NewServiceGroupId)
+            }
+
+            #ServiceGroup membership
+            foreach ( $ServiceGroup in $LocalServiceGroups ) { 
+
+                $SGMembers = $ServiceGroup.SelectNodes('child::member')
+                foreach ( $member in $SGMembers ) { 
+                    $UpdatedMemberId = $null
+                    switch ($member.objectTypeName) { 
+                        "ApplicationGroup" { 
+                            #Member is a servicegroup... lookup updated value
+                            $UpdatedMemberId = $UpdatedServiceGroups.Item($member.objectId)
+                        }
+                        "Application" {
+                            #Member is a service... lookup updated value
+                            $UpdatedMemberId = $UpdatedServices.Item($member.objectId)
+                        }
+                        default { throw "Unknown member type for ServiceGroup: $ServiceGroup.objectId, Member :  $($member.objectId), objectType :  $_"}
+                    }
+
+                    #Member may not be local and so update may not be required.
+                    if ( $UpdatedMemberId )    {
+                        $UpdatedServiceGroupId = $($UpdatedServiceGroups.Item($($ServiceGroup.objectId)))
+                        write-warning "Updating local ServiceGroup membership for ServiceGroup: $UpdatedServiceGroupId, member: $UpdatedMemberId."
+                        $null = Invoke-NsxRestMethod -method put -URI "/api/2.0/services/applicationgroup/$UpdatedServiceGroupId/members/$UpdatedMemberId"
+                    }
+                }
+            }
+
+            #IPSets
+            $UpdatedIpSets = @{}
+            foreach ( $IpSet in $LocalIpSets ) { 
+
+                write-warning "Recreating local ipset $($ipset.name) on new edge."
+                $NewIpSetId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/ipset/$edgeId" -body $IpSet.OuterXml
+                $UpdatedIpSets.Add($ipSet.objectId, $NewIpSetId)
+            }
+
+
+        }
+
+        #Now we have everything we need to readd the firewall rules with any updated local object references.
+        if ( $LocalObjectFixups -and $FirewallFixups) { 
+            write-warning "Performing firewall fixups for any user based rules that contained local object references on $edgeid."                                            
+            
+            if ( $UserFwRules.count -ne 0 ) { 
+                #If there are userrules to process 
+                $UserFWXml = $UserFWRules[0].OwnerDocument.CreateElement("firewallRules")
+                
+                foreach ( $rule in $UserFWRules ) {
+                    #For each rule - perform any local object updates required, then append it to the new edge fw rules...
+                    #IPSets first.
+                    $RuleGroupingObjects = $rule.SelectNodes("child::source/groupingObjectId | child::destination/groupingObjectId")
+                    foreach ($GroupingObject in $RuleGroupingObjects) { 
+                        if ($updatedIpSets.Item($GroupingObject."#text")) { 
+
+                            write-warning "Processing FW Rule $($rule.Name), Updating reference to local ipset $($GroupingObject."#text") to $($updatedIpSets.Item($GroupingObject."#text"))."                
+                            #Ipset was local and was recreated on the new edge...update the rule.   
+                            $GroupingObject."#text" = $updatedIpSets.Item($GroupingObject."#text")
+                        }
+                    }
+                    #Now Services
+                    $RuleServices = $rule.SelectNodes("child::application/applicationId")
+                    foreach ($Service in $RuleServices) { 
+
+                        #Might be a service...
+                        if ($updatedServices.Item($Service."#text")) { 
+
+                            write-warning "Processing FW Rule $($rule.Name), Updating reference to local service $($Service."#text") to $($updatedServices.Item($Service."#text"))."                                            
+                            #Service was local service and was recreated on the new edge...update the rule.   
+                            $Service."#text" = $updatedServices.Item($Service."#text")
+                        }
+
+                        #... Or a Service Group
+                        if ($updatedServiceGroups.Item($Service."#text")) { 
+
+                            write-warning "Processing FW Rule $($rule.Name), Updating reference to local service $($Service."#text") to $($updatedServiceGroups.Item($Service."#text"))."                                            
+                            #Service was local service group and was recreated on the new edge...update the rule.   
+                            $Service."#text" = $updatedServiceGroups.Item($Service."#text")
+                        }
+                    }
+
+                    #In theory - the rule doesnt contain any invalid local objects now, and we can add the modified xmlnode to the element we need to send to the api for a bulk update.  NEED TO TEST ORDERING!
+                    $null = $UserFWXml.AppendChild($rule)
+                }
+
+                # Rules can now be pushed at the new ege...
+                write-warning "Posting updated user firewall ruleset to Edge $edgeid."                                            
+                $null = Invoke-NsxRestMethod -method post -URI "/api/4.0/edges/$edgeId/firewall/config/rules" -body $UserFWXml.OuterXml
+            }
+        }
+
+        ######################
+        #Re-get the edge so we can perform further fixups.
+        ######################
+
+        $NewEdge = Get-NsxEdge -objectID $edgeId -connection $connection
         #Clone the NewEdge Element so we can modify without barfing up the original object (we need it for new-csr...).
         $_NewEdge = $NewEdge.CloneNode($true)
 
@@ -24185,7 +24352,10 @@ function Copy-NsxEdge{
             }
         }
 
+        #####################################################
         #final update of edge config including cert fixups etc.
+        #####################################################
+        
         $body = $_NewEdge.OuterXml
         $URI = "/api/4.0/edges/$edgeid"
         Write-Progress -activity "Updating Edge Services Gateway $Name"    
