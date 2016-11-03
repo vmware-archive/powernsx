@@ -23434,12 +23434,67 @@ function Copy-NsxEdge{
     There are numerous properties that are not possible to clone, and must be
     either configured in the call to Copy-NsxEdge (such as interface IPs), or 
     will need to be manually configured on the new NSX Edge after the fact
-    (such as certificate configuration).
+    (such as external certificate configuration).
 
     Note that this operation does not strictly clone the Edge, internal object 
     identifiers such as NAT and FW rule ids etc. will not be consistent between 
-    source and destination Edges.  This is a limitation imposed by the NSX API. 
+    source and duplicated Edges.  This is a limitation imposed by the NSX API. 
 
+    An attempt is made to make sensible 'fixups' to the duplicated edge to allow
+    it to function as expected.  Most of these fixups can be disabled with param
+    switches to Copy-NsxEdge, but in some cases, this will prevent the 
+    duplication of certain features (for instance, disabling local object fixups
+    will prevent user defined firewall rules from being configured on the 
+    duplicate edge.)
+    
+    Fixups for the following are currently in place and enabled by default:
+        - Any Self Signed certificates are 'regenerated' on the duplicated edge 
+          Note:  Externally signed certificates cannot be migrated and must be
+          manually configured on the duplicated edge if required.  Regenerated
+          Self Signed certificates will have the fqdn of the edge as their CN.
+          Alternatively, the user can specify a CN explicitly via parameter to 
+          Copy-NsxEdge.  All certificates will have the same CN currently.
+        - Any services using certificates that have been regenerated will be 
+          configured to use the corresponding regenerated cert.
+        - Any listening services (LB VIPs, SSL VPN, IPSec VPN etc) bound to 
+          interface addresses will be updated to use the corresponding address
+          on the duplicated edge.
+        - Any NAT rules that specify a local interface address in either the 
+          Original Address or Translated Address field will be updated to 
+          specify the corresponding replacement interface address on the 
+          duplicated edge.
+        - Any locally defined grouping objects (IPSets, Services or Service 
+          Groups) will be recreated on the duplicated edge.  This includes 
+          fixups for any service groups that contain other local services or 
+          service groups to be updated to include their corresponding recreated 
+          local object on the duplicated edge.  
+        - Any User defined local firewall rules that reference local objects in 
+          source, destination or service fields are updated to reference the 
+          corresponding recreated local object on the duplicated edge. 
+        - Any IPSec Pre Shared Keys defined will be randomised.  These can be
+          manually updated after the fact as required.
+        - If a router ID is configured on the source edge, and references an 
+          interface address, it is updated to reference the corresponding 
+          address on the duplicated edge.
+
+    This is an experimental function for now and involves a lot of heavy lifting.
+    Please report any limitations or issues using it via the project github page 
+    so it can be improved.
+
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Copy-NsxEdge -name Edge02 -Password VMware1!VMware1!
+
+    Creates a duplicated edge based on the source-edge Edge01.  Any interface addresses found on Edge01 will be interactively prompted for replacement. Note that the subnet (network and mask) of each primary or secondary adderess specified must match that of the source edge, and all addresses found on the source must be updated.
+    
+    .EXAMPLE
+    $uplink = New-NsxEdgeInterfaceSpec -Index 0 -Name Uplink -Type uplink -ConnectedTo (get-vdportgroup internal) -PrimaryAddress 192.168.100.202 -SubnetPrefixLength 24 -SecondaryAddresses 192.168.100.203,192.168.100.204,192.168.100.205
+    PS C:\>$transit = New-NsxEdgeInterfaceSpec -Index 1 -Name Transit -Type internal -ConnectedTo (Get-NsxLogicalSwitch transit) -PrimaryAddress 172.16.1.11 -SubnetPrefixLength 24 -SecondaryAddresses 172.16.1.12
+    PS C:\>Get-NsxEdge Edge01 | Copy-NsxEdge -name Edge02 -Password VMware1!VMware1! -Interface $Uplink,$Transit
+
+    Creates two interface specs and creates a duplicated edge based on the source-edge Edge01.  Note that the subnet (network and mask) of each primary or secondary adderess specified in each spec, as well as the number of addresses, and the interface indexes specified, must match that of the source edge. 
+
+    
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
@@ -23447,15 +23502,19 @@ function Copy-NsxEdge{
     param (
         
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
+            #PowerNSX Edge Object as retrieved with Get-NsxEdge representing the source edge to duplicate.
             [ValidateScript({ Validate-Edge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$true)]
+            #Duplicated Edge Name (base of appliance name and default for fqdn)
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
+            #PowerCLI Resource Pool object representing vSphere Resource Pool to which duplicated edge appliances are deployed.  If Resource Pool and Cluster are not specified, Copy-NsxEdge places the duplicated edge appliances in the same location as the source edge.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
+            #PowerCLI Cluster object representing vSphere Cluster to which duplicated edge appliances are deployed.  If Resource Pool and Cluster are not specified, Copy-NsxEdge places the duplicated edge appliances in the same location as the source edge.
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
@@ -23463,59 +23522,83 @@ function Copy-NsxEdge{
             })]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$false)]
+            #PowerCLI Datastore object representing vSphere datastore to which the primary duplicated edge appliance is deployed.  Defaults to the same location as the source edge.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
         [Parameter (Mandatory=$false)]
+            #Edge CLI user name.  Defaults to 'admin'
             [ValidateNotNullOrEmpty()]
             [String]$Username="admin",
         [Parameter (Mandatory=$true)]
+            #Edge CLI password
             [ValidateNotNullOrEmpty()]
             [String]$Password,
         [Parameter (Mandatory=$false)]
+            #PowerCLI Datastore object representing vSphere datastore to which the secondary edge appliance is deployed (requires HA).  Defaults to the same location as the source edge.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore,
         [Parameter (Mandatory=$false)]
+            #Edge Appliance Form Factor.  See NSX Documentation for appliance form factor details and recommendations.  Defaults to the source edge form factor.
             [ValidateSet("compact","large","xlarge","quadlarge",IgnoreCase=$false)]
             [string]$FormFactor,
         [Parameter (Mandatory=$false)]
+            #PowerCLI Folder object representing the vSphere VM inventory folder in which the appliances should be deployed.  Defaults to the source edge location.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.FolderInterop]$VMFolder,
         [Parameter (Mandatory=$false)]
+            #Tenant name used in appliance naming and API references.  Defaults to the source edge tenant.
             [ValidateNotNullOrEmpty()]
             [String]$Tenant,
         [Parameter (Mandatory=$false)]
+            #FQDN of Edge.  Defaults to $name (undotted).
             [ValidateNotNullOrEmpty()]
             [String]$Hostname=$Name,
         [Parameter (Mandatory=$false)]
+            #Enable SSH on the duplicated Edge.  Defaults to source edge setting.
             [ValidateNotNullOrEmpty()]
             [switch]$EnableSSH,
         [Parameter (Mandatory=$false)]
+            #Enable autogenerated firewall rules on the duplicated Edge.  Defaults to source edge setting.
             [ValidateNotNullOrEmpty()]
             [switch]$AutoGenerateRules,
         [Parameter (Mandatory=$false)]
+            #Enable firewall on the duplicated Edge.  Defaults to source edge setting.
             [switch]$FwEnabled,
         [Parameter (Mandatory=$false)]
+            #Configure default firewall policy on the duplicated Edge.  Defaults to source edge setting.
             [switch]$FwDefaultPolicyAllow,
         [Parameter (Mandatory=$false)]
+            #Configure default firewall action logging on the duplicated Edge.  Defaults to source edge setting.
             [switch]$FwLoggingEnabled,
         [Parameter (Mandatory=$false)]
+            #Configure HA on the duplicated Edge.  Defaults to source edge setting.
             [ValidateNotNullOrEmpty()]
             [switch]$EnableHa,
         [Parameter (Mandatory=$false)]
+            #Configure HA dead time on the duplicated Edge.  Defaults to source edge setting.
             [ValidateRange(6,900)]
             [int]$HaDeadTime,
         [Parameter (Mandatory=$false)]
+            #Configure HA vNIC on the duplicated Edge.  Defaults to source edge setting.
             [ValidateRange(0,9)]
             [int]$HaVnic,
         [Parameter (Mandatory=$false)]
+            #Configure syslog on the duplicated Edge.  Defaults to source edge setting.
             [switch]$EnableSyslog,
         [Parameter (Mandatory=$false)]
+            #Configure syslog server(s) on the duplicated Edge.  Defaults to source edge setting.  If specified, overrides source edge settings (not merged).
             [ValidateNotNullOrEmpty()]
             [string[]]$SyslogServer,
         [Parameter (Mandatory=$false)]
             [ValidateSet("udp","tcp",IgnoreCase=$true)]
+            #Configure syslog protocol on the duplicated Edge.  Defaults to source edge setting.
             [string]$SyslogProtocol,
         [Parameter (Mandatory=$false)]
+            #Interface definitions.  Specified as Interface Specs as returned by New-NsxEdgeInterfaceSpec. Must contain the SAME number of interfaces with the same interface indexes, addressgroups per interface, and primary and secondary addresses per addressgroup as the source edge interface.  
+            #Netmasks and the CIDR network defined in each addressgroup must match that of the source edge. 
+            #
+            #In summary, the only thing that can (must) change from the source edge is the primary and any secondary IP Addresses for every addressgroup on every interface, and potentially, the connected network. 
+            #If not specified, the user is interactively prompted for replacement addresses on each primary and secondary address on each addressgroup on each enabled VNIC on the source edge.
             [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
             [System.Xml.XmlElement[]]$Interface,
         [Parameter (Mandatory=$false)]
@@ -23552,8 +23635,6 @@ function Copy-NsxEdge{
         $_Edge = $Edge.CloneNode($true)
         [System.XML.XMLDocument]$xmlDoc = $_Edge.OwnerDocument        
         
-
-        #------------------
         #Basic Cleanup and reconfig required to remove internal ids and certain exported config
         #that is not relevant to the new edge before initial post.
 
@@ -24099,9 +24180,9 @@ function Copy-NsxEdge{
 
         #Local Object fixups
         #Locally scoped objects like ipsets and services/servicegroups can exist on the edge.  If FW rules and other (LB only?) config are using them, they have to be recreated.
-        $LocalServices = Get-NsxService -scopeId $_Edge.id | ? { $_.scope.id -eq $_Edge.id } #getting by scope id includes inherited services from globalscope-0, we need to filter for services explicitly defined on this edge too :(
-        $LocalServiceGroups = Get-NsxServiceGroup -scopeId $_Edge.id | ? { $_.scope.id -eq $_Edge.id }
-        $LocalIpSets = Get-NsxIpSet -scopeId $_Edge.id | ? { $_.scope.id -eq $_Edge.id } 
+        $LocalServices = Get-NsxService -scopeId $_Edge.id -connection $Connection | ? { $_.scope.id -eq $_Edge.id } #getting by scope id includes inherited services from globalscope-0, we need to filter for services explicitly defined on this edge too :(
+        $LocalServiceGroups = Get-NsxServiceGroup -scopeId $_Edge.id -connection $Connection | ? { $_.scope.id -eq $_Edge.id }
+        $LocalIpSets = Get-NsxIpSet -scopeId $_Edge.id -connection $Connection | ? { $_.scope.id -eq $_Edge.id } 
 
 
         #Firewall Fixups
@@ -24144,7 +24225,7 @@ function Copy-NsxEdge{
             foreach ( $Service in $LocalServices ) { 
 
                 write-warning "Recreating local service $($Service.name) on new edge."
-                $NewServiceId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/application/$edgeId" -body $Service.OuterXml
+                $NewServiceId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/application/$edgeId" -body $Service.OuterXml -connection $Connection
                 $UpdatedServices.Add($Service.objectId, $NewServiceId)
             }
 
@@ -24163,7 +24244,7 @@ function Copy-NsxEdge{
                 }
                 write-warning "Recreating local ServiceGroup $($ServiceGroup.name) on new edge."
                 
-                $NewServiceGroupId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/applicationgroup/$edgeId" -body $_ServiceGroup.OuterXml
+                $NewServiceGroupId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/applicationgroup/$edgeId" -body $_ServiceGroup.OuterXml -connection $Connection
                 $UpdatedServiceGroups.Add($_ServiceGroup.objectId, $NewServiceGroupId)
             }
 
@@ -24189,7 +24270,7 @@ function Copy-NsxEdge{
                     if ( $UpdatedMemberId )    {
                         $UpdatedServiceGroupId = $($UpdatedServiceGroups.Item($($ServiceGroup.objectId)))
                         write-warning "Updating local ServiceGroup membership for ServiceGroup: $UpdatedServiceGroupId, member: $UpdatedMemberId."
-                        $null = Invoke-NsxRestMethod -method put -URI "/api/2.0/services/applicationgroup/$UpdatedServiceGroupId/members/$UpdatedMemberId"
+                        $null = Invoke-NsxRestMethod -method put -URI "/api/2.0/services/applicationgroup/$UpdatedServiceGroupId/members/$UpdatedMemberId" -connection $Connection
                     }
                 }
             }
@@ -24199,7 +24280,7 @@ function Copy-NsxEdge{
             foreach ( $IpSet in $LocalIpSets ) { 
 
                 write-warning "Recreating local ipset $($ipset.name) on new edge."
-                $NewIpSetId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/ipset/$edgeId" -body $IpSet.OuterXml
+                $NewIpSetId = Invoke-NsxRestMethod -method Post -URI "/api/2.0/services/ipset/$edgeId" -body $IpSet.OuterXml -connection $Connection
                 $UpdatedIpSets.Add($ipSet.objectId, $NewIpSetId)
             }
 
@@ -24253,7 +24334,7 @@ function Copy-NsxEdge{
 
                 # Rules can now be pushed at the new ege...
                 write-warning "Posting updated user firewall ruleset to Edge $edgeid."                                            
-                $null = Invoke-NsxRestMethod -method post -URI "/api/4.0/edges/$edgeId/firewall/config/rules" -body $UserFWXml.OuterXml
+                $null = Invoke-NsxRestMethod -method post -URI "/api/4.0/edges/$edgeId/firewall/config/rules" -body $UserFWXml.OuterXml -connection $Connection
             }
         }
 
