@@ -2003,7 +2003,6 @@ Function Validate-FirewallRuleSourceDest {
     Validate-SecurityGroupMember $argument    
 }
 
-
 Function Validate-ServiceGroup {
 
     Param (
@@ -2026,7 +2025,6 @@ Function Validate-ServiceGroup {
         throw "Invalid Service Group specified"
     }
 }
-
 
 Function Validate-Service {
 
@@ -2071,6 +2069,7 @@ Function Validate-ServiceOrServiceGroup {
     }
     $true
 }
+
 Function Validate-ServiceGroup {
 
     Param (
@@ -2093,7 +2092,6 @@ Function Validate-ServiceGroup {
         throw "Invalid Service Group specified"
     }
 }
-
 
 Function Validate-Service {
 
@@ -2615,6 +2613,162 @@ function Format-XML () {
 
     end{}
 }
+
+function Export-NsxObject {
+    <#
+    .SYNOPSIS
+    Accepts any XMLElement and formats it and writes it to the specified file.
+
+    .DESCRIPTION 
+    Most PowerNSX Objects are internally handled as XMLELement objects.
+    For objects (or collections of objects) that are XMLElements, this cmdlet 
+    will format them (using format-xml) and then write them to disk using the 
+    specified encoding.
+
+    An export file created in this fashion can be edited by hand with complete
+    onus on the user to ensure the XML remains well formed and continues to be 
+    a 'valid' NSX object.
+
+    The intent of this cmdlet is to allow easy storage of any PowerNSX objects
+    to disk so they can be later re-imported to use as if they had been 
+    retrieved directly from the API.  It is intended to be used in conjunction 
+    with Import-NsxObject
+
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Export-NsxObject -FilePath EdgeExport.xml
+    C:\ PS>$ImportedEdge = Import-NsxObject -FilePath EdgeExport.xml
+    
+    Exports the XMLElement object returned by Get-NsxEdge as formatted
+    XML to the file ExdgeExport.xml in the current directory and then imports 
+    the content of the same file and stores the XML object in the variable 
+    $ImportedEdge. 
+
+    #>
+
+    Param(
+        [Parameter (Mandatory=$true, ValueFromPipeline=$True)]
+            #PowerNSX Object to be exported
+            [System.Xml.XmlElement[]]$Object,
+        [Parameter (Mandatory=$true, Position=1)]
+            #Text Encoding used in export file.
+            [ValidateNotNullOrEmpty()]
+            [String]$FilePath,
+        [Parameter (Mandatory=$false)]
+            #Encoding type used in the output file.  Defaults to utf-8 as the typical encoding for xml
+            [ValidateSet("ascii",
+                "bigendianunicode",
+                "default",
+                "oem",
+                "string",
+                "unicode",
+                "unknown",
+                "utf32",
+                "utf7",
+                "utf8"
+            )]
+            $Encoding="utf8",
+        [Parameter (Mandatory=$False)]
+            #Prevents overwriting an existing file.  Defaults to $True 
+            [switch]$NoClobber=$True
+    )
+
+    begin{
+        $XmlDoc = New-object System.Xml.XmlDocument
+        $ExportElem = $XmlDoc.CreateElement("PowerNSXExport")
+    }
+    process{
+
+        
+        foreach ( $xml in $Object ) { 
+        
+            $ExportNode = $XmlDoc.ImportNode($xml, $true)
+            $null = $ExportElem.AppendChild($ExportNode)
+        }
+
+    }
+    End{
+        $ExportElem | Format-xml | out-file -FilePath $FilePath -Encoding $Encoding -NoClobber:$NoClobber
+    }
+
+    
+}
+
+function Import-NsxObject {
+    
+    <#
+    .SYNOPSIS
+    Reads from the specified file and returns an XMLElement object or collection.
+
+    .DESCRIPTION 
+    Most PowerNSX Objects are internally handled as XMLELement objects.
+    For objects (or collections of objects) that are XMLElements, this cmdlet 
+    will format them (using format-xml) and then write them to disk using the 
+    specified encoding.
+
+    An export file created in this fashion can be edited by hand with complete
+    onus on the user to ensure the XML remains well formed and continues to be 
+    a 'valid' NSX object.
+
+    The intent of this cmdlet is to allow easy re-import of files exported using 
+    Export-NsxObject to use as if they had been retrieved directly from the API.
+    It is intended to be used in conjunction with Export-NsxObject
+
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Export-NsxObject -FilePath EdgeExport.xml
+    C:\ PS>$ImportedEdge = Import-NsxObject -FilePath EdgeExport.xml
+    
+    Exports the XMLElement object returned by Get-NsxEdge as formatted
+    XML to the file ExdgeExport.xml in the current directory and then imports 
+    the content of the same file and stores the XML object in the variable 
+    $ImportedEdge. 
+
+    #>
+
+    Param(
+
+        [Parameter (Mandatory=$true, Position=1)]
+            #Text Encoding used in export file.
+            [ValidateScript(
+                {if ( -not (test-path $_)) { 
+                    Throw "File not found : $_"
+                }
+            else {
+                $True
+            }}
+            )]
+            [String]$FilePath
+    )
+
+    begin{
+
+        $XmlDoc = New-Object System.Xml.XmlDocument
+        try { 
+            $xmldoc.Load($FilePath)
+        }
+        catch {
+            Throw "An error occured attempting to load the file $filepath.  Ensure the file contains a valid PowerNSX object export and has not been modified or corrupted. $_"   
+        }
+
+        if ( -not $xmlDoc.SelectSingleNode("/PowerNSXExport")) { 
+            Throw "The XML content in $filepath is not a valid PowerNSX export format."
+        }
+
+        $Children = $xmldoc.PowerNSXExport.SelectNodes("*")
+        foreach ($child in $Children) { 
+            
+            $child
+        }
+    }
+
+    Process {}
+    End{}
+
+    
+
+}
+
 
 ##########
 ##########
