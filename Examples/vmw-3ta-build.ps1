@@ -1,8 +1,15 @@
-########################################
-# Simple NSX environment standup script.
-# Nick Bradford
-# Nbradford@vmware.com
-# 3TA elements courtesy of Anthony Burke : aburke@vmware.com
+## VMware Build - 3 Tier App ##
+## Author: Anthony Burke t:@pandom_ b:networkinferno.net
+## Revisions: Nick Bradford, Dimtri Desmidt
+## version 1.5
+## October 2016
+#-------------------------------------------------- 
+# ____   __   _  _  ____  ____  __ _  ____  _  _ 
+# (  _ \ /  \ / )( \(  __)(  _ \(  ( \/ ___)( \/ )
+#  ) __/(  O )\ /\ / ) _)  )   //    /\___ \ )  ( 
+# (__)   \__/ (_/\_)(____)(__\_)\_)__)(____/(_/\_)
+#     PowerShell extensions for NSX for vSphere
+#--------------------------------------------------
 
 <#
 Copyright © 2015 VMware, Inc. All Rights Reserved.
@@ -22,390 +29,131 @@ Some files may be comprised of various open source software components, each of 
 has its own license that is located in the source code of the respective component.”
 #>
 
-#Requires -version 3.0
-#Requires -modules PowerNSX, VMware.VimAutomation.Core
+## Note: The OvfConfiguration portion of this example relies on this OVA. The securityGroup and Firewall configuration have a MANDATORY DEPENDANCY on this OVA being deployed at runtime. The script will fail if the conditions are not met. This OVA can be found here http://goo.gl/oBAFgq
 
-#############################################
-#############################################
-# NSX Infrastructure Configuration.  Adjust to suit environment.
+# This paramter block defines global variables which a user can override with switches on execution.
+param (
+    #Names
+    $TransitLsName = "Transit",
+    $WebLsName = "Web",
+    $AppLsName = "App",
+    $DbLsName = "Db",
+    $MgmtLsName = "Mgmt",
+    $EdgeName = "Edge01",
+    $LdrName = "Ldr01",
 
-#NSX Details
-$NsxManagerOVF = "C:\Temp\VMware-NSX-Manager-6.2.2-3604087.ova"
-$NsxManagerName = "nsx-m-01a"
-$NsxManagerPassword = "VMware1!"
-$NsxManagerIpAddress = "192.168.100.201"
-$ControllerPoolStartIp = "192.168.100.202"
-$ControllerPoolEndIp = "192.168.100.204"
-$ControllerPassword = "VMware1!VMware1!"
-$SegmentPoolStart = "5000"
-$SegmentPoolEnd = "5999"
-$TransportZoneName = "TransportZone1"
+    #Infrastructure
+    $EdgeUplinkPrimaryAddress = "192.168.100.192",
+    $EdgeUplinkSecondaryAddress = "192.168.100.193",
+    $EdgeInternalPrimaryAddress = "172.16.1.1",
+    $EdgeInternalSecondaryAddress = "172.16.1.6",
+    $LdrUplinkPrimaryAddress = "172.16.1.2",
+    $LdrUplinkProtocolAddress = "172.16.1.3",
+    $LdrWebPrimaryAddress = "10.0.1.1",
+    $WebNetwork = "10.0.1.0/24",
+    $LdrAppPrimaryAddress = "10.0.2.1",
+    $AppNetwork = "10.0.2.0/24",
+    $LdrDbPrimaryAddress = "10.0.3.1",
+    $DbNetwork = "10.0.3.0/24",
+    $TransitOspfAreaId = "10",
 
-#vSphereDetails
-$VcenterServer = "vc-01a.corp.local"
-$vCenterUserName = "administrator@vsphere.local"
-$vCenterPassword = "VMware1!"
-$MgmtClusterName = "Mgmt01"
-$ManagementDatastoreName = "MgmtData"
-$MgmtVdsName = "Mgt_Trans_Vds"
-$ComputeClusterName = "Compute01" 
-$ComputeVdsName = "Comp_Trans_Vds"
-$EdgeClusterName = $MgmtClusterName
-$EdgeDatastoreName = $ManagementDatastoreName
-$ComputeDatastoreName = "CompData"
+    #WebTier
+    $Web01Name = "Web01",
+    $Web01Ip = "10.0.1.11",
+    $Web02Name = "Web02",
+    $Web02Ip = "10.0.1.12",
 
-#Network Details
-$ManagementNetworkPortGroupName = "Internal"
-$ManagementNetworkSubnetMask = "255.255.255.0"
-$ManagementNetworkSubnetPrefixLength = "24"
-$ManagementNetworkGateway = "192.168.100.1"
+    #AppTier
+    $App01Name = "App01",
+    $App01Ip = "10.0.2.11",
+    $App02Name = "App02",
+    $App02Ip = "10.0.2.12",
+    $Db01Name = "Db01",
+    $Db01Ip = "10.0.3.11",
 
-$VxlanMtuSize = 1600
+    #DB Tier
+    $Db02Name = "Db02",
+    $Db02Ip = "10.0.3.12",
 
-$MgmtVdsVxlanNetworkSubnetMask = "255.255.255.0"
-$MgmtVdsVxlanNetworkSubnetPrefixLength = "24"
-$MgmtVdsVxlanNetworkGateway = "172.16.110.1"
-$MgmtVdsVxlanNetworkVlanId = "0"
-$MgmtVdsVxlanVlanID = "0"
-$MgmtVdsHostVtepCount = 1
-$MgmtVdsVtepPoolStartIp = "172.16.110.201"
-$MgmtVdsVtepPoolEndIp = "172.16.110.204"
+    #Subnet
+    $DefaultSubnetMask = "255.255.255.0",
+    $DefaultSubnetBits = "24",
+
+    #Port
+    $HttpPort = "80",
+
+    #Management
+    $ClusterName = "Management & Edge Cluster",
+    $DatastoreName = "ds-site-a-nfs01",
+    $Password = "VMware1!VMware1!",
+    #Compute
+    $ComputeClusterName = "Compute Cluster A",
+    $EdgeUplinkNetworkName = "vds-mgt_Management Network",
+    $computevdsname = "vds-site-a",
+    #3Tier App
+    $vAppName = "Books",
+    $BooksvAppLocation = "C:\3_Tier-App-v1.6.ova",
+
+    ##LoadBalancer
+    $LbAlgo = "round-robin",
+    $WebpoolName = "WebPool1",
+    $ApppoolName = "AppPool1",
+    $WebVipName = "WebVIP",
+    $AppVipName = "AppVIP",
+    $WebAppProfileName = "WebAppProfile",
+    $AppAppProfileName = "AppAppProfile",
+    $VipProtocol = "http",
+    ##Edge NAT
+    $SourceTestNetwork = "192.168.100.0/24",
+
+    ## Securiry Groups
+    $WebSgName = "SGTSWeb",
+    $WebSgDescription = "Web Security Group",
+    $AppSgName = "SGTSApp",
+    $AppSgDescription = "App Security Group",
+    $DbSgName = "SGTSDb",
+    $DbSgDescription = "DB Security Group",
+    $BooksSgName = "SGTSBooks",
+    $BooksSgDescription = "Books ALL Security Group",
+    #Security Tags
+    $StWebName = "ST-3TA-Web",
+    $StAppName = "ST-3TA-App",
+    $StDbName = "ST-3TA-Db,",
+    #DFW
+    $FirewallSectionName = "Bookstore",
+
+    $DefaultHttpMonitorName = "default_http_monitor",
+
+    #Script control
+    $BuildTopology=$true,
+    $DeployvApp=$true,
+    [Parameter (Mandatory=$false)]
+    [ValidateSet("static","ospf")]
+    $TopologyType="static"
+
+)
 
 
-$ComputeVdsVxlanNetworkSubnetMask = "255.255.255.0"
-$ComputeVdsVxlanNetworkSubnetPrefixLength = "24"
-$ComputeVdsVxlanNetworkGateway = "172.16.111.1"
-$ComputeVdsVxlanNetworkVlanId = "0"
-$ComputeVdsVxlanVlanID = "0"
-$ComputeVdsHostVtepCount = 1
-$ComputeVdsVtepPoolStartIp = "172.16.111.201"
-$ComputeVdsVtepPoolEndIp = "172.16.111.204"
+###
+# Do Not modify below this line! :)
+###
 
+Set-StrictMode -Version latest
 
-#Misc
-$SyslogServer = "192.168.100.254"
-$SysLogPort = 514
-$SysLogProtocol = "TCP"
-$NtpServer = "192.168.100.10"
-$DnsServer1 = "192.168.100.10"
-$DnsServer2 = "192.168.100.10"
-$DnsSuffix = "corp.local"
+## Validation of PowerCLI version. PowerCLI 6 is requried due to OvfConfiguration commands.
 
-#Reduce NSX Manager Memory - in GB.  Comment variable out for default.
-$NsxManagerMem = 12
-
-#############################################
-#############################################
-# Logical Topology environment 
-
-$EdgeUplinkPrimaryAddress = "192.168.100.192"
-$EdgeUplinkSecondaryAddress = "192.168.100.193"
-$EdgeUplinkNetworkName = "Internal"
-$AppliancePassword = "VMware1!VMware1!"
-$BooksvAppLocation = "C:\Temp\3_Tier-App-v1.5.ova"
-#Get v1.5 of the vApp from http://goo.gl/oBAFgq
-
-
-############################################
-############################################
-# Topology Details.  No need to modify below here 
-
-#Names
-$TransitLsName = "Transit"
-$WebLsName = "Web"
-$AppLsName = "App"
-$DbLsName = "Db"
-$MgmtLsName = "Mgmt"
-$EdgeName = "Edge01"
-$LdrName = "Dlr01"
-
-#Topology
-$EdgeInternalPrimaryAddress = "172.16.1.1"
-$EdgeInternalSecondaryAddress = "172.16.1.6"
-$LdrUplinkPrimaryAddress = "172.16.1.2"
-$LdrUplinkProtocolAddress = "172.16.1.3"
-$LdrWebPrimaryAddress = "10.0.1.1"
-$WebNetwork = "10.0.1.0/24"
-$LdrAppPrimaryAddress = "10.0.2.1"
-$AppNetwork = "10.0.2.0/24"
-$LdrDbPrimaryAddress = "10.0.3.1"
-$DbNetwork = "10.0.3.0/24"
-$TransitOspfAreaId = "10"
-$DefaultSubnetMask = "255.255.255.0"
-$DefaultSubnetBits = "24"
-
-#3Tier App
-$vAppName = "Books"
-
-#WebTier VMs
-$Web01Name = "Web01"
-$Web01Ip = "10.0.1.11"
-$Web02Name = "Web02"
-$Web02Ip = "10.0.1.12"
-
-#AppTier VMs
-$App01Name = "App01"
-$App01Ip = "10.0.2.11"
-$App02Name = "App02"
-$App02Ip = "10.0.2.12"
-$Db01Name = "Db01"
-$Db01Ip = "10.0.3.11"
-
-#DB Tier VMs
-$Db02Name = "Db02"
-$Db02Ip = "10.0.3.12"
-
-##LoadBalancer
-$LbAlgo = "round-robin"
-$WebpoolName = "WebPool1"
-$ApppoolName = "AppPool1"
-$WebVipName = "WebVIP"
-$AppVipName = "AppVIP"
-$WebAppProfileName = "WebAppProfile"
-$AppAppProfileName = "AppAppProfile"
-$VipProtocol = "http"
-$HttpPort = "80"
-
-## Security Groups
-$WebSgName = "SG-Web"
-$WebSgDescription = "Web Security Group"
-$AppSgName = "SG-App"
-$AppSgDescription = "App Security Group"
-$DbSgName = "SG-Db"
-$DbSgDescription = "DB Security Group"
-$BooksSgName = "SG-Bookstore"
-$BooksSgDescription = "Books ALL Security Group"
-## Security Tags
-$WebStName = "ST-Web"
-$AppStName = "ST-App"
-$DbStName = "ST-DB"
-
-#DFW
-$FirewallSectionName = "Bookstore Application"
-$LBMonitorName = "default_http_monitor"
-
-###############################################
-# Do Not modify below here.
-###############################################
-
-###############################################
-###############################################
-# Constants
-
-$WaitStep = 30
-$WaitTimeout = 600
-$yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-$yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-$yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-###############################
-# Validation
-# Connect to vCenter
-# Check for PG, DS, Cluster
-
-write-Host -foregroundcolor Green "Connecting to vCenter..."
-if ( -not $DefaultViConnection.IsConnected ) { 
-    connect-ViServer -Server $VcenterServer -User $vCenterUserName -Password $vCenterPassword -WarningAction Ignore | out-null
-}
-
-If ( -not ( test-path $BooksvAppLocation )) { throw "$BooksvAppLocation not found."}
-
-try { 
-    $MgmtCluster = Get-Cluster $MgmtClusterName -errorAction Stop
-    $ComputeCluster = Get-Cluster $ComputeClusterName -errorAction Stop
-    $EdgeCluster = get-cluster $EdgeClusterName -errorAction Stop
-    $EdgeDatastore = get-datastore $EdgeDatastoreName -errorAction Stop
-    $MgmtDatastore = Get-Datastore $ManagementDatastoreName -errorAction Stop
-    $ManagementPortGroup = Get-VdPortGroup $ManagementNetworkPortGroupName -errorAction Stop
-    $MgmtVds = Get-VdSwitch $MgmtVdsName -errorAction Stop
-    $CompVds = Get-VdSwitch $ComputeVdsName -errorAction Stop
-    $ComputeDatastore = get-datastore $ComputeDatastoreName -errorAction Stop
-    $EdgeUplinkNetwork = get-vdportgroup $EdgeUplinkNetworkName -errorAction Stop
-
-}
-catch { 
-
-    Throw "Failed validating vSphere Environment. $_"
-
-}
-
-#PowerCLI 6 is requried due to OvfConfiguration commands.
 [int]$PowerCliMajorVersion = (Get-PowerCliVersion).major
+
 if ( -not ($PowerCliMajorVersion -ge 6 ) ) { throw "OVF deployment tools requires PowerCLI version 6 or above" }
 
-
-# 
-###############################
-# Deploy NSX Manager appliance.
-
-write-Host -foregroundcolor Green "Deploying NSX Manager..."
-try { 
-    New-NsxManager -NsxManagerOVF $NsxManagerOVF -Name $NsxManagerName -ClusterName $MgmtClusterName -ManagementPortGroupName $ManagementNetworkPortGroupName -DatastoreName $ManagementDatastoreName -CliPassword $NsxManagerPassword -CliEnablePassword $NsxManagerPassword -Hostname $NsxManagerName -IpAddress $NsxManagerIpAddress -Netmask $ManagementNetworkSubnetMask -Gateway $ManagementNetworkGateway -DnsServer $DnsServer1 -DnsDomain $DnsSuffix -NtpServer $NtpServer -EnableSsh -StartVM -Wait -FolderName vm -ManagerMemoryGB $NsxManagerMem | out-null
-
-    Connect-NsxServer -server $NsxManagerIpAddress -Username 'admin' -password $NsxManagerPassword -DisableViAutoConnect -ViWarningAction Ignore | out-null
-      
-}
-catch {
-
-    Throw "An error occured during NSX Manager deployment.  $_"
-}
-write-host -foregroundcolor Green "Complete`n"
-
-###############################
-# Configure NSX Manager appliance.
-
-try { 
-    write-host -foregroundcolor Green "Configuring NSX Manager`n"
-
-    write-host "   -> Performing NSX Manager Syslog configuration."
-    Set-NsxManager -SyslogServer $SyslogServer -SyslogPort $SysLogPort -SyslogProtocol $SysLogProtocol | out-null
-
-    write-host "   -> Performing NSX Manager SSO configuration."
-    Set-NsxManager -SsoServer $VcenterServer -SsoUserName $vCenterUserName -SsoPassword $vCenterPassword | out-null
-
-    write-host "   -> Performing NSX Manager vCenter registration with account $vCenterUserName."
-    Set-NsxManager -vCenterServer $VcenterServer -vCenterUserName $vCenterUserName -vCenterPassword $vCenterPassword | out-null
-
-    write-host "   -> Establishing full connection to NSX Manager and vCenter."
-    #Update the connection with VI connection details...
-    Connect-NsxServer -server $NsxManagerIpAddress -Username 'admin' -password $NsxManagerPassword -VIUsername $vCenterUserName -VIPassword $vCenterPassword -ViWarningAction Ignore -DebugLogging | out-null
-
-}
-catch {
-
-    Throw "Exception occured configuring NSX Manager.  $_"
-    
-}
-
-write-host -foregroundcolor Green "Complete`n"
-
-
-###############################
-# Deploy NSX Controllers
-
-write-host -foregroundcolor Green "Deploying NSX Controllers..."
-
 try {
-
-    write-host "   -> Creating IP Pool for Controller addressing"
- 
-    $ControllerPool = New-NsxIpPool -Name "Controller Pool" -Gateway $ManagementNetworkGateway -SubnetPrefixLength $ManagementNetworkSubnetPrefixLength -DnsServer1 $DnsServer1 -DnsServer2 $DnsServer2 -DnsSuffix $DnsSuffix -StartAddress $ControllerPoolStartIp -EndAddress $ControllerPoolEndIp
-
-    for ( $i=0; $i -le 2; $i++ ) { 
-
-        write-host "   -> Deploying NSX Controller $($i+1)"
-        try {
-
-            $Controller = New-NsxController -ipPool $ControllerPool -Cluster $MgmtCluster -datastore $MgmtDatastore -PortGroup $ManagementPortGroup -password $ControllerPassword -confirm:$false -wait
-        }
-        catch {
-            throw "Controller $($i+1) deployment failed. $_"
-        }
-        write-host "   -> Controller $($i+1) online." 
-    }
+    $Cluster = get-cluster $ClusterName -errorAction Stop
+    $DataStore = get-datastore $DatastoreName -errorAction Stop
+    $EdgeUplinkNetwork = get-vdportgroup $EdgeUplinkNetworkName -errorAction Stop
 }
 catch {
-
-    Throw  "Failed deploying controller Cluster.  $_"
+    throw "Failed getting vSphere Inventory Item: $_"
 }
-
-write-host -foregroundcolor Green "Complete`n"
-
-
-##############################
-# Prep VDS
-
-write-host -foregroundcolor Green "Configuring VDS for use with NSX..."
-
-try {
-    #This is assuming two or more NICs on the uplink PG on this VDS.  No LAG required, and results in load balance accross multiple uplink NICs 
-    New-NsxVdsContext -VirtualDistributedSwitch $MgmtVds -Teaming "LOADBALANCE_SRCID" -Mtu $VxlanMtuSize | out-null
-    New-NsxVdsContext -VirtualDistributedSwitch $CompVds -Teaming "LOADBALANCE_SRCID" -Mtu $VxlanMtuSize | out-null
-
-}
-catch {
-    Throw  "Failed configuring VDS.  $_"
-
-}
-
-write-host -foregroundcolor Green "Complete`n"
-
-##############################
-# Prep Clusters
-
-write-host -foregroundcolor Green "Preparing clusters to run NSX..."
-
-
-try {
-
-    write-host "   -> Creating IP Pools for VTEP addressing"
- 
-    $MgmtVtepPool = New-NsxIpPool -Name "Management Vtep Pool" -Gateway $MgmtVdsVxlanNetworkGateway -SubnetPrefixLength $MgmtVdsVxlanNetworkSubnetPrefixLength -DnsServer1 $DnsServer1 -DnsServer2 $DnsServer2 -DnsSuffix $DnsSuffix -StartAddress $MgmtVdsVtepPoolStartIp -EndAddress $MgmtVdsVtepPoolEndIp
-
-    $Compute01VtepPool = New-NsxIpPool -Name "Compute01 Vtep Pool" -Gateway $ComputeVdsVxlanNetworkGateway -SubnetPrefixLength $ComputeVdsVxlanNetworkSubnetPrefixLength -DnsServer1 $DnsServer1 -DnsServer2 $DnsServer2 -DnsSuffix $DnsSuffix -StartAddress $ComputeVdsVtepPoolStartIp -EndAddress $ComputeVdsVtepPoolEndIp
-    
-    write-host "   -> Preparing cluster Mgmt01 and configuring VXLAN."
-    Get-Cluster $MgmtCluster | New-NsxClusterVxlanConfig -VirtualDistributedSwitch $MgmtVds -Vlan $MgmtVdsVxlanVlanID -VtepCount $MgmtVdsHostVtepCount -ipPool $MgmtVtepPool| out-null
-
-    write-host "   -> Preparing cluster Compute01 and configuring VXLAN."
-    Get-Cluster $ComputeCluster | New-NsxClusterVxlanConfig -VirtualDistributedSwitch $CompVds -Vlan $ComputeVdsVxlanVlanID -VtepCount $ComputeVdsHostVtepCount -ipPool $Compute01VtepPool | out-null
-
-
-}
-catch {
-    Throw  "Failed preparing clusters for NSX.  $_"
-
-}
-write-host -foregroundcolor Green "Complete`n"
-
-
-##############################
-# Configure Segment Pool
-
-write-host -foregroundcolor Green "Configuring SegmentId Pool..."
-
-try {
-
-        write-host "   -> Creating Segment Id Pool."
-        New-NsxSegmentIdRange -Name "SegmentIDPool" -Begin $SegmentPoolStart -end $SegmentPoolEnd | out-null
-}
-catch {
-    Throw  "Failed configuring SegmentId Pool.  $_"
-}
-
-write-host -foregroundcolor Green "Complete`n"
-
-##############################
-# Create Transport Zone
- 
-write-host -foregroundcolor Green "Configuring Transport Zone..."
-
-try {
-
-    write-host "   -> Creating Transport Zone $TransportZoneName."
-    #Configure TZ and add clusters.
-    New-NsxTransportZone -Name $TransportZoneName -Cluster $MgmtCluster, $ComputeCluster -ControlPlaneMode "UNICAST_MODE" | out-null
-
-}
-catch {
-    Throw  "Failed configuring Transport Zone.  $_"
-
-}
-
-write-host -foregroundcolor Green "`nNSX Infrastructure Config Complete`n"
-
-
-######################################
-######################################
-## Topology Deployment
-
-write-host -foregroundcolor Green "NSX Books application deployment beginning.`n"
-
-
-######################################
-#Logical Switches
-
-write-host -foregroundcolor "Green" "Creating Logical Switches..."
 
 ## Creates four logical switches
 $TransitLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TransitLsName
@@ -565,13 +313,8 @@ $OvfConfiguration.common.DB_Gateway.Value = $LdrDbPrimaryAddress
 # Run the deployment.
 Import-vApp -Source $BooksvAppLocation -OvfConfiguration $OvfConfiguration -Name Books -Location $ComputeCluster -VMHost $Vmhost -Datastore $ComputeDatastore | out-null
 write-host -foregroundcolor "Green" "Starting $vAppName vApp components"
-try {
-    Start-vApp $vAppName | out-null
-    }
-catch {
-    Write-Warning "Something is wrong with the vApp. Check if it has finished deploying. Press a key to continue";
-    $Key = [console]::ReadKey($true)
-}
+Start-vApp $vAppName | out-null
+
 
 #####################################
 # Microseg config
@@ -610,9 +353,9 @@ $AppVMs = Get-Vm | ? {$_.name -match ("App0")}
 $DbVMs = Get-Vm | ? {$_.name -match ("Db0")}
 
 
-$WebSt | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $WebVMs | Out-Null
-$AppSt | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $AppVMs | Out-Null
-$DbSt | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $DbVMs | Out-Null
+Get-NsxSecurityTag $WebStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $WebVMs | Out-Null
+Get-NsxSecurityTag $AppStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $AppVMs | Out-Null
+Get-NsxSecurityTag $DbStName | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $DbVMs | Out-Null
 
 #Building firewall section with value defined in $FirewallSectionName
 write-host -foregroundcolor "Green" "Creating Firewall Section"
@@ -640,5 +383,6 @@ write-host -foregroundcolor "Green" "Creating deny all applied to $BooksSgName"
 #Default rule that wraps around all VMs within the topolgoy - application specific DENY ALL
 $BooksDenyAll = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "Deny All Books" -Action $DenyTraffic -AppliedTo $BooksSg -position bottom -EnableLogging -tag "$BooksSG"
 write-host -foregroundcolor "Green" "Books application deployment complete."
+
 
 
