@@ -312,7 +312,9 @@ FunctionsToExport = @(
     'Get-NsxFirewallSavedConfiguration',
     'New-NsxLoadBalancerApplicationRule',
     'Get-NsxLoadBalancerApplicationRule',
-    'Copy-NsxEdge'
+    'Copy-NsxEdge',
+    'Export-NsxObject',
+    'Import-NsxObject'
 )
 
 # Cmdlets to export from this module
