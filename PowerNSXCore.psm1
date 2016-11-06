@@ -2790,13 +2790,7 @@ function Invoke-NsxRestMethod {
 
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
 
-    if ($pscmdlet.ParameterSetName -eq "Parameter") {
-        if ( -not $ValidateCertificate) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-    }
-    else {
+    if ( -not ($pscmdlet.ParameterSetName -eq "Parameter")) {
 
         #ensure we were either called with a connection or there is a defaultConnection (user has 
         #called connect-nsxserver) 
@@ -2811,12 +2805,6 @@ function Invoke-NsxRestMethod {
                 Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
                 $connection = $DefaultNSXConnection
             }       
-        }
-
-        
-        if ( -not $connection.ValidateCertificate ) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         }
 
         $cred = $connection.credential
@@ -2857,9 +2845,9 @@ function Invoke-NsxRestMethod {
     #do rest call
     try { 
         if ( $PsBoundParameters.ContainsKey('Body')) { 
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
         } else {
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
         }
     }
     catch {
@@ -2904,14 +2892,16 @@ function Invoke-NsxRestMethod {
         }
     }
 
-    #Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
-    #We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
-    #So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
-    #and probably rewrite over time to use invoke-webrequest for all calls... PiTA!!!! :|
+    #### Hoping this will not be an issue on PowerShell Core as we dont have servicepoint manager to handle this...
 
-    $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($FullURI)
-    $ServicePoint.CloseConnectionGroup("") | out-null
-    write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $FullURI."
+    # Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
+    # We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
+    # So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
+    # and probably rewrite over time to use invoke-webrequest for all calls... PiTA!!!! :|
+
+    # $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($FullURI)
+    # $ServicePoint.CloseConnectionGroup("") | out-null
+    # write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $FullURI."
 
     #Return
     $response
@@ -2992,13 +2982,7 @@ function Invoke-NsxWebRequest {
 
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
 
-    if ($pscmdlet.ParameterSetName -eq "Parameter") {
-        if ( -not $ValidateCertificate) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-    }
-    else {
+    if ( (-not ($pscmdlet.ParameterSetName -eq "Parameter")) {
 
         #ensure we were either called with a connection or there is a defaultConnection (user has 
         #called connect-nsxserver) 
@@ -3013,12 +2997,6 @@ function Invoke-NsxWebRequest {
                 Write-Debug "$($MyInvocation.MyCommand.Name) : Using default connection"
                 $connection = $DefaultNSXConnection
             }       
-        }
-
-        
-        if ( -not $connection.ValidateCertificate ) { 
-            #allow untrusted certificate presented by the remote system to be accepted 
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         }
 
         $cred = $connection.credential
@@ -3060,9 +3038,9 @@ function Invoke-NsxWebRequest {
     
     try { 
         if (( $method -eq "put" ) -or ( $method -eq "post" )) { 
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout
+            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
         } else {
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout
+            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
         }
     }
     catch {
@@ -3092,8 +3070,6 @@ function Invoke-NsxWebRequest {
             }
             throw $_ 
         } 
-        
-
     }
 
     #Output the response header dictionary
