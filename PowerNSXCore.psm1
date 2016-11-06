@@ -2982,7 +2982,7 @@ function Invoke-NsxWebRequest {
 
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
 
-    if ( (-not ($pscmdlet.ParameterSetName -eq "Parameter")) {
+    if ( -not ($pscmdlet.ParameterSetName -eq "Parameter")) {
 
         #ensure we were either called with a connection or there is a defaultConnection (user has 
         #called connect-nsxserver) 
