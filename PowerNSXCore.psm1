@@ -2539,9 +2539,11 @@ function Format-XML () {
 
 
         $StringWriter = New-Object System.IO.StringWriter 
-        $XmlWriter = New-Object System.XMl.XmlTextWriter $StringWriter 
-        $xmlWriter.Formatting = "indented" 
-        $xmlWriter.Indentation = $Indent 
+        $XmlSettings = New-Object System.Xml.XmlWriterSettings
+        $XmlSettings.Indent = $true
+
+        $XmlWriter = [System.XMl.XmlWriter]::Create($StringWriter, $XmlSettings)
+        
         $_xml.WriteContentTo($XmlWriter) 
         $XmlWriter.Flush() 
         $StringWriter.Flush() 
