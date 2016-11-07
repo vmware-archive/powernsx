@@ -33,6 +33,14 @@ $ValidBranches = @("master","v2")
 
 set-strictmode -version Latest
 
+##################WARNING############################
+write-warning "If you are loading this module, you are stupid.  Or brave.  Possibly both.  It does NOT work yet, and several unresolved PowerShell bugs are still blocking some known issues.  Virtually no (like NONE) testing has occured, so as I said.  Stupid..."
+write-warning "Known issues:"
+write-warning " - Xml response from NSX API is not (always) parsed correctly and causes invoke-restmethod exceptions."
+write-warning " - invoke-restmethod and invoke-webrequest do not return the webrequest response in the event an exception is thrown making error messages basically useless (I cant show the user what the NSX API returned.)"
+write-warning " - skipcertificate check is hard coded in calls for invoke-restmethod/webrequest and relies on PowerShell built from source (until the next 6.0.0 alpha release)"
+write-warning " - Basically nothing has been tested"
+
 
 ########
 ########
