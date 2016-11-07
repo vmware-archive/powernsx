@@ -2847,9 +2847,9 @@ function Invoke-NsxRestMethod {
     #do rest call
     try { 
         if ( $PsBoundParameters.ContainsKey('Body')) { 
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout -SkipCertificateCheck
         } else {
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout -SkipCertificateCheck
         }
     }
     catch {
@@ -3313,7 +3313,8 @@ function Connect-NsxServer {
     $vcInfo = Invoke-NsxRestMethod -method get -URI "/api/2.0/services/vcconfig" -connection $connection
     if ( $DebugLogging ) { "$(Get-Date -format s)  New PowerNSX Connection to $($credential.UserName)@$($Protocol)://$($Server):$port, version $($Connection.Version)"  | out-file -Append -FilePath $DebugLogfile -Encoding utf8 }
 
-    if ( -not $vcInfo.SelectSingleNode('descendant::vcInfo/ipAddress')) { 
+    if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($vcinfo, 'descendant::vcInfo/ipAddress')) { 
+#    if ( -not $vcInfo.SelectSingleNode('descendant::vcInfo/ipAddress')) { 
         if ( $DebugLogging ) { "$(Get-Date -format s)  NSX Manager $Server is not currently connected to any vCenter..."  | out-file -Append -FilePath $DebugLogfile -Encoding utf8 }
         write-warning "NSX Manager does not currently have a vCenter registration.  Use Set-NsxManager to register a vCenter server."
     }
