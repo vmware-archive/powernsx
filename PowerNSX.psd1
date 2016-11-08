@@ -175,7 +175,7 @@ FunctionsToExport = @(
     'New-NsxEdgeCsr',
     'Remove-NsxEdgeCrl',
     'Get-NsxEdgeCertificate',
-    'New-NsxEdgeCertificate',
+    'New-NsxEdgeSelfSignedCertificate',
     'Remove-NsxEdgeCertificate',
     'Get-NsxSslVpn',
     'Set-NsxSslVpn',
@@ -308,7 +308,13 @@ FunctionsToExport = @(
     'Get-NsxServiceGroup',
     'Get-NsxServiceGroupMember',
     'Remove-NsxServiceGroup',
-    'Get-NsxLoadBalancerStats'
+    'Get-NsxLoadBalancerStats',
+    'Get-NsxFirewallSavedConfiguration',
+    'New-NsxLoadBalancerApplicationRule',
+    'Get-NsxLoadBalancerApplicationRule',
+    'Copy-NsxEdge',
+    'Export-NsxObject',
+    'Import-NsxObject'
 )
 
 # Cmdlets to export from this module
