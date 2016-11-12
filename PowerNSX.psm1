@@ -5104,8 +5104,15 @@ function New-NsxController {
     The New-NsxController cmdlet deploys a new NSX Controller.
     
     .EXAMPLE
-    $ControllerName = "MyNSXCtrl1"
     $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.0.1 -SubnetPrefixLength 24 -StartAddress 192.168.0.10 -endaddress 192.168.0.20
+    $ControllerCluster = Get-Cluster vSphereCluster
+    $ControllerDatastore = Get-Datastore $ControllerDatastoreName -server $Connection.VIConnection 
+    $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
+    New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
+
+    .EXAMPLE
+    $ControllerName = "MyNSXCtrl1"
+    $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.10.1 -SubnetPrefixLength 24 -StartAddress 192.168.10.100 -endaddress 192.168.10.200
     $ControllerCluster = Get-Cluster vSphereCluster
     $ControllerDatastore = Get-Datastore $ControllerDatastoreName -server $Connection.VIConnection 
     $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
@@ -5191,7 +5198,7 @@ function New-NsxController {
         }
 
         # Check for presence of optional controller name
-        if ($ControllerName){Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
+        if ($PSBoundParameters.ContainsKey("ControllerName")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()
