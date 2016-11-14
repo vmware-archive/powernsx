@@ -269,7 +269,8 @@ function check-powercli {
 
     #Validate at least PowerCLI 5.5 via uninstall reg key
     Write-Progress -Activity "Installing PowerNSX" -Status "check-powercli" -CurrentOperation "Checking for compatible PowerCLI version"
-    if ((gwmi win32_operatingsystem).osarchitecture -eq "64-bit") { 
+    # Changing -eq "64-bit" to -like "64". Issue with Win8. The registered value is "64 bits". So it might be better to use -like "64" to be more generic here.  
+    if ((gwmi win32_operatingsystem).osarchitecture -like "64") { 
         $PowerCli = get-childitem "HKLM:Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" | % { $_ | get-itemproperty | ? { $_.displayName -match 'PowerCLI' }}
 
     }else {
