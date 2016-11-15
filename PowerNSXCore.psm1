@@ -3510,6 +3510,42 @@ function Update-PowerNsx {
     set-strictmode -Version Latest
 }
 
+function Get-NsxJobStatus {
+
+    param(
+        # [Parameter (Mandatory=$false)]
+        #     [switch]$ActiveJobsOnly=$false,
+        [Parameter (Mandatory=$true)]
+            [string]$jobId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin{
+        
+        if ( $PSBoundParameters.ContainsKey("jobid")) { 
+            #Just getting a singlejob by ID
+            $URI = "/api/4.0/edges/jobs/$jobId"
+ 
+        }
+        # else { 
+        #     #Getting multiple jobs
+        #     if ( $ActiveJobsOnly ) { $status = "active"} else { $status = "all" }
+        #     $URI = "/api/4.0/edges/jobs?status=$status"
+
+        # }
+        $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+        [xml]$response.Content
+    }
+
+    process{}
+
+    end{}
+
+}
+
 #########
 #########
 # Infra functions
@@ -6775,6 +6811,272 @@ function Remove-NsxLogicalSwitch {
     }
 
     end {}
+}
+
+function Connect-NsxLogicalSwitch {
+    <#
+    .SYNOPSIS
+    Connects a VM to a logical switch
+
+    .DESCRIPTION
+    An NSX Logical Switch provides L2 connectivity to VMs attached to it.
+    A Logical Switch is 'bound' to a Transport Zone, and only hosts that are 
+    members of the Transport Zone are able to host VMs connected to a Logical 
+    Switch that is bound to it.
+
+    Connect-NsxLogicalSwitch accepts either a VM or NIC and attaches it to the 
+    specified LogicalSwitch. 
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="VM")]
+    param(
+        [Parameter(Mandatory=$true, ParameterSetName="VM", ValueFromPipeline=$true)]
+            #VM or collection of VMs to attach to specified logical switch.
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop[]]$VirtualMachine,
+        [Parameter(Mandatory=$true, ParameterSetName="NIC", ValueFromPipeline=$true)]
+            #Network Adapter or collection of Network Adapters to attach to specified logical switch.
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop[]]$NetworkAdapter,
+        [Parameter(Mandatory=$true, Position=1)]
+            [ValidateScript({ Validate-LogicalSwitch $_ })]
+            [System.Xml.XmlElement]$LogicalSwitch,
+        [Parameter(Mandatory=$false)]
+            [switch]$ConnectMultipleNics=$false,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+    begin{
+
+        function _Process-Nic { 
+
+            param (
+                $nic
+            )
+
+            #See NSX API guide 'Attach or Detach a Virtual Machine from a Logical Switch' for 
+            #how to construct NIC id.
+            $vmUuid = ($nic.parent | get-view).config.instanceuuid
+            $vnicUuid = "$vmUuid.$($nic.id.substring($nic.id.length-3))"
+
+            #Construct XML
+            $xmldoc = New-Object System.Xml.XmlDocument
+            $xmlroot = $xmldoc.CreateElement("com.vmware.vshield.vsm.inventory.dto.VnicDto")
+            $null = $xmldoc.AppendChild($xmlroot)
+            Add-XmlElement -xmlRoot $xmlroot -xmlElementName "objectId" -xmlElementText $vnicUuid
+            Add-XmlElement -xmlRoot $xmlroot -xmlElementName "vnicUuid" -xmlElementText $vnicUuid
+            Add-XmlElement -xmlRoot $xmlroot -xmlElementName "portgroupId" -xmlElementText $LogicalSwitch.objectId
+            
+            #Do the post
+            $body = $xmlroot.OuterXml
+            $URI = "/api/2.0/vdn/virtualwires/vm/vnic"
+            Write-Progress -Activity "Processing" -Status "Connecting $vnicuuid to logical switch $($LogicalSwitch.objectId)" 
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+            Write-Progress -Activity "Processing" -Status "Connecting $vnicuuid to logical switch $($LogicalSwitch.objectId)" -Completed            
+            #api returns a task id. 
+            $job = [xml]$response.content
+            $jobId = $job."com.vmware.vshield.vsm.vdn.dto.ui.ReconfigureVMTaskResultDto".jobId
+            
+            $status = $null
+            while ( $status -ne "COMPLETED" ) {
+                $failcount = 0
+                while ( $failCount -lt 3 ) { 
+                    try { 
+                        [xml]$job = Get-NsxJobStatus -jobId $JobId
+                        $status = $job.edgeJob.status
+                        Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete"
+                        if ( $status -ne "COMPLETED" ) { 
+                            write-verbose "Waiting for async job $jobid to complete.  Current status $status."
+                            start-sleep -Milliseconds 1000
+                        }
+                        else { 
+                            Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" -completed                            
+                            break
+                        }
+                    }
+                    catch {
+                        #Can fail if query is too quick 
+                        start-sleep -Milliseconds 1000 
+                        $failcount++
+                    }
+                }
+            }
+        }
+    }
+
+    process{
+
+        switch ( $PSCmdlet.ParameterSetName ) { 
+
+            "VM" { 
+                foreach ( $vm in $VirtualMachine ) { 
+                    [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop[]]$nics = $vm | Get-NetworkAdapter
+                    switch ($nics.count) { 
+                        0 { write-warning "Virtual Machine $($vm.name) ($($vm.extensiondata.moref.value)) has no network adapters.  Nothing to do." }
+                        1 { #do nothing 
+                        }
+                        default { 
+                            if ( -not $ConnectMultipleNics ) { Throw "Virtual Machine $($vm.name) ($($vm.extensiondata.moref.value)) has more than one network adapter.  Specify -ConnectMultipleNics switch if this is really what you want." }
+                        }
+                    } 
+
+                    foreach ( $nic in $nics ) { 
+                         _Process-Nic $nic
+                    }
+                }
+            }
+            "NIC" {
+                foreach ( $nic in $nics ) { 
+                     _Process-Nic $nic
+                }
+            }
+        }
+    }
+
+    end{}
+}
+
+function Disconnect-NsxLogicalSwitch {
+    <#
+    .SYNOPSIS
+    Disconnects a VM from a logical switch
+
+    .DESCRIPTION
+    An NSX Logical Switch provides L2 connectivity to VMs attached to it.
+    A Logical Switch is 'bound' to a Transport Zone, and only hosts that are 
+    members of the Transport Zone are able to host VMs connected to a Logical 
+    Switch that is bound to it.
+
+    Disconnect-NsxLogicalSwitch accepts either a VM or NIC and detaches it from
+    the specified LogicalSwitch. 
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="VM")]
+    param(
+        [Parameter(Mandatory=$true, ParameterSetName="VM", ValueFromPipeline=$true)]
+            #VM or collection of VMs to attach to specified logical switch.
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop[]]$VirtualMachine,
+        [Parameter(Mandatory=$true, ParameterSetName="NIC", ValueFromPipeline=$true)]
+            #Network Adapter or collection of Network Adapters to attach to specified logical switch.
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop[]]$NetworkAdapter,
+        [Parameter(Mandatory=$false)]
+            [switch]$ConnectMultipleNics=$false,
+        [Parameter(Mandatory=$false)]
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+    begin{
+
+        function _Process-Nic { 
+
+            param (
+                $nic
+            )
+
+            #See NSX API guide 'Attach or Detach a Virtual Machine from a Logical Switch' for 
+            #how to construct NIC id.
+            $vmUuid = ($nic.parent | get-view).config.instanceuuid
+            $vnicUuid = "$vmUuid.$($nic.id.substring($nic.id.length-3))"
+
+            #Construct XML
+            $xmldoc = New-Object System.Xml.XmlDocument
+            $xmlroot = $xmldoc.CreateElement("com.vmware.vshield.vsm.inventory.dto.VnicDto")
+            $null = $xmldoc.AppendChild($xmlroot)
+            Add-XmlElement -xmlRoot $xmlroot -xmlElementName "objectId" -xmlElementText $vnicUuid
+            Add-XmlElement -xmlRoot $xmlroot -xmlElementName "vnicUuid" -xmlElementText $vnicUuid
+            Add-XmlElement -xmlRoot $xmlroot -xmlElementName "portgroupId" -xmlElementText ""
+            
+            #Do the post
+            $body = $xmlroot.OuterXml
+            $URI = "/api/2.0/vdn/virtualwires/vm/vnic"
+            if ( $confirm ) { 
+                $message  = "Disconnecting $($nic.Parent.Name)'s network adapter from a logical switch will cause network connectivity loss."
+                $question = "Proceed with disconnection?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                Write-Progress -Activity "Processing" -Status "Disconnecting $vnicuuid from logical switch"                 
+                $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+                Write-Progress -Activity "Processing" -Status "Disconnecting $vnicuuid from logical switch" -Completed            
+
+                $job = [xml]$response.content
+                $jobId = $job."com.vmware.vshield.vsm.vdn.dto.ui.ReconfigureVMTaskResultDto".jobId
+                
+                $status = $null
+                while ( $status -ne "COMPLETED" ) {
+                    $failcount = 0
+                    while ( $failCount -lt 3 ) { 
+                        try { 
+                            [xml]$job = Get-NsxJobStatus -jobId $JobId
+                            Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete"                        
+                            $status = $job.edgeJob.status
+                            if ( $status -ne "COMPLETED" ) { 
+                                write-verbose "Waiting for async job $jobid to complete.  Current status $status."
+                                start-sleep -Milliseconds 1000
+                            }
+                            else { 
+                                Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" -completed                              
+                                break
+                            }
+                        }
+                        catch {
+                            #Can fail if query is too quick 
+                            start-sleep -Milliseconds 1000 
+                            $failcount++
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    process{
+
+        switch ( $PSCmdlet.ParameterSetName ) { 
+
+            "VM" { 
+                foreach ( $vm in $VirtualMachine ) { 
+                    [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop[]]$nics = $vm | Get-NetworkAdapter
+                    switch ($nics.count) { 
+                        0 { write-warning "Virtual Machine $($vm.name) ($($vm.extensiondata.moref.value)) has no network adapters.  Nothing to do." }
+                        1 { #do nothing 
+                        }
+                        default { 
+                            if ( -not $ConnectMultipleNics ) { Throw "Virtual Machine $($vm.name) ($($vm.extensiondata.moref.value)) has more than one network adapter.  Specify -ConnectMultipleNics switch if this is really what you want." }
+                        }
+                    } 
+
+                    foreach ( $nic in $nics ) { 
+                         _Process-Nic $nic
+                    }
+                }
+            }
+            "NIC" {
+                foreach ( $nic in $nics ) { 
+                     _Process-Nic $nic
+                }
+            }
+        }
+    }
+
+    end{}
 }
 
 #########
