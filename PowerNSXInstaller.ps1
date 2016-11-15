@@ -227,7 +227,7 @@ function check-powershell {
                                 install-dotNet45
                             }
                             
-                            if ( (gwmi win32_operatingsystem).OSArchitecture -like "64*") {
+                            if ( [System.Environment]::Is64BitOperatingSystem ) {
                                 install-wmf -version 3 -uri $WMF_3_60_64_Download
                             }
                             else {
@@ -243,7 +243,7 @@ function check-powershell {
                                 install-dotNet45
                             }
 
-                            if ( (gwmi win32_operatingsystem).OSArchitecture -like "64*") {
+                            if ( [System.Environment]::Is64BitOperatingSystem ) {
                                 install-wmf -version 4 -uri $WMF_3_61_64_Download
                             }
                             else {
@@ -269,7 +269,7 @@ function check-powercli {
 
     #Validate at least PowerCLI 5.5 via uninstall reg key
     Write-Progress -Activity "Installing PowerNSX" -Status "check-powercli" -CurrentOperation "Checking for compatible PowerCLI version"
-    if ((gwmi win32_operatingsystem).osarchitecture -like "64*") { 
+    if ( [System.Environment]::Is64BitOperatingSystem ) { 
         $PowerCli = get-childitem "HKLM:Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" | % { $_ | get-itemproperty | ? { $_.displayName -match 'PowerCLI' }}
 
     }else {
