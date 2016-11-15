@@ -313,7 +313,10 @@ FunctionsToExport = @(
     'Get-NsxLoadBalancerApplicationRule',
     'Copy-NsxEdge',
     'Export-NsxObject',
-    'Import-NsxObject'
+    'Import-NsxObject',
+    'Connect-NsxLogicalSwitch',
+    'Disconnect-NsxLogicalSwitch',
+    'Get-NsxJobStatus'
 )
 
 # Cmdlets to export from this module
