@@ -2856,9 +2856,9 @@ function Invoke-NsxRestMethod {
     #do rest call
     try { 
         if ( $PsBoundParameters.ContainsKey('Body')) { 
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout -SkipCertificateCheck
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
         } else {
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout -SkipCertificateCheck
+            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
         }
     }
     catch {
@@ -3314,7 +3314,6 @@ function Connect-NsxServer {
     if ( $DebugLogging ) { "$(Get-Date -format s)  New PowerNSX Connection to $($credential.UserName)@$($Protocol)://$($Server):$port, version $($Connection.Version)"  | out-file -Append -FilePath $DebugLogfile -Encoding utf8 }
 
     if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($vcinfo, 'descendant::vcInfo/ipAddress')) { 
-#    if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($vcInfo,'descendant::vcInfo/ipAddress')) { 
         if ( $DebugLogging ) { "$(Get-Date -format s)  NSX Manager $Server is not currently connected to any vCenter..."  | out-file -Append -FilePath $DebugLogfile -Encoding utf8 }
         write-warning "NSX Manager does not currently have a vCenter registration.  Use Set-NsxManager to register a vCenter server."
     }
@@ -5572,7 +5571,7 @@ function Remove-NsxVdsContext {
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/switches/$($VdsContext.Switch.ObjectId)"
             Write-Progress -activity "Remove Vds Context for Vds $($VdsContext.Switch.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             Write-Progress -activity "Remove Vds Context for Vds $($VdsContext.Switch.Name)" -completed
 
         }
@@ -5933,7 +5932,7 @@ function Remove-NsxCluster {
             # #Do the post
             $body = $xmlContext.OuterXml
             $URI = "/api/2.0/nwfabric/configure"
-            $response = invoke-nsxrestmethod -method "delete" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -body $body -connection $connection
 
             #Get Initial Status 
             $status = $cluster | get-NsxClusterStatus -connection $connection
@@ -6067,7 +6066,7 @@ function Remove-NsxClusterVxlanConfig {
             # #Do the post
             $body = $xmlContext.OuterXml
             $URI = "/api/2.0/nwfabric/configure"
-            $response = invoke-nsxrestmethod -method "delete" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -body $body -connection $connection
 
             #Get Initial Status 
             $status = $cluster | get-NsxClusterStatus -connection $connection
@@ -6281,7 +6280,7 @@ function Remove-NsxSegmentIdRange {
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/config/segments/$($SegmentIdRange.Id)"
             Write-Progress -activity "Remove Segment Id Range $($SegmentIdRange.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             Write-Progress -activity "Remove Segment Id Range $($SegmentIdRange.Name)" -completed
 
         }
@@ -6489,7 +6488,7 @@ function Remove-NsxTransportZone {
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)"
             Write-Progress -activity "Remove Transport Zone $($TransportZone.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             Write-Progress -activity "Remove Transport Zone $($TransportZone.Name)" -completed
 
         }
@@ -6701,10 +6700,10 @@ function New-NsxLogicalSwitch  {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
         #response only contains the vwire id, we have to query for it to get output consisten with get-nsxlogicalswitch
-        Get-NsxLogicalSwitch -virtualWireId $response -connection $connection
+        Get-NsxLogicalSwitch -virtualWireId $response.content -connection $connection
     }
     end {}
 }
@@ -6769,7 +6768,7 @@ function Remove-NsxLogicalSwitch {
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/virtualwires/$($virtualWire.ObjectId)"
             Write-Progress -activity "Remove Logical Switch $($virtualWire.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Remove Logical Switch $($virtualWire.Name)" -completed
 
         }
@@ -7107,7 +7106,7 @@ function Remove-NsxSpoofguardPolicy {
                 $URI = "/api/4.0/services/spoofguard/policies/$($SpoofguardPolicy.policyId)"
                 
                 Write-Progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)" -completed
             }
         }
@@ -8090,7 +8089,7 @@ function Remove-NsxLogicalRouter {
         if ($decision -eq 0) {
             $URI = "/api/4.0/edges/$($LogicalRouter.Edgesummary.ObjectId)"
             Write-Progress -activity "Remove Logical Router $($LogicalRouter.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection | out-null
             write-progress -activity "Remove Logical Router $($LogicalRouter.Name)" -completed
 
         }
@@ -8347,7 +8346,7 @@ function Remove-NsxLogicalRouterInterface {
         # #Do the delete
         $URI = "/api/4.0/edges/$($Interface.logicalRouterId)/interfaces/$($Interface.Index)"
         Write-Progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)."
-        invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection
+        $null = invoke-webrequest -method "delete" -uri $URI -connection $connection
         Write-progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)." -completed
 
     }
@@ -8999,7 +8998,7 @@ function Clear-NsxEdgeInterface {
         # #Do the delete
         $URI = "/api/4.0/edges/$($interface.edgeId)/vnics/$($interface.Index)"
         Write-Progress -activity "Clearing Edge Services Gateway interface configuration for interface $($interface.Index)."
-        invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection
+        $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
         Write-progress -activity "Clearing Edge Services Gateway interface configuration for interface $($interface.Index)." -completed
 
     }
@@ -10259,7 +10258,7 @@ function Remove-NsxEdge {
         if ($decision -eq 0) {
             $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)"
             Write-Progress -activity "Remove Edge Services Gateway $($Edge.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection| out-null
+            invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection| out-null
             write-progress -activity "Remove Edge Services Gateway $($Edge.Name)" -completed
 
         }
@@ -11070,7 +11069,7 @@ function Remove-NsxEdgeCsr{
             $URI = "/api/2.0/services/truststore/csr/$($csr.objectId)"
             
             Write-Progress -activity "Remove CSR $($Csr.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Remove CSR $($Csr.Name)" -completed
 
         }
@@ -11272,7 +11271,7 @@ function Remove-NsxEdgeCertificate{
             $URI = "/api/2.0/services/truststore/certificate/$($certificate.objectId)"
             
             Write-Progress -activity "Remove Certificate $($Csr.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Remove Certificate $($Csr.Name)" -completed
 
         }
@@ -18213,7 +18212,7 @@ function Remove-NsxSecurityGroup {
                 }
                 
                 Write-Progress -activity "Remove Security Group $($SecurityGroup.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove Security Group $($SecurityGroup.Name)" -completed
 
             }
@@ -18580,7 +18579,7 @@ function Remove-NsxSecurityTag {
                 $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)?force=$($Force.ToString().ToLower())"
                 
                 Write-Progress -activity "Remove Security Tag $($SecurityTag.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove Security Tag $($SecurityTag.Name)" -completed
 
             }
@@ -19065,7 +19064,7 @@ function Remove-NsxIpSet {
                 }
                 
                 Write-Progress -activity "Remove IP Set $($IPSet.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                $null = invoke-nswebrequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove IP Set $($IPSet.Name)" -completed
             }
         }
@@ -19295,7 +19294,7 @@ function Remove-NsxMacSet {
                 }
                 
                 Write-Progress -activity "Remove MAC Set $($MACSet.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove MAC Set $($MACSet.Name)" -completed
 
             }
@@ -19611,7 +19610,7 @@ function Remove-NsxService {
                 }
                 
                 Write-Progress -activity "Remove Service $($Service.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove Service $($Service.Name)" -completed
 
             }
@@ -19876,7 +19875,7 @@ function Remove-NsxServiceGroup {
             }
 
             Write-Progress -activity "Remove Service Group $($ServiceGroup.Name)"
-            Invoke-NsxRestMethod -method "delete" -uri $URI -connection $connection | out-null
+            $null = Invoke-NsxWebReuest -method "delete" -uri $URI -connection $connection
             Write-progress -activity "Remove Service Group $($ServiceGroup.Name)" -completed
         }
     }
@@ -20412,7 +20411,7 @@ function Remove-NsxFirewallSection {
                 }
                 
                 Write-Progress -activity "Remove Section $($Section.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                $null = invoke-NsxWebRequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove Section $($Section.Name)" -completed
             }
         }
@@ -20789,7 +20788,7 @@ function Remove-NsxFirewallRule {
           
             
             Write-Progress -activity "Remove Rule $($Rule.Name)"
-            invoke-nsxrestmethod -method "delete" -uri $URI  -extraheader $IfMatchHeader -connection $connection | out-null
+            $null = invoke-NsxWebRequest -method "delete" -uri $URI  -extraheader $IfMatchHeader -connection $connection
             write-progress -activity "Remove Rule $($Rule.Name)" -completed
 
         }
@@ -20977,7 +20976,7 @@ function Remove-NsxFirewallExclusionListMember {
         $URI = "/api/2.1/app/excludelist/$vmMoid"
 
         try {
-            $response = invoke-nsxrestmethod -method "DELETE" -uri $URI -connection $connection
+            $null = invoke-NsxWebRequest -method "DELETE" -uri $URI -connection $connection
         }
         catch {
             Throw "Unable to remove VM $VirtualMachine from Exclusion list. $_"
@@ -23128,7 +23127,7 @@ function Remove-NsxSecurityPolicy {
                 }
                 
                 Write-Progress -activity "Remove Security Policy $($SecurityPolicy.Name)"
-                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed
 
             }
