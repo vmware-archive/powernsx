@@ -6966,7 +6966,7 @@ function Disconnect-NsxLogicalSwitch {
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop[]]$NetworkAdapter,
         [Parameter(Mandatory=$false)]
-            [switch]$ConnectMultipleNics=$false,
+            [switch]$DisconnectMultipleNics=$false,
         [Parameter(Mandatory=$false)]
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$false)]
@@ -7059,7 +7059,7 @@ function Disconnect-NsxLogicalSwitch {
                         1 { #do nothing 
                         }
                         default { 
-                            if ( -not $ConnectMultipleNics ) { Throw "Virtual Machine $($vm.name) ($($vm.extensiondata.moref.value)) has more than one network adapter.  Specify -ConnectMultipleNics switch if this is really what you want." }
+                            if ( -not $DisconnectMultipleNics ) { Throw "Virtual Machine $($vm.name) ($($vm.extensiondata.moref.value)) has more than one network adapter.  Specify -ConnectMultipleNics switch if this is really what you want." }
                         }
                     } 
 

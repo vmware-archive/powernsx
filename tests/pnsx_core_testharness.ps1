@@ -49,13 +49,9 @@ $steps = @(
     {get-nsxlogicalrouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgpRouteRedistribution -confirm:$false | out-null},
     {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -FromConnected -Learner bgp -confirm:$false | out-null},
     {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress 172.16.1.1 -RemoteAS 100 -ForwardingAddress 172.16.1.2 -ProtocolAddress 172.16.1.3 -confirm:$false | out-null}
-    {$vappvds = get-vapp | Get-vm | get-cluster | Get-vmhost | get-vdswitch},
-    {$webpg = $webls | Get-NsxBackingPortGroup | ? { $_.vdswitch -eq $vappvds }},
-    {$apppg = $appls | Get-NsxBackingPortGroup | ? { $_.vdswitch -eq $vappvds }},
-    {$dbpg = $dbls | Get-NsxBackingPortGroup | ? { $_.vdswitch -eq $vappvds }},
-    {get-vm | where { $_.name -match 'web'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $webpg -Confirm:$false | out-null},
-    {get-vm | where { $_.name -match 'app'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $apppg -Confirm:$false | out-null},
-    {get-vm | where { $_.name -match 'db'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $dbpg -Confirm:$false | out-null}
+    {get-vm | where { $_.name -match 'web'} | Connect-NsxLogicalSwitch $webls | out-null},
+    {get-vm | where { $_.name -match 'app'} | Connect-NsxLogicalSwitch $appls | out-null},
+    {get-vm | where { $_.name -match 'db'} | Connect-NsxLogicalSwitch $dbls | out-null}
     
 
 )
@@ -63,7 +59,7 @@ $steps = @(
 $cleanup = @(
 
     {connect-nsxserver -server $nsxserver -username admin -password VMware1! -viusername administrator@vsphere.local -vipassword VMware1! -ViWarningAction "Ignore"},
-    {Get-VApp | get-vm | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup "dummy" -Confirm:$false},
+    {Get-VApp | get-vm | Disconnect-NsxLogicalSwitch -Confirm:$false},
     {Get-NsxEdge | Remove-NsxEdge -Confirm:$false},
     {Get-NsxLogicalRouter | Remove-NsxLogicalRouter -Confirm:$false},
     {Get-NsxLogicalSwitch | Remove-NsxLogicalSwitch -Confirm:$false}
