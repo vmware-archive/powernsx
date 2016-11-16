@@ -19434,7 +19434,7 @@ function New-NsxIpSet  {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/ipset/$scopeId"
-        $response = invoke-webrequest -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
         Get-NsxIPSet -objectid $response.content -connection $connection
     }
