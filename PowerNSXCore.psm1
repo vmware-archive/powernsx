@@ -33,28 +33,6 @@ $ValidBranches = @("master","v2")
 
 set-strictmode -version Latest
 
-## Custom classes
-
-if ( $global:PNSXPsTarget -eq "Desktop" ) {
-
-    #We only need this class if runnign on PoSH full.
-    if ( -not ("TrustAllCertsPolicy" -as [type])) {
-
-    add-type @"
-    using System.Net;
-    using System.Security.Cryptography.X509Certificates;
-    public class TrustAllCertsPolicy : ICertificatePolicy {
-        public bool CheckValidationResult(
-            ServicePoint srvPoint, X509Certificate certificate,
-            WebRequest request, int certificateProblem) {
-            return true;
-        }
-    }
-"@
-
-    }
-}
-
 ########
 ########
 # Private functions
@@ -23666,7 +23644,6 @@ function Get-NsxSecurityGroupEffectiveMembers {
 }
 
 
-
 function Find-NsxWhereVMUsed {
 
     <#
@@ -24965,7 +24942,28 @@ function Copy-NsxEdge{
     end {}
 }
 
-
-
 #Call Init function
 _init
+
+## Define Custom class required by desktop v
+
+if ( $global:PNSXPsTarget -eq "Desktop" ) {
+
+    #We only need this class if runnign on PoSH full.
+    if ( -not ("TrustAllCertsPolicy" -as [type])) {
+
+    add-type @"
+    using System.Net;
+    using System.Security.Cryptography.X509Certificates;
+    public class TrustAllCertsPolicy : ICertificatePolicy {
+        public bool CheckValidationResult(
+            ServicePoint srvPoint, X509Certificate certificate,
+            WebRequest request, int certificateProblem) {
+            return true;
+        }
+    }
+"@
+
+    }
+}
+
