@@ -3588,7 +3588,7 @@ function Update-PowerNsx {
     }
 
     Remove-Module PowerNSX
-    Import-Module PowerNSX
+    Import-Module PowerNSX -global
 
     set-strictmode -Version Latest
 }
