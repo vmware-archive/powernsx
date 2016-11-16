@@ -53,7 +53,7 @@ It is unlikely that it will ever expose 100% of the NSX API, but feature request
 PowerNSX is currently a work in progress and is not yet feature complete.'
 
 # Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '3'
+PowerShellVersion = '3.0'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''

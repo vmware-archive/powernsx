@@ -406,7 +406,7 @@ function Get-FeatureStatus {
 
     [system.xml.xmlelement]$feature = $statusxml | ? { $_.featureId -eq $featurestring } | select -first 1
     [string]$statusstring = $feature.status
-    $message = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($feature,'message')
+    $message = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $feature -Query 'message')
     if ( $message -and ( $message | get-member -membertype Property -Name '#Text')) { 
         $statusstring += " ($($message.'#text'))"
     }
@@ -2742,11 +2742,11 @@ function Import-NsxObject {
             Throw "An error occured attempting to load the file $filepath.  Ensure the file contains a valid PowerNSX object export and has not been modified or corrupted. $_"   
         }
 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlDoc,"/PowerNSXExport")) { 
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlDoc -Query "/PowerNSXExport")) { 
             Throw "The XML content in $filepath is not a valid PowerNSX export format."
         }
 
-        $Children = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($xmldoc.PowerNSXExport,"*")
+        $Children = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $xmldoc.PowerNSXExport -Query "*")
         foreach ($child in $Children) { 
             
             $child
@@ -3386,7 +3386,7 @@ function Connect-NsxServer {
     $vcInfo = Invoke-NsxRestMethod -method get -URI "/api/2.0/services/vcconfig" -connection $connection
     if ( $DebugLogging ) { "$(Get-Date -format s)  New PowerNSX Connection to $($credential.UserName)@$($Protocol)://$($Server):$port, version $($Connection.Version)"  | out-file -Append -FilePath $DebugLogfile -Encoding utf8 }
 
-    if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($vcinfo, 'descendant::vcInfo/ipAddress')) { 
+    if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $vcinfo -Query  'descendant::vcInfo/ipAddress')) { 
         if ( $DebugLogging ) { "$(Get-Date -format s)  NSX Manager $Server is not currently connected to any vCenter..."  | out-file -Append -FilePath $DebugLogfile -Encoding utf8 }
         write-warning "NSX Manager does not currently have a vCenter registration.  Use Set-NsxManager to register a vCenter server."
     }
@@ -4637,7 +4637,7 @@ function Get-NsxManagerSsoConfig {
 
     [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
     
-    if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::ssoConfig/vsmSolutionName')) { 
+    if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::ssoConfig/vsmSolutionName')) { 
         $ssoConfig = $response.ssoConfig
 
         #Only if its configured do we get status
@@ -4685,7 +4685,7 @@ function Get-NsxManagerVcenterConfig {
 
     [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
     
-    if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::vcInfo/ipAddress')) { 
+    if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::vcInfo/ipAddress')) { 
         $vcConfig = $response.vcInfo
 
         #Only if its configured do we get status
@@ -5317,7 +5317,7 @@ function Get-NsxController {
 
     [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
     
-        if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::controllers/controller')) { 
+    if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::controllers/controller')) { 
         if ( $PsBoundParameters.containsKey('objectId')) { 
             $response.controllers.controller | ? { $_.Id -eq $ObjectId }
         } else {
@@ -5531,14 +5531,14 @@ function Get-NsxVdsContext {
         If ( $PsBoundParameters.ContainsKey("Name")) { 
 
             If ( $response | get-member -memberType properties vdsContexts ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response.vdsContexts,"descendant::vdsContext")) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response.vdsContexts -Query "descendant::vdsContext")) { 
                     $response.vdsContexts.vdsContext | ? { $_.switch.name -eq $Name }
                 }
             }
         }
         else {
             If ( $response | get-member -memberType properties vdsContexts ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response.vdsContexts,"descendant::vdsContext")) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response.vdsContexts -Query "descendant::vdsContext")) { 
                     $response.vdsContexts.vdsContext
                 }
             }
@@ -6446,7 +6446,7 @@ function Get-NsxTransportZone {
         $URI = "/api/2.0/vdn/scopes"
         [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,"child::vdnScopes/vdnScope")) {
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::vdnScopes/vdnScope")) {
             if ( $PsBoundParameters.containsKey('name') ) { 
                 $response.vdnscopes.vdnscope | ? { $_.name -eq $name }
             } else {
@@ -7213,7 +7213,7 @@ function Get-NsxSpoofguardPolicy {
             $URI = "/api/4.0/services/spoofguard/policies/"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::spoofguardPolicies/spoofguardPolicy')) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::spoofguardPolicies/spoofguardPolicy')) { 
                     if  ( $Name  ) { 
                         $polcollection = $response.spoofguardPolicies.spoofguardPolicy | ? { $_.name -eq $Name }
                     } else {
@@ -7666,7 +7666,7 @@ function Get-NsxSpoofguardNic {
 
         [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
  
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::spoofguardList/spoofguard')) {
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::spoofguardList/spoofguard')) {
         
             switch ( $PsCmdlet.ParameterSetName  ) { 
 
@@ -7776,10 +7776,10 @@ function Grant-NsxSpoofguardNicApproval {
 
         #Get and Remove the policyId element we put there...
         $policyId = $_SpoofguardNic.policyId
-        $_SpoofguardNic.RemoveChild([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_SpoofguardNic,'descendant::policyId')) | out-null
+        $_SpoofguardNic.RemoveChild((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SpoofguardNic -Query 'descendant::policyId')) | out-null
 
         #if approvedIpAddress element does not exist, create it
-        [system.xml.xmlElement]$approvedIpAddressNode = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_SpoofguardNic,'descendant::approvedIpAddress')
+        [system.xml.xmlElement]$approvedIpAddressNode = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SpoofguardNic -Query 'descendant::approvedIpAddress')
         if ( -not $approvedIpAddressNode ) { 
 
             [System.XML.XMLElement]$approvedIpAddressNode = $XMLDoc.CreateElement("approvedIpAddress")
@@ -7790,7 +7790,7 @@ function Grant-NsxSpoofguardNicApproval {
         if ( $PsBoundParameters.ContainsKey('ipAddress') ) {
             foreach ( $ip in $ipAddress ) { 
 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($approvedIpAddressNode,"descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {                            
+                if ( (Invoke-XPathQuery -QueryMethod SelectNodes -Node $approvedIpAddressNode -Query "descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {                            
                     write-warning "Not adding duplicate IP Address $ip as it is already added."
                 }
                 else { 
@@ -7800,7 +7800,7 @@ function Grant-NsxSpoofguardNicApproval {
         }
 
         #If there are IPs detected, and approve all is on, ensure user understands consequence.
-        If ( $ApproveAllDetectedIps -and ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_SpoofguardNic,'descendant::detectedIpAddress/ipAddress'))) { 
+        If ( $ApproveAllDetectedIps -and ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SpoofguardNic -Query 'descendant::detectedIpAddress/ipAddress'))) { 
 
             If ($confirm ) { 
 
@@ -7819,7 +7819,7 @@ function Grant-NsxSpoofguardNicApproval {
                 foreach ( $ip in $_SpoofguardNic.detectedIpAddress.ipAddress )  {
                     #Have to ensure we dont add a duplicate here...
                     
-                    if ( [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($approvedIpAddressNode,"descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {                            
+                    if ( (Invoke-XPathQuery -QueryMethod SelectNodes -Node $approvedIpAddressNode -Query "descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {                            
                         write-warning "Not adding duplicate IP Address $ip as it is already added."
                     }
                     else { 
@@ -7832,7 +7832,7 @@ function Grant-NsxSpoofguardNicApproval {
         # Had bad thoughts about allowing manual specification of MAC.  I might come back to this...
 
         # if ( $PsCmdlet.ParameterSetName -eq "ManualMac" ) { 
-        #     if ( -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_SpoofguardNic,'descendant::approvedMacAddress'))){
+        #     if ( -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SpoofguardNic -Query 'descendant::approvedMacAddress'))){
         #         Add-XmlElement -xmlRoot $_SpoofguardNic -xmlElementName "approvedMacAddress" -xmlElementText $MacAddress
         #     }
         #     else { 
@@ -7844,7 +7844,7 @@ function Grant-NsxSpoofguardNicApproval {
 
         # }
         # else { 
-        #     if ( -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_SpoofguardNic,'descendant::approvedMacAddress'))){
+        #     if ( -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SpoofguardNic -Query 'descendant::approvedMacAddress'))){
         #        Add-XmlElement -xmlRoot $_SpoofguardNic -xmlElementName "approvedMacAddress" -xmlElementText $_SpoofguardNic.detectedMacAddress
         #     }
         #     else { 
@@ -7938,20 +7938,20 @@ function Revoke-NsxSpoofguardNicApproval {
 
         #Get and Remove the policyId element we put there...
         $policyId = $_SpoofguardNic.policyId
-        $_SpoofguardNic.RemoveChild([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_SpoofguardNic,'descendant::policyId')) | out-null
+        $_SpoofguardNic.RemoveChild((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SpoofguardNic -Query 'descendant::policyId')) | out-null
 
         #if approvedIpAddress element does not exist, bail
-        [system.xml.xmlElement]$approvedIpAddressNode = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_SpoofguardNic,'descendant::approvedIpAddress')
-        if ( -not $approvedIpAddressNode -or (-not ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($approvedIpAddressNode,'descendant::ipAddress')))) { 
+        [system.xml.xmlElement]$approvedIpAddressNode = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SpoofguardNic -Query 'descendant::approvedIpAddress')
+        if ( -not $approvedIpAddressNode -or (-not ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $approvedIpAddressNode -Query 'descendant::ipAddress')))) { 
 
             Write-Warning "Nic $($_SpoofguardNic.NicName) has no approved IPs"
         }
         else {
         
-            [system.xml.xmlElement]$publishedIpAddressNode = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_SpoofguardNic,'descendant::publishedIpAddress')
+            [system.xml.xmlElement]$publishedIpAddressNode = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SpoofguardNic -Query 'descendant::publishedIpAddress')
 
-            $approvedIpCollection = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($approvedIpAddressNode,"descendant::ipAddress")
-            $publishedIpCollection = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($publishedIpAddressNode,"descendant::ipAddress")
+            $approvedIpCollection = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $approvedIpAddressNode -Query "descendant::ipAddress")
+            $publishedIpCollection = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $publishedIpAddressNode -Query "descendant::ipAddress")
 
             #If there are IPs detected, and revoke all is on, kill em all...
             If ( $PSCmdlet.ParameterSetName -eq "RevokeAll" ) {
@@ -9289,7 +9289,7 @@ function Set-NsxEdgeInterface {
         #Import any user specified address groups.
         if ( $PsBoundParameters.ContainsKey('AddressSpec')) { 
 
-            [System.Xml.XmlElement]$AddressGroups = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($VnicSpec,'descendant::addressGroups') 
+            [System.Xml.XmlElement]$AddressGroups = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $VnicSpec -Query 'descendant::addressGroups') 
             foreach ( $spec in $AddressSpec ) { 
                 $import = $VnicSpec.OwnerDocument.ImportNode(($spec), $true)
                 $AddressGroups.AppendChild($import) | out-null
@@ -9558,7 +9558,7 @@ function New-NsxEdgeSubInterface {
 
     #Store the edgeId and remove it from the XML as we need to post it...
     $edgeId = $_Interface.edgeId
-    $NodetoRemove = $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Interface,'descendant::edgeId'))
+    $NodetoRemove = $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Interface -Query 'descendant::edgeId'))
     write-debug "Node to remove parent: $($nodetoremove.ParentNode | format-xml)"
 
     $_Interface.RemoveChild( $NodeToRemove ) | out-null
@@ -9673,7 +9673,7 @@ function Remove-NsxEdgeSubInterface {
         $ParentVnic = $(Get-NsxEdge -connection $connection -objectId $SubInterface.edgeId).vnics.vnic | ? { $_.index -eq $subInterface.vnicId }
 
         #Remove the node using xpath query.
-        $NodeToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ParentVnic.subInterfaces,"descendant::subInterface[index=$($subInterface.Index)]")
+        $NodeToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ParentVnic.subInterfaces -Query "descendant::subInterface[index=$($subInterface.Index)]")
         write-debug "$($MyInvocation.MyCommand.Name) : XPath query for node to delete returned $($NodetoRemove.OuterXml | format-xml)"
         $ParentVnic.Subinterfaces.RemoveChild($NodeToRemove) | out-null
 
@@ -9813,10 +9813,10 @@ function Get-NsxEdgeInterfaceAddress {
     process {
 
         $_Interface = ($Interface.CloneNode($True))
-        [System.Xml.XmlElement]$AddressGroups = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Interface,'descendant::addressGroups')
+        [System.Xml.XmlElement]$AddressGroups = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Interface -Query 'descendant::addressGroups')
 
         #Need to use an xpath query here, as dot notation will throw in strict mode if there is no childnode.
-        If ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($AddressGroups,'descendant::addressGroup')) { 
+        If ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $AddressGroups -Query 'descendant::addressGroup')) { 
 
             $GroupCollection = $AddressGroups.addressGroup
             if ( $PsBoundParameters.ContainsKey('PrimaryAddress')) {
@@ -9897,10 +9897,10 @@ function Add-NsxEdgeInterfaceAddress {
 
         #Store the edgeId and remove it from the XML as we need to put it...
         $edgeId = $_Interface.edgeId
-        $NodetoRemove = $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Interface,'descendant::edgeId'))
+        $NodetoRemove = $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Interface -Query 'descendant::edgeId'))
         $_Interface.RemoveChild( $NodeToRemove ) | out-null
 
-        [System.Xml.XmlElement]$AddressGroups = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Interface,'descendant::addressGroups')
+        [System.Xml.XmlElement]$AddressGroups = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Interface -Query 'descendant::addressGroups')
 
         if ( $PSCmdlet.ParameterSetName -eq "DirectAddress") { 
             if ( $PsBoundParameters.ContainsKey('SecondaryAddresses')) { 
@@ -9983,12 +9983,12 @@ function Remove-NsxEdgeInterfaceAddress {
         if ( -not $Interface ) { Throw "Interface index $InterfaceIndex was not found on edge $edgeId."}
 
         #Remove the edgeId and interfaceIndex elements from the XML as we need to post it...
-        $Interface.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($Interface,'descendant::edgeId')) ) | out-null
+        $Interface.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Interface -Query 'descendant::edgeId')) ) | out-null
 
         #Need to do an xpath query here to query for an address that matches the one passed in.  
         $xpathQuery = "//addressGroups/addressGroup[primaryAddress=`"$($InterfaceAddress.primaryAddress)`"]"
         write-debug "$($MyInvocation.MyCommand.Name) : XPath query for addressgroup nodes to remove is: $xpathQuery"
-        $addressGroupToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($Interface,$xpathQuery)
+        $addressGroupToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Interface -Query $xpathQuery)
 
         if ( $addressGroupToRemove ) { 
 
@@ -10549,7 +10549,7 @@ function Set-NsxEdge {
         $_Edge = $Edge.CloneNode($true)
 
         #Remove EdgeSummary...
-        $edgeSummary = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,'descendant::edgeSummary')
+        $edgeSummary = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query 'descendant::edgeSummary')
         if ( $edgeSummary ) {
             $_Edge.RemoveChild($edgeSummary) | out-null
         }
@@ -10817,7 +10817,7 @@ function Set-NsxEdgeNat {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeNat.edgeId
-        $_EdgeNat.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeNat,'descendant::edgeId')) ) | out-null
+        $_EdgeNat.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeNat -Query 'descendant::edgeId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
@@ -10951,10 +10951,10 @@ function Get-NsxEdgeNatRule {
         #consistent readable output
 
         $_EdgeNat = ($EdgeNat.CloneNode($True))
-        $_EdgeNatRules = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeNat,'descendant::natRules')
+        $_EdgeNatRules = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeNat -Query 'descendant::natRules')
 
         #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called natRule.
-        If ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeNatRules,'descendant::natRule')) { 
+        If ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeNatRules -Query 'descendant::natRule')) { 
 
             $RuleCollection = $_EdgeNatRules.natRule
             if ( $PsBoundParameters.ContainsKey('RuleId')) {
@@ -11235,7 +11235,7 @@ function Get-NsxEdgeCsr {
             $URI = "/api/2.0/services/truststore/csr/$objectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response ) {
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::csr')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::csr')) {
                     $response.csr
                 }
             }
@@ -11247,7 +11247,7 @@ function Get-NsxEdgeCsr {
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
             if ( $response ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::csrs/csr')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::csrs/csr')) {
                     $response.csrs.csr
                 }
             }
@@ -11502,7 +11502,7 @@ function Get-NsxEdgeCertificate{
             $URI = "/api/2.0/services/truststore/certificate/$objectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response ) {
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::certificate')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::certificate')) {
                     $response.certificate
                 }
             }
@@ -11514,7 +11514,7 @@ function Get-NsxEdgeCertificate{
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
             if ( $response ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::certificates/certificate')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::certificates/certificate')) {
                     $response.certificates.certificate
                 }
             }
@@ -11778,7 +11778,7 @@ function Set-NsxSslVpn {
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeSslVpn.edgeId
 
-        $_EdgeSslVpn.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeSslVpn,'descendant::edgeId')) ) | out-null
+        $_EdgeSslVpn.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeSslVpn -Query 'descendant::edgeId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
@@ -11831,7 +11831,7 @@ function Set-NsxSslVpn {
             $PsBoundParameters.ContainsKey("Enable_AES256_SHA")) 
         {
             
-            if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeSslVpn,'descendant::serverSettings') ) {
+            if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeSslVpn -Query 'descendant::serverSettings') ) {
                 [System.Xml.XmlElement]$serverSettings = $_EdgeSslVpn.ownerDocument.CreateElement('serverSettings') 
                 $_EdgeSslVpn.AppendChild($serverSettings) | out-null
             }
@@ -11841,7 +11841,7 @@ function Set-NsxSslVpn {
 
             if ( $PsBoundParameters.ContainsKey("ServerAddress")) { 
                 #Set ServerAddress
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($serverSettings,'descendant::serverAddresses') ) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $serverSettings -Query 'descendant::serverAddresses') ) {
                     [System.Xml.XmlElement]$serverAddresses = $_EdgeSslVpn.ownerDocument.CreateElement('serverAddresses') 
                     $serverSettings.AppendChild($serverAddresses) | out-null
                 }
@@ -11849,7 +11849,7 @@ function Set-NsxSslVpn {
                     [System.Xml.XmlElement]$serverAddresses = $serverSettings.serverAddresses
                 }
 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($serverAddresses,'descendant::ipAddress') ) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $serverAddresses -Query 'descendant::ipAddress') ) {
                     Add-XmlElement -xmlRoot $serverAddresses -xmlElementName "ipAddress" -xmlElementText $($ServerAddress.IPAddresstoString)
                 }
                 else {
@@ -11859,7 +11859,7 @@ function Set-NsxSslVpn {
 
             if ( $PsBoundParameters.ContainsKey("ServerPort")) { 
                 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($serverSettings,'descendant::port') ) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $serverSettings -Query 'descendant::port') ) {
                     Add-XmlElement -xmlRoot $serverSettings -xmlElementName "port" -xmlElementText $ServerPort.ToString()
                 }
                 else {
@@ -11869,7 +11869,7 @@ function Set-NsxSslVpn {
 
             if ( $PsBoundParameters.ContainsKey("CertificateID")) { 
 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($serverSettings,'descendant::certificateId') ) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $serverSettings -Query 'descendant::certificateId') ) {
                     Add-XmlElement -xmlRoot $serverSettings -xmlElementName "certificateId" -xmlElementText $CertificateID
                 }
                 else {
@@ -11881,7 +11881,7 @@ function Set-NsxSslVpn {
                 $PsBoundParameters.ContainsKey("Enable_AES128_SHA") -or
                 $PsBoundParameters.ContainsKey("Enable_AES256_SHA")) { 
 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeSslVpn.serverSettings,'descendant::cipherList') ) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeSslVpn.serverSettings -Query 'descendant::cipherList') ) {
                     [System.Xml.XmlElement]$cipherList = $serverSettings.ownerDocument.CreateElement('cipherList') 
                     $serverSettings.AppendChild($cipherList) | out-null
                 }
@@ -11890,7 +11890,7 @@ function Set-NsxSslVpn {
                 }
 
                 if ( $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") ) { 
-                    $cipher = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($cipherList,"descendant::cipher") | ? { $_.'#Text' -eq 'DES-CBC3-SHA'}
+                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | ? { $_.'#Text' -eq 'DES-CBC3-SHA'}
                     if ( ( -not $cipher ) -and $Enable_DES_CBC3_SHA ) {
                         Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "DES-CBC3-SHA"
                     }
@@ -11901,7 +11901,7 @@ function Set-NsxSslVpn {
 
 
                 if ( $PsBoundParameters.ContainsKey("Enable_AES128_SHA") ) { 
-                    $cipher = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($cipherList,"descendant::cipher") | ? { $_.'#Text' -eq 'AES128-SHA'}
+                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | ? { $_.'#Text' -eq 'AES128-SHA'}
                     if ( ( -not $cipher ) -and $Enable_AES128_SHA ) {
                         Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "AES128-SHA"
                     }
@@ -11911,7 +11911,7 @@ function Set-NsxSslVpn {
                 }
 
                 if ( $PsBoundParameters.ContainsKey("Enable_AES256_SHA") ) { 
-                    $cipher = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($cipherList,"descendant::cipher") | ? { $_.'#Text' -eq 'AES256-SHA'}
+                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | ? { $_.'#Text' -eq 'AES256-SHA'}
                     if ( ( -not $cipher ) -and $Enable_AES256_SHA ) {
                         Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "AES256-SHA"
                     }
@@ -12003,10 +12003,10 @@ function New-NsxSslVpnAuthServer {
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeSslVpn.edgeId
 
-        $_EdgeSslVpn.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeSslVpn,'descendant::edgeId')) ) | out-null
+        $_EdgeSslVpn.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeSslVpn -Query 'descendant::edgeId')) ) | out-null
 
         #Get the AuthServers node, and create a new PrimaryAuthServer in it.
-        $PrimaryAuthServers = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeSslVpn,'descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers')
+        $PrimaryAuthServers = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeSslVpn -Query 'descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers')
 
         Switch ( $ServerType ) { 
 
@@ -12014,7 +12014,7 @@ function New-NsxSslVpnAuthServer {
 
                 #Like highlander, there can be only one! :)
 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($PrimaryAuthServers,'descendant::localAuthServer') ) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $PrimaryAuthServers -Query 'descendant::localAuthServer') ) { 
 
                     throw "Local Authentication source already exists.  Use Set-NsxEdgeSslVpnAuthServer to modify an existing server."
                 }
@@ -12108,7 +12108,7 @@ function Get-NsxSslVpnAuthServer {
         #consistent readable output
 
         $_EdgeSslVpn = $SslVpn.CloneNode($True)
-        $PrimaryAuthenticationServers = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_EdgeSslVpn,'descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers/*')
+        $PrimaryAuthenticationServers = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_EdgeSslVpn -Query 'descendant::authenticationConfiguration/passwordAuthentication/primaryAuthServers/*')
         if ( $PrimaryAuthenticationServers ) { 
 
             foreach ( $Server in $PrimaryAuthenticationServers ) { 
@@ -12120,7 +12120,7 @@ function Get-NsxSslVpnAuthServer {
                 }
             }
         }
-        $SecondaryAuthenticationServers = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_EdgeSslVpn,'descendant::authenticationConfiguration/passwordAuthentication/secondaryAuthServers/*')
+        $SecondaryAuthenticationServers = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_EdgeSslVpn -Query 'descendant::authenticationConfiguration/passwordAuthentication/secondaryAuthServers/*')
         if ( $SecondaryAuthenticationServers ) { 
 
             foreach ( $Server in $SecondaryAuthenticationServers ) { 
@@ -12238,7 +12238,7 @@ function Get-NsxSslVpnUser {
 
         $_EdgeSslVpn = $SslVpn.CloneNode($True)
 
-        $Users = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_EdgeSslVpn,'descendant::users/*')
+        $Users = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_EdgeSslVpn -Query 'descendant::users/*')
         if ( $Users ) { 
             foreach ( $User in $Users ) { 
                 Add-XmlElement -xmlRoot $User -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
@@ -12408,7 +12408,7 @@ function Get-NsxSslVpnIpPool {
 
         $_EdgeSslVpn = $SslVpn.CloneNode($True)
 
-        $IpPools = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_EdgeSslVpn,'descendant::ipAddressPools/*')
+        $IpPools = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_EdgeSslVpn -Query 'descendant::ipAddressPools/*')
         if ( $IpPools ) { 
             foreach ( $IpPool in $IpPools ) { 
                 Add-XmlElement -xmlRoot $IpPool -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
@@ -12571,7 +12571,7 @@ function Get-NsxSslVpnPrivateNetwork {
 
         $_EdgeSslVpn = $SslVpn.CloneNode($True)
 
-        $Networks = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_EdgeSslVpn,'descendant::privateNetworks/*')
+        $Networks = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_EdgeSslVpn -Query 'descendant::privateNetworks/*')
         if ( $Networks ) { 
             foreach ( $Net in $Networks ) { 
                 Add-XmlElement -xmlRoot $Net -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
@@ -12776,7 +12776,7 @@ function Get-NsxSslVpnClientInstallationPackage {
 
         $_EdgeSslVpn = $SslVpn.CloneNode($True)
 
-        $Packages = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_EdgeSslVpn,'descendant::clientInstallPackages/*')
+        $Packages = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_EdgeSslVpn -Query 'descendant::clientInstallPackages/*')
         if ( $Packages ) { 
             foreach ( $Package in $Packages ) { 
                 Add-XmlElement -xmlRoot $Package -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
@@ -12951,14 +12951,14 @@ function Set-NsxEdgeRouting {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::edgeId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('EnableOSPF') -or $PsBoundParameters.ContainsKey('EnableBGP') ) { 
             $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
-            $xmlRouterId = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlGlobalConfig,'descendant::routerId')
+            $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'descendant::routerId')
             if ( $EnableOSPF -or $EnableBGP ) {
                 if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
                     #Existing config missing and no new value set...
@@ -12978,14 +12978,14 @@ function Set-NsxEdgeRouting {
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableOSPF')) { 
-            $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::ospf') 
+            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf') 
             if ( -not $ospf ) {
                 #ospf node does not exist.
                 [System.XML.XMLElement]$ospf = $_EdgeRouting.ownerDocument.CreateElement("ospf")
                 $_EdgeRouting.appendChild($ospf) | out-null
             }
 
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'descendant::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled')) {
                 #Enabled element exists.  Update it.
                 $ospf.enabled = $EnableOSPF.ToString().ToLower()
             }
@@ -12998,7 +12998,7 @@ function Set-NsxEdgeRouting {
 
         if ( $PsBoundParameters.ContainsKey('EnableBGP')) {
 
-            $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::bgp') 
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::bgp') 
 
             if ( -not $bgp ) {
                 #bgp node does not exist.
@@ -13006,7 +13006,7 @@ function Set-NsxEdgeRouting {
                 $_EdgeRouting.appendChild($bgp) | out-null
             }
 
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
                 #Enabled element exists.  Update it.
                 $bgp.enabled = $EnableBGP.ToString().ToLower()
             }
@@ -13016,7 +13016,7 @@ function Set-NsxEdgeRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey("LocalAS")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::localAS')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) {
                 #LocalAS element exists, update it.
                     $bgp.localAS = $LocalAS.ToString()
                 }
@@ -13025,7 +13025,7 @@ function Set-NsxEdgeRouting {
                     Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
                 }
             }
-            elseif ( (-not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::localAS')) -and $EnableBGP  )) {
+            elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) -and $EnableBGP  )) {
                 throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
             }
             
@@ -13042,7 +13042,7 @@ function Set-NsxEdgeRouting {
         }
 
         if ( $PsBoundParameters.ContainsKey("EnableBgpRouteRedistribution")) { 
-            if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'child::bgp/redistribution/enabled') ) {
+            if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::bgp/redistribution/enabled') ) {
                 throw "BGP must have been configured at least once to enable or disable BGP route redistribution.  Enable BGP and try again."
             }
 
@@ -13062,7 +13062,7 @@ function Set-NsxEdgeRouting {
             $PsBoundParameters.ContainsKey("DefaultGatewayAdminDistance") ) { 
 
             #Check for and create if required the defaultRoute element. first.
-            if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting.staticRouting,'descendant::defaultRoute')) {
+            if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting.staticRouting -Query 'descendant::defaultRoute')) {
                 #defaultRoute element does not exist
                 $defaultRoute = $_EdgeRouting.ownerDocument.CreateElement('defaultRoute')
                 $_EdgeRouting.staticRouting.AppendChild($defaultRoute) | out-null
@@ -13073,7 +13073,7 @@ function Set-NsxEdgeRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayVnic") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'descendant::vnic')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'descendant::vnic')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "vnic" -xmlElementText $DefaultGatewayVnic.ToString()
                 }
@@ -13084,7 +13084,7 @@ function Set-NsxEdgeRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayAddress") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'descendant::gatewayAddress')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'descendant::gatewayAddress')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "gatewayAddress" -xmlElementText $DefaultGatewayAddress.ToString()
                 }
@@ -13095,7 +13095,7 @@ function Set-NsxEdgeRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayDescription") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'descendant::description')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'descendant::description')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "description" -xmlElementText $DefaultGatewayDescription
                 }
@@ -13105,7 +13105,7 @@ function Set-NsxEdgeRouting {
                 }
             }
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayMTU") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'descendant::mtu')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'descendant::mtu')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "mtu" -xmlElementText $DefaultGatewayMTU.ToString()
                 }
@@ -13115,7 +13115,7 @@ function Set-NsxEdgeRouting {
                 }
             }
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayAdminDistance") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'descendant::adminDistance')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'descendant::adminDistance')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "adminDistance" -xmlElementText $DefaultGatewayAdminDistance.ToString()
                 }
@@ -13256,10 +13256,10 @@ function Get-NsxEdgeStaticRoute {
         #consistent readable output
 
         $_EdgeStaticRouting = ($EdgeRouting.staticRouting.CloneNode($True))
-        $EdgeStaticRoutes = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeStaticRouting,'descendant::staticRoutes')
+        $EdgeStaticRoutes = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeStaticRouting -Query 'descendant::staticRoutes')
 
         #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called route.
-        If ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeStaticRoutes,'descendant::route')) { 
+        If ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeStaticRoutes -Query 'descendant::route')) { 
 
             $RouteCollection = $EdgeStaticRoutes.route
             if ( $PsBoundParameters.ContainsKey('Network')) {
@@ -13349,7 +13349,7 @@ function New-NsxEdgeStaticRoute {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::edgeId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
@@ -13359,7 +13359,7 @@ function New-NsxEdgeStaticRoute {
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the static route element,
         #as it might be empty, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
-        $StaticRoutes = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting.staticRouting,'descendant::staticRoutes')
+        $StaticRoutes = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting.staticRouting -Query 'descendant::staticRoutes')
         $StaticRoutes.AppendChild($Route) | Out-Null
 
         Add-XmlElement -xmlRoot $Route -xmlElementName "network" -xmlElementText $Network.ToString()
@@ -13466,13 +13466,13 @@ function Remove-NsxEdgeStaticRoute {
         $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'descendant::edgeId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::edgeId')) ) | out-null
 
         #Need to do an xpath query here to query for a route that matches the one passed in.  
         #Union of nextHop and network should be unique
         $xpathQuery = "//staticRoutes/route[nextHop=`"$($StaticRoute.nextHop)`" and network=`"$($StaticRoute.network)`"]"
         write-debug "XPath query for route nodes to remove is: $xpathQuery"
-        $RouteToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing.staticRouting,$xpathQuery)
+        $RouteToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing.staticRouting -Query $xpathQuery)
 
         if ( $RouteToRemove ) { 
 
@@ -13570,12 +13570,12 @@ function Get-NsxEdgePrefix {
         #consistent readable output
 
         $_GlobalRoutingConfig = ($EdgeRouting.routingGlobalConfig.CloneNode($True))
-        $IpPrefixes = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_GlobalRoutingConfig,'child::ipPrefixes')
+        $IpPrefixes = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_GlobalRoutingConfig -Query 'child::ipPrefixes')
 
         #IPPrefixes may not exist...
         if ( $IPPrefixes ) { 
             #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ipPrefix.
-            If ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($IpPrefixes,'child::ipPrefix')) { 
+            If ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $IpPrefixes -Query 'child::ipPrefix')) { 
 
                 $PrefixCollection = $IPPrefixes.ipPrefix
                 if ( $PsBoundParameters.ContainsKey('Network')) {
@@ -13656,12 +13656,12 @@ function New-NsxEdgePrefix {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'child::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::edgeId')) ) | out-null
 
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the IP prefix element,
         #as it might be empty or not exist, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
-        $ipPrefixes = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting.routingGlobalConfig,'child::ipPrefixes')
+        $ipPrefixes = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting.routingGlobalConfig -Query 'child::ipPrefixes')
         if ( -not $ipPrefixes ) { 
             #Create the ipPrefixes element
             $ipPrefixes = $_EdgeRouting.ownerDocument.CreateElement('ipPrefixes')
@@ -13758,13 +13758,13 @@ function Remove-NsxEdgePrefix {
         $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::edgeId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::edgeId')) ) | out-null
 
         #Need to do an xpath query here to query for a prefix that matches the one passed in.  
         #Union of nextHop and network should be unique
         $xpathQuery = "/routingGlobalConfig/ipPrefixes/ipPrefix[name=`"$($Prefix.name)`" and ipAddress=`"$($Prefix.ipAddress)`"]"
         write-debug "XPath query for prefix nodes to remove is: $xpathQuery"
-        $PrefixToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,$xpathQuery)
+        $PrefixToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query $xpathQuery)
 
         if ( $PrefixToRemove ) { 
 
@@ -13844,8 +13844,8 @@ function Get-NsxEdgeBgp {
         #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
         #consistent readable output
 
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeRouting,'descendant::bgp')) { 
-            $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeRouting,'child::bgp').CloneNode($True)
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::bgp')) { 
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::bgp').CloneNode($True)
             Add-XmlElement -xmlRoot $bgp -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
             $bgp
         }
@@ -13916,14 +13916,14 @@ function Set-NsxEdgeBgp {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::edgeId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('EnableBGP') ) { 
             $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
-            $xmlRouterId = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlGlobalConfig,'descendant::routerId')
+            $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'descendant::routerId')
             if ( $EnableBGP ) {
                 if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
                     #Existing config missing and no new value set...
@@ -13941,7 +13941,7 @@ function Set-NsxEdgeBgp {
                 }
             }
 
-            $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::bgp') 
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::bgp') 
 
             if ( -not $bgp ) {
                 #bgp node does not exist.
@@ -13949,7 +13949,7 @@ function Set-NsxEdgeBgp {
                 $_EdgeRouting.appendChild($bgp) | out-null
             }
 
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
                 #Enabled element exists.  Update it.
                 $bgp.enabled = $EnableBGP.ToString().ToLower()
             }
@@ -13959,7 +13959,7 @@ function Set-NsxEdgeBgp {
             }
 
             if ( $PsBoundParameters.ContainsKey("LocalAS")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::localAS')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) {
                     #LocalAS element exists, update it.
                     $bgp.localAS = $LocalAS.ToString()
                 }
@@ -13968,12 +13968,12 @@ function Set-NsxEdgeBgp {
                     Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
                 }
             }
-            elseif ( (-not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::localAS')) -and $EnableBGP  )) {
+            elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) -and $EnableBGP  )) {
                 throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
             }
 
             if ( $PsBoundParameters.ContainsKey("GracefulRestart")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::gracefulRestart')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::gracefulRestart')) {
                     #element exists, update it.
                     $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
                 }
@@ -13984,7 +13984,7 @@ function Set-NsxEdgeBgp {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::defaultOriginate')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::defaultOriginate')) {
                     #element exists, update it.
                     $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
                 }
@@ -14079,16 +14079,16 @@ function Get-NsxEdgeBgpNeighbour {
 
     process {
     
-        $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeRouting,'descendant::bgp')
+        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::bgp')
 
         if ( $bgp ) {
 
             $_bgp = $bgp.CloneNode($True)
-            $BgpNeighbours = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_bgp,'descendant::bgpNeighbours')
+            $BgpNeighbours = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_bgp -Query 'descendant::bgpNeighbours')
 
 
             #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called bgpNeighbour.
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($BgpNeighbours,'descendant::bgpNeighbour')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $BgpNeighbours -Query 'descendant::bgpNeighbour')) { 
 
                 $NeighbourCollection = $BgpNeighbours.bgpNeighbour
                 if ( $PsBoundParameters.ContainsKey('IpAddress')) {
@@ -14189,16 +14189,16 @@ function New-NsxEdgeBgpNeighbour {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::edgeId')) ) | out-null
 
         #Create the new bgpNeighbour element.
         $Neighbour = $_EdgeRouting.ownerDocument.CreateElement('bgpNeighbour')
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the bgp element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::bgp')
+        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::bgp')
         if ( $bgp ) { 
-            [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'descendant::bgpNeighbours').AppendChild($Neighbour) | Out-Null
+            (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::bgpNeighbours').AppendChild($Neighbour) | Out-Null
 
             Add-XmlElement -xmlRoot $Neighbour -xmlElementName "ipAddress" -xmlElementText $IpAddress.ToString()
             Add-XmlElement -xmlRoot $Neighbour -xmlElementName "remoteAS" -xmlElementText $RemoteAS.ToString()
@@ -14302,10 +14302,10 @@ function Remove-NsxEdgeBgpNeighbour {
         $routing = Get-NsxEdge -objectId $edgeId | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'descendant::edgeId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::edgeId')) ) | out-null
 
         #Validate the BGP node exists on the edge 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'descendant::bgp')) { throw "BGP is not enabled on ESG $edgeId.  Enable BGP and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::bgp')) { throw "BGP is not enabled on ESG $edgeId.  Enable BGP and try again." }
 
         #Need to do an xpath query here to query for a bgp neighbour that matches the one passed in.  
         #Union of ipaddress and remote AS should be unique (though this is not enforced by the API, 
@@ -14316,7 +14316,7 @@ function Remove-NsxEdgeBgpNeighbour {
 
         $xpathQuery = "//bgpNeighbours/bgpNeighbour[ipAddress=`"$($BgpNeighbour.ipAddress)`" and remoteAS=`"$($BgpNeighbour.remoteAS)`"]"
         write-debug "XPath query for neighbour nodes to remove is: $xpathQuery"
-        $NeighbourToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing.bgp,$xpathQuery)
+        $NeighbourToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing.bgp -Query $xpathQuery)
 
         if ( $NeighbourToRemove ) { 
 
@@ -14397,7 +14397,7 @@ function Get-NsxEdgeOspf {
         #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and 
         #consistent readable output
 
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeRouting,'descendant::ospf')) { 
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::ospf')) { 
             $ospf = $EdgeRouting.ospf.CloneNode($True)
             Add-XmlElement -xmlRoot $ospf -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
             $ospf
@@ -14466,14 +14466,14 @@ function Set-NsxEdgeOspf {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::edgeId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('EnableOSPF') ) { 
             $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
-            $xmlRouterId = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlGlobalConfig,'descendant::routerId')
+            $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'descendant::routerId')
             if ( $EnableOSPF ) {
                 if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
                     #Existing config missing and no new value set...
@@ -14491,7 +14491,7 @@ function Set-NsxEdgeOspf {
                 }
             }
 
-            $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::ospf') 
+            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf') 
 
             if ( -not $ospf ) {
                 #ospf node does not exist.
@@ -14499,7 +14499,7 @@ function Set-NsxEdgeOspf {
                 $_EdgeRouting.appendChild($ospf) | out-null
             }
 
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'descendant::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled')) {
                 #Enabled element exists.  Update it.
                 $ospf.enabled = $EnableOSPF.ToString().ToLower()
             }
@@ -14509,7 +14509,7 @@ function Set-NsxEdgeOspf {
             }
 
             if ( $PsBoundParameters.ContainsKey("GracefulRestart")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'descendant::gracefulRestart')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::gracefulRestart')) {
                     #element exists, update it.
                     $ospf.gracefulRestart = $GracefulRestart.ToString().ToLower()
                 }
@@ -14520,7 +14520,7 @@ function Set-NsxEdgeOspf {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'descendant::defaultOriginate')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::defaultOriginate')) {
                     #element exists, update it.
                     $ospf.defaultOriginate = $DefaultOriginate.ToString().ToLower()
                 }
@@ -14599,16 +14599,16 @@ function Get-NsxEdgeOspfArea {
 
     process {
     
-        $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeRouting,'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::ospf')
 
         if ( $ospf ) {
 
             $_ospf = $ospf.CloneNode($True)
-            $OspfAreas = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_ospf,'descendant::ospfAreas')
+            $OspfAreas = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ospf -Query 'descendant::ospfAreas')
 
 
             #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ospfArea.
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($OspfAreas,'descendant::ospfArea')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $OspfAreas -Query 'descendant::ospfArea')) { 
 
                 $AreaCollection = $OspfAreas.ospfArea
                 if ( $PsBoundParameters.ContainsKey('AreaId')) {
@@ -14685,17 +14685,17 @@ function Remove-NsxEdgeOspfArea {
         $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'descendant::edgeId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::edgeId')) ) | out-null
 
         #Validate the OSPF node exists on the edge 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'descendant::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
         if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
 
         
 
         $xpathQuery = "//ospfAreas/ospfArea[areaId=`"$($OspfArea.areaId)`"]"
         write-debug "XPath query for area nodes to remove is: $xpathQuery"
-        $AreaToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing.ospf,$xpathQuery)
+        $AreaToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing.ospf -Query $xpathQuery)
 
         if ( $AreaToRemove ) { 
 
@@ -14802,16 +14802,16 @@ function New-NsxEdgeOspfArea {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::edgeId')) ) | out-null
 
         #Create the new ospfArea element.
         $Area = $_EdgeRouting.ownerDocument.CreateElement('ospfArea')
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf')
         if ( $ospf ) { 
-            [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'descendant::ospfAreas').AppendChild($Area) | Out-Null
+            (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::ospfAreas').AppendChild($Area) | Out-Null
 
             Add-XmlElement -xmlRoot $Area -xmlElementName "areaId" -xmlElementText $AreaId.ToString()
 
@@ -14924,16 +14924,16 @@ function Get-NsxEdgeOspfInterface {
 
     process {
     
-        $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeRouting,'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::ospf')
 
         if ( $ospf ) {
 
             $_ospf = $ospf.CloneNode($True)
-            $OspfInterfaces = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_ospf,'descendant::ospfInterfaces')
+            $OspfInterfaces = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ospf -Query 'descendant::ospfInterfaces')
 
 
             #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ospfArea.
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($OspfInterfaces,'descendant::ospfInterface')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $OspfInterfaces -Query 'descendant::ospfInterface')) { 
 
                 $InterfaceCollection = $OspfInterfaces.ospfInterface
                 if ( $PsBoundParameters.ContainsKey('AreaId')) {
@@ -15019,17 +15019,17 @@ function Remove-NsxEdgeOspfInterface {
         $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'descendant::edgeId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::edgeId')) ) | out-null
 
         #Validate the OSPF node exists on the edge 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'descendant::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
         if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
 
         
 
         $xpathQuery = "//ospfInterfaces/ospfInterface[areaId=`"$($OspfInterface.areaId)`"]"
         write-debug "XPath query for interface nodes to remove is: $xpathQuery"
-        $InterfaceToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing.ospf,$xpathQuery)
+        $InterfaceToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing.ospf -Query $xpathQuery)
 
         if ( $InterfaceToRemove ) { 
 
@@ -15139,16 +15139,16 @@ function New-NsxEdgeOspfInterface {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::edgeId')) ) | out-null
 
         #Create the new ospfInterface element.
         $Interface = $_EdgeRouting.ownerDocument.CreateElement('ospfInterface')
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf')
         if ( $ospf ) { 
-            [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'descendant::ospfInterfaces').AppendChild($Interface) | Out-Null
+            (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::ospfInterfaces').AppendChild($Interface) | Out-Null
 
             Add-XmlElement -xmlRoot $Interface -xmlElementName "areaId" -xmlElementText $AreaId.ToString()
             Add-XmlElement -xmlRoot $Interface -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
@@ -15253,12 +15253,12 @@ function Get-NsxEdgeRedistributionRule {
         #Rules can be defined in either ospf or bgp (isis as well, but who cares huh? :) )
         if ( ( -not $PsBoundParameters.ContainsKey('Learner')) -or ($PsBoundParameters.ContainsKey('Learner') -and $Learner -eq 'ospf')) {
 
-            $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeRouting,'child::ospf')
+            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::ospf')
 
             if ( $ospf ) {
 
                 $_ospf = $ospf.CloneNode($True)
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_ospf,'child::redistribution/rules/rule') ) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ospf -Query 'child::redistribution/rules/rule') ) { 
 
                     $OspfRuleCollection = $_ospf.redistribution.rules.rule
 
@@ -15283,11 +15283,11 @@ function Get-NsxEdgeRedistributionRule {
 
         if ( ( -not $PsBoundParameters.ContainsKey('Learner')) -or ($PsBoundParameters.ContainsKey('Learner') -and $Learner -eq 'bgp')) {
 
-            $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($EdgeRouting,'child::bgp')
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::bgp')
             if ( $bgp ) {
 
                 $_bgp = $bgp.CloneNode($True)
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_bgp,'child::redistribution/rules/rule') ) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_bgp -Query 'child::redistribution/rules/rule') ) { 
 
                     $BgpRuleCollection = $_bgp.redistribution.rules.rule
 
@@ -15367,10 +15367,10 @@ function Remove-NsxEdgeRedistributionRule {
         $routing = Get-NsxEdge -objectId $edgeId -connection $connection | Get-NsxEdgeRouting
 
         #Remove the edgeId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::edgeId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::edgeId')) ) | out-null
 
         #Validate the learner protocol node exists on the edge 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,"child::$($RedistributionRule.learner)")) {
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query "child::$($RedistributionRule.learner)")) {
             throw "Rule learner protocol $($RedistributionRule.learner) is not enabled on ESG $edgeId.  Use Get-NsxEdge <this edge> | Get-NsxEdgerouting | Get-NsxEdgeRedistributionRule to get the rule you want to remove." 
         }
 
@@ -15380,7 +15380,7 @@ function Remove-NsxEdgeRedistributionRule {
         $xPathQuery += " and from/ospf=`"$($RedistributionRule.from.ospf)`" and from/bgp=`"$($RedistributionRule.from.bgp)`""
         $xPathQuery += " and from/isis=`"$($RedistributionRule.from.isis)`""
 
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($RedistributionRule,'child::prefixName')) { 
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $RedistributionRule -Query 'child::prefixName')) { 
 
             $xPathQuery += " and prefixName=`"$($RedistributionRule.prefixName)`""
         }
@@ -15389,7 +15389,7 @@ function Remove-NsxEdgeRedistributionRule {
 
         write-debug "XPath query for rule node to remove is: $xpathQuery"
         
-        $RuleToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,$xpathQuery)
+        $RuleToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query $xpathQuery)
 
         if ( $RuleToRemove ) { 
 
@@ -15494,11 +15494,11 @@ function New-NsxEdgeRedistributionRule {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_EdgeRouting.edgeId
-        $_EdgeRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,'child::edgeId')) ) | out-null
+        $_EdgeRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::edgeId')) ) | out-null
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the protocol element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $ProtocolElement = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_EdgeRouting,"child::$Learner")
+        $ProtocolElement = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query "child::$Learner")
 
         if ( (-not $ProtocolElement) -or ($ProtocolElement.Enabled -ne 'true')) { 
 
@@ -15508,7 +15508,7 @@ function New-NsxEdgeRedistributionRule {
         
             #Create the new rule element. 
             $Rule = $_EdgeRouting.ownerDocument.CreateElement('rule')
-            [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ProtocolElement,'child::redistribution/rules').AppendChild($Rule) | Out-Null
+            (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ProtocolElement -Query 'child::redistribution/rules').AppendChild($Rule) | Out-Null
 
             Add-XmlElement -xmlRoot $Rule -xmlElementName "action" -xmlElementText $Action
             if ( $PsBoundParameters.ContainsKey("PrefixName") ) { 
@@ -15681,14 +15681,14 @@ function Set-NsxLogicalRouterRouting {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('EnableOSPF') -or $PsBoundParameters.ContainsKey('EnableBGP') ) { 
             $xmlGlobalConfig = $_LogicalRouterRouting.routingGlobalConfig
-            $xmlRouterId = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlGlobalConfig,'child::routerId')
+            $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'child::routerId')
             if ( $EnableOSPF -or $EnableBGP ) {
                 if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
                     #Existing config missing and no new value set...
@@ -15708,14 +15708,14 @@ function Set-NsxLogicalRouterRouting {
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableOSPF')) { 
-            $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::ospf') 
+            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::ospf') 
             if ( -not $ospf ) {
                 #ospf node does not exist.
                 [System.XML.XMLElement]$ospf = $_LogicalRouterRouting.ownerDocument.CreateElement("ospf")
                 $_LogicalRouterRouting.appendChild($ospf) | out-null
             }
 
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::enabled')) {
                 #Enabled element exists.  Update it.
                 $ospf.enabled = $EnableOSPF.ToString().ToLower()
             }
@@ -15724,16 +15724,16 @@ function Set-NsxLogicalRouterRouting {
                 Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
             }
 
-            if ( $EnableOSPF -and (-not ($ProtocolAddress -or ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::protocolAddress'))))) {
+            if ( $EnableOSPF -and (-not ($ProtocolAddress -or ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::protocolAddress'))))) {
                 throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
             }
 
-            if ( $EnableOSPF -and (-not ($ForwardingAddress -or ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::forwardingAddress'))))) {
+            if ( $EnableOSPF -and (-not ($ForwardingAddress -or ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::forwardingAddress'))))) {
                 throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
             }
 
             if ( $PsBoundParameters.ContainsKey('ProtocolAddress') ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::protocolAddress')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::protocolAddress')) {
                     # element exists.  Update it.
                     $ospf.protocolAddress = $ProtocolAddress.ToString().ToLower()
                 }
@@ -15744,7 +15744,7 @@ function Set-NsxLogicalRouterRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey('ForwardingAddress') ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::forwardingAddress')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::forwardingAddress')) {
                     # element exists.  Update it.
                     $ospf.forwardingAddress = $ForwardingAddress.ToString().ToLower()
                 }
@@ -15758,7 +15758,7 @@ function Set-NsxLogicalRouterRouting {
 
         if ( $PsBoundParameters.ContainsKey('EnableBGP')) {
 
-            $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::bgp') 
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::bgp') 
 
             if ( -not $bgp ) {
                 #bgp node does not exist.
@@ -15767,7 +15767,7 @@ function Set-NsxLogicalRouterRouting {
 
             }
 
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::enabled')) {
                 #Enabled element exists.  Update it.
                 $bgp.enabled = $EnableBGP.ToString().ToLower()
             }
@@ -15777,7 +15777,7 @@ function Set-NsxLogicalRouterRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey("LocalAS")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::localAS')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::localAS')) {
                 #LocalAS element exists, update it.
                     $bgp.localAS = $LocalAS.ToString()
                 }
@@ -15786,7 +15786,7 @@ function Set-NsxLogicalRouterRouting {
                     Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
                 }
             }
-            elseif ( (-not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::localAS')) -and $EnableBGP  )) {
+            elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::localAS')) -and $EnableBGP  )) {
                 throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
             }
             
@@ -15804,7 +15804,7 @@ function Set-NsxLogicalRouterRouting {
         }
 
         if ( $PsBoundParameters.ContainsKey("EnableBgpRouteRedistribution")) { 
-            if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::bgp/redistribution/enabled') ) {
+            if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::bgp/redistribution/enabled') ) {
                 throw "BGP must have been configured at least once to enable/disable BGP route redistribution.  Enable BGP and try again."
             }
 
@@ -15825,7 +15825,7 @@ function Set-NsxLogicalRouterRouting {
             $PsBoundParameters.ContainsKey("DefaultGatewayAdminDistance") ) { 
 
             #Check for and create if required the defaultRoute element. first.
-            if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting.staticRouting,'child::defaultRoute')) {
+            if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting.staticRouting -Query 'child::defaultRoute')) {
                 #defaultRoute element does not exist
                 $defaultRoute = $_LogicalRouterRouting.ownerDocument.CreateElement('defaultRoute')
                 $_LogicalRouterRouting.staticRouting.AppendChild($defaultRoute) | out-null
@@ -15836,7 +15836,7 @@ function Set-NsxLogicalRouterRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayVnic") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'child::vnic')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'child::vnic')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "vnic" -xmlElementText $DefaultGatewayVnic.ToString()
                 }
@@ -15847,7 +15847,7 @@ function Set-NsxLogicalRouterRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayAddress") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'child::gatewayAddress')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'child::gatewayAddress')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "gatewayAddress" -xmlElementText $DefaultGatewayAddress.ToString()
                 }
@@ -15858,7 +15858,7 @@ function Set-NsxLogicalRouterRouting {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayDescription") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'child::description')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'child::description')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "description" -xmlElementText $DefaultGatewayDescription
                 }
@@ -15868,7 +15868,7 @@ function Set-NsxLogicalRouterRouting {
                 }
             }
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayMTU") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'child::mtu')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'child::mtu')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "mtu" -xmlElementText $DefaultGatewayMTU.ToString()
                 }
@@ -15878,7 +15878,7 @@ function Set-NsxLogicalRouterRouting {
                 }
             }
             if ( $PsBoundParameters.ContainsKey("DefaultGatewayAdminDistance") ) { 
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($defaultRoute,'child::adminDistance')) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $defaultRoute -Query 'child::adminDistance')) {
                     #element does not exist
                     Add-XmlElement -xmlRoot $defaultRoute -xmlElementName "adminDistance" -xmlElementText $DefaultGatewayAdminDistance.ToString()
                 }
@@ -16013,10 +16013,10 @@ function Get-NsxLogicalRouterStaticRoute {
         #consistent readable output
 
         $_LogicalRouterStaticRouting = ($LogicalRouterRouting.staticRouting.CloneNode($True))
-        $LogicalRouterStaticRoutes = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterStaticRouting,'child::staticRoutes')
+        $LogicalRouterStaticRoutes = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterStaticRouting -Query 'child::staticRoutes')
 
         #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called route.
-        If ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterStaticRoutes,'child::route')) { 
+        If ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterStaticRoutes -Query 'child::route')) { 
 
             $RouteCollection = $LogicalRouterStaticRoutes.route
             if ( $PsBoundParameters.ContainsKey('Network')) {
@@ -16103,7 +16103,7 @@ function New-NsxLogicalRouterStaticRoute {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
@@ -16113,7 +16113,7 @@ function New-NsxLogicalRouterStaticRoute {
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the static route element,
         #as it might be empty, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
-        $StaticRoutes = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting.staticRouting,'child::staticRoutes')
+        $StaticRoutes = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting.staticRouting -Query 'child::staticRoutes')
         $StaticRoutes.AppendChild($Route) | Out-Null
 
         Add-XmlElement -xmlRoot $Route -xmlElementName "network" -xmlElementText $Network.ToString()
@@ -16217,13 +16217,13 @@ function Remove-NsxLogicalRouterStaticRoute {
         $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::logicalrouterId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::logicalrouterId')) ) | out-null
 
         #Need to do an xpath query here to query for a route that matches the one passed in.  
         #Union of nextHop and network should be unique
         $xpathQuery = "//staticRoutes/route[nextHop=`"$($StaticRoute.nextHop)`" and network=`"$($StaticRoute.network)`"]"
         write-debug "XPath query for route nodes to remove is: $xpathQuery"
-        $RouteToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing.staticRouting,$xpathQuery)
+        $RouteToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing.staticRouting -Query $xpathQuery)
 
         if ( $RouteToRemove ) { 
 
@@ -16318,12 +16318,12 @@ function Get-NsxLogicalRouterPrefix {
         #consistent readable output
 
         $_GlobalRoutingConfig = ($LogicalRouterRouting.routingGlobalConfig.CloneNode($True))
-        $IpPrefixes = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_GlobalRoutingConfig,'child::ipPrefixes')
+        $IpPrefixes = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_GlobalRoutingConfig -Query 'child::ipPrefixes')
 
         #IPPrefixes may not exist...
         if ( $IPPrefixes ) { 
             #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ipPrefix.
-            If ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($IpPrefixes,'child::ipPrefix')) { 
+            If ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $IpPrefixes -Query 'child::ipPrefix')) { 
 
                 $PrefixCollection = $IPPrefixes.ipPrefix
                 if ( $PsBoundParameters.ContainsKey('Network')) {
@@ -16397,12 +16397,12 @@ function New-NsxLogicalRouterPrefix {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the IP prefix element,
         #as it might be empty or not exist, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
-        $ipPrefixes = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting.routingGlobalConfig,'child::ipPrefixes')
+        $ipPrefixes = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting.routingGlobalConfig -Query 'child::ipPrefixes')
         if ( -not $ipPrefixes ) { 
             #Create the ipPrefixes element
             $ipPrefixes = $_LogicalRouterRouting.ownerDocument.CreateElement('ipPrefixes')
@@ -16492,13 +16492,13 @@ function Remove-NsxLogicalRouterPrefix {
         $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::logicalrouterId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::logicalrouterId')) ) | out-null
 
         #Need to do an xpath query here to query for a prefix that matches the one passed in.  
         #Union of nextHop and network should be unique
         $xpathQuery = "/routingGlobalConfig/ipPrefixes/ipPrefix[name=`"$($Prefix.name)`" and ipAddress=`"$($Prefix.ipAddress)`"]"
         write-debug "XPath query for prefix nodes to remove is: $xpathQuery"
-        $PrefixToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,$xpathQuery)
+        $PrefixToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query $xpathQuery)
 
         if ( $PrefixToRemove ) { 
 
@@ -16576,8 +16576,8 @@ function Get-NsxLogicalRouterBgp {
         #We append the LogicalRouter-id to the associated Routing config XML to enable pipeline workflows and 
         #consistent readable output
 
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterRouting,'child::bgp')) { 
-            $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterRouting,'child::bgp').CloneNode($True)
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterRouting -Query 'child::bgp')) { 
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterRouting -Query 'child::bgp').CloneNode($True)
             Add-XmlElement -xmlRoot $bgp -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
             $bgp
         }
@@ -16644,14 +16644,14 @@ function Set-NsxLogicalRouterBgp {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('EnableBGP') ) { 
             $xmlGlobalConfig = $_LogicalRouterRouting.routingGlobalConfig
-            $xmlRouterId = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlGlobalConfig,'child::routerId')
+            $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'child::routerId')
             if ( $EnableBGP ) {
                 if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
                     #Existing config missing and no new value set...
@@ -16669,7 +16669,7 @@ function Set-NsxLogicalRouterBgp {
                 }
             }
 
-            $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::bgp') 
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::bgp') 
 
             if ( -not $bgp ) {
                 #bgp node does not exist.
@@ -16677,7 +16677,7 @@ function Set-NsxLogicalRouterBgp {
                 $_LogicalRouterRouting.appendChild($bgp) | out-null
             }
 
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::enabled')) {
                 #Enabled element exists.  Update it.
                 $bgp.enabled = $EnableBGP.ToString().ToLower()
             }
@@ -16687,7 +16687,7 @@ function Set-NsxLogicalRouterBgp {
             }
 
             if ( $PsBoundParameters.ContainsKey("LocalAS")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::localAS')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::localAS')) {
                     #LocalAS element exists, update it.
                     $bgp.localAS = $LocalAS.ToString()
                 }
@@ -16696,12 +16696,12 @@ function Set-NsxLogicalRouterBgp {
                     Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
                 }
             }
-            elseif ( (-not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::localAS')) -and $EnableBGP  )) {
+            elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::localAS')) -and $EnableBGP  )) {
                 throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
             }
 
             if ( $PsBoundParameters.ContainsKey("GracefulRestart")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::gracefulRestart')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::gracefulRestart')) {
                     #element exists, update it.
                     $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
                 }
@@ -16712,7 +16712,7 @@ function Set-NsxLogicalRouterBgp {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::defaultOriginate')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::defaultOriginate')) {
                     #element exists, update it.
                     $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
                 }
@@ -16804,16 +16804,16 @@ function Get-NsxLogicalRouterBgpNeighbour {
 
     process {
     
-        $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterRouting,'child::bgp')
+        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterRouting -Query 'child::bgp')
 
         if ( $bgp ) {
 
             $_bgp = $bgp.CloneNode($True)
-            $BgpNeighbours = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_bgp,'child::bgpNeighbours')
+            $BgpNeighbours = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_bgp -Query 'child::bgpNeighbours')
 
 
             #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called bgpNeighbour.
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($BgpNeighbours,'child::bgpNeighbour')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $BgpNeighbours -Query 'child::bgpNeighbour')) { 
 
                 $NeighbourCollection = $BgpNeighbours.bgpNeighbour
                 if ( $PsBoundParameters.ContainsKey('IpAddress')) {
@@ -16917,16 +16917,16 @@ function New-NsxLogicalRouterBgpNeighbour {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
         #Create the new bgpNeighbour element.
         $Neighbour = $_LogicalRouterRouting.ownerDocument.CreateElement('bgpNeighbour')
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the bgp element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::bgp')
+        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::bgp')
         if ( $bgp ) { 
-            [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($bgp,'child::bgpNeighbours').AppendChild($Neighbour) | Out-Null
+            (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::bgpNeighbours').AppendChild($Neighbour) | Out-Null
 
             Add-XmlElement -xmlRoot $Neighbour -xmlElementName "ipAddress" -xmlElementText $IpAddress.ToString()
             Add-XmlElement -xmlRoot $Neighbour -xmlElementName "remoteAS" -xmlElementText $RemoteAS.ToString()
@@ -17030,10 +17030,10 @@ function Remove-NsxLogicalRouterBgpNeighbour {
         $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::logicalrouterId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::logicalrouterId')) ) | out-null
 
         #Validate the BGP node exists on the logicalrouter 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::bgp')) { throw "BGP is not enabled on ESG $logicalrouterId.  Enable BGP and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::bgp')) { throw "BGP is not enabled on ESG $logicalrouterId.  Enable BGP and try again." }
 
         #Need to do an xpath query here to query for a bgp neighbour that matches the one passed in.  
         #Union of ipaddress and remote AS should be unique (though this is not enforced by the API, 
@@ -17044,7 +17044,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
 
         $xpathQuery = "//bgpNeighbours/bgpNeighbour[ipAddress=`"$($BgpNeighbour.ipAddress)`" and remoteAS=`"$($BgpNeighbour.remoteAS)`"]"
         write-debug "XPath query for neighbour nodes to remove is: $xpathQuery"
-        $NeighbourToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing.bgp,$xpathQuery)
+        $NeighbourToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing.bgp -Query $xpathQuery)
 
         if ( $NeighbourToRemove ) { 
 
@@ -17122,7 +17122,7 @@ function Get-NsxLogicalRouterOspf {
         #We append the LogicalRouter-id to the associated Routing config XML to enable pipeline workflows and 
         #consistent readable output
 
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterRouting,'child::ospf')) { 
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterRouting -Query 'child::ospf')) { 
             $ospf = $LogicalRouterRouting.ospf.CloneNode($True)
             Add-XmlElement -xmlRoot $ospf -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouterRouting.LogicalRouterId
             $ospf
@@ -17194,14 +17194,14 @@ function Set-NsxLogicalRouterOspf {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('EnableOSPF') ) { 
             $xmlGlobalConfig = $_LogicalRouterRouting.routingGlobalConfig
-            $xmlRouterId = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlGlobalConfig,'child::routerId')
+            $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'child::routerId')
             if ( $EnableOSPF ) {
                 if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
                     #Existing config missing and no new value set...
@@ -17220,18 +17220,18 @@ function Set-NsxLogicalRouterOspf {
             }
 
 
-            $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::ospf') 
+            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::ospf') 
 
-            if ( $EnableOSPF -and (-not ($ProtocolAddress -or ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::protocolAddress'))))) {
+            if ( $EnableOSPF -and (-not ($ProtocolAddress -or ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::protocolAddress'))))) {
                 throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
             }
 
-            if ( $EnableOSPF -and (-not ($ForwardingAddress -or ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::forwardingAddress'))))) {
+            if ( $EnableOSPF -and (-not ($ForwardingAddress -or ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::forwardingAddress'))))) {
                 throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
             }
 
             if ( $PsBoundParameters.ContainsKey('ProtocolAddress') ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::protocolAddress')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::protocolAddress')) {
                     # element exists.  Update it.
                     $ospf.protocolAddress = $ProtocolAddress.ToString().ToLower()
                 }
@@ -17242,7 +17242,7 @@ function Set-NsxLogicalRouterOspf {
             }
 
             if ( $PsBoundParameters.ContainsKey('ForwardingAddress') ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::forwardingAddress')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::forwardingAddress')) {
                     # element exists.  Update it.
                     $ospf.forwardingAddress = $ForwardingAddress.ToString().ToLower()
                 }
@@ -17258,7 +17258,7 @@ function Set-NsxLogicalRouterOspf {
                 $_LogicalRouterRouting.appendChild($ospf) | out-null
             }
 
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::enabled')) {
                 #Enabled element exists.  Update it.
                 $ospf.enabled = $EnableOSPF.ToString().ToLower()
             }
@@ -17268,7 +17268,7 @@ function Set-NsxLogicalRouterOspf {
             }
 
             if ( $PsBoundParameters.ContainsKey("GracefulRestart")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::gracefulRestart')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::gracefulRestart')) {
                     #element exists, update it.
                     $ospf.gracefulRestart = $GracefulRestart.ToString().ToLower()
                 }
@@ -17279,7 +17279,7 @@ function Set-NsxLogicalRouterOspf {
             }
 
             if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::defaultOriginate')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::defaultOriginate')) {
                     #element exists, update it.
                     $ospf.defaultOriginate = $DefaultOriginate.ToString().ToLower()
                 }
@@ -17355,16 +17355,16 @@ function Get-NsxLogicalRouterOspfArea {
 
     process {
     
-        $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterRouting,'child::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterRouting -Query 'child::ospf')
 
         if ( $ospf ) {
 
             $_ospf = $ospf.CloneNode($True)
-            $OspfAreas = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_ospf,'child::ospfAreas')
+            $OspfAreas = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ospf -Query 'child::ospfAreas')
 
 
             #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ospfArea.
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($OspfAreas,'child::ospfArea')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $OspfAreas -Query 'child::ospfArea')) { 
 
                 $AreaCollection = $OspfAreas.ospfArea
                 if ( $PsBoundParameters.ContainsKey('AreaId')) {
@@ -17438,17 +17438,17 @@ function Remove-NsxLogicalRouterOspfArea {
         $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::logicalrouterId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::logicalrouterId')) ) | out-null
 
         #Validate the OSPF node exists on the logicalrouter 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::ospf')) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::ospf')) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
         if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
 
         
 
         $xpathQuery = "//ospfAreas/ospfArea[areaId=`"$($OspfArea.areaId)`"]"
         write-debug "XPath query for area nodes to remove is: $xpathQuery"
-        $AreaToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing.ospf,$xpathQuery)
+        $AreaToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing.ospf -Query $xpathQuery)
 
         if ( $AreaToRemove ) { 
 
@@ -17552,16 +17552,16 @@ function New-NsxLogicalRouterOspfArea {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
         #Create the new ospfArea element.
         $Area = $_LogicalRouterRouting.ownerDocument.CreateElement('ospfArea')
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::ospf')
         if ( $ospf ) { 
-            [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::ospfAreas').AppendChild($Area) | Out-Null
+            (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::ospfAreas').AppendChild($Area) | Out-Null
 
             Add-XmlElement -xmlRoot $Area -xmlElementName "areaId" -xmlElementText $AreaId.ToString()
 
@@ -17671,16 +17671,16 @@ function Get-NsxLogicalRouterOspfInterface {
 
     process {
     
-        $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterRouting,'child::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterRouting -Query 'child::ospf')
 
         if ( $ospf ) {
 
             $_ospf = $ospf.CloneNode($True)
-            $OspfInterfaces = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_ospf,'child::ospfInterfaces')
+            $OspfInterfaces = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ospf -Query 'child::ospfInterfaces')
 
 
             #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called ospfArea.
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($OspfInterfaces,'child::ospfInterface')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $OspfInterfaces -Query 'child::ospfInterface')) { 
 
                 $InterfaceCollection = $OspfInterfaces.ospfInterface
                 if ( $PsBoundParameters.ContainsKey('AreaId')) {
@@ -17763,17 +17763,17 @@ function Remove-NsxLogicalRouterOspfInterface {
         $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::logicalrouterId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::logicalrouterId')) ) | out-null
 
         #Validate the OSPF node exists on the logicalrouter 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::ospf')) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::ospf')) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
         if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $logicalrouterId.  Enable OSPF and try again." }
 
         
 
         $xpathQuery = "//ospfInterfaces/ospfInterface[areaId=`"$($OspfInterface.areaId)`"]"
         write-debug "XPath query for interface nodes to remove is: $xpathQuery"
-        $InterfaceToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing.ospf,$xpathQuery)
+        $InterfaceToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing.ospf -Query $xpathQuery)
 
         if ( $InterfaceToRemove ) { 
 
@@ -17880,16 +17880,16 @@ function New-NsxLogicalRouterOspfInterface {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
         #Create the new ospfInterface element.
         $Interface = $_LogicalRouterRouting.ownerDocument.CreateElement('ospfInterface')
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::ospf')
         if ( $ospf ) { 
-            [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ospf,'child::ospfInterfaces').AppendChild($Interface) | Out-Null
+            (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::ospfInterfaces').AppendChild($Interface) | Out-Null
 
             Add-XmlElement -xmlRoot $Interface -xmlElementName "areaId" -xmlElementText $AreaId.ToString()
             Add-XmlElement -xmlRoot $Interface -xmlElementName "vnic" -xmlElementText $Vnic.ToString()
@@ -17991,12 +17991,12 @@ function Get-NsxLogicalRouterRedistributionRule {
         #Rules can be defined in either ospf or bgp (isis as well, but who cares huh? :) )
         if ( ( -not $PsBoundParameters.ContainsKey('Learner')) -or ($PsBoundParameters.ContainsKey('Learner') -and $Learner -eq 'ospf')) {
 
-            $ospf = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterRouting,'child::ospf')
+            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterRouting -Query 'child::ospf')
 
             if ( $ospf ) {
 
                 $_ospf = $ospf.CloneNode($True)
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_ospf,'child::redistribution/rules/rule') ) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ospf -Query 'child::redistribution/rules/rule') ) { 
 
                     $OspfRuleCollection = $_ospf.redistribution.rules.rule
 
@@ -18021,11 +18021,11 @@ function Get-NsxLogicalRouterRedistributionRule {
 
         if ( ( -not $PsBoundParameters.ContainsKey('Learner')) -or ($PsBoundParameters.ContainsKey('Learner') -and $Learner -eq 'bgp')) {
 
-            $bgp = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LogicalRouterRouting,'child::bgp')
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LogicalRouterRouting -Query 'child::bgp')
             if ( $bgp ) {
 
                 $_bgp = $bgp.CloneNode($True)
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_bgp,'child::redistribution/rules') ) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_bgp -Query 'child::redistribution/rules') ) { 
 
                     $BgpRuleCollection = $_bgp.redistribution.rules.rule
 
@@ -18104,10 +18104,10 @@ function Remove-NsxLogicalRouterRedistributionRule {
         $routing = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterRouting
 
         #Remove the logicalrouterId element from the XML as we need to post it...
-        $routing.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,'child::logicalrouterId')) ) | out-null
+        $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::logicalrouterId')) ) | out-null
 
         #Validate the learner protocol node exists on the logicalrouter 
-        if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,"child::$($RedistributionRule.learner)")) {
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query "child::$($RedistributionRule.learner)")) {
             throw "Rule learner protocol $($RedistributionRule.learner) is not enabled on LogicalRouter $logicalrouterId.  Use Get-NsxLogicalRouter <this logicalrouter> | Get-NsxLogicalRouterrouting | Get-NsxLogicalRouterRedistributionRule to get the rule you want to remove." 
         }
 
@@ -18117,7 +18117,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
         $xPathQuery += " and from/ospf=`"$($RedistributionRule.from.ospf)`" and from/bgp=`"$($RedistributionRule.from.bgp)`""
         $xPathQuery += " and from/isis=`"$($RedistributionRule.from.isis)`""
 
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($RedistributionRule,'child::prefixName')) { 
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $RedistributionRule -Query 'child::prefixName')) { 
 
             $xPathQuery += " and prefixName=`"$($RedistributionRule.prefixName)`""
         }
@@ -18126,7 +18126,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
 
         write-debug "XPath query for rule node to remove is: $xpathQuery"
         
-        $RuleToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($routing,$xpathQuery)
+        $RuleToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query $xpathQuery)
 
         if ( $RuleToRemove ) { 
 
@@ -18228,11 +18228,11 @@ function New-NsxLogicalRouterRedistributionRule {
 
         #Store the logicalrouterId and remove it from the XML as we need to post it...
         $logicalrouterId = $_LogicalRouterRouting.logicalrouterId
-        $_LogicalRouterRouting.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,'child::logicalrouterId')) ) | out-null
+        $_LogicalRouterRouting.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query 'child::logicalrouterId')) ) | out-null
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the protocol element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $ProtocolElement = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LogicalRouterRouting,"child::$Learner")
+        $ProtocolElement = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterRouting -Query "child::$Learner")
 
         if ( (-not $ProtocolElement) -or ($ProtocolElement.Enabled -ne 'true')) { 
 
@@ -18242,7 +18242,7 @@ function New-NsxLogicalRouterRedistributionRule {
         
             #Create the new rule element. 
             $Rule = $_LogicalRouterRouting.ownerDocument.CreateElement('rule')
-            [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ProtocolElement,'child::redistribution/rules').AppendChild($Rule) | Out-Null
+            (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ProtocolElement -Query 'child::redistribution/rules').AppendChild($Rule) | Out-Null
 
             Add-XmlElement -xmlRoot $Rule -xmlElementName "action" -xmlElementText $Action
             if ( $PsBoundParameters.ContainsKey("PrefixName") ) { 
@@ -18358,7 +18358,7 @@ function Get-NsxSecurityGroup {
             #All Security GRoups
             $URI = "/api/2.0/services/securitygroup/scope/$scopeId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::list/securitygroup')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/securitygroup')) {
                 if  ( $Name  ) { 
                     $sg = $response.list.securitygroup | ? { $_.name -eq $name }
                 } else {
@@ -18378,7 +18378,7 @@ function Get-NsxSecurityGroup {
             #Just getting a single Security group
             $URI = "/api/2.0/services/securitygroup/$objectId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::securitygroup')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securitygroup')) {
                 $sg = $response.securitygroup 
             }
             #Filter default if switch not set
@@ -18853,7 +18853,7 @@ function Get-NsxSecurityTag {
             #either all or by name
             $URI = "/api/2.0/services/securitytags/tag"
             [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::securityTags/securityTag')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTags/securityTag')) { 
                 if  ( $PsBoundParameters.ContainsKey('Name')) { 
                     $tags = $response.securitytags.securitytag | ? { $_.name -eq $name }
                 } else {
@@ -18873,7 +18873,7 @@ function Get-NsxSecurityTag {
             #Just getting a single Security group by object id
             $URI = "/api/2.0/services/securitytags/tag/$objectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::securityTag')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTag')) { 
                 $tags = $response.securitytag
             }
 
@@ -19027,8 +19027,8 @@ function Get-NsxSecurityTagAssignment {
                 $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)/vm"
                 [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::basicinfolist/basicinfo') ) {
-                    $nodes = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($response,'descendant::basicinfolist/basicinfo')
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::basicinfolist/basicinfo') ) {
+                    $nodes = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $response -Query 'descendant::basicinfolist/basicinfo')
 
                     foreach ($node in $nodes) {
 
@@ -19261,7 +19261,7 @@ function Get-NsxIpSet {
             #All IPSets
             $URI = "/api/2.0/services/ipset/scope/$scopeId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::list/ipset')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/ipset')) {
                 if ( $name ) {
                     $ipsets = $response.list.ipset | ? { $_.name -eq $name } 
                 } else {
@@ -19270,7 +19270,7 @@ function Get-NsxIpSet {
             }
 
             if ( -not $IncludeReadOnly ) { 
-                $ipsets | ? { -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                $ipsets | ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
             }
             else { 
                 $ipsets
@@ -19281,12 +19281,12 @@ function Get-NsxIpSet {
             #Just getting a single named Security group
             $URI = "/api/2.0/services/ipset/$objectId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::ipset')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::ipset')) {
                 $ipsets = $response.ipset 
             }
 
             if ( -not $IncludeReadOnly ) { 
-                $ipsets | ? { -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                $ipsets | ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
             }
             else { 
                 $ipsets
@@ -19414,7 +19414,7 @@ function Remove-NsxIpSet {
 
     process {
 
-        if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ipset,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ipset -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
             write-warning "Not removing $($Ipset.Name) as it is set as read-only.  Use -Force to force deletion." 
         }
         else { 
@@ -19498,7 +19498,7 @@ function Get-NsxMacSet {
             #All IPSets
             $URI = "/api/2.0/services/macset/scope/$scopeId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::list/macset')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/macset')) {
                 if ( $name ) {
                     $macsets = $response.list.macset | ? { $_.name -eq $name }
                 } else {
@@ -19507,7 +19507,7 @@ function Get-NsxMacSet {
 
                 #Filter readonly if switch not set
                 if ( -not $IncludeReadOnly ) { 
-                    $macsets| ? { -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                    $macsets| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                 }
                 else { 
                     $macsets
@@ -19519,13 +19519,13 @@ function Get-NsxMacSet {
             #Just getting a single named MACset
             $URI = "/api/2.0/services/macset/$objectId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::macset')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::macset')) {
                 $macsets = $response.macset
             }
 
             #Filter readonly if switch not set
             if ( -not $IncludeReadOnly ) { 
-                $macsets| ? { -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                $macsets| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
             }
             else { 
                 $macsets
@@ -19645,7 +19645,7 @@ function Remove-NsxMacSet {
 
     process {
 
-        if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($macset,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $macset -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
             write-warning "Not removing $($MacSet.Name) as it is set as read-only.  Use -Force to force deletion." 
         }
         else { 
@@ -19745,11 +19745,11 @@ function Get-NsxService {
                 #Just getting a single named service group
                 $URI = "/api/2.0/services/application/$objectId"
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::application')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::application')) {
                     $svcs = $response.application
                     #Filter readonly if switch not set
                     if ( -not $IncludeReadOnly ) { 
-                        $svcs| ? { -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                        $svcs| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                     }
                     else { 
                         $svcs
@@ -19761,7 +19761,7 @@ function Get-NsxService {
                 #All Services
                 $URI = "/api/2.0/services/application/scope/$scopeId"
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::list/application')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
                     if  ( $name ) { 
                         $svcs = $response.list.application | ? { $_.name -eq $name }
                     } else {
@@ -19769,7 +19769,7 @@ function Get-NsxService {
                     }
                     #Filter readonly if switch not set
                     if ( -not $IncludeReadOnly ) { 
-                        $svcs| ? { -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                        $svcs| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                     }
                     else { 
                         $svcs
@@ -19783,7 +19783,7 @@ function Get-NsxService {
 
                 $URI = "/api/2.0/services/application/scope/$scopeId"
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,'descendant::list/application')) {        
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {        
                     foreach ( $application in $response.list.application ) {
 
                         if ( $application | get-member -memberType Properties -name element ) {
@@ -19808,7 +19808,7 @@ function Get-NsxService {
                                             write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
                                             #Filter readonly if switch not set
                                             if ( -not $IncludeReadOnly ) { 
-                                                $application| ? { -not ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                                                $application| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                                             }
                                             else { 
                                                 $application
@@ -19961,7 +19961,7 @@ function Remove-NsxService {
 
     process {
 
-        if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($Service,"descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Service -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]") -and ( -not $force)) {
             write-warning "Not removing $($Service.Name) as it is set as read-only.  Use -Force to force deletion." 
         }
         else {
@@ -20069,7 +20069,7 @@ Function Get-NsxServiceGroup {
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
 
-            if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,"child::list/applicationGroup")){
+            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::list/applicationGroup")){
                 $servicegroup = $response.list.applicationGroup
             
                 if ($PsBoundParameters.ContainsKey("Name")){
@@ -20170,7 +20170,7 @@ function Get-NsxServiceGroupMember {
     }
     process{
 
-        if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ServiceGroup,"child::member")){
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ServiceGroup -Query "child::member")){
             $ServiceGroup.member
         }
 
@@ -20499,7 +20499,7 @@ function New-NsxAppliedToListNode {
 
             write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as xml element"
             
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($item,'descendant::edgeSummary')) { 
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $item -Query 'descendant::edgeSummary')) { 
 
                 write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is an edge object"
 
@@ -21066,7 +21066,7 @@ function New-NsxFirewallRule  {
 
 
         #GetThe existing rule Ids and store them - we check for a rule that isnt contained here in the response so we can presnet back to user with rule id
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($Section,"child::rule") )  { 
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Section -Query "child::rule") )  { 
             $ExistingIds = @($Section.rule.id)
         }
         else {
@@ -21226,7 +21226,7 @@ function Get-NsxFirewallExclusionListMember {
         ####   as opposed to building the array internally where the whole pipeline has to be processed before the user gets any output.
         #### c) Its also less lines :)
 
-        $nodes = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($response,'descendant::VshieldAppConfiguration/excludeListConfiguration/excludeMember')
+        $nodes = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $response -Query 'descendant::VshieldAppConfiguration/excludeListConfiguration/excludeMember')
         if ($nodes){
             foreach ($node in $nodes){
                 # output the VI VM object...
@@ -21414,7 +21414,7 @@ function Get-NsxFirewallSavedConfiguration {
 
             $URI = "/api/4.0/firewall/globalroot-0/drafts"
             [system.xml.xmldocument]$Response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,"child::firewallDrafts")){
+            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::firewallDrafts")){
                 
                 $Return = $Response
 
@@ -21432,7 +21432,7 @@ function Get-NsxFirewallSavedConfiguration {
             $URI = "/api/4.0/firewall/globalroot-0/drafts/$ObjectId"
             [system.xml.xmldocument]$Response = Invoke-NsxRestMethod -method "get" -uri $URI -connection $connection
             
-            if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($Response,"child::firewallDraft")){
+            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Response -Query "child::firewallDraft")){
                 $Response.firewallDraft
             }
         }
@@ -21546,7 +21546,7 @@ function Set-NsxLoadBalancer {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_LoadBalancer.edgeId
-        $_LoadBalancer.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LoadBalancer,'descendant::edgeId')) ) | out-null
+        $_LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancer -Query 'descendant::edgeId')) ) | out-null
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
@@ -21993,7 +21993,7 @@ function Get-NsxLoadBalancerApplicationProfile {
 
     process { 
         
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LoadBalancer,'descendant::applicationProfile')) { 
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query 'descendant::applicationProfile')) { 
             if ( $PsBoundParameters.ContainsKey('Name')) { 
                 $AppProfiles = $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
             }
@@ -22098,7 +22098,7 @@ function New-NsxLoadBalancerApplicationProfile {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_LoadBalancer.edgeId
-        $_LoadBalancer.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LoadBalancer,'descendant::edgeId')) ) | out-null
+        $_LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancer -Query 'descendant::edgeId')) ) | out-null
 
         if ( -not $_LoadBalancer.enabled -eq 'true' ) { 
             write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
@@ -22403,7 +22403,7 @@ function New-NsxLoadBalancerPool {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_LoadBalancer.edgeId
-        $_LoadBalancer.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LoadBalancer,'descendant::edgeId')) ) | out-null
+        $_LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancer -Query 'descendant::edgeId')) ) | out-null
 
         if ( -not $_LoadBalancer.enabled -eq 'true' ) { 
             write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
@@ -22494,7 +22494,7 @@ function Get-NsxLoadBalancerPool {
 
     process { 
         
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($loadbalancer,'child::pool')) { 
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $loadbalancer -Query 'child::pool')) { 
             if ( $PsBoundParameters.ContainsKey('Name')) {  
                 $pools = $loadbalancer.pool | ? { $_.name -eq $Name }
             }
@@ -22566,9 +22566,9 @@ function Remove-NsxLoadBalancerPool {
 
         #Get and remove the edgeId element
         $LoadBalancer = Get-nsxEdge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer
-        $LoadBalancer.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LoadBalancer,'child::edgeId')) ) | out-null
+        $LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query 'child::edgeId')) ) | out-null
 
-        $PoolToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LoadBalancer,"child::pool[poolId=`"$poolId`"]")
+        $PoolToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query "child::pool[poolId=`"$poolId`"]")
         if ( -not $PoolToRemove ) {
             throw "Pool $poolId is not defined on Load Balancer $edgeid."
         } 
@@ -22648,13 +22648,13 @@ function Get-NsxLoadBalancerPoolMember {
         
 
         if ( $PsBoundParameters.ContainsKey('Name')) {  
-            $Members = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($LoadBalancerPool,'descendant::member') | ? { $_.name -eq $Name }
+            $Members = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancerPool -Query 'descendant::member') | ? { $_.name -eq $Name }
         }
         elseif ( $PsBoundParameters.ContainsKey('MemberId')) {  
-            $Members = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($LoadBalancerPool,'descendant::member') | ? { $_.memberId -eq $MemberId }
+            $Members = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancerPool -Query 'descendant::member') | ? { $_.memberId -eq $MemberId }
         }
         else { 
-            $Members = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($LoadBalancerPool,'descendant::member') 
+            $Members = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancerPool -Query 'descendant::member') 
         }
 
         foreach ( $Member in $Members ) { 
@@ -22737,7 +22737,7 @@ function Add-NsxLoadBalancerPoolMember {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_LoadBalancerPool.edgeId
-        $_LoadBalancerPool.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LoadBalancerPool,'descendant::edgeId')) ) | out-null
+        $_LoadBalancerPool.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancerPool -Query 'descendant::edgeId')) ) | out-null
 
         [System.XML.XMLElement]$xmlMember = $_LoadBalancerPool.OwnerDocument.CreateElement("member")
         $_LoadBalancerPool.appendChild($xmlMember) | out-null
@@ -22822,11 +22822,11 @@ function Remove-NsxLoadBalancerPoolMember {
 
         #Get and remove the edgeId and poolId elements
         $LoadBalancer = Get-nsxEdge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer
-        $LoadBalancer.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LoadBalancer,'child::edgeId')) ) | out-null
+        $LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query 'child::edgeId')) ) | out-null
 
-        $LoadBalancerPool = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($loadbalancer,"child::pool[poolId=`"$poolId`"]")
+        $LoadBalancerPool = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $loadbalancer -Query "child::pool[poolId=`"$poolId`"]")
 
-        $MemberToRemove = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LoadBalancerPool,"child::member[memberId=`"$MemberId`"]")
+        $MemberToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancerPool -Query "child::member[memberId=`"$MemberId`"]")
         if ( -not $MemberToRemove ) {
             throw "Member $MemberId is not a member of pool $PoolId."
         } 
@@ -22904,13 +22904,13 @@ function Get-NsxLoadBalancerVip {
         
 
         if ( $PsBoundParameters.ContainsKey('Name')) {  
-            $Vips = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($LoadBalancer,'descendant::virtualServer') | ? { $_.name -eq $Name }
+            $Vips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancer -Query 'descendant::virtualServer') | ? { $_.name -eq $Name }
         }
         elseif ( $PsBoundParameters.ContainsKey('MemberId')) {  
-            $Vips = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($LoadBalancer,'descendant::virtualServer') | ? { $_.virtualServerId -eq $VirtualServerId }
+            $Vips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancer -Query 'descendant::virtualServer') | ? { $_.virtualServerId -eq $VirtualServerId }
         }
         else { 
-            $Vips = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($LoadBalancer,'descendant::virtualServer') 
+            $Vips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancer -Query 'descendant::virtualServer') 
         }
 
         foreach ( $Vip in $Vips ) { 
@@ -23014,7 +23014,7 @@ function Add-NsxLoadBalancerVip {
 
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $_LoadBalancer.edgeId
-        $_LoadBalancer.RemoveChild( $([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_LoadBalancer,'descendant::edgeId')) ) | out-null
+        $_LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancer -Query 'descendant::edgeId')) ) | out-null
 
         if ( -not $_LoadBalancer.enabled -eq 'true' ) { 
             write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
@@ -23178,7 +23178,7 @@ function Get-NsxLoadBalancerStats{
 
         $URI = "/api/4.0/edges/$($LoadBalancer.EdgeId)/loadbalancer/statistics"
         [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
-        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($response,"child::loadBalancerStatusAndStats")) { 
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::loadBalancerStatusAndStats")) { 
             $response.loadBalancerStatusAndStats
         }
     }
@@ -23246,7 +23246,7 @@ function Get-NsxLoadBalancerApplicationRule {
     
     
         if ( -not ($PsBoundParameters.ContainsKey("ObjectId"))) { 
-            if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LoadBalancer,"child::applicationRule")){
+            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query "child::applicationRule")){
                 if ($PsBoundParameters.ContainsKey("Name")){
                     $LoadBalancer.applicationRule | ? {$_.name -eq $Name} 
                 }
@@ -23256,7 +23256,7 @@ function Get-NsxLoadBalancerApplicationRule {
             }
         }
         else {
-            if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($LoadBalancer,"child::applicationRule/applicationRuleId")){
+            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query "child::applicationRule/applicationRuleId")){
                 $LoadBalancer.applicationRule | ? {$_.applicationRuleId -eq $ObjectId}
             }
         }
@@ -23339,7 +23339,7 @@ function New-NsxLoadBalancerApplicationRule {
         
         [System.XML.XmlDocument]$ApplicationRule = Invoke-NsxRestMethod -method "GET" -URI $Response.headers.location
         
-        if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($ApplicationRule,"child::applicationRule")){
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ApplicationRule -Query "child::applicationRule")){
             $ApplicationRule.applicationRule
         }
     }
@@ -23414,7 +23414,7 @@ function Get-NsxSecurityPolicy {
 
         if ( -not $IncludeHidden ) { 
             foreach ( $CurrSecPol in $FinalSecPol ) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($CurrSecPol,'child::extendedAttributes/extendedAttribute')) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $CurrSecPol -Query 'child::extendedAttributes/extendedAttribute')) {
                     $hiddenattr = $CurrSecPol.extendedAttributes.extendedAttribute | ? { $_.name -eq 'isHidden'}
                     if ( -not ($hiddenAttr.Value -eq 'true')){
                         $CurrSecPol
@@ -23477,7 +23477,7 @@ function Remove-NsxSecurityPolicy {
     process {
 
 
-        if ([System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($SecurityPolicy,"descendant::extendedAttributes/extendedAttribute[name=`"isHidden`" and value=`"true`"]") -and ( -not $force)) {
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $SecurityPolicy -Query "descendant::extendedAttributes/extendedAttribute[name=`"isHidden`" and value=`"true`"]") -and ( -not $force)) {
             write-warning "Not removing $($SecurityPolicy.Name) as it is set as hidden.  Use -Force to force deletion." 
         }
         else { 
@@ -24087,7 +24087,7 @@ function Copy-NsxEdge{
         #that is not relevant to the new edge before initial post.
 
         #Remove EdgeSummary...
-        $edgeSummary = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,'descendant::edgeSummary')
+        $edgeSummary = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query 'descendant::edgeSummary')
         if ( $edgeSummary ) {
             $_Edge.RemoveChild($edgeSummary) | out-null
         }
@@ -24101,7 +24101,7 @@ function Copy-NsxEdge{
         }
 
         #Appliances element
-        $FirstAppliance = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,"descendant::appliances/appliance") | ? { $_.highAvailabilityIndex -eq "0" }
+        $FirstAppliance = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "descendant::appliances/appliance") | ? { $_.highAvailabilityIndex -eq "0" }
         switch ($psCmdlet.ParameterSetName){
             "Default"  { 
                 write-debug "$($MyInvocation.MyCommand.Name) : Invoked with Default ParameterSet"
@@ -24138,8 +24138,8 @@ function Copy-NsxEdge{
       
 
         #Ditch the old appliances nodes completely and rebuild.
-        [system.xml.xmlElement]$xmlAppliances = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,"descendant::appliances")
-        $oldAppliancesNodes = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($xmlAppliances,"child::appliance")
+        [system.xml.xmlElement]$xmlAppliances = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "descendant::appliances")
+        $oldAppliancesNodes = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $xmlAppliances -Query "child::appliance")
         foreach ( $node in $oldAppliancesNodes) {
     
             write-debug "$($MyInvocation.MyCommand.Name) : Removing appliance node from Edge XML with moref $($node.vmId)"        
@@ -24162,23 +24162,23 @@ function Copy-NsxEdge{
         Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "vmFolderId" -xmlElementText $VmFolderId
 
         #Kill the version props on edge and all features
-        $VersionNodes = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge,"descendant::version") 
+        $VersionNodes = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge -Query "descendant::version") 
         foreach ($node in $VersionNodes) {
             $null = $node.ParentNode.RemoveChild($Node)
         }
 
         #Kill any NAT Rule IDs/Tags (must be regenerated by API)
-        [System.Xml.XmlNodeList]$NATRuleIds = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge,"child::features/nat/natRules/natRule/ruleId")
+        [System.Xml.XmlNodeList]$NATRuleIds = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge -Query "child::features/nat/natRules/natRule/ruleId")
         foreach ($node in $NATRuleIds) {
             $null = $node.ParentNode.RemoveChild($Node)
         }
-        [System.Xml.XmlNodeList]$NATRuleTags = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge,"child::features/nat/natRules/natRule/ruleTag")
+        [System.Xml.XmlNodeList]$NATRuleTags = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge -Query "child::features/nat/natRules/natRule/ruleTag")
         foreach ($node in $NATRuleTags) {
             $null = $node.ParentNode.RemoveChild($Node)
         }
 
         #check for bgp neighbour credentials (cant be retrieved using API)
-        [System.Xml.XmlNodeList]$peerPasswords = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge,"child::features/routing/bgp/bgpNeighbours/bgpNeighbour/password")
+        [System.Xml.XmlNodeList]$peerPasswords = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge -Query "child::features/routing/bgp/bgpNeighbours/bgpNeighbour/password")
         foreach ($node in $peerPasswords) { 
             write-warning "BGP peer password defined for peer $($node.ParentNode.ipAddress).  Password will be cleared on duplicated edge and must be manually reconfigured."
             $null = $node.ParentNode.RemoveChild($node)
@@ -24188,7 +24188,7 @@ function Copy-NsxEdge{
         if ( $_Edge.features.ipsec.enabled -eq 'true') { 
             write-warning "The IPSec feature is enabled.  The global and any site specific Pre Shared Keys will be set to a random value on the duplicated edge and must be manually reconfigured."
         }
-        [System.Xml.XmlNodeList]$pskNodes = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge.features.ipsec,"descendant::psk")
+        [System.Xml.XmlNodeList]$pskNodes = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge.features.ipsec -Query "descendant::psk")
         foreach ($node in $pskNodes) { 
 
             #just invent a random 8 char (lower/upper/int) string and set the PSK to it.
@@ -24223,7 +24223,7 @@ function Copy-NsxEdge{
         }
 
         #Get the features element.
-        [System.XML.XMLElement]$xmlFeatures = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,"child::features")
+        [System.XML.XMLElement]$xmlFeatures = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "child::features")
 
         if ( $EnableHA -or ( $_Edge.features.highAvailability.enabled -eq "true" )) {
             
@@ -24233,8 +24233,8 @@ function Copy-NsxEdge{
                 $HADatastoreId = $HAdatastore.extensiondata.moref.value
             }
             #Else if the source edge has a HA appliance, use that appliances datastore
-            elseif ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlAppliances,"appliance[highAvailabilityIndex=1]") ) { 
-                $HADatastoreId = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($xmlAppliances,"appliance[highAvailabilityIndex=1]").datastoreId
+            elseif ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlAppliances -Query "appliance[highAvailabilityIndex=1]") ) { 
+                $HADatastoreId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlAppliances -Query "appliance[highAvailabilityIndex=1]").datastoreId
             }
             #Else, use the first appliances datastore
             else { 
@@ -24259,7 +24259,7 @@ function Copy-NsxEdge{
 
             #Node is not guaranteed to exist, have to test first.  Love the consistency
             if ( $PsBoundParameters.containsKey('HaVnic')) { 
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,"features/highAvailability/vnic"))  {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "features/highAvailability/vnic"))  {
                     $_Edge.features.highAvailability.vnic = $HAvnic.ToString()
                 }
                 else { 
@@ -24283,7 +24283,7 @@ function Copy-NsxEdge{
 
         #If user specified syslog server address, then we have to kill any existing config.
         if ( $PsBoundParameters.containsKey('SyslogServer')) { 
-            $ExistingSyslogServerAddress = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge.features.syslog,"serverAddresses")
+            $ExistingSyslogServerAddress = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge.features.syslog -Query "serverAddresses")
             if ( $ExistingSyslogServerAddress )  { 
                 write-debug "$($MyInvocation.MyCommand.Name) : Removing Existing Syslog servers (overidden by user)"
                 $_Edge.features.syslog.RemoveChild($ExistingSyslogServerAddress)
@@ -24339,7 +24339,7 @@ function Copy-NsxEdge{
         #DNS Settings
         if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') -or $PSBoundParameters.ContainsKey('SecondaryDNSServer') -or $PSBoundParameters.ContainsKey('DNSDomainName') ) {
 
-            if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,"child::dnsClient")) { 
+            if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "child::dnsClient")) { 
                 write-debug "$($MyInvocation.MyCommand.Name) : Generating dnsClient element"
                 [System.XML.XMLElement]$xmlDnsClient = $XMLDoc.CreateElement("dnsClient")
                 $null = $_Edge.appendChild($xmlDnsClient)
@@ -24347,7 +24347,7 @@ function Copy-NsxEdge{
 
             if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') ) { 
                 write-debug "$($MyInvocation.MyCommand.Name) : Setting Primary DNS to $PrimaryDnsServer"
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge.dnsClient,"primaryDNS")) { 
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge.dnsClient -Query "primaryDNS")) { 
                     Add-XmlElement -xmlRoot $_Edge.dnsClient -xmlElementName "primaryDns" -xmlElementText $PrimaryDnsServer 
                 }
                 else { 
@@ -24357,7 +24357,7 @@ function Copy-NsxEdge{
 
             if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer') ) { 
                 write-debug "$($MyInvocation.MyCommand.Name) : Setting Secondary DNS to $SecondaryDnsServer"
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge.dnsClient,"secondaryDNS")) {
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge.dnsClient -Query "secondaryDNS")) {
                     Add-XmlElement -xmlRoot $_Edge.dnsClient -xmlElementName "secondaryDNS" -xmlElementText $SecondaryDNSServer 
                 }
                 else { 
@@ -24367,7 +24367,7 @@ function Copy-NsxEdge{
 
             if ( $PsBoundParameters.ContainsKey('DNSDomainName') ) { 
                 write-debug "$($MyInvocation.MyCommand.Name) : Setting DNS domain name to $DNSDomainName"
-                if ( -not [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge.dnsClient,"domainName")) { 
+                if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge.dnsClient -Query "domainName")) { 
                     Add-XmlElement -xmlRoot $_Edge.dnsClient -xmlElementName "domainName" -xmlElementText $DNSDomainName 
                 }
                 else { 
@@ -24429,7 +24429,7 @@ function Copy-NsxEdge{
                         $updatedIps.Add($ExistingPrimaryAddress, $NewPrimaryAddress)
                     
                         #Check secondary addresses
-                        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($addressGroup,"secondaryAddresses")) { 
+                        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $addressGroup -Query "secondaryAddresses")) { 
                             #If we have them, check they are the right number.
                             [System.Array]$VnicSecondaryAddresses = $addressGroup.secondaryAddresses.ipAddress
                             [System.Array]$UserVnicSecondaryAddresses = $UserVnicAddressGroups[$i].secondaryAddresses.ipAddress
@@ -24454,7 +24454,7 @@ function Copy-NsxEdge{
                             }
                            
                             #Have to do this and first with selectsingle node otherwise PoSH can return a string object if we reference after we remove all child nodes.  This ensures we get an XmlElement back
-                            [system.xml.xmlelement]$SecondaryAddressesXml = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($addressgroup,"child::secondaryAddresses")
+                            [system.xml.xmlelement]$SecondaryAddressesXml = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $addressgroup -Query "child::secondaryAddresses")
 
                             #secondary addresses are valid.  Replace the array in the addressgroup xml        
                             $addressGroup.secondaryAddresses.RemoveAll()
@@ -24472,13 +24472,13 @@ function Copy-NsxEdge{
             }
             if ( -not $userVnic ) {
                 #User has not specified interface information on the command line.
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($Vnic,"addressGroups/addressGroup")) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Vnic -Query "addressGroups/addressGroup")) {
 
                     #Only process if there is already addressing information...
                     write-debug "$($MyInvocation.MyCommand.Name) : No user defined vnic spec for this vnic has been specified. Prompting user for details"
                     foreach ( $addressGroup in $Vnic.addressGroups.addressGroup ) {
                         $removedAddressGroup = $False 
-                        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($addressGroup,"primaryAddress")) { 
+                        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $addressGroup -Query "primaryAddress")) { 
                             $ExistingPrimaryAddress = $addressGroup.primaryAddress
                             $AddressGroupNetMask = $addressGroup.subnetMask
                             $AddressGroupNetwork = Get-NetworkFromHostAddress -Address $ExistingPrimaryAddress -SubnetMask $addressGroupNetMask
@@ -24498,11 +24498,11 @@ function Copy-NsxEdge{
                             $addressGroup.PrimaryAddress = $newPrimaryAddress.ToString()
 
                         }
-                        if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($addressGroup,"secondaryAddresses")) { 
+                        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $addressGroup -Query "secondaryAddresses")) { 
 
                             $NewSecondaryAddresses = @()
                             #Have to iterate through a node collection here, so if the user 'blanks' the secondary ip, we have a node (not a string) to remove...
-                            foreach ($secondaryAddress in [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($addressGroup.secondaryAddresses,'*')) { 
+                            foreach ($secondaryAddress in (Invoke-XPathQuery -QueryMethod SelectNodes -Node $addressGroup.secondaryAddresses -Query '*')) { 
 
                                 $NewSecondaryAddress = Read-Host -Prompt "Enter new secondary address for source edge addressgroup with existing secondary IP $($secondaryAddress."#text") on vnic $($vnic.index)"
                                 write-debug "$($MyInvocation.MyCommand.Name) : Existing Secondary Address: $secondaryAddress, AddressGroup Mask: $AddressGroupNetMask, AddressGroup Network: $AddressGroupNetwork"
@@ -24520,7 +24520,7 @@ function Copy-NsxEdge{
                             }
 
                             #Have to do this and first with selectsingle node otherwise PoSH can return a string object if we reference after we remove all child nodes.  This ensures we get an XmlElement back
-                            [system.xml.xmlelement]$SecondaryAddressesXml = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($addressgroup,"child::secondaryAddresses")
+                            [system.xml.xmlelement]$SecondaryAddressesXml = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $addressgroup -Query "child::secondaryAddresses")
 
                             #secondary addresses are valid.  Replace the array in the addressgroup xml
                             $addressGroup.secondaryAddresses.RemoveAll()
@@ -24535,7 +24535,7 @@ function Copy-NsxEdge{
 
         #Update any listening services that bind to IPs that have been replaced...
         #Ipsec...
-        [System.Xml.XmlNodeList]$ipsecSiteNodes = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge,"descendant::features/ipsec/sites/site")
+        [System.Xml.XmlNodeList]$ipsecSiteNodes = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge -Query "descendant::features/ipsec/sites/site")
         foreach ( $node in $ipsecSiteNodes ) {
             
             if ( -not $updatedIps.Contains($node.localIp )) { 
@@ -24549,7 +24549,7 @@ function Copy-NsxEdge{
         }
 
         #LB
-        [System.Xml.XmlNodeList]$LBVips = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge,"descendant::features/loadBalancer/virtualServer")
+        [System.Xml.XmlNodeList]$LBVips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge -Query "descendant::features/loadBalancer/virtualServer")
         foreach ( $node in $LBVips ) {
             
             if ( -not $updatedIps.Contains($node.ipAddress )) { 
@@ -24563,11 +24563,11 @@ function Copy-NsxEdge{
         }
 
         #SSLVPN
-        [System.Xml.XmlElement]$SSLVpnListeners = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,"descendant::features/sslvpnConfig/serverSettings/serverAddresses")
+        [System.Xml.XmlElement]$SSLVpnListeners = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "descendant::features/sslvpnConfig/serverSettings/serverAddresses")
         if ( $SSLVpnListeners ) { 
 
                 #Not sure if the API will allow and empty serverAddresses element, but just in case.. testing for it here.
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($SSLVpnListeners,"child::ipAddress") ) {  
+                if ( (Invoke-XPathQuery -QueryMethod SelectNodes -Node $SSLVpnListeners -Query "child::ipAddress") ) {  
                 foreach ( $node in $SSLVpnListeners ) {
                     
                     if ( -not $updatedIps.Contains($node.ipAddress )) { 
@@ -24584,8 +24584,8 @@ function Copy-NsxEdge{
 
         #RouterId Fixup.
         If ( $RouterIdFixup ) {
-            [System.Xml.XmlElement]$RoutingConfig = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_Edge,"descendant::features/routing/routingGlobalConfig")
-            if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($RoutingConfig,"child::routerId")) {
+            [System.Xml.XmlElement]$RoutingConfig = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "descendant::features/routing/routingGlobalConfig")
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $RoutingConfig -Query "child::routerId")) {
                 #RouterId is defined.  Update it.
                 if ( -not $updatedIps.Contains($RoutingConfig.routerId )) { 
                     write-warning "Unable to update Router Id as existing ID does not belong to any interface address of the original edge. RouterId for the new edge will need to be manually updated."
@@ -24600,7 +24600,7 @@ function Copy-NsxEdge{
 
         #NatFixups
         If ( $NatRuleFixups ) {
-            $UserRules = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge,"descendant::features/nat/natRules/natRule[ruleType=`'user`']")
+            $UserRules = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge -Query "descendant::features/nat/natRules/natRule[ruleType=`'user`']")
             if ( $UserRules ) {
                 #There are User defined NAT rules on the Edge. 
                 foreach ( $Rule in $UserRules ) { 
@@ -24631,7 +24631,7 @@ function Copy-NsxEdge{
 
         #Firewall Fixups
         #The FW can potentially contain grouping objects or service objects that exist only in the edge scope.  API wont let us push invalid FW config, so get user rules here and remove them:
-        $UserFWRules = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_Edge,"descendant::features/firewall/firewallRules/firewallRule[ruleType=`'user`']")
+        $UserFWRules = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_Edge -Query "descendant::features/firewall/firewallRules/firewallRule[ruleType=`'user`']")
         if ( $UserFWRules ) { 
             foreach ($rule in $UserFwRules ) { 
                 $null = $_Edge.features.firewall.firewallRules.RemoveChild($rule)
@@ -24686,9 +24686,9 @@ function Copy-NsxEdge{
 
                 #Clone the xmlelement so we can modify it
                 $_ServiceGroup = $ServiceGroup.CloneNode($true)
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_ServiceGroup,'child::member') ) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_ServiceGroup -Query 'child::member') ) {
                     #If it has a membership, then remove it. 
-                    foreach ( $node in [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_ServiceGroup,'child::member')) { 
+                    foreach ( $node in (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_ServiceGroup -Query 'child::member')) { 
                         $null = $_ServiceGroup.RemoveChild($node)
                     }
                 }
@@ -24701,7 +24701,7 @@ function Copy-NsxEdge{
             #ServiceGroup membership
             foreach ( $ServiceGroup in $LocalServiceGroups ) { 
 
-                $SGMembers = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($ServiceGroup,'child::member')
+                $SGMembers = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $ServiceGroup -Query 'child::member')
                 foreach ( $member in $SGMembers ) { 
                     $UpdatedMemberId = $null
                     switch ($member.objectTypeName) { 
@@ -24748,7 +24748,7 @@ function Copy-NsxEdge{
                 foreach ( $rule in $UserFWRules ) {
                     #For each rule - perform any local object updates required, then append it to the new edge fw rules...
                     #IPSets first.
-                    $RuleGroupingObjects = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($rule,"child::source/groupingObjectId | child::destination/groupingObjectId")
+                    $RuleGroupingObjects = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $rule -Query "child::source/groupingObjectId | child::destination/groupingObjectId")
                     foreach ($GroupingObject in $RuleGroupingObjects) { 
                         if ($updatedIpSets.Item($GroupingObject."#text")) { 
 
@@ -24758,7 +24758,7 @@ function Copy-NsxEdge{
                         }
                     }
                     #Now Services
-                    $RuleServices = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($rule,"child::application/applicationId")
+                    $RuleServices = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $rule -Query "child::application/applicationId")
                     foreach ($Service in $RuleServices) { 
 
                         #Might be a service...
@@ -24797,7 +24797,7 @@ function Copy-NsxEdge{
         $_NewEdge = $NewEdge.CloneNode($true)
 
         #And Remove EdgeSummary from newedge XML...
-        $edgeSummary = [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_NewEdge,'descendant::edgeSummary')
+        $edgeSummary = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_NewEdge -Query 'descendant::edgeSummary')
         if ( $edgeSummary ) {
             $null = $_NewEdge.RemoveChild($edgeSummary)
         }
@@ -24824,7 +24824,7 @@ function Copy-NsxEdge{
                     $org = ($subject | ? { $_ -match 'O='}) -replace '^O=','' 
                     $ou = ($subject | ? { $_ -match 'OU='}) -replace '^OU=','' 
                     $c = ($subject | ? { $_ -match 'C='}) -replace '^C=','' 
-                    if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($cert,"child::description") ) { 
+                    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $cert -Query "child::description") ) { 
                         $desc = $cert.description
                     }
                     else { 
@@ -24841,7 +24841,7 @@ function Copy-NsxEdge{
                 }
 
                 #Fixup cert references in IPSec VPN...
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_NewEdge.features.ipsec.global,"child::serviceCertificate") ) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_NewEdge.features.ipsec.global -Query "child::serviceCertificate") ) { 
                     if ( $UpdatedSSCerts.item($_NewEdge.features.ipsec.global.serviceCertificate) ) { 
                         write-warning "Fixing up cert for IpSec listener : Old Cert : $($_NewEdge.features.ipsec.global.serviceCertificate), New Cert : $($UpdatedSSCerts.item($_NewEdge.features.ipsec.global.serviceCertificate))"                                    
                         $_NewEdge.features.ipsec.global.serviceCertificate = $UpdatedSSCerts.item($_NewEdge.features.ipsec.global.serviceCertificate)
@@ -24852,7 +24852,7 @@ function Copy-NsxEdge{
                 }
 
                 #LB cert Fixup
-                $appProfileCerts = [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($_NewEdge.features.loadBalancer.applicationProfile,"descendant::serviceCertificate") 
+                $appProfileCerts = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $_NewEdge.features.loadBalancer.applicationProfile -Query "descendant::serviceCertificate") 
                 foreach ( $cert in $appProfileCerts ) { 
                     $AppProfile = $cert.ParentNode.ParentNode.name
                     if ( $cert.ParentNode.ToString() -eq 'clientSsl' ) {
@@ -24871,7 +24871,7 @@ function Copy-NsxEdge{
                 }
 
                 #SSLVPN cert Fixup
-                if ( [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($_NewEdge.features.sslvpnConfig.serverSettings,"child::certificateId") ) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_NewEdge.features.sslvpnConfig.serverSettings -Query "child::certificateId") ) {
                     if ( $UpdatedSSCerts.item($_NewEdge.features.sslvpnConfig.serverSettings.certificateId) ) { 
                         write-warning "Fixing up cert for SSLVPN server : Old Cert : $($_NewEdge.features.sslvpnConfig.serverSettings.certificateId), New Cert : $($UpdatedSSCerts.item($_NewEdge.features.sslvpnConfig.serverSettings.certificateId))"
                         $_NewEdge.features.sslvpnConfig.serverSettings.certificateId = $UpdatedSSCerts.item($_NewEdge.features.sslvpnConfig.serverSettings.certificateId)
