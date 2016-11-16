@@ -19667,9 +19667,9 @@ function New-NsxMacSet  {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/macset/$scopeId"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxMacSet -objectid $response -connection $connection
+        Get-NsxMacSet -objectid $response.content -connection $connection
     }
     end {}
 }
@@ -19987,9 +19987,9 @@ function New-NsxService  {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/application/$scopeId"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxService -objectId $response -connection $connection
+        Get-NsxService -objectId $response.content -connection $connection
     }
     end {}
 }
@@ -20401,7 +20401,7 @@ function New-NsxServiceGroup {
 
         $method = "POST"
         $uri = "/api/2.0/services/applicationgroup/globalroot-0"
-        $response = invoke-nsxrestmethod -uri $uri -method $method -body $body -connection $connection
+        $response = invoke-nsxwebrequest -uri $uri -method $method -body $body -connection $connection
 
         Get-NsxServiceGroup $Name
 
@@ -20454,7 +20454,7 @@ function Add-NsxServiceGroupMember {
 
         foreach ($Mem in $Member){
             $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectId)/members/$($Mem.objectId)"
-            $response = invoke-nsxrestmethod -method "PUT" -uri $URI -connection $connection
+            $response = invoke-nsxwebrequest -method "PUT" -uri $URI -connection $connection
             Write-Progress -activity "Adding Service or Service Group $($Mem) to Service Group $($ServiceGroup)"
         }
 
