@@ -2946,26 +2946,26 @@ function Invoke-NsxRestMethod {
         }
         else { 
             #No response, log and throw the underlying ex
-            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.tostring())"
             if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
                 if ( $connection.DebugLogging ) { 
                     "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
                 }
             }
-            throw $_
+            throw $_.exception.tostring()
         }
     }
     catch {
-         #Not a webexception (may be on PoSH core), log and throw the underlying ex
-        $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+         #Not a webexception (may be on PoSH core), log and throw the underlying ex string
+        $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.tostring())"
         if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
             if ( $connection.DebugLogging ) { 
                 "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
             }
         }
-        throw $_
+        throw $_.exception.tostring()
     }
-    
+
     switch ( $response ) {
         { $_ -is [xml] } { $FormattedResponse = "`n$($response.outerxml | Format-Xml)" } 
         { $_ -is [System.String] } { $FormattedResponse = $response }
@@ -3170,24 +3170,24 @@ function Invoke-NsxWebRequest {
         }
         else { 
             #No response, log and throw the underlying ex
-            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.tostring())"
             if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
                 if ( $connection.DebugLogging ) { 
                     "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
                 }
             }
-            throw $_
+            throw $_.exception.tostring()
         }
     }
     catch {
-         #Not a webexception (may be on PoSH core), log and throw the underlying ex
-        $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+         #Not a webexception (may be on PoSH core), log and throw the underlying ex string
+        $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.tostring())"
         if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
             if ( $connection.DebugLogging ) { 
                 "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
             }
         }
-        throw $_
+        throw $_.exception.tostring()
     }
 
     #Output the response header dictionary
