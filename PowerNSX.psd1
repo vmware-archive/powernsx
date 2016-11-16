@@ -76,7 +76,6 @@ DotNetFrameworkVersion = '4.0'
 # will have to be removed manually. 
  RequiredModules = @(
 
-    "VMware.VimAutomation.Common",
     "VMware.VimAutomation.Core",
     "VMware.VimAutomation.Vds"
 )
