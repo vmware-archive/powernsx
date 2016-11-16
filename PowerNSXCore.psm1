@@ -19434,9 +19434,9 @@ function New-NsxIpSet  {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/ipset/$scopeId"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-webrequest -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxIPSet -objectid $response -connection $connection
+        Get-NsxIPSet -objectid $response.content -connection $connection
     }
     end {}
 }
@@ -19513,7 +19513,7 @@ function Remove-NsxIpSet {
                 }
                 
                 Write-Progress -activity "Remove IP Set $($IPSet.Name)"
-                $null = invoke-nswebrequest -method "delete" -uri $URI -connection $connection
+                $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
                 write-progress -activity "Remove IP Set $($IPSet.Name)" -completed
             }
         }
