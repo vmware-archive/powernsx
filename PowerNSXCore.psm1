@@ -22,7 +22,7 @@ Some files may be comprised of various open source software components, each of 
 has its own license that is located in the source code of the respective component.
 #>
 
-#Requires -Version 6.0
+#Requires -Version 5.1
 
 #More sophisticated requirement checking done at module load time.
 
@@ -33,18 +33,34 @@ $ValidBranches = @("master","v2")
 
 set-strictmode -version Latest
 
-##################WARNING############################
-write-warning "If you are loading this module, you are stupid.  Or brave.  Possibly both.  It does NOT work yet, and several unresolved PowerShell bugs are still blocking some known issues.  Virtually no (like NONE) testing has occured, so as I said.  Stupid..."
-write-warning "Known issues:"
-write-warning " - Xml response from NSX API is not (always) parsed correctly and causes invoke-restmethod exceptions."
-write-warning " - invoke-restmethod and invoke-webrequest do not return the webrequest response in the event an exception is thrown making error messages basically useless (I cant show the user what the NSX API returned.)"
-write-warning " - skipcertificate check is hard coded in calls for invoke-restmethod/webrequest and relies on PowerShell built from source (until the next 6.0.0 alpha release)"
-write-warning " - Basically nothing has been tested"
-
-
 ########
 ########
 # Private functions
+
+Function _init {
+    #Run at module load time.
+
+    #PSEdition property does not exist pre v5.  We need to do a few things in
+    #exported functions to workaround some limitations of core edition, so we export
+    #the global PNSXPSTarget var to reference if required.
+    if ( $PSVersionTable.PSVersion.Major -ge 5) { 
+        $global:PNSXPSTarget = $PSVersionTable.PSEdition
+    }
+    else { 
+        $global:PNSXPSTarget = "Desktop"
+    }
+
+    if ( $global:PNSXPSTarget -eq 'Core' ) { 
+        ##################WARNING############################
+        write-warning "Powershell Core is experimental and may not work as expected.`n"
+        write-warning "Please see the PowerNSX github site for full list of known issues.`n"
+        write-warning "Some known issues you are likely to hit:"
+        write-warning " - Xml response from NSX API is not (always) parsed correctly and causes invoke-restmethod exceptions.  (All known instances fixed.  Please raise an issue if you hit this)"
+        write-warning " - invoke-restmethod and invoke-webrequest do not return the webrequest response in the event an exception is thrown making error messages basically useless (Unable to return the error response that the NSX API returned.)"
+        write-warning " - Limited testing"    
+    }
+    else { "test" }
+}
 
 Function Test-WebServerSSL {  
     # Function original location: http://en-us.sysadmins.lv/Lists/Posts/Post.aspx?List=332991f0-bfed-4143-9eea-f521167d287c&ID=60  
@@ -126,6 +142,33 @@ namespace PKI {
         Write-Error $Error[0]  
     }  
 }  
+
+
+function Invoke-XpathQuery { 
+    
+    # Required because of the differing XPath implementations on Desktop and Core editions.
+    # Intent is to have a consistent function that exported PowerNSX functions call to perform
+    # an XPATH query that will be performed in the correct way for the edition of PS being used.
+    param (
+        [Parameter (Mandatory=$true)]
+            [ValidateSet("SelectSingleNode","SelectNodes")]
+            [string]$QueryMethod,
+        [Parameter (Mandatory=$true)]
+            $Node,
+        [Parameter (Mandatory=$true)]
+            [string]$query
+        
+    )
+
+    If ( $global:PNSXPsTarget -eq "Core") {
+        #Use the XPath extensions class to perform the query
+        [System.Xml.XmlDocumentXPathExtensions]::$QueryMethod($node,$query)
+    } 
+    else { 
+        #Perform the query with the native methods on the node
+        $node.$QueryMethod($query)
+    }
+}
 
 function Read-HostWithDefault { 
 
@@ -2801,11 +2844,17 @@ function Invoke-NsxRestMethod {
 
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
 
-    if ( -not ($pscmdlet.ParameterSetName -eq "Parameter")) {
-
+    #System.Net.ServicePointManager class does not exist on core.
+    if ( $global:PNSXPSTarget -eq "Desktop" ) {
+        if (( -not $ValidateCertificate) -and ([System.Net.ServicePointManager]::CertificatePolicy.tostring() -eq 'System.Net.DefaultCertPolicy')) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+    }
+    
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
         #ensure we were either called with a connection or there is a defaultConnection (user has 
         #called connect-nsxserver) 
-        #Little Grr - $connection is a defined variable with no value so we cant use test-path
         if ( $connection -eq $null) {
             
             #Now we need to assume that defaultnsxconnection does not exist...
@@ -2853,38 +2902,62 @@ function Invoke-NsxRestMethod {
         }
     }
 
+    #Use splatting to build up the IRM params
+    $irmSplat = @{
+        "method" = $method;
+        "headers" = $headerDictionary;
+        "ContentType" = "application/xml";
+        "uri" = $FullURI;
+        "TimeoutSec" = $Timeout
+    }
+    if ( $PsBoundParameters.ContainsKey('Body')) { 
+        # If there is a body specified, add it to the invoke-restmethod args... 
+        $irmSplat.Add("body",$body)
+    }
+
+    #Core (for now) uses a different mechanism to manipulating [System.Net.ServicePointManager]::CertificatePolicy
+    if ( ($global:PNSXPSTarget -eq 'Core') -and ( -not $ValidateCertificate )) {
+        $irmSplat.Add("SkipCertificateCheck", $true)
+    }
+
     #do rest call
     try { 
-        if ( $PsBoundParameters.ContainsKey('Body')) { 
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
-        } else {
-            $response = invoke-restmethod -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
-        }
+        $response = invoke-restmethod @irmSplat
     }
     catch {
         
-        #Get response from the exception
-        if ( $_.exception.message ) {              
-            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
-            
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) { 
-                    "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
-                }
+        #Get response from the exception.  Core is very limited here...
+        if ( $global:PNsxPSTarget -eq "Desktop" ) { 
+            $response = $_.exception.response
+            if ($response) {  
+                $responseStream = $_.exception.response.GetResponseStream()
+                $reader = New-Object system.io.streamreader($responseStream)
+                $responseBody = $reader.readtoend()
+                $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
             }
-            throw $ErrorString
-        }
+            elseif ( $_.exception.message ) { 
+                $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+            } 
+            else { 
+                $ErrorString = "invoke-nsxrestmethod : An unknown exception occured calling invoke-restmethod." 
+          }
+       }
         else { 
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) { 
-                    "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
-                }
+            if ( $_.exception.message ) {              
+                $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+            } else { 
+                $ErrorString = "invoke-nsxrestmethod : An unknown exception occured calling invoke-restmethod." 
             }
-            throw $_ 
-        } 
-        
+        }
 
-    }
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+            if ( $connection.DebugLogging ) { 
+                "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
+            }
+        }
+        write-error $ErrorString
+        throw $_       
+    }    
     switch ( $response ) {
         { $_ -is [xml] } { $FormattedResponse = "`n$($response.outerxml | Format-Xml)" } 
         { $_ -is [System.String] } { $FormattedResponse = $response }
@@ -2898,17 +2971,17 @@ function Invoke-NsxRestMethod {
         }
     }
 
-    #### Hoping this will not be an issue on PowerShell Core as we dont have servicepoint manager to handle this...
+    if ( $global:PNSXPSTarget -eq "Desktop" ) { 
+        # Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
+        # We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
+        # So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
+        # and probably rewrite over time to use invoke-webrequest for all calls... PiTA!!!! :|
 
-    # Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls. 
-    # We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
-    # So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
-    # and probably rewrite over time to use invoke-webrequest for all calls... PiTA!!!! :|
-
-    # $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($FullURI)
-    # $ServicePoint.CloseConnectionGroup("") | out-null
-    # write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $FullURI."
-
+        $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($FullURI)
+        $ServicePoint.CloseConnectionGroup("") | out-null
+        write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $FullURI."
+    }
+    
     #Return
     $response
 }
@@ -24829,3 +24902,5 @@ function Copy-NsxEdge{
 
 
 
+#Call Init function
+_init

@@ -53,7 +53,7 @@ It is unlikely that it will ever expose 100% of the NSX API, but feature request
 PowerNSX is currently a work in progress and is not yet feature complete.'
 
 # Minimum version of the Windows PowerShell engine required by this module
-PowerShellVersion = '6.0'
+PowerShellVersion = '3'
 
 # Name of the Windows PowerShell host required by this module
 # PowerShellHostName = ''
@@ -75,8 +75,8 @@ DotNetFrameworkVersion = '4.0'
 # autoload these modules when powernsx loads.  If v5 PowerCLI support is required, these
 # will have to be removed manually. 
  RequiredModules = @(
-    "PowerCLI.Vds",
-    "PowerCLI.ViCore"
+    # "PowerCLI.Vds",
+    # "PowerCLI.ViCore"
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -338,6 +338,7 @@ AliasesToExport = '*'
 
 # Private data to pass to the module specified in RootModule/ModuleToProcess. This may also contain a PSData hashtable with additional module metadata used by PowerShell.
 PrivateData = @{
+
 
     PSData = @{
 
