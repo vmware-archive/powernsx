@@ -2924,40 +2924,48 @@ function Invoke-NsxRestMethod {
     try { 
         $response = invoke-restmethod @irmSplat
     }
-    catch {
-        
-        #Get response from the exception.  Core is very limited here...
-        if ( $global:PNsxPSTarget -eq "Desktop" ) { 
-            $response = $_.exception.response
-            if ($response) {  
-                $responseStream = $_.exception.response.GetResponseStream()
-                $reader = New-Object system.io.streamreader($responseStream)
-                $responseBody = $reader.readtoend()
-                $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
-            }
-            elseif ( $_.exception.message ) { 
-                $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
-            } 
-            else { 
-                $ErrorString = "invoke-nsxrestmethod : An unknown exception occured calling invoke-restmethod." 
-          }
-       }
-        else { 
-            if ( $_.exception.message ) {              
-                $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
-            } else { 
-                $ErrorString = "invoke-nsxrestmethod : An unknown exception occured calling invoke-restmethod." 
-            }
-        }
+       #If its a webexception, we may have got a response from the server with more information...
+    #Even if this happens on PoSH Core though, the ex is not a webexception and we cant get this info :(
+    catch [System.Net.WebException] {
 
+        #Check if there is a response populated in the response prop as we can return better detail.
+        $response = $_.exception.response
+        if ( $response ) { 
+                $responseStream = $response.GetResponseStream()
+            $reader = New-Object system.io.streamreader($responseStream)
+            $responseBody = $reader.readtoend()
+            $ErrorString = "invoke-nsxrestmethod : The NSX API response received indicates a failure. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
+            
+            #Log the error with response detail.
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
+                }
+            }
+            throw $ErrorString
+        }
+        else { 
+            #No response, log and throw the underlying ex
+            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+                if ( $connection.DebugLogging ) { 
+                    "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
+                }
+            }
+            throw $_
+        }
+    }
+    catch {
+         #Not a webexception (may be on PoSH core), log and throw the underlying ex
+        $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
         if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
             if ( $connection.DebugLogging ) { 
                 "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
             }
         }
-        write-error $ErrorString
-        throw $_       
-    }    
+        throw $_
+    }
+    
     switch ( $response ) {
         { $_ -is [xml] } { $FormattedResponse = "`n$($response.outerxml | Format-Xml)" } 
         { $_ -is [System.String] } { $FormattedResponse = $response }
@@ -3061,11 +3069,17 @@ function Invoke-NsxWebRequest {
 
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
 
-    if ( -not ($pscmdlet.ParameterSetName -eq "Parameter")) {
-
+    #System.Net.ServicePointManager class does not exist on core.
+    if ( $global:PNSXPSTarget -eq "Desktop" ) {
+        if (( -not $ValidateCertificate) -and ([System.Net.ServicePointManager]::CertificatePolicy.tostring() -eq 'System.Net.DefaultCertPolicy')) { 
+            #allow untrusted certificate presented by the remote system to be accepted 
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+        }
+    }
+    
+    if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
         #ensure we were either called with a connection or there is a defaultConnection (user has 
         #called connect-nsxserver) 
-        #Little Grr - $connection is a defined variable with no value so we cant use test-path
         if ( $connection -eq $null) {
             
             #Now we need to assume that defaultnsxconnection does not exist...
@@ -3082,7 +3096,6 @@ function Invoke-NsxWebRequest {
         $server = $connection.Server
         $port = $connection.Port
         $protocol = $connection.Protocol
-
     }
 
     $headerDictionary = @{}
@@ -3113,38 +3126,68 @@ function Invoke-NsxWebRequest {
         }
     }
 
-    #do rest call
-    
-    try { 
-        if (( $method -eq "put" ) -or ( $method -eq "post" )) { 
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -body $body -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
-        } else {
-            $response = invoke-webrequest -method $method -headers $headerDictionary -ContentType "application/xml" -uri $FullURI -TimeoutSec $Timeout -SkipCertificateCheck:$( -not $ValidateCertificate)
-        }
+    #Use splatting to build up the IWR params
+    $iwrSplat = @{
+        "method" = $method;
+        "headers" = $headerDictionary;
+        "ContentType" = "application/xml";
+        "uri" = $FullURI;
+        "TimeoutSec" = $Timeout
     }
-    catch {
-        
-        #Get response from the exception
-        if ($_.exception) {  
-            $ErrorString = "invoke-nsxwebrequest : Exception occured calling invoke-restmethod: $($_.exception.message) -> $($_.exception.InnerException)"
+    if ( $PsBoundParameters.ContainsKey('Body')) { 
+        # If there is a body specified, add it to the invoke-restmethod args... 
+        $iwrSplat.Add("body",$body)
+    }
+
+    #Core (for now) uses a different mechanism to manipulating [System.Net.ServicePointManager]::CertificatePolicy
+    if ( ($global:PNSXPSTarget -eq 'Core') -and ( -not $ValidateCertificate )) {
+        $iwrSplat.Add("SkipCertificateCheck", $true)
+    }
+
+    #do rest call
+    try {
+            $response = invoke-webrequest @iwrsplat
+    }
+    #If its a webexception, we may have got a response from the server with more information...
+    #Even if this happens on PoSH Core though, the ex is not a webexception and we cant get this info :(
+    catch [System.Net.WebException] {
+
+        #Check if there is a response populated in the response prop as we can return better detail.
+        $response = $_.exception.response
+        if ( $response ) { 
+                $responseStream = $response.GetResponseStream()
+            $reader = New-Object system.io.streamreader($responseStream)
+            $responseBody = $reader.readtoend()
+            $ErrorString = "invoke-nsxrestmethod : The NSX API response received indicates a failure. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
             
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+            #Log the error with response detail.
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
                 if ( $connection.DebugLogging ) { 
                     "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
                 }
             }
-
             throw $ErrorString
         }
         else { 
-
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) { 
+            #No response, log and throw the underlying ex
+            $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
                 if ( $connection.DebugLogging ) { 
-                    "$(Get-Date -format s)  REST Call to NSX Manager failed with exception: $($_.Exception.Message).  ScriptStackTrace:`n $($_.ScriptStackTrace)" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
+                    "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
                 }
             }
-            throw $_ 
-        } 
+            throw $_
+        }
+    }
+    catch {
+         #Not a webexception (may be on PoSH core), log and throw the underlying ex
+        $ErrorString = "invoke-nsxrestmethod : Exception occured calling invoke-restmethod. $($_.exception.message) -> $($_.exception.InnerException)"
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+            if ( $connection.DebugLogging ) { 
+                "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
+            }
+        }
+        throw $_
     }
 
     #Output the response header dictionary
@@ -6959,7 +7002,7 @@ function Connect-NsxLogicalSwitch {
                 $failcount = 0
                 while ( $failCount -lt 3 ) { 
                     try { 
-                        [xml]$job = Get-NsxJobStatus -jobId $JobId
+                        [xml]$job = Get-NsxJobStatus -jobId $JobId 
                         $status = $job.edgeJob.status
                         Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete"
                         if ( $status -ne "COMPLETED" ) { 
