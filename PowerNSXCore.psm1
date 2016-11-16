@@ -18574,9 +18574,9 @@ function New-NsxSecurityGroup   {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/securitygroup/bulk/$scopeId"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxSecuritygroup -objectId $response -connection $connection
+        Get-NsxSecuritygroup -objectId $response.content -connection $connection
     }
     end {}
 }
