@@ -29,6 +29,8 @@ has its own license that is located in the source code of the respective compone
 #My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
 $PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
 $ValidBranches = @("master","v2")
+$CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore") 
+$DesktopRequiredModules = @("VMware.VimAutomation.Common","VMware.VimAutomation.Core","VMware.VimAutomation.Vds") 
 
 
 set-strictmode -version Latest
@@ -50,7 +52,8 @@ Function _init {
         $global:PNSXPSTarget = "Desktop"
     }
 
-    if ( $global:PNSXPSTarget -eq 'Core' ) { 
+    [System.Management.Automation.PSModuleInfo[]]$CurrentModules = Get-Module    
+    if ( $global:PNSXPSTarget -eq "Core" ) { 
         ##################WARNING############################
         write-warning "Powershell Core is experimental and may not work as expected.`n"
         write-warning "Please see the PowerNSX github site for full list of known issues.`n"
@@ -58,8 +61,36 @@ Function _init {
         write-warning " - Xml response from NSX API is not (always) parsed correctly and causes invoke-restmethod exceptions.  (All known instances fixed.  Please raise an issue if you hit this)"
         write-warning " - invoke-restmethod and invoke-webrequest do not return the webrequest response in the event an exception is thrown making error messages basically useless (Unable to return the error response that the NSX API returned.)"
         write-warning " - Limited testing"    
+
+        #Attempt to load PowerCLI modules required
+        foreach ($Module in $CoreRequiredModules ) { 
+            if ( -not $CurrentModules.Name.Contains($Module)) { 
+                try { 
+                    #Attempt to load the module automatically 
+                    Import-Module $module -global -erroraction stop
+                }
+                catch { 
+                    throw "Module $module could not be loaded.  Please ensure that PowerCLI is installed on this system."
+                }
+            } 
+        }
+
     }
-    else { "test" }
+    else { 
+        #Attempt to load PowerCLI modules required
+        foreach ($Module in $DesktopRequiredModules ) { 
+            if ( -not $CurrentModules.Contains($Module)) { 
+                try { 
+                    #Attempt to load the module automatically 
+                    Import-Module $module -global -erroraction stop
+                }
+                catch { 
+                    throw "Module $module could not be loaded.  Please ensure that PowerCLI is installed on this system."
+                }
+            } 
+        }
+
+    }
 }
 
 Function Test-WebServerSSL {  
