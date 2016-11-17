@@ -76,18 +76,15 @@ $steps = @(
     {$AppAppProfile = Get-NsxEdge edge01 | Get-NsxLoadBalancer | new-NsxLoadBalancerApplicationProfile -Name AppAppProfile -Type http},
     {Get-NsxEdge edge01 | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -name WebVIP -Description WebVIP -ipaddress 192.168.119.150 -Protocol http -Port 80 -ApplicationProfile $WebAppProfile -DefaultPool $WebPool -AccelerationEnabled | out-null},
     {Get-NsxEdge edge01 | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -name AppVIP -Description AppVIP -ipaddress 172.16.1.1 -Protocol http -Port 80 -ApplicationProfile $AppAppProfile -DefaultPool $AppPool -AccelerationEnabled | out-null},
-    {$webpg = $webls | Get-NsxBackingPortGroup},
-    {$apppg = $appls | Get-NsxBackingPortGroup},
-    {$dbpg = $dbls | Get-NsxBackingPortGroup},
-    {get-vm | where { $_.name -match 'web'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $webpg -Confirm:$false | out-null},
-    {get-vm | where { $_.name -match 'app'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $apppg -Confirm:$false | out-null},
-    {get-vm | where { $_.name -match 'db'} | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup $dbpg -Confirm:$false | out-null}
+    {get-vm | where { $_.name -match 'web'} | Connect-NsxLogicalSwitch $webls | out-null},
+    {get-vm | where { $_.name -match 'app'} | Connect-NsxLogicalSwitch $appls | out-null},
+    {get-vm | where { $_.name -match 'db'} | Connect-NsxLogicalSwitch $dbls | out-null}
     
 )
 
 $cleanup = @(
 
-    {Get-VApp | get-vm | Get-NetworkAdapter | Set-NetworkAdapter -Portgroup Internal -Confirm:$false},
+    {Get-VApp | get-vm | Disconnect-NsxLogicalSwitch -Confirm:$false},
     {Get-NsxEdge | Remove-NsxEdge -Confirm:$false},
     {Get-NsxLogicalRouter | Remove-NsxLogicalRouter -Confirm:$false},
     {Get-NsxLogicalSwitch | Remove-NsxLogicalSwitch -Confirm:$false}
