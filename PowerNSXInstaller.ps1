@@ -465,7 +465,7 @@ function init {
         write-host 
         write-host "PowerNSX is a PowerShell module for VMware NSX (NSX for vSphere)."
         write-host
-        write-host "PowerNSX requires PowerShell 3.0 or better and VMware PowerCLI 5.5"
+        write-host "PowerNSX requires PowerShell 3.0 or better and VMware PowerCLI 6.0"
         write-host "or better to function."
         write-host 
         write-host "This installation script will automatically guide you through the"
