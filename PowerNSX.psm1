@@ -20672,6 +20672,9 @@ function New-NsxFirewallRule  {
             [ValidateSet("allow","deny","reject")]
             [string]$Action,
         [Parameter (Mandatory=$false)]
+            [ValidateSet("inout","in","out")]
+            [string]$Direction="inout",
+        [Parameter (Mandatory=$false)]
             [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
             [object[]]$Source,
         [Parameter (Mandatory=$false)]
@@ -20735,6 +20738,7 @@ function New-NsxFirewallRule  {
         #Add-XmlElement -xmlRoot $xmlRule -xmlElementName "sectionId" -xmlElementText $($section.Id)
         Add-XmlElement -xmlRoot $xmlRule -xmlElementName "notes" -xmlElementText $Comment
         Add-XmlElement -xmlRoot $xmlRule -xmlElementName "action" -xmlElementText $action
+        Add-XmlElement -xmlRoot $xmlRule -xmlElementName "direction" -xmlElementText $Direction
         if ( $EnableLogging ) {
             #Enable Logging attribute
             $xmlAttrLog = $xmlDoc.createAttribute("logged")
