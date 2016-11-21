@@ -2298,9 +2298,6 @@ Function Validate-LoadBalancerMemberSpec {
         if ( -not ( $argument | get-member -name weight -Membertype Properties)) { 
             throw "XML Element specified does not contain a weight property.  Create with New-NsxLoadbalancerMemberSpec"
         }
-        if ( -not ( $argument | get-member -name port -Membertype Properties)) { 
-            throw "XML Element specified does not contain a port property.  Create with New-NsxLoadbalancerMemberSpec"
-        }
         if ( -not ( $argument | get-member -name minConn -Membertype Properties)) { 
             throw "XML Element specified does not contain a minConn property.  Create with New-NsxLoadbalancerMemberSpec"
         }
@@ -2381,9 +2378,6 @@ Function Validate-LoadBalancerPoolMember {
         }
         if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) { 
             throw "XML Element specified does not contain an ipAddress property."
-        }
-        if ( -not ( $argument | get-member -name port -Membertype Properties)) { 
-            throw "XML Element specified does not contain a port property."
         }
         if ( -not ( $argument | get-member -name name -Membertype Properties)) { 
             throw "XML Element specified does not contain a name property."
@@ -22011,7 +22005,7 @@ function New-NsxLoadBalancerMemberSpec {
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [int]$Weight=1,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$false)]
             [ValidateRange(1,65535)]
             [int]$Port,   
         [Parameter (Mandatory=$false)]
