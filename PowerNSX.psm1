@@ -18099,7 +18099,7 @@ function Get-NsxLogicalRouterRedistributionRule {
             if ( $bgp ) {
 
                 $_bgp = $bgp.CloneNode($True)
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_bgp -Query 'child::redistribution/rules') ) { 
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_bgp -Query 'child::redistribution/rules/rule') ) { 
 
                     $BgpRuleCollection = $_bgp.redistribution.rules.rule
 
