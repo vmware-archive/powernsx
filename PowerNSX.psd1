@@ -31,7 +31,7 @@ has its own license that is located in the source code of the respective compone
 RootModule = 'PowerNSX.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.0'
+ModuleVersion = '2.1.0'
 
 # ID used to uniquely identify this module
 GUID = 'ea3b0bdc-83a3-4cae-9920-7257beae8614'
