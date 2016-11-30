@@ -8795,7 +8795,7 @@ function Remove-NsxLogicalRouterInterface {
         # #Do the delete
         $URI = "/api/4.0/edges/$($Interface.logicalRouterId)/interfaces/$($Interface.Index)"
         Write-Progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)."
-        $null = invoke-webrequest -method "delete" -uri $URI -connection $connection
+        $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
         Write-progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)." -completed
 
     }
@@ -8850,16 +8850,20 @@ function Get-NsxLogicalRouterInterface {
             #All Interfaces on LR
             $URI = "/api/4.0/edges/$($LogicalRouter.Id)/interfaces/"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( $PsBoundParameters.ContainsKey("name") ) {
-                $return = $response.interfaces.interface | ? { $_.name -eq $name }
-                if ( $return ) { 
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "logicalRouterId" -xmlElementText $($LogicalRouter.Id)
-                }
-            } 
-            else {
-                $return = $response.interfaces.interface
-                foreach ( $interface in $return ) { 
-                    Add-XmlElement -xmlDoc ([system.xml.xmldocument]$interface.OwnerDocument) -xmlRoot $interface -xmlElementName "logicalRouterId" -xmlElementText $($LogicalRouter.Id)
+            if ( Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'child::interfaces/interface') { 
+                if ( $PsBoundParameters.ContainsKey("name") ) {
+                    $return = $response.interfaces.interface | ? { $_.name -eq $name }
+                    if ( $return ) { 
+                        Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "logicalRouterId" -xmlElementText $($LogicalRouter.Id)
+                    }
+                    $return
+                } 
+                else {
+                    $return = $response.interfaces.interface
+                    foreach ( $interface in $return ) { 
+                        Add-XmlElement -xmlDoc ([system.xml.xmldocument]$interface.OwnerDocument) -xmlRoot $interface -xmlElementName "logicalRouterId" -xmlElementText $($LogicalRouter.Id)
+                    }
+                    $return
                 }
             }
         }
@@ -8868,12 +8872,12 @@ function Get-NsxLogicalRouterInterface {
             #Just getting a single named Interface
             $URI = "/api/4.0/edges/$($LogicalRouter.Id)/interfaces/$Index"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            $return = $response.interface
-            if ( $return ) {
+            if ( $response ) {
+                $return = $response.interface
                 Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "logicalRouterId" -xmlElementText $($LogicalRouter.Id)
+                $return
             }
         }
-        $return
     }
     end {}
 }
