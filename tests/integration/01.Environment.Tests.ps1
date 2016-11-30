@@ -19,13 +19,13 @@ Describe "PowerNSX Connection" {
     it "Can find a VI cluster to deploy to" { 
         $global:cl = get-cluster | select -first 1
         $cl | should not be $null
-        write-warning "Using cluster $cl"
+        write-warning "Subsequent tests that deploy appliances will use cluster $cl"
     }
 
     it "Can find a VI Datastore to deploy to" { 
         $global:ds = $cl | get-datastore | select -first 1
         $ds | should not be $null
-        write-warning "Using datastore $ds"
+        write-warning "Subsequent tests that deploy appliances will use datastore $ds"
     }
 
     it "Destroys default NSX connection" { 
