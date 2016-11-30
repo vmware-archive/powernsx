@@ -19,7 +19,10 @@ $pnsxmodule = "$there\$sut"
 Import-Module $pnsxmodule -Global -ErrorAction Stop
 
 function Start-Test {
-    #Sets up credentials and performs other stuff beforing invoking pester
+    #Sets up credentials and performs other stuff before invoking pester
+    param ( 
+        $testname
+    )
 
     if ( -not (test-path $cxnfile )) { 
 
@@ -65,6 +68,7 @@ function Start-Test {
     }
 
     #Do the needful
-    invoke-pester
+    $pestersplat = @{ "testname" = $testname}
+    invoke-pester @pestersplat
 }
 Export-ModuleMember -Function "Start-Test" 
