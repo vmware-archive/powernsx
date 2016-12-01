@@ -4112,17 +4112,6 @@ function New-NsxManager{
     Uses 'splatting' technique to specify build configuration and then deploys a new NSX Manager, starts the VM, and blocks until the API becomes
     available.
 
-    .NOTES
-		Version: 1.2
-		Last Updated: 20150908
-		Last Updated By: Kevin Kirkpatrick (github.com/vScripter)
-		Last Update Notes:
-        - added a filter when selecting VMHost to only select a host that is reporting a 'Connected' status
-        - added logic to throw an error if there are no hosts available in the cluster (either there are none or they are all in maint. mode, etc.)
-		- added Begin/Process/End blocks for language consistency
-        - expanded support for -Verbose
-        - added logic to check for vCenter server 'IsConnected' status; ran into some cases where $global:defaultviserver variable is populated but connection is stale/timedout
-        - misc spacing/formatting to improve readability a little bit
 
     #>
 
@@ -4237,10 +4226,11 @@ function New-NsxManager{
         Write-Verbose -Message "Selecting VMHost for deployment in Cluster: $ClusterName"
         
         # Chose a target host that is not in Maintenance Mode and select based on available memory
+        $TargetVMHost = $null
         $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | Select -first 1
 
         # throw an error if there are not any hosts suitable for deployment (ie: all hosts are in maint. mode)
-        if ($targetVmHost.Count = 0) {
+        if ($targetVmHost -eq $null) {
             throw "Unable to deploy NSX Manager to cluster: $ClusterName. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is connected and not in Maintenance Mode."
         } 
         else {
