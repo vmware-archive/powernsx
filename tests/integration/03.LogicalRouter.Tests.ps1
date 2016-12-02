@@ -1,6 +1,3 @@
-#We have to do this to ensure we are testing the right module.  We load the module in the BeforeAll section
-get-module PowerNSX | remove-module
-
 #Do not remove this - we need to ensure connection setup and module deps preload have occured.
 If ( -not $PNSXTestNSXManager ) { 
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
@@ -37,13 +34,13 @@ Describe "Logical Routing" {
         $script:RemoteAS = "2345"
         $script:PrefixName = "pester_lr_prefix"
         $script:PrefixNetwork = "1.2.3.0/24"
-        
+        $tz = get-nsxtransportzone | select -first 1 
         $script:lswitches = @()
-        $script:lswitches += get-nsxtransportzone | select -first 1 | new-nsxlogicalswitch $ls1_name
-        $script:lswitches += get-nsxtransportzone | select -first 1 | new-nsxlogicalswitch $ls2_name
-        $script:lswitches += get-nsxtransportzone | select -first 1 | new-nsxlogicalswitch $ls3_name
-        $script:lswitches += get-nsxtransportzone | select -first 1 | new-nsxlogicalswitch $ls4_name
-        $script:lswitches += get-nsxtransportzone | select -first 1 | new-nsxlogicalswitch $ls5_name
+        $script:lswitches += $tz | new-nsxlogicalswitch $ls1_name
+        $script:lswitches += $tz | new-nsxlogicalswitch $ls2_name
+        $script:lswitches += $tz | new-nsxlogicalswitch $ls3_name
+        $script:lswitches += $tz | new-nsxlogicalswitch $ls4_name
+        $script:lswitches += $tz | new-nsxlogicalswitch $ls5_name
 
         $script:vnics = @()
         $script:vnics += New-NsxLogicalRouterInterfaceSpec -Type uplink -Name vNic0 -ConnectedTo $lswitches[0] -PrimaryAddress 1.1.1.1 -SubnetPrefixLength 24
@@ -116,8 +113,6 @@ Describe "Logical Routing" {
     it "Can enable route redistribution into Ospf" { 
         Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -PrefixName $PrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
         $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner ospf  | ? { $_.prefixName -eq $PrefixName }     
-        $rule | format-xml
-
         $rule.from.connected | should be "true"
         $rule.from.static | should be "true"
     }
