@@ -53,143 +53,157 @@ Describe "Logical Routing" {
         Get-NsxLogicalRouter $name | should not be $null
     }
 
-    it "Can add a logical router lif" {
-        Get-NsxLogicalRouter $name | New-NsxLogicalRouterInterface -Name Test -Type internal -ConnectedTo $lswitches[3] -PrimaryAddress 4.4.4.1 -SubnetPrefixLength 24
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface Test | should not be $null
+    Context "Interfaces" { 
+        it "Can add a logical router lif" {
+            Get-NsxLogicalRouter $name | New-NsxLogicalRouterInterface -Name Test -Type internal -ConnectedTo $lswitches[3] -PrimaryAddress 4.4.4.1 -SubnetPrefixLength 24
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface Test | should not be $null
+        }
+
+        it "Can update a logical router lif" { 
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 | Set-NsxLogicalRouterInterface -type internal -Name TestSet -ConnectedTo $lswitches[3] -confirm:$false
+            $lif = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 
+            $lif.ConnectedToName | should be $lswitches[3].Name
+        }
+
+        it "Can remove a logical router lif" { 
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 | Remove-NsxLogicalRouterInterface -confirm:$false
+            $lif = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 
+            $lif | should be $null
+        }
     }
 
-    it "Can update a logical router lif" { 
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 | Set-NsxLogicalRouterInterface -type internal -Name TestSet -ConnectedTo $lswitches[3] -confirm:$false
-        $lif = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 
-        $lif.ConnectedToName | should be $lswitches[3].Name
-    }
-
-    it "Can remove a logical router lif" { 
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 | Remove-NsxLogicalRouterInterface -confirm:$false
-        $lif = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface -Index 12 
-        $lif | should be $null
-    }
-
-    it "Can create a route prefix" { 
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterPrefix -Name $PrefixName -Network $PrefixNetwork -confirm:$false
-        Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -name $PrefixName | should not be $null
-    }
-
-    It "Can configure the default route" {
-        $UplinkVnic = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface "vNic0"
-        $UplinkVnicId = $uplinkVnic.index
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -DefaultGatewayVnic $UplinkVnicId -DefaultGatewayAddress $dgaddress -Confirm:$false
-        $rtg = Get-NsxLogicalRouter $name | get-nsxlogicalrouterRouting 
-        $rtg.staticRouting.defaultRoute.gatewayAddress | should be $dgaddress
-    }
-
-    it "Can add a static route" {
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop -confirm:$false
-        $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
-        $rtg.staticRouting.staticRoutes | should not be $null
-    }
-
-    It "Can enable OSPF and define router id" { 
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableOspf -RouterId $routerId -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2" -Confirm:$false
-        $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
-        $rtg.routingGlobalConfig.routerId | should be $routerId
-        $rtg.ospf.enabled | should be "true"
-    }
-
-    it "Can add an OSPF Area" { 
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfArea -AreaId $OspfAreaId -Confirm:$false
-        $area = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $OspfAreaId
-        $area | should not be $null
-    }
-
-    It "Can add an OSPF Interface" {
-        $UplinkVnic = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface "vNic0"
-        $UplinkVnicId = $uplinkVnic.index
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfInterface -AreaId $OspfAreaId -Vnic $UplinkVnicId -confirm:$false
-        $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
-        $rtg.ospf.ospfInterfaces.ospfInterface | Where-Object { $_.vnic -eq $UplinkVnicId } | should not be $null
-    }
-
-    it "Can enable route redistribution into Ospf" { 
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -PrefixName $PrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
-        $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner ospf  | ? { $_.prefixName -eq $PrefixName }     
-        $rule.from.connected | should be "true"
-        $rule.from.static | should be "true"
-    }
-
-    it "Can remove an OSPF Interface" { 
-        $UplinkVnic = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface "vNic0"
-        $UplinkVnicId = $uplinkVnic.index
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId $OspfAreaId -VnicId $UplinkVnicId | Remove-NsxLogicalRouterOspfInterface -confirm:$false
-        $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
-        $rtg.ospf.ospfInterfaces.ospfInterface | Where-Object { $_.vnic -eq $UplinkVnicId } | should be $null
-    }
-
-    it "Can remove an OSPF Area" {
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $OspfAreaId | Remove-NsxLogicalRouterOspfArea -confirm:$false
-        $area = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $OspfAreaId
-        $area | should be $null
-    }
-
-    it "Can disable OSPF" {
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting |Set-NsxLogicalRouterRouting -EnableOspf:$false -Confirm:$false #-RouterId $routerId -LocalAS $LocalAS -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2"
-        $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
-        $rtg.ospf.enabled | should be "false"
-    }
-
-    it "Can enable BGP" {
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgp -RouterId $routerId -LocalAS $LocalAS -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2" -Confirm:$false
-        $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
-        $rtg.routingGlobalConfig.routerId | should be $routerId
-        $rtg.bgp.enabled | should be "true"
+    Context "Route Prefixes" {
+        it "Can create a route prefix" { 
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterPrefix -Name $PrefixName -Network $PrefixNetwork -confirm:$false
+            Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -name $PrefixName | should not be $null
+        }
     }
     
-    it "Can add a BGP Neighbour" {
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2" -confirm:$false
-        $nbr = Get-NsxLogicalRouter $name  | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour
-        $nbr.ipaddress | should be $bgpneighbour
-    }
-    
-    it "Can enable route redistribution into BGP" {    
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -PrefixName $PrefixName -Learner bgp -FromConnected -FromStatic -FromOspf -Action permit -confirm:$false
-        $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner bgp
-        $rule.from.connected | should be "true"
-        $rule.from.static | should be "true"
-        $rule.from.ospf | should be "true"
+    Context "Static Routing" { 
+        It "Can configure the default route" {
+            $UplinkVnic = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface "vNic0"
+            $UplinkVnicId = $uplinkVnic.index
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -DefaultGatewayVnic $UplinkVnicId -DefaultGatewayAddress $dgaddress -Confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | get-nsxlogicalrouterRouting 
+            $rtg.staticRouting.defaultRoute.gatewayAddress | should be $dgaddress
+        }
+
+        it "Can add a static route" {
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop -confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.staticRouting.staticRoutes | should not be $null
+        }
+
+        
+        it "Can remove a static route" {
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop | Remove-NsxLogicalRouterStaticRoute -Confirm:$false
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop | should be $null
+        }
     }
 
-    it "Can remove bgp route redistribution rules" {
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner bgp | Remove-NsxLogicalRouterRedistributionRule -Confirm:$false
-        $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner bgp
-        $rule | should be $null
-    }  
-    
-    it "Can remove ospf route redistribution rules" {
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner ospf | Remove-NsxLogicalRouterRedistributionRule -Confirm:$false
-        $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner ospf
-        $rule | should be $null
-    }  
-    
-    it "Can retreive an emty result set of redistribution rules" {
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule | Remove-NsxLogicalRouterRedistributionRule -Confirm:$false            
-        $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule
-        $rule | should be $null
-    }  
+    Context "OSPF" { 
+            
+        It "Can enable OSPF and define router id" { 
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableOspf -RouterId $routerId -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2" -Confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.routingGlobalConfig.routerId | should be $routerId
+            $rtg.ospf.enabled | should be "true"
+        }
 
-    it "Can remove a static route" {
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop | Remove-NsxLogicalRouterStaticRoute -Confirm:$false
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop | should be $null
+        it "Can add an OSPF Area" { 
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfArea -AreaId $OspfAreaId -Confirm:$false
+            $area = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $OspfAreaId
+            $area | should not be $null
+        }
+
+        It "Can add an OSPF Interface" {
+            $UplinkVnic = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface "vNic0"
+            $UplinkVnicId = $uplinkVnic.index
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfInterface -AreaId $OspfAreaId -Vnic $UplinkVnicId -confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.ospf.ospfInterfaces.ospfInterface | Where-Object { $_.vnic -eq $UplinkVnicId } | should not be $null
+        }
+
+        it "Can enable route redistribution into Ospf" { 
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -PrefixName $PrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
+            $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner ospf  | ? { $_.prefixName -eq $PrefixName }     
+            $rule.from.connected | should be "true"
+            $rule.from.static | should be "true"
+        }
+
+        it "Can remove ospf route redistribution rules" {
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner ospf | Remove-NsxLogicalRouterRedistributionRule -Confirm:$false
+            $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner ospf
+            $rule | should be $null
+        }  
+        
+        it "Can retreive an emty result set of redistribution rules" {
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule | Remove-NsxLogicalRouterRedistributionRule -Confirm:$false            
+            $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule
+            $rule | should be $null
+        }  
+
+        it "Can remove an OSPF Interface" { 
+            $UplinkVnic = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterInterface "vNic0"
+            $UplinkVnicId = $uplinkVnic.index
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId $OspfAreaId -VnicId $UplinkVnicId | Remove-NsxLogicalRouterOspfInterface -confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.ospf.ospfInterfaces.ospfInterface | Where-Object { $_.vnic -eq $UplinkVnicId } | should be $null
+        }
+
+        it "Can remove an OSPF Area" {
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $OspfAreaId | Remove-NsxLogicalRouterOspfArea -confirm:$false
+            $area = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $OspfAreaId
+            $area | should be $null
+        }
+
+        it "Can disable OSPF" {
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting |Set-NsxLogicalRouterRouting -EnableOspf:$false -Confirm:$false #-RouterId $routerId -LocalAS $LocalAS -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2"
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.ospf.enabled | should be "false"
+        }
     }
 
-    it "Can remove a BGP Neighbour" {
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs | Remove-NsxLogicalRouterBgpNeighbour -confirm:$false
-        Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs | should be $null
-    }
-    
-    it "Can disable BGP" { 
-        Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgp:$false -Confirm:$false
-        $rtg = Get-NSxLogicalRouter $name | Get-NsxLogicalRouterRouting
-        $rtg.bgp.enabled | should be "false"
+    Context "BGP" { 
+            
+        it "Can enable BGP" {
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgp -RouterId $routerId -LocalAS $LocalAS -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2" -Confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.routingGlobalConfig.routerId | should be $routerId
+            $rtg.bgp.enabled | should be "true"
+        }
+        
+        it "Can add a BGP Neighbour" {
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2" -confirm:$false
+            $nbr = Get-NsxLogicalRouter $name  | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour
+            $nbr.ipaddress | should be $bgpneighbour
+        }
+        
+        it "Can enable route redistribution into BGP" {    
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -PrefixName $PrefixName -Learner bgp -FromConnected -FromStatic -FromOspf -Action permit -confirm:$false
+            $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner bgp
+            $rule.from.connected | should be "true"
+            $rule.from.static | should be "true"
+            $rule.from.ospf | should be "true"
+        }
+
+        it "Can remove bgp route redistribution rules" {
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner bgp | Remove-NsxLogicalRouterRedistributionRule -Confirm:$false
+            $rule = Get-NsxLogicalRouter | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner bgp
+            $rule | should be $null
+        }  
+        
+        it "Can remove a BGP Neighbour" {
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs | Remove-NsxLogicalRouterBgpNeighbour -confirm:$false
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs | should be $null
+        }
+        
+        it "Can disable BGP" { 
+            Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableBgp:$false -Confirm:$false
+            $rtg = Get-NSxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.bgp.enabled | should be "false"
+        }
+
     }
 
     it "Can remove a logical router" { 
