@@ -2317,9 +2317,6 @@ Function Validate-LoadBalancerMemberSpec {
         if ( -not ( $argument | get-member -name weight -Membertype Properties)) {
             throw "XML Element specified does not contain a weight property.  Create with New-NsxLoadbalancerMemberSpec"
         }
-        if ( -not ( $argument | get-member -name port -Membertype Properties)) {
-            throw "XML Element specified does not contain a port property.  Create with New-NsxLoadbalancerMemberSpec"
-        }
         if ( -not ( $argument | get-member -name minConn -Membertype Properties)) {
             throw "XML Element specified does not contain a minConn property.  Create with New-NsxLoadbalancerMemberSpec"
         }
@@ -2400,9 +2397,6 @@ Function Validate-LoadBalancerPoolMember {
         }
         if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) {
             throw "XML Element specified does not contain an ipAddress property."
-        }
-        if ( -not ( $argument | get-member -name port -Membertype Properties)) {
-            throw "XML Element specified does not contain a port property."
         }
         if ( -not ( $argument | get-member -name name -Membertype Properties)) {
             throw "XML Element specified does not contain a name property."
@@ -4218,17 +4212,6 @@ function New-NsxManager{
     Uses 'splatting' technique to specify build configuration and then deploys a new NSX Manager, starts the VM, and blocks until the API becomes
     available.
 
-    .NOTES
-		Version: 1.2
-		Last Updated: 20150908
-		Last Updated By: Kevin Kirkpatrick (github.com/vScripter)
-		Last Update Notes:
-        - added a filter when selecting VMHost to only select a host that is reporting a 'Connected' status
-        - added logic to throw an error if there are no hosts available in the cluster (either there are none or they are all in maint. mode, etc.)
-		- added Begin/Process/End blocks for language consistency
-        - expanded support for -Verbose
-        - added logic to check for vCenter server 'IsConnected' status; ran into some cases where $global:defaultviserver variable is populated but connection is stale/timedout
-        - misc spacing/formatting to improve readability a little bit
 
     #>
 
@@ -4343,10 +4326,11 @@ function New-NsxManager{
         Write-Verbose -Message "Selecting VMHost for deployment in Cluster: $ClusterName"
 
         # Chose a target host that is not in Maintenance Mode and select based on available memory
+        $TargetVMHost = $null
         $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | Select -first 1
 
         # throw an error if there are not any hosts suitable for deployment (ie: all hosts are in maint. mode)
-        if ($targetVmHost.Count = 0) {
+        if ($targetVmHost -eq $null) {
             throw "Unable to deploy NSX Manager to cluster: $ClusterName. There are no VMHosts suitable for deployment. Check the selected cluster to ensure hosts exist and that at least one is connected and not in Maintenance Mode."
         }
         else {
@@ -5210,12 +5194,22 @@ function New-NsxController {
     $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
     New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
 
+    .EXAMPLE
+    $ControllerName = "MyNSXCtrl1"
+    $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.10.1 -SubnetPrefixLength 24 -StartAddress 192.168.10.100 -endaddress 192.168.10.200
+    $ControllerCluster = Get-Cluster vSphereCluster
+    $ControllerDatastore = Get-Datastore $ControllerDatastoreName -server $Connection.VIConnection
+    $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
+    New-NsxController -ControllerName $ControllerName -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
 
     #>
 
 
     param (
 
+        [Parameter (Mandatory=$False)]
+            #Controller Name
+            [string]$ControllerName,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
@@ -5286,6 +5280,8 @@ function New-NsxController {
             }
         }
 
+        # Check for presence of optional controller name
+        if ($PSBoundParameters.ContainsKey("ControllerName")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()
@@ -10535,7 +10531,7 @@ function Repair-NsxEdge {
             #If ForceSync - The edge appliance is rebooted
             #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
             [ValidateSet("ForceSync", "Redeploy")]
-            [switch]$Operation,
+            [string]$Operation,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -18517,7 +18513,7 @@ function New-NsxSecurityGroup   {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
+            [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
@@ -19409,7 +19405,7 @@ function New-NsxIpSet  {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
+            [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
             [string]$IPAddresses,
@@ -19642,7 +19638,7 @@ function New-NsxMacSet  {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
+            [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
             [string]$MacAddresses,
@@ -19939,7 +19935,7 @@ function New-NsxService  {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
+            [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$true)]
             [ValidateSet ("TCP","UDP",
@@ -20379,7 +20375,7 @@ function New-NsxServiceGroup {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
+            [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -21029,6 +21025,9 @@ function New-NsxFirewallRule  {
             [ValidateSet("allow","deny","reject")]
             [string]$Action,
         [Parameter (Mandatory=$false)]
+            [ValidateSet("inout","in","out")]
+            [string]$Direction="inout",
+        [Parameter (Mandatory=$false)]
             [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
             [object[]]$Source,
         [Parameter (Mandatory=$false)]
@@ -21092,6 +21091,7 @@ function New-NsxFirewallRule  {
         #Add-XmlElement -xmlRoot $xmlRule -xmlElementName "sectionId" -xmlElementText $($section.Id)
         Add-XmlElement -xmlRoot $xmlRule -xmlElementName "notes" -xmlElementText $Comment
         Add-XmlElement -xmlRoot $xmlRule -xmlElementName "action" -xmlElementText $action
+        Add-XmlElement -xmlRoot $xmlRule -xmlElementName "direction" -xmlElementText $Direction
         if ( $EnableLogging ) {
             #Enable Logging attribute
             $xmlAttrLog = $xmlDoc.createAttribute("logged")
@@ -22364,7 +22364,7 @@ function New-NsxLoadBalancerMemberSpec {
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [int]$Weight=1,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$false)]
             [ValidateRange(1,65535)]
             [int]$Port,
         [Parameter (Mandatory=$false)]

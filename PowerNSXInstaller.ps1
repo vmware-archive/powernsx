@@ -227,7 +227,7 @@ function check-powershell {
                                 install-dotNet45
                             }
                             
-                            if ( (gwmi win32_operatingsystem).OSArchitecture -eq "64-Bit") {
+                            if ( [System.Environment]::Is64BitOperatingSystem ) {
                                 install-wmf -version 3 -uri $WMF_3_60_64_Download
                             }
                             else {
@@ -243,7 +243,7 @@ function check-powershell {
                                 install-dotNet45
                             }
 
-                            if ( (gwmi win32_operatingsystem).OSArchitecture -eq "64-Bit") {
+                            if ( [System.Environment]::Is64BitOperatingSystem ) {
                                 install-wmf -version 4 -uri $WMF_3_61_64_Download
                             }
                             else {
@@ -269,7 +269,7 @@ function check-powercli {
 
     #Validate at least PowerCLI 5.5 via uninstall reg key
     Write-Progress -Activity "Installing PowerNSX" -Status "check-powercli" -CurrentOperation "Checking for compatible PowerCLI version"
-    if ((gwmi win32_operatingsystem).osarchitecture -eq "64-bit") { 
+    if ( [System.Environment]::Is64BitOperatingSystem ) { 
         $PowerCli = get-childitem "HKLM:Software\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall" | % { $_ | get-itemproperty | ? { $_.displayName -match 'PowerCLI' }}
 
     }else {
@@ -465,7 +465,7 @@ function init {
         write-host 
         write-host "PowerNSX is a PowerShell module for VMware NSX (NSX for vSphere)."
         write-host
-        write-host "PowerNSX requires PowerShell 3.0 or better and VMware PowerCLI 5.5"
+        write-host "PowerNSX requires PowerShell 3.0 or better and VMware PowerCLI 6.0"
         write-host "or better to function."
         write-host 
         write-host "This installation script will automatically guide you through the"
