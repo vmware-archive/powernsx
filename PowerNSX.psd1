@@ -73,7 +73,7 @@ DotNetFrameworkVersion = '4.0'
 # Modules that must be imported into the global environment prior to importing this module
 # This REQUIRES that PowerCLI v6 be installed (v5 was snapin based).  This will
 # autoload these modules when powernsx loads.  If v5 PowerCLI support is required, these
-# will have to be removed manually. 
+# will have to be removed manually.
  RequiredModules = @(
      #Better module autoload handling in module init function.
 )
