@@ -1,6 +1,10 @@
 #PowerNSX Test Harness Module.
 #Sets up test environment and allows for invocation of tests.
 
+# Must load via manifest file otherwise dep module loads dont occur properly
+# Must have separate test module for core now :(
+    
+
 #We can drop a connection file that allows future non interactive invocation
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
 $cxnfile = "$here\Test.cxn"
@@ -13,16 +17,16 @@ $there = Split-Path -Parent $MyInvocation.MyCommand.Path | split-path -parent
 $sut = "PowerNSX.psd1"
 $pnsxmodule = "$there\$sut"
 
-#We import the module here to force all dependant modules to load in the global scope.
-#It took a while to work out why module unload wasnt working properly in the test scope.
-#This resolves it by allowing PowerNSX dependant module resolution to run in global scope.
-Import-Module $pnsxmodule -Global -ErrorAction Stop
+
 
 function Start-Test {
     #Sets up credentials and performs other stuff before invoking pester
     param ( 
         $testname
     )
+
+    get-module PowerNSX | remove-module
+    Import-Module $pnsxmodule -ErrorAction Stop -global
 
     if ( -not (test-path $cxnfile )) { 
 
@@ -70,5 +74,9 @@ function Start-Test {
     #Do the needful
     $pestersplat = @{ "testname" = $testname}
     invoke-pester @pestersplat
+
+    #finally remove the module
+    get-module PowerNSX | remove-module
+
 }
 Export-ModuleMember -Function "Start-Test" 
