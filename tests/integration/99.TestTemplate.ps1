@@ -1,6 +1,22 @@
-#We have to do this to ensure we are testing the right module.  We load the module in the BeforeAll section
-get-module PowerNSX | remove-module
+#PowerNSX Test template.
+#Nick Bradford : nbradford@vmware.com
 
+#Because PowerNSX is an API consumption tool, its test framework is limited to 
+#exercising cmdlet functionality against a functional NSX and vSphere API
+#If you disagree with this approach - feel free to start writing mocks for all
+#potential API reponses... :) 
+
+#In the meantime, the test format is not as elegant as normal TDD, but Ive made some effort to get close to this.
+#Each functional area in NSX should have a separate test file.
+
+#Try to group related tests in contexts.  Especially ones that rely on configuration done in previous tests
+#Try to make tests as standalone as possible, but generally round trips to the API are expensive, so bear in mind
+#the time spent recreating configuration created in previous tests just for the sake of keeping test isolation.
+
+#Try to put all non test related setup and tear down in the BeforeAll and AfterAll sections.  ]
+#If a failure in here occurs, the Describe block is not executed.
+
+#########################
 #Do not remove this - we need to ensure connection setup and module deps preload have occured.
 If ( -not $PNSXTestNSXManager ) { 
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
@@ -28,20 +44,34 @@ Describe "Logical Thingy" {
         $script:mynsxthing = "pester_lt_thing1"
     }
 
-    it "Can do something" { 
+    Context "Something interesting" { 
 
-        #do something and then make an assertion about what it should be
-        $thing = new-nsxthingy $mynsxthing
+        #Group related tests together.
 
-        #remember to get from api rather than use returned val - this test successful creation, not just return
-        get-nsxthingy $mynsxthing | should not be $null
+        it "Can do something" { 
 
-        #can make multiple assertions to improve test value.
-        $thing.ears | should be pointy
+            #do something and then make an assertion about what it should be
+            $thing = new-nsxthingy $mynsxthing
+
+            #remember to get from api rather than use returned val - this test successful creation, not just return
+            get-nsxthingy $mynsxthing | should not be $null
+
+            #can make multiple assertions to improve test value.
+            $thing.ears | should be pointy
+        }
+
+        it "Can do something else" {
+            ...
+        }
+    }
+
+    Context "Something else interesting" {
+        ...
     }
 
     AfterAll { 
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
+        #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
         #We kill the connection to NSX Manager here.
 
         disconnect-nsxserver 
