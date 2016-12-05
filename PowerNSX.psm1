@@ -21176,13 +21176,19 @@ function New-NsxFirewallRule  {
         #Need the IfMatch header to specify the current section generation id
 
         $IfMatchHeader = @{"If-Match"=$generationNumber}
-        $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -extraheader $IfMatchHeader -connection $connection
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -extraheader $IfMatchHeader -connection $connection
 
+        try {
+            [system.xml.xmldocument]$content = $response.content
+        }
+        catch {
+            throw "API call to NSX was successful, but was unable to interpret NSX API response as xml."
+        }
         if ( $ReturnRule ) {
-            $response.section.rule | where { ( -not ($ExistingIds.Contains($_.id))) }
+            $content.section.rule | where { ( -not ($ExistingIds.Contains($_.id))) }
         }
         else {
-            $response.section
+            $content.section
             write-warning 'The -ReturnRule:$false option is deprecated and will be removed in a future version.  Please update your scripts so that they accept the return object of New-NsxFirewallRule to be the newly created rule rather than the full section.'
         }
     }
