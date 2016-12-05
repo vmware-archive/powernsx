@@ -46,7 +46,7 @@ Describe "Edge NAT" {
         $script:Password = "VMware1!VMware1!"
         $script:tenant = "pester_nat_tenant1"
         $script:testls1name = "pester_nat_ls1"
-        $script:testls2name = "pester_nat_ls1"
+        $script:testls2name = "pester_nat_ls2"
 
         #Logical Switch
         $script:testls1 = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testls1name
@@ -54,7 +54,7 @@ Describe "Edge NAT" {
 
         #Create Edge
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $testls1 -PrimaryAddress $natedgeIp1 -SubnetPrefixLength 24
-        $vnic1 = New-NsxEdgeInterfaceSpec -index 1 -Type internal -Name "vNic0" -ConnectedTo $testls2 -PrimaryAddress $natedgeIp2 -SubnetPrefixLength 24
+        $vnic1 = New-NsxEdgeInterfaceSpec -index 1 -Type internal -Name "vNic1" -ConnectedTo $testls2 -PrimaryAddress $natedgeIp2 -SubnetPrefixLength 24
         $script:natEdge = New-NsxEdge -Name $natedgename -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -hostname "pester-nat-edge1"
 
     }
@@ -68,7 +68,7 @@ Describe "Edge NAT" {
         start-sleep 5
 
         Get-NsxLogicalSwitch $testls1name | Remove-NsxLogicalSwitch -Confirm:$false
-        Get-NsxLogicalSwitch $testls2ame | Remove-NsxLogicalSwitch -Confirm:$false
+        Get-NsxLogicalSwitch $testls2name | Remove-NsxLogicalSwitch -Confirm:$false
 
         disconnect-nsxserver
     }
