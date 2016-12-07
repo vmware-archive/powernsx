@@ -1,20 +1,20 @@
 <#
  VMworld 2016 NET7514 demo script
  Nick Bradford, nbradford@vmware.com
- The reason this script is structured the way it is is purely to aid in 
+ The reason this script is structured the way it is is purely to aid in
  demonstration of the individual commands in front of a large audience of people
  where my typing is not likely to be at its best! :)
 
- A global 'steps' array is defined that contains each of the commands as they 
- would be typed (minus the {} script block wrapper) by an operator doing each 
+ A global 'steps' array is defined that contains each of the commands as they
+ would be typed (minus the {} script block wrapper) by an operator doing each
  step manually.
 
  ShowTheAwesome is the function that, when executed, shows the command being run
- on screen, and then executes it within the global scope (so variables can be 
+ on screen, and then executes it within the global scope (so variables can be
  used without scope modifiers.)
 
- Anyone who is starting with PoSH/PowerNSX might not understand exactly what I 
- mean above, but suffice to say, if you copy each command within the {}'s and run 
+ Anyone who is starting with PoSH/PowerNSX might not understand exactly what I
+ mean above, but suffice to say, if you copy each command within the {}'s and run
  it, sequentially, you will get the same result.
 
 #>
@@ -40,7 +40,7 @@ has its own license that is located in the source code of the respective compone
 
 
 $steps = @(
-    {connect-nsxserver -server "nsx-m-01a-local.corp.local" -username admin -password VMware1! -viusername administrator@vsphere.local -vipassword VMware1! -ViWarningAction "Ignore"  | out-null },
+    {connect-nsxserver -server "nsx-m-01a.corp.local" -username admin -password VMware1! -viusername administrator@vsphere.local -vipassword VMware1! -ViWarningAction "Ignore"  | out-null },
     {$tz = Get-NsxTransportZone },
     {$webls = New-NsxLogicalSwitch -TransportZone $tz -Name webls},
     {$appls = New-NsxLogicalSwitch -TransportZone $tz -Name appls},
@@ -79,7 +79,7 @@ $steps = @(
     {get-vm | where { $_.name -match 'web'} | Connect-NsxLogicalSwitch $webls | out-null},
     {get-vm | where { $_.name -match 'app'} | Connect-NsxLogicalSwitch $appls | out-null},
     {get-vm | where { $_.name -match 'db'} | Connect-NsxLogicalSwitch $dbls | out-null}
-    
+
 )
 
 $cleanup = @(
@@ -91,9 +91,9 @@ $cleanup = @(
 )
 
 
-function ShowTheAwesome { 
+function ShowTheAwesome {
 
-    foreach ( $step in $steps ) { 
+    foreach ( $step in $steps ) {
 
         #Show me first
         write-host -foregroundcolor yellow ">>> $step"
@@ -107,9 +107,9 @@ function ShowTheAwesome {
     }
 }
 
-function CleanupTheAwesome { 
+function CleanupTheAwesome {
 
-    foreach ( $step in $cleanup ) { 
+    foreach ( $step in $cleanup ) {
 
         #Show me first
         write-host -foregroundcolor yellow ">>> $step"
