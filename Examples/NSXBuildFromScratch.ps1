@@ -4,6 +4,21 @@
 # Nbradford@vmware.com
 # 3TA elements courtesy of Anthony Burke : aburke@vmware.com
 
+########################################
+# To use - edit and update variables with correct values.  Sanity checking is done,
+# but be sure you use correct values for your environment.
+# Script has three functions.
+#  1 - To deploy NSX Manager/Controllers and configure infrastructure.
+#       - Run NsxBuildFromScratch.ps1 -deploy3ta:$false
+#  2 - To deploy the standard 3 tier app to an existing NSX deployment.
+#       - Run NsxBuildFromScratch.ps1 -buildnsx:$false
+#  3 - To deploy the whole shebang
+#       - Run NsxBuildFromScratch.ps1
+#
+# Note:  If you are using NSX 6.2.3 or above, you will need to configure the license key
+# in the below variable section.
+
+
 <#
 Copyright © 2015 VMware, Inc. All Rights Reserved.
 
@@ -38,6 +53,9 @@ param (
 
 #NSX Details
 $NsxManagerOVF = "C:\Temp\VMware-NSX-Manager-6.2.2-3604087.ova"
+
+#NSX License key is MANDATORY for 6.2.3 and above deployments.
+$NsxlicenseKey = ""
 $NsxManagerName = "nsx-m-01a"
 $NsxManagerPassword = "VMware1!"
 $NsxManagerIpAddress = "nsx-m-01a-local.corp.local"
@@ -241,38 +259,20 @@ catch {
     Throw "Failed validating vSphere Environment. $_"
 }
 
-#If Deploying 3ta, check that things look ok now!
 If ( $deploy3ta ) {
+
+    # Compute details - finds the host with the least used memory for deployment.
+    $DeploymentVMHost = $Computecluster | Get-VMHost | Sort MemoryUsageGB | Select -first 1
+    if ( -not ( Test-Connection $($DeploymentVMHost.name) -count 1 -ErrorAction Stop )) {
+        throw "Unable to validate connection to ESX host $($DeploymentVMHost.Name) used to deploy OVF to."
+    }
+
+    write-host -ForeGroundColor Green "Performing environment validation for 3ta deployment."
+    if ( -not ( test-path $BooksvAppLocation )) { throw "$BooksvAppLocation not found."}
+}
+if ( $deploy3ta -and ( -not $buildnsx)) {
+    #If Deploying 3ta, check that things exist
     try {
-
-        write-host -ForeGroundColor Green "Performing environment validation for 3ta deployment."
-        if ( -not ( test-path $BooksvAppLocation )) { throw "$BooksvAppLocation not found."}
-
-        # Compute details - finds the host with the least used memory for deployment.
-        $DeploymentVMHost = $Computecluster | Get-VMHost | Sort MemoryUsageGB | Select -first 1
-        Test-Connection $DeploymentVMHost -count 1 -ErrorAction Stop | out-null
-
-        # Get OVF configuration so we can modify it.
-        $OvfConfiguration = Get-OvfConfiguration -Ovf $BooksvAppLocation
-
-        # Network attachment.
-        $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_1_sid_50000_Universal_Web01.value = $WebNetwork.name
-        $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_2_sid_50001_Universal_App01.value = $AppNetwork.name
-        $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_3_sid_50002_Universal_Db01.value = $DbNetwork.name
-
-        # VM details.
-        $OvfConfiguration.common.app_ip.Value = $EdgeInternalSecondaryAddress
-        $OvfConfiguration.common.Web01_IP.Value = $Web01Ip
-        $OvfConfiguration.common.Web02_IP.Value = $Web02Ip
-        $OvfConfiguration.common.Web_Subnet.Value = $DefaultSubnetMask
-        $OvfConfiguration.common.Web_Gateway.Value = $LdrWebPrimaryAddress
-        $OvfConfiguration.common.App01_IP.Value = $App01Ip
-        $OvfConfiguration.common.App02_IP.Value = $App02Ip
-        $OvfConfiguration.common.App_Subnet.Value = $DefaultSubnetMask
-        $OvfConfiguration.common.App_Gateway.Value = $LdrAppPrimaryAddress
-        $OvfConfiguration.common.DB01_IP.Value = $DB01Ip
-        $OvfConfiguration.common.DB_Subnet.Value = $DefaultSubnetMask
-        $OvfConfiguration.common.DB_Gateway.Value = $LdrDbPrimaryAddress
 
         #Failed deployment stuff
         if ( Get-NsxLogicalSwitch $WebLsName ) {
@@ -359,6 +359,8 @@ if ( $buildnsx ) {
     }
     write-host -foregroundcolor Green "Complete`n"
 
+
+
     ###############################
     # Configure NSX Manager appliance.
 
@@ -385,6 +387,23 @@ if ( $buildnsx ) {
 
     }
 
+    write-host -foregroundcolor Green "Complete`n"
+
+    ##############################
+    # Install NSX License
+    write-host -foregroundcolor Green "Installing NSX License..."
+
+    if ( $DefaultNSXConnection.Version -gt 6.2.3) {
+        try {
+            $ServiceInstance = Get-View ServiceInstance
+            $LicenseManager = Get-View $ServiceInstance.Content.licenseManager
+            $LicenseAssignmentManager = Get-View $LicenseManager.licenseAssignmentManager
+            $LicenseAssignmentManager.UpdateAssignedLicense("nsx-netsec",$NsxlicenseKey,$NULL)
+        }
+        catch {
+            throw "Unable to configure NSX license.  Check the license is valid and try again."
+        }
+    }
     write-host -foregroundcolor Green "Complete`n"
 
 
@@ -645,6 +664,29 @@ if ( $deploy3ta ) {
     $WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
     $AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
     $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
+
+    # Get OVF configuration so we can modify it.
+    $OvfConfiguration = Get-OvfConfiguration -Ovf $BooksvAppLocation
+
+    # Network attachment.
+    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_1_sid_50000_Universal_Web01.value = $WebNetwork.name
+    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_2_sid_50001_Universal_App01.value = $AppNetwork.name
+    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_3_sid_50002_Universal_Db01.value = $DbNetwork.name
+
+    # VM details.
+    $OvfConfiguration.common.app_ip.Value = $EdgeInternalSecondaryAddress
+    $OvfConfiguration.common.Web01_IP.Value = $Web01Ip
+    $OvfConfiguration.common.Web02_IP.Value = $Web02Ip
+    $OvfConfiguration.common.Web_Subnet.Value = $DefaultSubnetMask
+    $OvfConfiguration.common.Web_Gateway.Value = $LdrWebPrimaryAddress
+    $OvfConfiguration.common.App01_IP.Value = $App01Ip
+    $OvfConfiguration.common.App02_IP.Value = $App02Ip
+    $OvfConfiguration.common.App_Subnet.Value = $DefaultSubnetMask
+    $OvfConfiguration.common.App_Gateway.Value = $LdrAppPrimaryAddress
+    $OvfConfiguration.common.DB01_IP.Value = $DB01Ip
+    $OvfConfiguration.common.DB_Subnet.Value = $DefaultSubnetMask
+    $OvfConfiguration.common.DB_Gateway.Value = $LdrDbPrimaryAddress
+
 
 
     # Run the deployment.
