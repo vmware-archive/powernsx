@@ -29,7 +29,6 @@ has its own license that is located in the source code of the respective compone
 #This script captures the necessary objects information from NSX and persists
 #them to disk in order for topology reconstruction to be done by a sister script
 #NSXDiagram.ps1.
-Set-StrictMode -Off
 
 param (
 
@@ -41,6 +40,8 @@ If ( (-not $Connection) -and ( -not $Connection.ViConnection.IsConnected ) ) {
     throw "No valid NSX Connection found.  Connect to NSX and vCenter using Connect-NsxServer first.  You can specify a non default PowerNSX Connection using the -connection parameter."
 
 }
+
+Set-StrictMode -Off
 
 #########################
 $TempDir = "$($env:Temp)\VMware\NSXObjectCapture"
