@@ -26,16 +26,17 @@ has its own license that is located in the source code of the respective compone
 #Requires -Version 3.0
 #Requires -Modules PowerNSX
 
-#This script captures the necessary objects information from NSX and persists 
+#This script captures the necessary objects information from NSX and persists
 #them to disk in order for topology reconstruction to be done by a sister script
 #NSXDiagram.ps1.
+Set-StrictMode -Off
 
-param ( 
+param (
 
     [pscustomobject]$Connection=$DefaultNsxConnection
 )
 
-If ( (-not $Connection) -and ( -not $Connection.ViConnection.IsConnected ) ) { 
+If ( (-not $Connection) -and ( -not $Connection.ViConnection.IsConnected ) ) {
 
     throw "No valid NSX Connection found.  Connect to NSX and vCenter using Connect-NsxServer first.  You can specify a non default PowerNSX Connection using the -connection parameter."
 
@@ -49,14 +50,14 @@ $ExportFile = "$ExportPath\NSX-ObjectCapture-$($Connection.Server)-$(get-date -f
 $maxdepth = 5
 $maxCaptures = 10
 
-if ( -not ( test-path $TempDir )) { 
+if ( -not ( test-path $TempDir )) {
     New-Item -Type Directory $TempDir | out-null
 }
 else {
     Get-ChildItem $TempDir | Remove-Item -force -recurse
 }
 
-if ( -not ( test-path $ExportPath )) { 
+if ( -not ( test-path $ExportPath )) {
     New-Item -Type Directory $ExportPath | out-null
 }
 
@@ -83,17 +84,22 @@ write-host -ForeGroundColor Green "PowerNSX Object Capture Script"
 
 write-host -ForeGroundColor Green "`nGetting NSX Objects"
 write-host "  Getting LogicalSwitches"
-Get-NsxLogicalSwitch -connection $connection | % { 
+Get-NsxLogicalSwitch -connection $connection | % {
     $LsHash.Add($_.objectId, $_.outerXml)
 }
 
 write-host "  Getting DV PortGroups"
-Get-VDPortGroup -server $connection.ViConnection | % { 
+Get-VDPortGroup -server $connection.ViConnection | % {
 
-    if ( $DVPortGroup.VlanConfiguration ) { 
-        $VlanID = $DVPortGroup.VlanConfiguration.VlanId 
+    if ( $_.VlanConfiguration ) {
+        if (  $_.VlanConfiguration.VlanId ) {
+            $VlanID = $_.VlanConfiguration.VlanId
+        }
+        else {
+            $VlanId = "0"
+        }
     }
-    else { 
+    else {
         $VlanId = "0"
     }
     $VdPortGroupHash.Add( $_.ExtensionData.Moref.Value, [pscustomobject]@{ "MoRef" = $_.ExtensionData.Moref.Value; "Name" = $_.Name; "VlanId" = $VlanId } )
@@ -101,31 +107,31 @@ Get-VDPortGroup -server $connection.ViConnection | % {
 }
 
 write-host "  Getting VSS PortGroups"
-Get-VirtualPortGroup -server $connection.ViConnection | ? { $_.key -match 'key-vim.host.PortGroup'} | Sort-Object -Unique | % { 
+Get-VirtualPortGroup -server $connection.ViConnection | ? { $_.key -match 'key-vim.host.PortGroup'} | Sort-Object -Unique | % {
     $StdPgHash.Add( $_.Name, [pscustomobject]@{ "Name" = $_.Name; "VlanId" = $VlanId } )
 
 }
 
 write-host "  Getting Logical Routers"
 $LogicalRouters = Get-NsxLogicalRouter -connection $connection
-$LogicalRouters | % { 
+$LogicalRouters | % {
     $LrHash.Add($_.Id, $_.outerXml)
 }
 write-host "  Getting Edges"
 $edges = Get-NsxEdge -connection $connection
-$edges | % { 
+$edges | % {
     $EdgeHash.Add($_.id, $_.outerxml)
 }
 
 write-host "  Getting NSX Controllers"
 $Controllers = Get-NsxController -connection $connection
-$Controllers | % { 
+$Controllers | % {
     $CtrlHash.Add($_.id, $_.outerxml)
 }
 
 
 write-host "  Getting VMs"
-Get-Vm -server $connection.ViConnection| % { 
+Get-Vm -server $connection.ViConnection| % {
 
     $IsManager = $false
     $IsEdge = $false
@@ -133,33 +139,33 @@ Get-Vm -server $connection.ViConnection| % {
     $IsController = $false
     $Nics = @()
 
-    #Tag any edge, DLR or controller vms... 
+    #Tag any edge, DLR or controller vms...
     $moref = $_.id.replace("VirtualMachine-","")
-    if ( $Edges.appliances.appliance.vmid ) {  
-        if ( $Edges.appliances.appliance.vmid.Contains($moref) ) { 
+    if ( $Edges.appliances.appliance.vmid ) {
+        if ( $Edges.appliances.appliance.vmid.Contains($moref) ) {
             $IsEdge = $true
         }
     }
-    if ( $LogicalRouters.appliances.appliance.vmid ) { 
+    if ( $LogicalRouters.appliances.appliance.vmid ) {
         if ( $LogicalRouters.appliances.appliance.vmid.Contains($moref) ) {
             $IsLogicalRouter = $true
         }
     }
-    if ( $Controllers.virtualMachineInfo.objectId ) { 
+    if ( $Controllers.virtualMachineInfo.objectId ) {
         if ( $Controllers.virtualMachineInfo.objectId.Contains($moref) ) {
             $IsController = $true
         }
     }
 
     #NSX Keeps some metadata about Managers and Edges (not controllers) in the extraconfig data of the associated VMs.
-    $configview = $_ | Get-View -Property Config 
+    $configview = $_ | Get-View -Property Config
     $NSXAppliance = ($configview.Config.ExtraConfig | ? { $_.key -eq "vshield.vmtype" }).Value
     If ( $NSXAppliance -eq "Manager" )  {
         $IsManager = $true
     }
 
     $_ | Get-NetworkAdapter -server $connection.ViConnection | % {
-        If ( $_.ExtensionData.Backing.Port.PortgroupKey ) { 
+        If ( $_.ExtensionData.Backing.Port.PortgroupKey ) {
             $PortGroup = $_.ExtensionData.Backing.Port.PortgroupKey;
         }
         elseif ( $_.NetworkName ) {
@@ -167,7 +173,7 @@ Get-Vm -server $connection.ViConnection| % {
         }
         else {
             #No nic attachment
-            Break 
+            Break
         }
         $Nics += [pscustomobject]@{
             "PortGroup" = $PortGroup
@@ -175,14 +181,14 @@ Get-Vm -server $connection.ViConnection| % {
         }
     }
 
-    $VmHash.Add($Moref, [pscustomobject]@{ 
-        "MoRef" = $MoRef; 
-        "Name" = $_.name ; 
-        "Nics" = $Nics; 
-        "IsManager" = $IsManager; 
-        "IsEdge" = $IsEdge; 
-        "IsLogicalRouter" = $IsLogicalRouter; 
-        "IsController" = $IsController; 
+    $VmHash.Add($Moref, [pscustomobject]@{
+        "MoRef" = $MoRef;
+        "Name" = $_.name ;
+        "Nics" = $Nics;
+        "IsManager" = $IsManager;
+        "IsEdge" = $IsEdge;
+        "IsLogicalRouter" = $IsLogicalRouter;
+        "IsController" = $IsController;
         "ToolsIp" = $_.Guest.Ipaddress })
 }
 
@@ -206,9 +212,9 @@ $CtrlHash | export-clixml -depth $maxdepth $CtrlExportFile
 $MacHash | export-clixml -depth $maxdepth $MacAddressExportFile
 
 Add-Type -assembly "system.io.compression.filesystem"
-[io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile) 
+[io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
 $Captures = Get-ChildItem $ExportPath -filter 'NSX-ObjectCapture-*.zip'
-while ( ( $Captures | measure ).count -ge $maxCaptures ) { 
+while ( ( $Captures | measure ).count -ge $maxCaptures ) {
 
     write-warning "Maximum number of captures reached.  Removing oldest capture."
     $captures | sort-object -property LastWriteTime | select-object -first 1 | remove-item -confirm:$false
