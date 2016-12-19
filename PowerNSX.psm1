@@ -101,7 +101,9 @@ Function _init {
         $global:PowerNSXConfiguration.Add("ProgressDialogs", $false)
     }
 
+    
     ## Define class required for certificate validation override.  Version dependant.
+    ## For whatever reason, this does not work when contained within a function?
     $TrustAllCertsPolicy = @"
         using System.Net;
         using System.Security.Cryptography.X509Certificates;
@@ -127,14 +129,17 @@ Function _init {
 
     if ( $global:PNSXPsTarget -eq "Desktop" ) {
         if ( -not ("TrustAllCertsPolicy" -as [type])) {
+            write-warning "Adding type TrustAllCertsPolicy"        
             add-type $TrustAllCertsPolicy
         }
     }
     elseif ( $global:PNSXPsTarget -eq "Core") {
-        if ( -not "InternalHttpClientHandler" -as [type] )) {
-            add-type $InternalHttpClientHandler -ReferencedAssemblies System.Net.Http, System.Security.Cryptography.X509Certificates, System.Net.Primitives
+        if ( -not ("InternalHttpClientHandler" -as [type]) ) {
+            write-warning "Adding type InternalHttpClientHandler"
+            add-type $InternalHttpClientHandler -ReferencedAssemblies System.Net.Http, System.Security.Cryptography.X509Certificates, System.Net.Primitives -WarningAction "SilentlyContinue"
         }
     }
+
 }
 
 Function Test-WebServerSSL {
@@ -2854,11 +2859,11 @@ function Invoke-InternalWebRequest {
         [parameter(Mandatory = $true)]
             [ValidateNotNullOrEmpty()]
             [Uri]$Uri,
-        [paramater(Mandatory = $true)]
-            [ValidateSet("get", "put", "post", "delete")]
-            [string]$method,
         [parameter(Mandatory = $true)]
-            [hashtable]$headerDictionary=@{},
+            [ValidateSet("get", "put", "post", "delete")]
+            [string]$Method,
+        [parameter(Mandatory = $true)]
+            [hashtable]$Headers=@{},
         [parameter(Mandatory = $true)]
             [string]$ContentType,
         [parameter(Mandatory = $true)]
@@ -2869,127 +2874,150 @@ function Invoke-InternalWebRequest {
             [switch]$SkipCertificateCheck=$true
     )
 
-    begin
-    {
+    write-debug "$($MyInvocation.MyCommand.Name) : Method : $method, Content-Type : $ContentType, SkipCertificateCheck : $SkipcertificateCheck"
+    #Validate method and body
+    if ((($method -eq "get") -or ($method -eq "delete")) -and $PsBoundParameters.ContainsKey('body')) {
+        throw "Cannot specify a body with a $method request."
+    }
 
-        #Validate method and body
-        if ((($method -eq "get") -or ($method -eq "delete")) -and $PsBoundParameters.Contains('body')) {
-            throw "Cannot specify a body with a $method request."
+    if ((($method -eq "put") -or ($method -eq "post")) -and (-not $PsBoundParameters.ContainsKey('body'))) {
+        throw "Cannot specify $method request without a body."
+    }
+
+    #For Core, we use the httpclient dotNet classes directly.
+    if ( $global:PNSXPSTarget -eq "Core" ) {
+
+        $httpClientHandler = New-Object InternalHttpClientHandler($SkipCertificateCheck)
+        $httpClient = New-Object System.Net.Http.Httpclient $httpClientHandler
+
+        #Add any required headers.  if-match in particular doesnt validate on httpclient.  Using TryAddWithoutValidation to avoid exception thrown on Core.
+        foreach ( $header in $headerDictionary.Keys) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Adding Header : $header, $($headerDictionary.Item($header))"            
+            $null = $httpClient.DefaultRequestHeaders.TryAddWithoutValidation( $header, $headerDictionary.item($header) )
         }
 
-        if ((($method -eq "put") -or ($method -eq "post")) -and (-not $PsBoundParameters.Contains('body'))) {
-            throw "Cannot specify $method request without a body."
+        #Set Timeout
+        if ( $timeout -ne 0 ){
+            $httpClient.Timeout = new-object Timespan(0,0,$TimeoutSec)
+        }
+        else {
+            $httpClient.Timeout = [timespan]::MaxValue
+        }
+
+        #Encoding
+        $UTF8 = new-object System.Text.UTF8Encoding
+        try
+        {
+            switch ($method) {
+
+                "get" {
+                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient GetAsync"
+                    $task = $httpClient.GetAsync($Uri)
+                    if (!$task.result) {
+                        throw $task.Exception
+                    }
+                    $response = $task.Result
+                }
+                "put" {
+                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PutAsync"                    
+                    $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
+                    write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
+                    #$content.Headers.Add("Content-Type", $ContentType)
+                    $task = $httpClient.PutAsync($Uri,$content)
+                    if (!$task.result) {
+                        throw $task.Exception
+                    }
+                    $response = $task.Result
+                }
+                "post" {
+                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PostAsync"                    
+                    $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
+                    write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"                    
+#                    $content.Headers.Add("Content-Type", $ContentType)                        
+                    $task = $httpClient.PostAsync($Uri,$content)
+                    if (!$task.result) {
+                        throw $task.Exception
+                    }
+                    $response = $task.Result
+                }
+                "delete" {
+                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient DeleteAsync"                    
+                    $task = $httpClient.DeleteAsync($Uri)
+                    if (!$task.result) {
+                        throw $task.Exception
+                    }
+                    $response = $task.Result
+                }
+            }
+
+            if (!$response.IsSuccessStatusCode) {
+                $responseContent = $response.Content.ReadAsStringAsync().Result
+                $errorMessage = "REST call failed: ({0}) - {1}. Server reported the following message: {2}." -f $response.StatusCode, $response.ReasonPhrase, $responseContent
+
+                throw [System.Net.Http.HttpRequestException] $errorMessage
+            }
+            $responseContent = $response.Content.ReadAsStringAsync().Result
+            
+            #Generate lookalike webresponseobject - caller is me, so it doesnt need to pass too close an inspection!
+            $responseObj = [pscustomobject]@{
+                "StatusCode" = $response.StatusCode.value__;
+                "StatusDescription" = $response.ReasonPhrase;
+#                    "StatusDescription" = $response.StatusCode.ToString()
+                "Headers" = @{};
+                "Content"= $responseContent
+                #Not worrying about RawContent here, as I dont use it.
+                #No HTML parsing done either - again - I dont use it.
+                #No Content Length  - pretty sure I dont use it ;) 
+            }
+            #Fill the headers dict
+            foreach ( $header in $response.Headers ) { 
+                $responseObj.Headers.Add($header.key, $Header.Value)
+            }
+            $responseObj
+        }
+        catch [Exception]{
+            # if ( $gettask.Exception ) {
+            #     throw $gettask.Exception
+            # }
+            # else {
+                $PSCmdlet.ThrowTerminatingError($_)
+            # }
+        }
+        finally{
+            if ( test-path variable:httpClient ) {
+                $httpClient.Dispose()
+            }
+            if( test-path variable:response ){
+                $response.Dispose()
+            }
+            if ( test-path variable:content ) {
+                $content.dispose()
+            }
         }
     }
 
-    process
-    {
-
-        if ( $global:PNSXPSTarget -eq "Core" ) {
-
-            $httpClientHandler = New-Object InternalHttpClientHandler($SkipCertificateCheck)
-            $httpClient = New-Object System.Net.Http.Httpclient $httpClientHandler
-
-            #Add any required headers.  if-match in particular doesnt validate on httpclient.  Using TryAddWithoutValidation to avoid exception thrown on Core.
-            foreach ( $header in $headerDictionary.Items) {
-                $httpClient.DefaultRequestHeaders.TryAddWithoutValidation( $header, $headerDictionary.Values($header) )
-            }
-            #ContentType
-            $httpClient.DefaultRequestHeaders.Add("Content-Type", $ContentType)
-
-            #Set Timeout
-            if ( $timeout -ne 0 ){
-                $httpClient.Timeout = new-object Timespan(0,0,$TimeoutSec)
-            }
-            else {
-                $httpClient.Timeout = [timespan]::MaxValue
-            }
-            try
-            {
-                switch ($method) {
-
-                    "get" {
-                        $task = $httpClient.GetAsync($Uri)
-                        if (!$task.result) {
-                            throw $task.Exception
-                        }
-                        $response = $task.Result
-                    }
-                    "put" {
-                        $content = New-Object System.Net.Http.StringContent($body)
-                        $task = $httpClient.PutAsync($Uri,$content)
-                        if (!$task.result) {
-                            throw $task.Exception
-                        }
-                        $response = $task.Result
-                    }
-                    "post" {
-                        $content = New-Object System.Net.Http.StringContent($body)
-                        $task = $httpClient.PostAsync($Uri,$content)
-                        if (!$postaskttask.result) {
-                            throw $task.Exception
-                        }
-                        $response = $task.Result
-                    }
-                    "delete" {
-                        $task = $httpClient.DeleteAsync($Uri)
-                        if (!$task.result) {
-                            throw $task.Exception
-                        }
-                        $response = $task.Result
-                    }
-                }
-
-                if (!$response.IsSuccessStatusCode) {
-                    $responseBody = $response.Content.ReadAsStringAsync().Result
-                    $errorMessage = "REST call failed: ({0}) - {1}. Server reported the following message: {2}." -f $response.StatusCode, $response.ReasonPhrase, $responseBody
-
-                    throw [System.Net.Http.HttpRequestException] $errorMessage
-                }
-
-                $response
-            }
-            catch [Exception]{
-                # if ( $gettask.Exception ) {
-                #     throw $gettask.Exception
-                # }
-                # else {
-                    $PSCmdlet.ThrowTerminatingError($_)
-                # }
-            }
-            finally{
-                if( $httpClient -ne $null ){
-                    $httpClient.Dispose()
-                }
-                if( $response -ne $null ){
-                    $response.Dispose()
-                }
-            }
+    elseif (  $global:PNSXPSTarget -eq "Desktop" ) {
+        #For now, we continue to pass thru to the iwr cmdlet on desktop.  For now...
+        #Use splatting to build up the IWR params
+        $iwrSplat = @{
+            "method" = $method;
+            "headers" = $headerDictionary;
+            "ContentType" = $ContentType;
+            "uri" = $Uri;
+            "TimeoutSec" = $TimeoutSec;
+            "body" = $body
         }
 
-        elseif (  $global:PNSXPSTarget -eq "Desktop" ) {
-            #For now, we continue to pass thru to the iwr cmdlet on desktop.  For now...
-            #Use splatting to build up the IWR params
-            $iwrSplat = @{
-                "method" = $method;
-                "headers" = $headerDictionary;
-                "ContentType" = $ContentType;
-                "uri" = $Uri;
-                "TimeoutSec" = $TimeoutSec;
-                "body" = $body
-            }
-
-            if (( -not $ValidateCertificate) -and ([System.Net.ServicePointManager]::CertificatePolicy.tostring() -ne 'TrustAllCertsPolicy')) {
-                #allow untrusted certificate presented by the remote system to be accepted
-                [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-            }
-
-            #Dont catch here - bubble exception up as there is enough in it for the caller.
-            $response = invoke-webrequest @iwrsplat
-            $response
+        if (( -not $ValidateCertificate) -and ([System.Net.ServicePointManager]::CertificatePolicy.tostring() -ne 'TrustAllCertsPolicy')) {
+            #allow untrusted certificate presented by the remote system to be accepted
+            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
         }
+
+        #Dont catch here - bubble exception up as there is enough in it for the caller.
+        $response = invoke-webrequest @iwrsplat
+        $response
     }
-    end { }
+    
 }
 
 function Invoke-NsxRestMethod {
@@ -3348,10 +3376,10 @@ function Invoke-NsxWebRequest {
 
     #Use splatting to build up the IWR params
     $iwrSplat = @{
-        "method" = $method;
-        "headers" = $headerDictionary;
+        "Method" = $method;
+        "Headers" = $headerDictionary;
         "ContentType" = "application/xml";
-        "uri" = $FullURI;
+        "Uri" = $FullURI;
         "TimeoutSec" = $Timeout;
         "SkipCertificateCheck" = !$ValidateCertificate
     }
@@ -25177,3 +25205,4 @@ function Copy-NsxEdge{
 
 #Call Init function
 _init
+
