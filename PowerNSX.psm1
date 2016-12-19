@@ -94,12 +94,46 @@ Function _init {
 
     #Setup the PowerNSXConfiguration object.
     $global:PowerNSXConfiguration = @{}
-
     if ( $global:PNSXPSTarget -eq "Desktop") {
         $global:PowerNSXConfiguration.Add("ProgressDialogs", $true)
     }
     else {
         $global:PowerNSXConfiguration.Add("ProgressDialogs", $false)
+    }
+
+    ## Define class required for certificate validation override.  Version dependant.
+    $TrustAllCertsPolicy = @"
+        using System.Net;
+        using System.Security.Cryptography.X509Certificates;
+        public class TrustAllCertsPolicy : ICertificatePolicy {
+            public bool CheckValidationResult(
+                ServicePoint srvPoint, X509Certificate certificate,
+                WebRequest request, int certificateProblem) {
+                return true;
+            }
+        }
+"@
+
+    $InternalHttpClientHandler = @"
+        using System.Net.Http;
+        public class InternalHttpClientHandler : HttpClientHandler {
+            public InternalHttpClientHandler(bool SkipCertificateCheck) {
+                if (SkipCertificateCheck) {
+                    ServerCertificateCustomValidationCallback = delegate { return true; };
+                }
+            }
+        }
+"@
+
+    if ( $global:PNSXPsTarget -eq "Desktop" ) {
+        if ( -not ("TrustAllCertsPolicy" -as [type])) {
+            add-type $TrustAllCertsPolicy
+        }
+    }
+    elseif ( $global:PNSXPsTarget -eq "Core") {
+        if ( -not "InternalHttpClientHandler" -as [type] )) {
+            add-type $InternalHttpClientHandler -ReferencedAssemblies System.Net.Http, System.Security.Cryptography.X509Certificates, System.Net.Primitives
+        }
     }
 }
 
@@ -2799,12 +2833,171 @@ function Import-NsxObject {
 ##########
 ##########
 # Core functions
+function Invoke-InternalWebRequest {
+
+     <#
+    .SYNOPSIS
+    Constructs and performs REST call to NSX API while hiding platform specific
+    limitations.
+
+    .DESCRIPTION
+    Limitations and differences in Desktop/Core iwr have required the
+    development of this function.  It aims to be consistent with the iwr
+    interface in as far as PowerNSX uses it, but deal with limitations that
+    occur in the different implementations.
+
+    #>
+
+    [CmdletBinding()]
+    param
+    (
+        [parameter(Mandatory = $true)]
+            [ValidateNotNullOrEmpty()]
+            [Uri]$Uri,
+        [paramater(Mandatory = $true)]
+            [ValidateSet("get", "put", "post", "delete")]
+            [string]$method,
+        [parameter(Mandatory = $true)]
+            [hashtable]$headerDictionary=@{},
+        [parameter(Mandatory = $true)]
+            [string]$ContentType,
+        [parameter(Mandatory = $true)]
+            [int]$TimeoutSec=0,
+        [parameter(Mandatory = $false)]
+            [string]$body,
+        [parameter(Mandatory = $false)]
+            [switch]$SkipCertificateCheck=$true
+    )
+
+    begin
+    {
+
+        #Validate method and body
+        if ((($method -eq "get") -or ($method -eq "delete")) -and $PsBoundParameters.Contains('body')) {
+            throw "Cannot specify a body with a $method request."
+        }
+
+        if ((($method -eq "put") -or ($method -eq "post")) -and (-not $PsBoundParameters.Contains('body'))) {
+            throw "Cannot specify $method request without a body."
+        }
+    }
+
+    process
+    {
+
+        if ( $global:PNSXPSTarget -eq "Core" ) {
+
+            $httpClientHandler = New-Object InternalHttpClientHandler($SkipCertificateCheck)
+            $httpClient = New-Object System.Net.Http.Httpclient $httpClientHandler
+
+            #Add any required headers.  if-match in particular doesnt validate on httpclient.  Using TryAddWithoutValidation to avoid exception thrown on Core.
+            foreach ( $header in $headerDictionary.Items) {
+                $httpClient.DefaultRequestHeaders.TryAddWithoutValidation( $header, $headerDictionary.Values($header) )
+            }
+            #ContentType
+            $httpClient.DefaultRequestHeaders.Add("Content-Type", $ContentType)
+
+            #Set Timeout
+            if ( $timeout -ne 0 ){
+                $httpClient.Timeout = new-object Timespan(0,0,$TimeoutSec)
+            }
+            else {
+                $httpClient.Timeout = [timespan]::MaxValue
+            }
+            try
+            {
+                switch ($method) {
+
+                    "get" {
+                        $task = $httpClient.GetAsync($Uri)
+                        if (!$task.result) {
+                            throw $task.Exception
+                        }
+                        $response = $task.Result
+                    }
+                    "put" {
+                        $content = New-Object System.Net.Http.StringContent($body)
+                        $task = $httpClient.PutAsync($Uri,$content)
+                        if (!$task.result) {
+                            throw $task.Exception
+                        }
+                        $response = $task.Result
+                    }
+                    "post" {
+                        $content = New-Object System.Net.Http.StringContent($body)
+                        $task = $httpClient.PostAsync($Uri,$content)
+                        if (!$postaskttask.result) {
+                            throw $task.Exception
+                        }
+                        $response = $task.Result
+                    }
+                    "delete" {
+                        $task = $httpClient.DeleteAsync($Uri)
+                        if (!$task.result) {
+                            throw $task.Exception
+                        }
+                        $response = $task.Result
+                    }
+                }
+
+                if (!$response.IsSuccessStatusCode) {
+                    $responseBody = $response.Content.ReadAsStringAsync().Result
+                    $errorMessage = "REST call failed: ({0}) - {1}. Server reported the following message: {2}." -f $response.StatusCode, $response.ReasonPhrase, $responseBody
+
+                    throw [System.Net.Http.HttpRequestException] $errorMessage
+                }
+
+                $response
+            }
+            catch [Exception]{
+                # if ( $gettask.Exception ) {
+                #     throw $gettask.Exception
+                # }
+                # else {
+                    $PSCmdlet.ThrowTerminatingError($_)
+                # }
+            }
+            finally{
+                if( $httpClient -ne $null ){
+                    $httpClient.Dispose()
+                }
+                if( $response -ne $null ){
+                    $response.Dispose()
+                }
+            }
+        }
+
+        elseif (  $global:PNSXPSTarget -eq "Desktop" ) {
+            #For now, we continue to pass thru to the iwr cmdlet on desktop.  For now...
+            #Use splatting to build up the IWR params
+            $iwrSplat = @{
+                "method" = $method;
+                "headers" = $headerDictionary;
+                "ContentType" = $ContentType;
+                "uri" = $Uri;
+                "TimeoutSec" = $TimeoutSec;
+                "body" = $body
+            }
+
+            if (( -not $ValidateCertificate) -and ([System.Net.ServicePointManager]::CertificatePolicy.tostring() -ne 'TrustAllCertsPolicy')) {
+                #allow untrusted certificate presented by the remote system to be accepted
+                [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+            }
+
+            #Dont catch here - bubble exception up as there is enough in it for the caller.
+            $response = invoke-webrequest @iwrsplat
+            $response
+        }
+    }
+    end { }
+}
 
 function Invoke-NsxRestMethod {
 
     <#
     .SYNOPSIS
-    Constructs and performs a valid NSX REST call.
+    Constructs and performs a valid NSX REST call.  This function is DEPRECATED
+    Use Invoke-NsxWebRequest for all new functions.
 
     .DESCRIPTION
     Invoke-NsxRestMethod uses either a specified connection object as returned
@@ -3104,14 +3297,6 @@ function Invoke-NsxWebRequest {
 
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
 
-    #System.Net.ServicePointManager class does not exist on core.
-    if ( $global:PNSXPSTarget -eq "Desktop" ) {
-        if (( -not $ValidateCertificate) -and ([System.Net.ServicePointManager]::CertificatePolicy.tostring() -eq 'System.Net.DefaultCertPolicy')) {
-            #allow untrusted certificate presented by the remote system to be accepted
-            [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-        }
-    }
-
     if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
         #ensure we were either called with a connection or there is a defaultConnection (user has
         #called connect-nsxserver)
@@ -3167,21 +3352,18 @@ function Invoke-NsxWebRequest {
         "headers" = $headerDictionary;
         "ContentType" = "application/xml";
         "uri" = $FullURI;
-        "TimeoutSec" = $Timeout
+        "TimeoutSec" = $Timeout;
+        "SkipCertificateCheck" = !$ValidateCertificate
     }
     if ( $PsBoundParameters.ContainsKey('Body')) {
         # If there is a body specified, add it to the invoke-restmethod args...
         $iwrSplat.Add("body",$body)
     }
 
-    #Core (for now) uses a different mechanism to manipulating [System.Net.ServicePointManager]::CertificatePolicy
-    if ( ($global:PNSXPSTarget -eq 'Core') -and ( -not $ValidateCertificate )) {
-        $iwrSplat.Add("SkipCertificateCheck", $true)
-    }
 
     #do rest call
     try {
-            $response = invoke-webrequest @iwrsplat
+            $response = invoke-internalwebrequest @iwrsplat
     }
     #If its a webexception, we may have got a response from the server with more information...
     #Even if this happens on PoSH Core though, the ex is not a webexception and we cant get this info :(
@@ -24995,26 +25177,3 @@ function Copy-NsxEdge{
 
 #Call Init function
 _init
-
-## Define Custom class required by desktop v
-
-if ( $global:PNSXPsTarget -eq "Desktop" ) {
-
-    #We only need this class if runnign on PoSH full.
-    if ( -not ("TrustAllCertsPolicy" -as [type])) {
-
-    add-type @"
-    using System.Net;
-    using System.Security.Cryptography.X509Certificates;
-    public class TrustAllCertsPolicy : ICertificatePolicy {
-        public bool CheckValidationResult(
-            ServicePoint srvPoint, X509Certificate certificate,
-            WebRequest request, int certificateProblem) {
-            return true;
-        }
-    }
-"@
-
-    }
-}
-
