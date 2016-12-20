@@ -101,7 +101,7 @@ Function _init {
         $global:PowerNSXConfiguration.Add("ProgressDialogs", $false)
     }
 
-    
+
     ## Define class required for certificate validation override.  Version dependant.
     ## For whatever reason, this does not work when contained within a function?
     $TrustAllCertsPolicy = @"
@@ -129,7 +129,7 @@ Function _init {
 
     if ( $global:PNSXPsTarget -eq "Desktop" ) {
         if ( -not ("TrustAllCertsPolicy" -as [type])) {
-            write-warning "Adding type TrustAllCertsPolicy"        
+            write-warning "Adding type TrustAllCertsPolicy"
             add-type $TrustAllCertsPolicy
         }
     }
@@ -2892,7 +2892,7 @@ function Invoke-InternalWebRequest {
 
         #Add any required headers.  if-match in particular doesnt validate on httpclient.  Using TryAddWithoutValidation to avoid exception thrown on Core.
         foreach ( $header in $headerDictionary.Keys) {
-            write-debug "$($MyInvocation.MyCommand.Name) : Adding Header : $header, $($headerDictionary.Item($header))"            
+            write-debug "$($MyInvocation.MyCommand.Name) : Adding Header : $header, $($headerDictionary.Item($header))"
             $null = $httpClient.DefaultRequestHeaders.TryAddWithoutValidation( $header, $headerDictionary.item($header) )
         }
 
@@ -2919,10 +2919,9 @@ function Invoke-InternalWebRequest {
                     $response = $task.Result
                 }
                 "put" {
-                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PutAsync"                    
+                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PutAsync"
                     $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
                     write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
-                    #$content.Headers.Add("Content-Type", $ContentType)
                     $task = $httpClient.PutAsync($Uri,$content)
                     if (!$task.result) {
                         throw $task.Exception
@@ -2930,10 +2929,9 @@ function Invoke-InternalWebRequest {
                     $response = $task.Result
                 }
                 "post" {
-                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PostAsync"                    
+                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PostAsync"
                     $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
-                    write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"                    
-#                    $content.Headers.Add("Content-Type", $ContentType)                        
+                    write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
                     $task = $httpClient.PostAsync($Uri,$content)
                     if (!$task.result) {
                         throw $task.Exception
@@ -2941,7 +2939,7 @@ function Invoke-InternalWebRequest {
                     $response = $task.Result
                 }
                 "delete" {
-                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient DeleteAsync"                    
+                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient DeleteAsync"
                     $task = $httpClient.DeleteAsync($Uri)
                     if (!$task.result) {
                         throw $task.Exception
@@ -2952,12 +2950,12 @@ function Invoke-InternalWebRequest {
 
             if (!$response.IsSuccessStatusCode) {
                 $responseContent = $response.Content.ReadAsStringAsync().Result
-                $errorMessage = "REST call failed: ({0}) - {1}. Server reported the following message: {2}." -f $response.StatusCode, $response.ReasonPhrase, $responseContent
+                $errorMessage = "Server responded with non successcode: ({0}) - {1}. Response Body : {2}." -f $response.StatusCode.value__, $response.ReasonPhrase, $responseContent
 
                 throw [System.Net.Http.HttpRequestException] $errorMessage
             }
             $responseContent = $response.Content.ReadAsStringAsync().Result
-            
+
             #Generate lookalike webresponseobject - caller is me, so it doesnt need to pass too close an inspection!
             $responseObj = [pscustomobject]@{
                 "StatusCode" = $response.StatusCode.value__;
@@ -2967,11 +2965,16 @@ function Invoke-InternalWebRequest {
                 "Content"= $responseContent
                 #Not worrying about RawContent here, as I dont use it.
                 #No HTML parsing done either - again - I dont use it.
-                #No Content Length  - pretty sure I dont use it ;) 
+                #No Content Length  - pretty sure I dont use it ;)
             }
             #Fill the headers dict
-            foreach ( $header in $response.Headers ) { 
-                $responseObj.Headers.Add($header.key, $Header.Value)
+            foreach ( $header in $response.Headers ) {
+
+                #Response header values are an array of strings -
+                if ( @($header.Value).count -ne 1 ) {
+                    write-warning "Response header $header.key has more than one value.  Only the first value is retained.  Please raise an issue on the PowerNSX Github site with steps to reproduce if you see this warning!"
+                }
+                $responseObj.Headers.Add($header.key, @($Header.Value)[0])
             }
             $responseObj
         }
@@ -3014,10 +3017,9 @@ function Invoke-InternalWebRequest {
         }
 
         #Dont catch here - bubble exception up as there is enough in it for the caller.
-        $response = invoke-webrequest @iwrsplat
-        $response
+        invoke-webrequest @iwrsplat
     }
-    
+
 }
 
 function Invoke-NsxRestMethod {
