@@ -144,14 +144,14 @@ Function _init {
     #Custom class required for Core psuedo WebResponse and exception
     $InternalWebResponse = @"
         using System;
-        using System.Collections;
+        using System.Collections.Generic;
         public class internalResponse {
             public int StatusCode;
             public string StatusDescription;
-            public Hashtable Headers;
+            public Dictionary<string, string> Headers;
             public string Content;
             public internalResponse() {
-                this.Headers = new Hashtable();
+                this.Headers = new Dictionary<string,string>();
             }
         }
 
