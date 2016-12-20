@@ -145,20 +145,20 @@ Function _init {
     $InternalWebResponse = @"
         using System;
         using System.Collections.Generic;
-        public class internalResponse {
+        public class internalWebResponse {
             public int StatusCode;
             public string StatusDescription;
             public Dictionary<string, string> Headers;
             public string Content;
-            public internalResponse() {
+            public internalWebResponse() {
                 this.Headers = new Dictionary<string,string>();
             }
         }
 
         public class InternalWebRequestException: Exception
         {
-            public internalResponse Response;
-            public InternalWebRequestException(string message, internalResponse Response) : base(message){
+            public internalWebResponse Response;
+            public InternalWebRequestException(string message, internalWebResponse Response) : base(message){
                 this.Response = Response;
             }
         }
