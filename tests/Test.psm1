@@ -2,7 +2,7 @@
 #Sets up test environment and allows for invocation of tests.
 
 # Must load via manifest file otherwise dep module loads dont occur properly
-# Must have separate test module for core now :(
+# Must have separate test manifest for core now :(
 
 
 #We can drop a connection file that allows future non interactive invocation
@@ -33,19 +33,44 @@ function Start-Test {
         #We allow the user to drop a connection details file with creds
         write-warning "No saved connection details found, prompting user."
         $PNSXTestNSXManager = read-host "NSX Manager Ip/Name"
-        $PNSXTestDefMgrCred = Get-Credential -Message "NSX Manager Credentials" -UserName "admin"
-        $PNSXTestDefViCred = Get-Credential -message "vCenter Credentials" -UserName "administrator@vsphere.local"
+        $PNSXTestDefMgrUsername = read-host "NSX Manager Username"
+        $PNSXTestDefMgrPassword = read-host "NSX Manager Password"
 
-        $message  = "Connection info and credentials can be saved (securely) for future invocations."
+        ###
+        #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
+        #$PNSXTestDefMgrCred = Get-Credential -Message "NSX Manager Credentials" -UserName "admin"
+        #$PNSXTestDefViCred = Get-Credential -message "vCenter Credentials" -UserName "administrator@vsphere.local"
+
+        $PNSXTestDefViUsername = read-host "vCenter Username"
+        $PNSXTestDefViPassword = read-host "vCenter Password"
+        $PNSXTestDefMgrCred = New-Object System.Management.Automation.PSCredential $PNSXTestDefMgrUsername, ( $PNSXTestDefMgrPassword | ConvertTo-SecureString -AsPlainText -Force )
+        $PNSXTestDefViCred = New-Object System.Management.Automation.PSCredential $PNSXTestDefViUsername, ( $PNSXTestDefViPassword | ConvertTo-SecureString -AsPlainText -Force )
+
+        ###
+
+        # $message  = "Connection info and credentials can be saved (securely) for future invocations."
+        $message  = "Connection info and credentials can be saved (insecurely!) for future invocations."
         $question = "Save connection info?"
         $decision = $Host.UI.PromptForChoice($message, $question, $ynchoices, 0)
         if ( $decision -eq 0 ) {
             [pscustomobject]$export = @{
                 "nsxm" = $PNSXTestNSXManager;
-                "nsxuser" = $PNSXTestDefMgrCred.UserName;
-                "nsxpwd" = $PNSXTestDefMgrCred.Password | ConvertFrom-SecureString;
-                "viuser" =  $PNSXTestDefViCred.UserName;
-                "vipwd" = $PNSXTestDefViCred.Password | ConvertFrom-SecureString
+
+
+                ###
+                #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
+                "nsxuser" = $PNSXTestDefMgrUsername;
+                "nsxpwd" = $PNSXTestDefMgrPassword;
+                "viuser" =  $PNSXTestDefViUserName;
+                "vipwd" = $PNSXTestDefViPassword
+
+                #"nsxuser" = $PNSXTestDefMgrCred.UserName;
+                #"nsxpwd" = $PNSXTestDefMgrCred.Password | ConvertFrom-SecureString;
+                #"viuser" =  $PNSXTestDefViCred.UserName;
+                #"vipwd" = $PNSXTestDefViPassword | ConvertFrom-SecureString
+
+                ###
+
             }
             $export | Export-Clixml -NoClobber:$false -Force $cxnfile
         }
@@ -66,9 +91,16 @@ function Start-Test {
         }
 
         $PNSXTestNSXManager = $import.nsxm
-        $PNSXTestDefMgrCred = New-Object System.Management.Automation.PSCredential $import.nsxuser, ( $import.nsxpwd | ConvertTo-SecureString )
-        $PNSXTestDefViCred = New-Object System.Management.Automation.PSCredential $import.viuser, ( $import.vipwd | ConvertTo-SecureString )
 
+        ###
+        #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
+        # $PNSXTestDefMgrCred = New-Object System.Management.Automation.PSCredential $import.nsxuser, ( $import.nsxpwd | ConvertTo-SecureString )
+        # $PNSXTestDefViCred = New-Object System.Management.Automation.PSCredential $import.viuser, ( $import.vipwd | ConvertTo-SecureString )
+
+        $PNSXTestDefMgrCred = New-Object System.Management.Automation.PSCredential $import.nsxuser, ( $import.nsxpwd | ConvertTo-SecureString -AsPlainText -Force )
+        $PNSXTestDefViCred = New-Object System.Management.Automation.PSCredential $import.viuser, ( $import.vipwd | ConvertTo-SecureString -AsPlainText -Force )
+
+        ###
     }
 
     #Do the needful after testing and validating that the env is suitable for running tests testing.
