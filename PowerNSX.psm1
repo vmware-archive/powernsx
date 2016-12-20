@@ -140,6 +140,43 @@ Function _init {
         }
     }
 
+
+    #Custom class required for Core psuedo WebResponse and exception
+    $InternalWebResponse = @"
+        using System;
+        using System.Collections;
+        public class internalResponse {
+            public int StatusCode;
+            public string StatusDescription;
+            public Hashtable Headers;
+            public string Content;
+            public internalResponse() {
+                this.Headers = new Hashtable();
+            }
+        }
+
+        public class InternalWebRequestException: Exception
+        {
+            public internalResponse Response;
+            public InternalWebRequestException(string message, internalResponse Response) : base(message){
+                this.Response = Response;
+            }
+        }
+"@
+    add-type $InternalWebResponse
+
+    #Custom NSX API exception
+    $InternalNsxApiException = @"
+        using System;
+        public class InternalNsxApiException: Exception
+        {
+            public InternalNsxApiException(){}
+            public InternalNsxApiException(string message) : base(message) {}
+            public InternalNsxApiException(string message, Exception inner) : base(message, inner) {}
+        }
+"@
+    add-type $InternalNsxApiException
+
 }
 
 Function Test-WebServerSSL {
@@ -2948,25 +2985,15 @@ function Invoke-InternalWebRequest {
                 }
             }
 
-            if (!$response.IsSuccessStatusCode) {
-                $responseContent = $response.Content.ReadAsStringAsync().Result
-                $errorMessage = "Server responded with non successcode: ({0}) - {1}. Response Body : {2}." -f $response.StatusCode.value__, $response.ReasonPhrase, $responseContent
-
-                throw [System.Net.Http.HttpRequestException] $errorMessage
-            }
-            $responseContent = $response.Content.ReadAsStringAsync().Result
-
             #Generate lookalike webresponseobject - caller is me, so it doesnt need to pass too close an inspection!
-            $responseObj = [pscustomobject]@{
-                "StatusCode" = $response.StatusCode.value__;
-                "StatusDescription" = $response.ReasonPhrase;
-#                    "StatusDescription" = $response.StatusCode.ToString()
-                "Headers" = @{};
-                "Content"= $responseContent
-                #Not worrying about RawContent here, as I dont use it.
-                #No HTML parsing done either - again - I dont use it.
-                #No Content Length  - pretty sure I dont use it ;)
-            }
+            $WebResponse = new-object InternalWebResponse
+            $WebResponse.StatusCode = $response.StatusCode.value__
+            $WebResponse.StatusDescription = $response.ReasonPhrase
+            $WebResponse.Content = $response.Content.ReadAsStringAsync().Result
+            #Not worrying about RawContent here, as I dont use it.
+            #No HTML parsing done either - again - I dont use it.
+            #No Content Length  - pretty sure I dont use it ;)
+
             #Fill the headers dict
             foreach ( $header in $response.Headers ) {
 
@@ -2974,9 +3001,17 @@ function Invoke-InternalWebRequest {
                 if ( @($header.Value).count -ne 1 ) {
                     write-warning "Response header $header.key has more than one value.  Only the first value is retained.  Please raise an issue on the PowerNSX Github site with steps to reproduce if you see this warning!"
                 }
-                $responseObj.Headers.Add($header.key, @($Header.Value)[0])
+                $WebResponse.Headers.Add($header.key, @($Header.Value)[0])
             }
-            $responseObj
+
+            #If non success status, we still throw an exception with the response object so caller can determine details.
+            if (!$response.IsSuccessStatusCode) {
+
+                $errorMessage = "NSX API response indicates failure: ({0}) - {1}. Response Body : {2}." -f $response.StatusCode.value__, $response.ReasonPhrase
+                $internalWebException = New-Object internalWebRequestException $errorMessage $WebResponse
+                throw $internalWebException
+            }
+            $WebResponse
         }
         catch [Exception]{
             # if ( $gettask.Exception ) {
@@ -3008,7 +3043,10 @@ function Invoke-InternalWebRequest {
             "ContentType" = $ContentType;
             "uri" = $Uri;
             "TimeoutSec" = $TimeoutSec;
-            "body" = $body
+        }
+
+        if ( $PsBoundParameters.ContainsKey('Body')) {
+            $iwrsplat.Add("body",$body)
         }
 
         if (( -not $ValidateCertificate) -and ([System.Net.ServicePointManager]::CertificatePolicy.tostring() -ne 'TrustAllCertsPolicy')) {
@@ -3019,7 +3057,6 @@ function Invoke-InternalWebRequest {
         #Dont catch here - bubble exception up as there is enough in it for the caller.
         invoke-webrequest @iwrsplat
     }
-
 }
 
 function Invoke-NsxRestMethod {
@@ -3400,41 +3437,69 @@ function Invoke-NsxWebRequest {
     catch [System.Net.WebException] {
 
         #Check if there is a response populated in the response prop as we can return better detail.
-        $response = $_.exception.response
-        if ( $response ) {
-                $responseStream = $response.GetResponseStream()
+        if ( $_.exception.response ) {
+            $response = $_.exception.response
+            $responseStream = $response.GetResponseStream()
+            $ResponseStream.Position = 0
             $reader = New-Object system.io.streamreader($responseStream)
             $responseBody = $reader.readtoend()
             $ErrorString = "$($MyInvocation.MyCommand.Name) : The NSX API response received indicates a failure. $($response.StatusCode.value__) : $($response.StatusDescription) : Response Body: $($responseBody)"
-
-            #Log the error with response detail.
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) {
-                    "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
-                }
-            }
-            throw $ErrorString
         }
         else {
             #No response, log and throw the underlying ex
             $ErrorString = "$($MyInvocation.MyCommand.Name) : Exception occured calling invoke-restmethod. $($_.exception.tostring())"
-            if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
-                if ( $connection.DebugLogging ) {
-                    "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
-                }
-            }
-            throw $_.exception.tostring()
         }
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+            if ( $connection.DebugLogging ) {
+                "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
+            }
+        }
+
+        $exc = New-object InternalNsxApiException $ErrorString, $_.exception
+        $errorID = 'NsxAPIFailureResult'
+        $errorCategory = 'InvalidResult'
+        $targetObject = 'Invoke-NsxWebRequest'
+        $errorRecord = New-Object Management.Automation.ErrorRecord $exc, $errorID, $errorCategory, $targetObject
+        $PsCmdlet.ThrowTerminatingError($errorRecord)
+    }
+    catch [internalWebRequestException] {
+        #Generate on PoSH Core where we dont use iwr native cmdlet.
+        if ($_.exception.response) {
+            $response = $_.exception.response
+            $ErrorString = "$($MyInvocation.MyCommand.Name) : The NSX API response received indicates a failure. $($response.StatusCode) : $($response.StatusDescription) : Response Body: $($response.Content)"
+        }
+        else {
+            $ErrorString = "$($MyInvocation.MyCommand.Name) : Exception occured calling Invoke-InternalWebRequest. $($_.exception.tostring())"
+        }
+
+        #Log the error with response detail.
+        if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
+            if ( $connection.DebugLogging ) {
+                "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
+            }
+        }
+
+        $exc = New-object InternalNsxApiException $ErrorString, $_.exception
+        $errorID = 'NsxAPIFailureResult'
+        $errorCategory = 'InvalidResult'
+        $targetObject = 'Invoke-NsxWebRequest'
+        $errorRecord = New-Object Management.Automation.ErrorRecord $exc, $errorID, $errorCategory, $targetObject
+        $PsCmdlet.ThrowTerminatingError($errorRecord)
     }
     catch {
-         #Not a webexception (may be on PoSH core), log and throw the underlying ex string
+        #Not a webexception, log and throw the underlying ex string
         $ErrorString = "$($MyInvocation.MyCommand.Name) : Exception occured calling invoke-restmethod. $($_.exception.tostring())"
         if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
             if ( $connection.DebugLogging ) {
                 "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
             }
         }
-        throw $_.exception.tostring()
+        $exc = New-object InternalNsxApiException $ErrorString, $_.exception
+        $errorID = 'NsxAPIFailureResult'
+        $errorCategory = 'InvalidResult'
+        $targetObject = 'Invoke-NsxWebRequest'
+        $errorRecord = New-Object Management.Automation.ErrorRecord $exc, $errorID, $errorCategory, $targetObject
+        $PsCmdlet.ThrowTerminatingError($errorRecord)
     }
 
     #Output the response header dictionary
