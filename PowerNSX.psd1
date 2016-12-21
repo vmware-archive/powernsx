@@ -31,7 +31,7 @@ has its own license that is located in the source code of the respective compone
 RootModule = 'PowerNSX.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.0.0'
+ModuleVersion = '2.1.0'
 
 # ID used to uniquely identify this module
 GUID = 'ea3b0bdc-83a3-4cae-9920-7257beae8614'
@@ -73,11 +73,9 @@ DotNetFrameworkVersion = '4.0'
 # Modules that must be imported into the global environment prior to importing this module
 # This REQUIRES that PowerCLI v6 be installed (v5 was snapin based).  This will
 # autoload these modules when powernsx loads.  If v5 PowerCLI support is required, these
-# will have to be removed manually. 
+# will have to be removed manually.
  RequiredModules = @(
-
-    "VMware.VimAutomation.Core",
-    "VMware.VimAutomation.Vds"
+     #Better module autoload handling in module init function.
 )
 
 # Assemblies that must be loaded prior to importing this module
@@ -313,7 +311,10 @@ FunctionsToExport = @(
     'Get-NsxLoadBalancerApplicationRule',
     'Copy-NsxEdge',
     'Export-NsxObject',
-    'Import-NsxObject'
+    'Import-NsxObject',
+    'Connect-NsxLogicalSwitch',
+    'Disconnect-NsxLogicalSwitch',
+    'Get-NsxJobStatus'
 )
 
 # Cmdlets to export from this module
