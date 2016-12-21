@@ -55,13 +55,37 @@ Function _init {
     [System.Management.Automation.PSModuleInfo[]]$CurrentModules = Get-Module
     if ( $global:PNSXPSTarget -eq "Core" ) {
         ##################WARNING############################
-        write-warning "Powershell Core is experimental and may not work as expected.`n"
-        write-warning "Please see the PowerNSX github site for full list of known issues.`n"
-        write-warning "Some known issues you are likely to hit:"
-        write-warning " - Xml response from NSX API is not (always) parsed correctly and causes invoke-restmethod exceptions.  (All known instances fixed.  Please raise an issue if you hit this)"
-        write-warning " - invoke-restmethod and invoke-webrequest do not return the webrequest response in the event an exception is thrown making error messages basically useless (Unable to return the error response that the NSX API returned.)"
-        write-warning " - progress dialogs are suppressed by default (progress reporting in PowerShell core causes output issues.)"
-        write-warning " - Limited testing"
+        $WarningString = @"
+###################################WARNING######################################
+PowerNSX support for Powershell Core is experimental and may not work as
+expected.
+
+Please see the PowerNSX github site for current list of known issues.
+
+Some known issues you are likely to hit:
+    *   Xml response from NSX API is not (always) parsed correctly and causes
+        invoke-restmethod exceptions.  All known instances of this issue have
+        been fixed.  Please raise an issue if you hit this.
+    *   Cmdlets using invoke-nsxrestmethod do not return the webrequest response
+        in the event an exception is thrown, making error messages basically
+        useless.  Invoke-NsxWebrequest has been updated to resolve this. Please
+        raise an issue if you encounter an error where you do not get access to
+        the actual response that the NSX API returned.
+    *   Progress (write-progress) reporting in PowerShell core causes output
+        issues where output is overwritten.  Progress dialogs are suppressed by
+        default on PowerNSX Core.  These can be reenabled with
+        `$PowerNSXConfiguration.ProgressDialogs = `$true.  The
+        `$PowerNSXConfiguration object will be expanded upon in subsequent
+        commits.  It is not currently persistent.
+    *   Limited testing
+
+If you encounter an issue using PowerNSX, please raise it at
+https://github.com/vmware/powernsx/issues
+
+###################################WARNING######################################
+
+"@
+        write-host -ForegroundColor Red $WarningString
 
         #Attempt to load PowerCLI modules required
         foreach ($Module in $CoreRequiredModules ) {
@@ -129,13 +153,11 @@ Function _init {
 
     if ( $global:PNSXPsTarget -eq "Desktop" ) {
         if ( -not ("TrustAllCertsPolicy" -as [type])) {
-            write-warning "Adding type TrustAllCertsPolicy"
             add-type $TrustAllCertsPolicy
         }
     }
     elseif ( $global:PNSXPsTarget -eq "Core") {
         if ( -not ("InternalHttpClientHandler" -as [type]) ) {
-            write-warning "Adding type InternalHttpClientHandler"
             add-type $InternalHttpClientHandler -ReferencedAssemblies System.Net.Http, System.Security.Cryptography.X509Certificates, System.Net.Primitives -WarningAction "SilentlyContinue"
         }
     }
