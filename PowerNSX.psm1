@@ -3008,7 +3008,7 @@ function Invoke-InternalWebRequest {
             if (!$response.IsSuccessStatusCode) {
 
                 $errorMessage = "NSX API response indicates failure: ({0}) - {1}." -f $response.StatusCode.value__, $response.ReasonPhrase
-                $internalWebException = New-Object internalWebRequestException $errorMessage $WebResponse
+                $internalWebException = New-Object internalWebRequestException $errorMessage, $WebResponse
                 throw $internalWebException
             }
             $WebResponse
