@@ -11460,7 +11460,7 @@ function New-NsxEdgeNatRule {
         if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
-        $ruleid = $response.Headers.location -replace "/api/4.0/edges/$edgeid/nat/config/rules/",""
+        $ruleid = $response.Headers.Location -replace "/api/4.0/edges/$edgeid/nat/config/rules/",""
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxEdgeNat | Get-NsxEdgeNatRule -ruleid $ruleid
     }
 
@@ -23708,7 +23708,7 @@ function New-NsxLoadBalancerApplicationRule {
 
         $Response = Invoke-NsxWebRequest -method "POST" -uri $URI -body $body -connection $Connection
 
-        [System.XML.XmlDocument]$ApplicationRule = Invoke-NsxRestMethod -method "GET" -URI $Response.headers.location
+        [System.XML.XmlDocument]$ApplicationRule = Invoke-NsxRestMethod -method "GET" -URI $Response.Headers.Location
 
         if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ApplicationRule -Query "child::applicationRule")){
             $ApplicationRule.applicationRule
