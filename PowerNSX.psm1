@@ -5802,10 +5802,10 @@ function New-NsxIpPool {
         $body = $xmlPool.OuterXml
         $URI = "/api/2.0/services/ipam/pools/scope/globalroot-0"
         if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating IP Pool." }
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-NsxWebRequest -method "post" -uri $URI -body $body -connection $connection
         if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Creating IP Pool." -completed }
 
-        Get-NsxIpPool -objectId $response -connection $connection
+        Get-NsxIpPool -objectId $response.content -connection $connection
 
     }
 
@@ -5847,19 +5847,25 @@ function Get-NsxIpPool {
     if ( $PsBoundParameters.ContainsKey('ObjectId')) {
 
         $URI = "/api/2.0/services/ipam/pools/$ObjectId"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        $response.ipamAddressPool
+        $response = invoke-NsxWebRequest -method "get" -uri $URI -connection $connection
+        
+        [system.xml.xmlDocument]$content = $response.content
+        if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $content -Query 'child::ipamAddressPool'){
+            $content.ipamAddressPool
+        }
     }
     else {
 
         $URI = "/api/2.0/services/ipam/pools/scope/globalroot-0"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        If ( $PsBoundParameters.ContainsKey("Name")) {
-
-            $response.ipamAddressPools.ipamAddressPool | ? { $_.name -eq $Name }
-        }
-        else {
-            $response.ipamAddressPools.ipamAddressPool
+        $response = invoke-NsxWebRequest -method "get" -uri $URI -connection $connection
+        [system.xml.xmlDocument]$content = $response.content
+        if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $content -Query 'child::ipamAddressPools/ipamAddressPool'){
+            If ( $PsBoundParameters.ContainsKey("Name")) {
+                $content.ipamAddressPools.ipamAddressPool | ? { $_.name -eq $Name }
+            }
+            else {
+                $content.ipamAddressPools.ipamAddressPool
+            }
         }
     }
 }
