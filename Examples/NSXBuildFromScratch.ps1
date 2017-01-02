@@ -187,6 +187,7 @@ $WebAppProfileName = "WebAppProfile"
 $AppAppProfileName = "AppAppProfile"
 $VipProtocol = "http"
 $HttpPort = "80"
+$LBMonitorName = "default_http_monitor"
 
 ## Security Groups
 $WebSgName = "SG-Web"
@@ -204,7 +205,6 @@ $DbStName = "ST-DB"
 
 #DFW
 $FirewallSectionName = "Bookstore Application"
-$LBMonitorName = "default_http_monitor"
 
 ###############################################
 # Do Not modify below here.
