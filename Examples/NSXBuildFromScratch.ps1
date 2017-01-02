@@ -127,8 +127,8 @@ $EdgeUplinkPrimaryAddress = "192.168.100.192"
 $EdgeUplinkSecondaryAddress = "192.168.100.193"
 $EdgeUplinkNetworkName = "Internal"
 $AppliancePassword = "VMware1!VMware1!"
-$BooksvAppLocation = "C:\Temp\3_Tier-App-v1.5.ova"
-#Get v1.5 of the vApp from http://goo.gl/oBAFgq
+$BooksvAppLocation = "C:\Temp\3_Tier-App-v1.6.ova"
+#Get v1.6 of the vApp from http://goo.gl/ujxYz1
 
 
 ############################################
