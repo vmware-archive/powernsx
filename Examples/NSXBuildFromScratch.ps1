@@ -669,9 +669,9 @@ if ( $deploy3ta ) {
     $OvfConfiguration = Get-OvfConfiguration -Ovf $BooksvAppLocation
 
     # Network attachment.
-    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_1_sid_50000_Universal_Web01.value = $WebNetwork.name
-    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_2_sid_50001_Universal_App01.value = $AppNetwork.name
-    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_3_sid_50002_Universal_Db01.value = $DbNetwork.name
+    $OvfConfiguration.NetworkMapping.vxw_dvs_24_virtualwire_3_sid_10001_Web_LS_01.Value = $WebNetwork.name
+    $OvfConfiguration.NetworkMapping.vxw_dvs_24_virtualwire_4_sid_10002_App_LS_01.Value = $AppNetwork.name
+    $OvfConfiguration.NetworkMapping.vxw_dvs_24_virtualwire_5_sid_10003_DB_LS_01.Value = $DbNetwork.name
 
     # VM details.
     $OvfConfiguration.common.app_ip.Value = $EdgeInternalSecondaryAddress
