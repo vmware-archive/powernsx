@@ -125,6 +125,7 @@ $NsxManagerMem = 12
 
 $EdgeUplinkPrimaryAddress = "192.168.100.192"
 $EdgeUplinkSecondaryAddress = "192.168.100.193"
+$EdgeDefaultGW = "192.168.100.1"
 $EdgeUplinkNetworkName = "Internal"
 $AppliancePassword = "VMware1!VMware1!"
 $3TiervAppLocation = "C:\Temp\3_Tier-App-v1.6.ova"
@@ -583,7 +584,9 @@ if ( $deploy3ta ) {
     write-host -foregroundcolor "Green" "Creating Edge"
     $Edge1 = New-NsxEdge -name $EdgeName -cluster $EdgeCluster -datastore $EdgeDataStore -Interface $edgevnic0, $edgevnic1 -Password $AppliancePassword -FwDefaultPolicyAllow
 
-
+	##Configure Edge DGW
+	Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
+    
     #####################################
     # Load LoadBalancer
 
