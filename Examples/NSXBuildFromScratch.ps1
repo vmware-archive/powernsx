@@ -690,7 +690,7 @@ if ( $deploy3ta ) {
 
 
     # Run the deployment.
-    Import-vApp -Source $BooksvAppLocation -OvfConfiguration $OvfConfiguration -Name Books -Location $ComputeCluster -VMHost $DeploymentVmhost -Datastore $ComputeDatastore | out-null
+    Import-vApp -Source $BooksvAppLocation -OvfConfiguration $OvfConfiguration -Name $vAppName -Location $ComputeCluster -VMHost $DeploymentVmhost -Datastore $ComputeDatastore | out-null
     write-host -foregroundcolor "Green" "Starting $vAppName vApp components"
     try {
         Start-vApp $vAppName | out-null
