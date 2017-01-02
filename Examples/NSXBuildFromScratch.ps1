@@ -662,7 +662,7 @@ if ( $deploy3ta ) {
     # First work out the VDS used in the compute cluster (This assumes you only have a single VDS per cluster.
     # If that isnt the case, we need to get the VDS by name....:
 
-    $ComputeVDS = Get-Cluster $ComputeClusterName | Get-VMHost | Get-VDSWitch
+    $ComputeVDS = Get-Cluster $ComputeVdsName
     $WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
     $AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
     $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
