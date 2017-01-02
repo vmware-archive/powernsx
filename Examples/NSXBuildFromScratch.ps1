@@ -58,7 +58,7 @@ $NsxManagerOVF = "C:\Temp\VMware-NSX-Manager-6.2.2-3604087.ova"
 $NsxlicenseKey = ""
 $NsxManagerName = "nsx-m-01a"
 $NsxManagerPassword = "VMware1!"
-$NsxManagerIpAddress = "nsx-m-01a.corp.local"
+$NsxManagerIpAddress = "192.168.100.201"
 $ControllerPoolStartIp = "192.168.100.202"
 $ControllerPoolEndIp = "192.168.100.204"
 $ControllerPassword = "VMware1!VMware1!"
@@ -72,9 +72,9 @@ $vCenterUserName = "administrator@vsphere.local"
 $vCenterPassword = "VMware1!"
 $MgmtClusterName = "Mgmt01"
 $ManagementDatastoreName = "MgmtData"
-$MgmtVdsName = "Mgt_Int_Vds"
+$MgmtVdsName = "DSwitch"
 $ComputeClusterName = "Mgmt01"
-$ComputeVdsName = "Mgt_Int_Vds"
+$ComputeVdsName = "DSwitch"
 $EdgeClusterName = $MgmtClusterName
 $EdgeDatastoreName = $ManagementDatastoreName
 $ComputeDatastoreName = "MgmtData"
@@ -125,10 +125,11 @@ $NsxManagerMem = 12
 
 $EdgeUplinkPrimaryAddress = "192.168.100.192"
 $EdgeUplinkSecondaryAddress = "192.168.100.193"
+$EdgeDefaultGW = "192.168.100.1"
 $EdgeUplinkNetworkName = "Internal"
 $AppliancePassword = "VMware1!VMware1!"
-$BooksvAppLocation = "C:\Images\3_Tier-App-v1.5.ova"
-#Get v1.5 of the vApp from http://goo.gl/oBAFgq
+$3TiervAppLocation = "C:\Temp\3_Tier-App-v1.6.ova"
+#Get v1.6 of the vApp from http://goo.gl/ujxYz1
 
 
 ############################################
@@ -196,17 +197,17 @@ $AppSgName = "SG-App"
 $AppSgDescription = "App Security Group"
 $DbSgName = "SG-Db"
 $DbSgDescription = "DB Security Group"
-$BooksSgName = "SG-Bookstore"
-$BooksSgDescription = "Books ALL Security Group"
+$vAppSgName = "SG-Bookstore"
+$vAppSgDescription = "Books ALL Security Group"
 ## Security Tags
 $WebStName = "ST-Web"
 $AppStName = "ST-App"
 $DbStName = "ST-DB"
-
-#DFW
+##IPset
+$AppVIP_IpSet_Name = "AppVIP_IpSet"
+$InternalESG_IpSet_Name = "InternalESG_IpSet"
+##DFW
 $FirewallSectionName = "Bookstore Application"
-$AppVIP_IpSetName = "AppVIP_IpSet"
-$InternalESG_IpSetName = "InternalESG_IpSet"
 
 ###############################################
 # Do Not modify below here.
@@ -254,7 +255,7 @@ try {
     $ManagementPortGroup = Get-VdPortGroup $ManagementNetworkPortGroupName -errorAction Stop
     $MgmtVds = Get-VdSwitch $MgmtVdsName -errorAction Stop
     $CompVds = $ComputeCluster | get-vmhost | Get-VdSwitch $ComputeVdsName -errorAction Stop
-    if ( -not $compvds ) { throw "Compute cluster hosts are not configured with compute VDSwitch."}
+    if ( -not $CompVds ) { throw "Compute cluster hosts are not configured with compute VDSwitch."}
     $ComputeDatastore = get-datastore $ComputeDatastoreName -errorAction Stop
     $EdgeUplinkNetwork = get-vdportgroup $EdgeUplinkNetworkName -errorAction Stop
 }
@@ -271,9 +272,7 @@ If ( $deploy3ta ) {
     }
 
     write-host -ForeGroundColor Green "Performing environment validation for 3ta deployment."
-    if ( -not ( test-path $BooksvAppLocation )) { throw "$BooksvAppLocation not found."}
-
-
+    if ( -not ( test-path $3TiervAppLocation )) { throw "$3TiervAppLocation not found."}
 }
 if ( $deploy3ta -and ( -not $buildnsx)) {
     #If Deploying 3ta, check that things exist
@@ -305,16 +304,16 @@ if ( $deploy3ta -and ( -not $buildnsx)) {
             throw "Logical Router already exists.  Please remove and try again."
         }
         if ( get-nsxsecurityGroup $WebSgName ) {
-            throw "Edge already exists.  Please remove and try again."
+            throw "Security Group exists.  Please remove and try again."
         }
         if ( get-nsxsecurityGroup $AppSgName ) {
-            throw "Edge already exists.  Please remove and try again."
+            throw "Security Group exists.  Please remove and try again."
         }
         if ( get-nsxsecurityGroup $DbSgName ) {
-            throw "Edge already exists.  Please remove and try again."
+            throw "Security Group exists.  Please remove and try again."
         }
-        if ( get-nsxsecurityGroup $BooksSgName ) {
-            throw "Edge already exists.  Please remove and try again."
+        if ( get-nsxsecurityGroup $vAppSgName ) {
+            throw "Security Group already exists.  Please remove and try again."
         }
         if ( get-nsxfirewallsection $FirewallSectionName ) {
             throw "Firewall Section already exists.  Please remove and try again."
@@ -328,10 +327,10 @@ if ( $deploy3ta -and ( -not $buildnsx)) {
         if ( get-nsxsecuritytag $DbStName ) {
             throw "Security Tag already exists.  Please remove and try again."
         }
-        if ( Get-nsxipset $AppVIP_IpSet ) {
+        if ( Get-nsxipset $AppVIP_IpSet_Name ) {
             throw "IPSet already exists.  Please remove and try again."
         }
-        if ( Get-nsxipset $InternalESG_IpSet ) {
+        if ( Get-nsxipset $InternalESG_IpSet_Name ) {
             throw "IPSet already exists.  Please remove and try again."
         }
 
@@ -586,6 +585,8 @@ if ( $deploy3ta ) {
     write-host -foregroundcolor "Green" "Creating Edge"
     $Edge1 = New-NsxEdge -name $EdgeName -cluster $EdgeCluster -datastore $EdgeDataStore -Interface $edgevnic0, $edgevnic1 -Password $AppliancePassword -FwDefaultPolicyAllow
 
+	##Configure Edge DGW
+	Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
 
     #####################################
     # Load LoadBalancer
@@ -670,12 +671,12 @@ if ( $deploy3ta ) {
     $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
 
     # Get OVF configuration so we can modify it.
-    $OvfConfiguration = Get-OvfConfiguration -Ovf $BooksvAppLocation
+    $OvfConfiguration = Get-OvfConfiguration -Ovf $3TiervAppLocation
 
     # Network attachment.
-    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_1_sid_50000_Universal_Web01.value = $WebNetwork.name
-    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_2_sid_50001_Universal_App01.value = $AppNetwork.name
-    $OvfConfiguration.networkmapping.vxw_dvs_24_universalwire_3_sid_50002_Universal_Db01.value = $DbNetwork.name
+    $OvfConfiguration.NetworkMapping.vxw_dvs_24_virtualwire_3_sid_10001_Web_LS_01.Value = $WebNetwork.name
+    $OvfConfiguration.NetworkMapping.vxw_dvs_24_virtualwire_4_sid_10002_App_LS_01.Value = $AppNetwork.name
+    $OvfConfiguration.NetworkMapping.vxw_dvs_24_virtualwire_5_sid_10003_DB_LS_01.Value = $DbNetwork.name
 
     # VM details.
     $OvfConfiguration.common.app_ip.Value = $EdgeInternalSecondaryAddress
@@ -694,7 +695,7 @@ if ( $deploy3ta ) {
 
 
     # Run the deployment.
-    Import-vApp -Source $BooksvAppLocation -OvfConfiguration $OvfConfiguration -Name Books -Location $ComputeCluster -VMHost $DeploymentVmhost -Datastore $ComputeDatastore | out-null
+    Import-vApp -Source $3TiervAppLocation -OvfConfiguration $OvfConfiguration -Name $vAppName -Location $ComputeCluster -VMHost $DeploymentVmhost -Datastore $ComputeDatastore | out-null
     write-host -foregroundcolor "Green" "Starting $vAppName vApp components"
     try {
         Start-vApp $vAppName | out-null
@@ -723,8 +724,8 @@ if ( $deploy3ta ) {
     # Create IP Sets
 
     write-host -foregroundcolor "Green" "Creating Source IP Groups"
-    $AppVIP_IpSet = New-NsxIPSet -Name $AppVIP_IpSetName -IPAddresses $EdgeInternalSecondaryAddress
-    $InternalESG_IpSet = New-NsxIPSet -name $InternalESG_IpSetName -IPAddresses $EdgeInternalPrimaryAddress
+    $AppVIP_IpSet = New-NsxIPSet -Name $AppVIP_IpSet_Name -IPAddresses $EdgeInternalSecondaryAddress
+    $InternalESG_IpSet = New-NsxIPSet -name $InternalESG_IpSet_Name -IPAddresses $EdgeInternalPrimaryAddress
 
     write-host -foregroundcolor "Green" "Creating Security Groups"
 
@@ -732,7 +733,7 @@ if ( $deploy3ta ) {
     $WebSg = New-NsxSecurityGroup -name $WebSgName -description $WebSgDescription -includemember $WebSt
     $AppSg = New-NsxSecurityGroup -name $AppSgName -description $AppSgDescription -includemember $AppSt
     $DbSg = New-NsxSecurityGroup -name $DbSgName -description $DbSgDescription -includemember $DbSt
-    $BooksSg = New-NsxSecurityGroup -name $BooksSgName -description $BooksSgName -includemember $WebSg, $AppSg, $DbSg
+    $BooksSg = New-NsxSecurityGroup -name $vAppSgName -description $vAppSgName -includemember $WebSg, $AppSg, $DbSg
 
     # Apply Security Tag to VM's for Security Group membership
 
@@ -767,7 +768,7 @@ if ( $deploy3ta ) {
     write-host -foregroundcolor "Green" "Creating Db Tier rules"
     $AppToDb = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "$AppSgName to $DbSgName" -Source $AppSg -Destination $DbSg -Service $MySqlService -Action $AllowTraffic -AppliedTo $AppSg, $DbSG -position bottom
 
-    write-host -foregroundcolor "Green" "Creating deny all applied to $BooksSgName"
+    write-host -foregroundcolor "Green" "Creating deny all applied to $vAppSgName"
     #Default rule that wraps around all VMs within the topolgoy - application specific DENY ALL
     $BooksDenyAll = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "Deny All Books" -Action $DenyTraffic -AppliedTo $BooksSg -position bottom -EnableLogging -tag "$BooksSG"
     write-host -foregroundcolor "Green" "Books application deployment complete."
