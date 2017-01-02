@@ -202,8 +202,10 @@ $vAppSgDescription = "Books ALL Security Group"
 $WebStName = "ST-Web"
 $AppStName = "ST-App"
 $DbStName = "ST-DB"
-
-#DFW
+##IPset
+$AppVIP_IpSet_Name = "AppVIP_IpSet"
+$InternalESG_IpSet_Name = "InternalESG_IpSet"
+##DFW
 $FirewallSectionName = "Bookstore Application"
 
 ###############################################
@@ -323,10 +325,10 @@ if ( $deploy3ta -and ( -not $buildnsx)) {
         if ( get-nsxsecuritytag $DbStName ) {
             throw "Security Tag already exists.  Please remove and try again."
         }
-        if ( Get-nsxipset $AppVIP_IpSet ) {
+        if ( Get-nsxipset $AppVIP_IpSet_Name ) {
             throw "IPSet already exists.  Please remove and try again."
         }
-        if ( Get-nsxipset $InternalESG_IpSet ) {
+        if ( Get-nsxipset $InternalESG_IpSet_Name ) {
             throw "IPSet already exists.  Please remove and try again."
         }
 
@@ -719,8 +721,8 @@ if ( $deploy3ta ) {
     # Create IP Sets
 
     write-host -foregroundcolor "Green" "Creating Source IP Groups"
-    $AppVIP_IpSet = New-NsxIPSet -Name AppVIP_IpSet -IPAddresses $EdgeInternalSecondaryAddress
-    $InternalESG_IpSet = New-NsxIPSet -name InternalESG_IpSet -IPAddresses $EdgeInternalPrimaryAddress
+    $AppVIP_IpSet = New-NsxIPSet -Name $AppVIP_IpSet_Name -IPAddresses $EdgeInternalSecondaryAddress
+    $InternalESG_IpSet = New-NsxIPSet -name $InternalESG_IpSet_Name -IPAddresses $EdgeInternalPrimaryAddress
 
     write-host -foregroundcolor "Green" "Creating Security Groups"
 
