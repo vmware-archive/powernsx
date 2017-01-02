@@ -58,7 +58,7 @@ $NsxManagerOVF = "C:\Temp\VMware-NSX-Manager-6.2.2-3604087.ova"
 $NsxlicenseKey = ""
 $NsxManagerName = "nsx-m-01a"
 $NsxManagerPassword = "VMware1!"
-$NsxManagerIpAddress = "nsx-m-01a-local.corp.local"
+$NsxManagerIpAddress = "nsx-m-01a.corp.local"
 $ControllerPoolStartIp = "192.168.100.202"
 $ControllerPoolEndIp = "192.168.100.204"
 $ControllerPassword = "VMware1!VMware1!"
@@ -67,14 +67,14 @@ $SegmentPoolEnd = "5999"
 $TransportZoneName = "TransportZone1"
 
 #vSphereDetails
-$VcenterServer = "winvc-01a.corp.local"
+$VcenterServer = "vc-01a.corp.local"
 $vCenterUserName = "administrator@vsphere.local"
 $vCenterPassword = "VMware1!"
 $MgmtClusterName = "Mgmt01"
 $ManagementDatastoreName = "MgmtData"
-$MgmtVdsName = "DSwitch"
+$MgmtVdsName = "Mgt_Int_Vds"
 $ComputeClusterName = "Mgmt01"
-$ComputeVdsName = "DSwitch"
+$ComputeVdsName = "Mgt_Int_Vds"
 $EdgeClusterName = $MgmtClusterName
 $EdgeDatastoreName = $ManagementDatastoreName
 $ComputeDatastoreName = "MgmtData"
@@ -187,6 +187,7 @@ $WebAppProfileName = "WebAppProfile"
 $AppAppProfileName = "AppAppProfile"
 $VipProtocol = "http"
 $HttpPort = "80"
+$LBMonitorName = "default_http_monitor"
 
 ## Security Groups
 $WebSgName = "SG-Web"
@@ -204,7 +205,8 @@ $DbStName = "ST-DB"
 
 #DFW
 $FirewallSectionName = "Bookstore Application"
-$LBMonitorName = "default_http_monitor"
+$AppVIP_IpSetName = "AppVIP_IpSet"
+$InternalESG_IpSetName = "InternalESG_IpSet"
 
 ###############################################
 # Do Not modify below here.
@@ -251,7 +253,8 @@ try {
     $MgmtDatastore = Get-Datastore $ManagementDatastoreName -errorAction Stop
     $ManagementPortGroup = Get-VdPortGroup $ManagementNetworkPortGroupName -errorAction Stop
     $MgmtVds = Get-VdSwitch $MgmtVdsName -errorAction Stop
-    $CompVds = Get-VdSwitch $ComputeVdsName -errorAction Stop
+    $CompVds = $ComputeCluster | get-vmhost | Get-VdSwitch $ComputeVdsName -errorAction Stop
+    if ( -not $compvds ) { throw "Compute cluster hosts are not configured with compute VDSwitch."}
     $ComputeDatastore = get-datastore $ComputeDatastoreName -errorAction Stop
     $EdgeUplinkNetwork = get-vdportgroup $EdgeUplinkNetworkName -errorAction Stop
 }
@@ -269,6 +272,8 @@ If ( $deploy3ta ) {
 
     write-host -ForeGroundColor Green "Performing environment validation for 3ta deployment."
     if ( -not ( test-path $BooksvAppLocation )) { throw "$BooksvAppLocation not found."}
+
+
 }
 if ( $deploy3ta -and ( -not $buildnsx)) {
     #If Deploying 3ta, check that things exist
@@ -590,7 +595,7 @@ if ( $deploy3ta ) {
     Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled | out-null
 
     #Get default monitor.
-    $monitor =  get-nsxedge | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name $LBMonitorName
+    $monitor =  get-nsxedge $EdgeName | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name $LBMonitorName
 
 
     # Define pool members.  By way of example we will use two different methods for defining pool membership.  Webpool via predefine memberspec first...
@@ -660,10 +665,9 @@ if ( $deploy3ta ) {
     # First work out the VDS used in the compute cluster (This assumes you only have a single VDS per cluster.
     # If that isnt the case, we need to get the VDS by name....:
 
-    $ComputeVDS = Get-Cluster $ComputeClusterName | Get-VMHost | Get-VDSWitch
-    $WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
-    $AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
-    $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
+    $WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
+    $AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
+    $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
 
     # Get OVF configuration so we can modify it.
     $OvfConfiguration = Get-OvfConfiguration -Ovf $BooksvAppLocation
@@ -719,8 +723,8 @@ if ( $deploy3ta ) {
     # Create IP Sets
 
     write-host -foregroundcolor "Green" "Creating Source IP Groups"
-    $AppVIP_IpSet = New-NsxIPSet -Name AppVIP_IpSet -IPAddresses $EdgeInternalSecondaryAddress
-    $InternalESG_IpSet = New-NsxIPSet -name InternalESG_IpSet -IPAddresses $EdgeInternalPrimaryAddress
+    $AppVIP_IpSet = New-NsxIPSet -Name $AppVIP_IpSetName -IPAddresses $EdgeInternalSecondaryAddress
+    $InternalESG_IpSet = New-NsxIPSet -name $InternalESG_IpSetName -IPAddresses $EdgeInternalPrimaryAddress
 
     write-host -foregroundcolor "Green" "Creating Security Groups"
 
