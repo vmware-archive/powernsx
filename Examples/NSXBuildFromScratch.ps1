@@ -127,7 +127,7 @@ $EdgeUplinkPrimaryAddress = "192.168.100.192"
 $EdgeUplinkSecondaryAddress = "192.168.100.193"
 $EdgeUplinkNetworkName = "Internal"
 $AppliancePassword = "VMware1!VMware1!"
-$BooksvAppLocation = "C:\Temp\3_Tier-App-v1.6.ova"
+$3TiervAppLocation = "C:\Temp\3_Tier-App-v1.6.ova"
 #Get v1.6 of the vApp from http://goo.gl/ujxYz1
 
 
@@ -268,7 +268,7 @@ If ( $deploy3ta ) {
     }
 
     write-host -ForeGroundColor Green "Performing environment validation for 3ta deployment."
-    if ( -not ( test-path $BooksvAppLocation )) { throw "$BooksvAppLocation not found."}
+    if ( -not ( test-path $3TiervAppLocation )) { throw "$3TiervAppLocation not found."}
 }
 if ( $deploy3ta -and ( -not $buildnsx)) {
     #If Deploying 3ta, check that things exist
@@ -666,7 +666,7 @@ if ( $deploy3ta ) {
     $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
 
     # Get OVF configuration so we can modify it.
-    $OvfConfiguration = Get-OvfConfiguration -Ovf $BooksvAppLocation
+    $OvfConfiguration = Get-OvfConfiguration -Ovf $3TiervAppLocation
 
     # Network attachment.
     $OvfConfiguration.NetworkMapping.vxw_dvs_24_virtualwire_3_sid_10001_Web_LS_01.Value = $WebNetwork.name
@@ -690,7 +690,7 @@ if ( $deploy3ta ) {
 
 
     # Run the deployment.
-    Import-vApp -Source $BooksvAppLocation -OvfConfiguration $OvfConfiguration -Name $vAppName -Location $ComputeCluster -VMHost $DeploymentVmhost -Datastore $ComputeDatastore | out-null
+    Import-vApp -Source $3TiervAppLocation -OvfConfiguration $OvfConfiguration -Name $vAppName -Location $ComputeCluster -VMHost $DeploymentVmhost -Datastore $ComputeDatastore | out-null
     write-host -foregroundcolor "Green" "Starting $vAppName vApp components"
     try {
         Start-vApp $vAppName | out-null
