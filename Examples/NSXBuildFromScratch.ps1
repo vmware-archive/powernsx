@@ -590,7 +590,7 @@ if ( $deploy3ta ) {
     Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled | out-null
 
     #Get default monitor.
-    $monitor =  get-nsxedge | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name $LBMonitorName
+    $monitor =  get-nsxedge $EdgeName | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name $LBMonitorName
 
 
     # Define pool members.  By way of example we will use two different methods for defining pool membership.  Webpool via predefine memberspec first...
