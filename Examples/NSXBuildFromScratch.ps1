@@ -195,8 +195,8 @@ $AppSgName = "SG-App"
 $AppSgDescription = "App Security Group"
 $DbSgName = "SG-Db"
 $DbSgDescription = "DB Security Group"
-$BooksSgName = "SG-Bookstore"
-$BooksSgDescription = "Books ALL Security Group"
+$vAppSgName = "SG-Bookstore"
+$vAppSgDescription = "Books ALL Security Group"
 ## Security Tags
 $WebStName = "ST-Web"
 $AppStName = "ST-App"
@@ -300,16 +300,16 @@ if ( $deploy3ta -and ( -not $buildnsx)) {
             throw "Logical Router already exists.  Please remove and try again."
         }
         if ( get-nsxsecurityGroup $WebSgName ) {
-            throw "Edge already exists.  Please remove and try again."
+            throw "Security Group exists.  Please remove and try again."
         }
         if ( get-nsxsecurityGroup $AppSgName ) {
-            throw "Edge already exists.  Please remove and try again."
+            throw "Security Group exists.  Please remove and try again."
         }
         if ( get-nsxsecurityGroup $DbSgName ) {
-            throw "Edge already exists.  Please remove and try again."
+            throw "Security Group exists.  Please remove and try again."
         }
-        if ( get-nsxsecurityGroup $BooksSgName ) {
-            throw "Edge already exists.  Please remove and try again."
+        if ( get-nsxsecurityGroup $vAppSgName ) {
+            throw "Security Group already exists.  Please remove and try again."
         }
         if ( get-nsxfirewallsection $FirewallSectionName ) {
             throw "Firewall Section already exists.  Please remove and try again."
@@ -728,7 +728,7 @@ if ( $deploy3ta ) {
     $WebSg = New-NsxSecurityGroup -name $WebSgName -description $WebSgDescription -includemember $WebSt
     $AppSg = New-NsxSecurityGroup -name $AppSgName -description $AppSgDescription -includemember $AppSt
     $DbSg = New-NsxSecurityGroup -name $DbSgName -description $DbSgDescription -includemember $DbSt
-    $BooksSg = New-NsxSecurityGroup -name $BooksSgName -description $BooksSgName -includemember $WebSg, $AppSg, $DbSg
+    $BooksSg = New-NsxSecurityGroup -name $vAppSgName -description $vAppSgName -includemember $WebSg, $AppSg, $DbSg
 
     # Apply Security Tag to VM's for Security Group membership
 
@@ -763,7 +763,7 @@ if ( $deploy3ta ) {
     write-host -foregroundcolor "Green" "Creating Db Tier rules"
     $AppToDb = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "$AppSgName to $DbSgName" -Source $AppSg -Destination $DbSg -Service $MySqlService -Action $AllowTraffic -AppliedTo $AppSg, $DbSG -position bottom
 
-    write-host -foregroundcolor "Green" "Creating deny all applied to $BooksSgName"
+    write-host -foregroundcolor "Green" "Creating deny all applied to $vAppSgName"
     #Default rule that wraps around all VMs within the topolgoy - application specific DENY ALL
     $BooksDenyAll = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "Deny All Books" -Action $DenyTraffic -AppliedTo $BooksSg -position bottom -EnableLogging -tag "$BooksSG"
     write-host -foregroundcolor "Green" "Books application deployment complete."
