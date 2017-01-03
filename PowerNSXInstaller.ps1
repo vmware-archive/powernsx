@@ -71,7 +71,7 @@ $DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vd
 
 function Download-File($url, $targetFile) {
 
-    if ($psversiontable.PSVersion.Major -lt 3 ) {
+    if ($psversiontable.PSVersion.Major -ge 3 ) {
         #If on Posh 3 or greater, we know we can just use invoke-webrequest -outfile.
         Invoke-WebRequest -Uri $url -outfile $targetFile
     }
