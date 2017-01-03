@@ -304,7 +304,7 @@ function check-powercli {
         install-powercli
     }
     else {
-        if ( $PowerCLI.Version.Major -lt $RequiredPowerCliVersion } {
+        if ( $PowerCLI.Version.Major -lt $RequiredPowerCliVersion ) {
             install-powercli
         }
     }
