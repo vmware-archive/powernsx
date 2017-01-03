@@ -73,7 +73,7 @@ function Download-File($url, $targetFile) {
 
     if ($psversiontable.PSVersion.Major -lt 3 ) {
         #If on Posh 3 or greater, we know we can just use invoke-webrequest -outfile.
-        Invoke-WebRequest -Uri $url -outfile $targetFile -TimeoutSec 15
+        Invoke-WebRequest -Uri $url -outfile $targetFile
     }
     else {
         #Do this the hard way - earlier versions of PoSH dont have iwr
