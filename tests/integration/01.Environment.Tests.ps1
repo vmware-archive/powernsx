@@ -35,6 +35,8 @@ Describe "Environment" -Tags "Environment" {
         $conn | should be $null
     }
 
+    it "Has hosts connected it can deploy to"{}
+
     BeforeAll {
 
         #BeforeAll block runs _once_ at invocation regardless of number of tests/contexts/describes.

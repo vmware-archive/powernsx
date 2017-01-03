@@ -3954,9 +3954,7 @@ function Update-PowerNsx {
         throw $_
     }
 
-    Remove-Module PowerNSX
-    Import-Module PowerNSX -global
-
+    Import-Module PowerNSX -global -force
     set-strictmode -Version Latest
 }
 
@@ -5848,7 +5846,7 @@ function Get-NsxIpPool {
 
         $URI = "/api/2.0/services/ipam/pools/$ObjectId"
         $response = invoke-NsxWebRequest -method "get" -uri $URI -connection $connection
-        
+
         [system.xml.xmlDocument]$content = $response.content
         if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $content -Query 'child::ipamAddressPool'){
             $content.ipamAddressPool

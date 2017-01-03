@@ -562,8 +562,8 @@ function init {
             }
         }
 
-        $script:ModulePath = $ModDir + $ModulePath
-        $script:ManifestPath = $ModDir + $ManifestPath
+        $script:ModulePath = $ModDir + "\$ModulePath"
+        $script:ManifestPath = $ModDir +"\$ManifestPath"
 
         if ( -not ($PSVersionTable.PSEdition -eq "Core" )) {
             try {
