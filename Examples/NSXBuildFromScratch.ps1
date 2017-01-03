@@ -254,7 +254,8 @@ try {
     $MgmtDatastore = Get-Datastore $ManagementDatastoreName -errorAction Stop
     $ManagementPortGroup = Get-VdPortGroup $ManagementNetworkPortGroupName -errorAction Stop
     $MgmtVds = Get-VdSwitch $MgmtVdsName -errorAction Stop
-    $CompVds = Get-VdSwitch $ComputeVdsName -errorAction Stop
+    $CompVds = $ComputeCluster | get-vmhost | Get-VdSwitch $ComputeVdsName -errorAction Stop
+    if ( -not $CompVds ) { throw "Compute cluster hosts are not configured with compute VDSwitch."}
     $ComputeDatastore = get-datastore $ComputeDatastoreName -errorAction Stop
     $EdgeUplinkNetwork = get-vdportgroup $EdgeUplinkNetworkName -errorAction Stop
 }
@@ -586,7 +587,7 @@ if ( $deploy3ta ) {
 
 	##Configure Edge DGW
 	Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
-    
+
     #####################################
     # Load LoadBalancer
 
@@ -665,10 +666,9 @@ if ( $deploy3ta ) {
     # First work out the VDS used in the compute cluster (This assumes you only have a single VDS per cluster.
     # If that isnt the case, we need to get the VDS by name....:
 
-    $ComputeVDS = Get-Cluster $ComputeVdsName
-    $WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
-    $AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
-    $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $ComputeVDS }
+    $WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
+    $AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
+    $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
 
     # Get OVF configuration so we can modify it.
     $OvfConfiguration = Get-OvfConfiguration -Ovf $3TiervAppLocation
