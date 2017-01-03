@@ -522,6 +522,11 @@ function init {
                         write-host -ForegroundColor Yellow "Unable to determine the current users PowerShell Module directory.  Check the `$env:PSModule variable and add a directory located in the users home directory ($($env:HOMEDRIVE)$($env:HOMEPATH)) or specify -AllUsers when invoking the PowerNSX installation script."
                         return
                     }
+
+                    $AllUserModDir = "$($env:ProgramFiles)\Common Files\Modules"
+                    if (get-module -ListAvailable -Name PowerNsx | ? { $_.path -like "$AllUserModDir*" }) {
+                        write-warning "Existing PowerNSX Installation found in machine wide module directory ($AllUserModDir).  This may cause unexpected results.  Please remove this PowerNSX install manually."
+                    }
                 }
 
                 "AllUsers" {
