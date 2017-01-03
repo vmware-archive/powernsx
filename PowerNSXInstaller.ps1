@@ -498,7 +498,7 @@ function init {
                 "CurrentUser" {
                     $ModDir = "$($env:HOME)/.local/share/powershell/Modules"
                     # $ModDir = $env:PSModulePath.split(";") | ? { $_ -like "$($env:HOMEDRIVE)$($env:HOMEPATH)*" } | select -first 1
-                    if ( -not test-path $ModDir ) {
+                    if ( -not (test-path $ModDir) ) {
                         write-host -ForegroundColor Yellow "Default current user PowerShell Module directory not found. Create the path $moddir or specify -AllUsers when invoking the PowerNSX installation script."
                         return
                     }
@@ -506,7 +506,7 @@ function init {
 
                 "AllUsers" {
                     $ModDir = "/usr/local/share/powershell/Modules"
-                    if ( -not test-path $ModDir ) {
+                    if ( -not (test-path $ModDir) ) {
                         write-host -ForegroundColor Yellow "Default system PowerShell Module directory not found. Create the path $moddir or specify -CurrentUser when invoking the PowerNSX installation script."
                         return
                     }
@@ -537,7 +537,7 @@ function init {
                     }
 
                     $ModDir = "$($env:ProgramFiles)\Common Files\Modules"
-                    if ( -not test-path $ModDir ) {
+                    if ( -not (test-path $ModDir) ) {
 
                         #Previous version of the PowerNSX installer created the standard PoSH modules dir on PoSH 2 installs (not created by default), so Ive retained that functionality.
                         #Need to use registry here as the PowerCLI installation changes will not have propogated to the current host.
