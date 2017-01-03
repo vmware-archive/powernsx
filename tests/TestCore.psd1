@@ -71,8 +71,8 @@ DotNetFrameworkVersion = '4.0'
 # autoload these modules when powernsx loads.  If v5 PowerCLI support is required, these
 # will have to be removed manually.
  RequiredModules = @(
-    "VMware.VimAutomation.Core",
-    "VMware.VimAutomation.Vds",
+    "PowerCLI.Vds",
+    "PowerCLI.ViCore",
     "Pester"
 )
 
