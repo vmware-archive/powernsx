@@ -27,13 +27,8 @@ has its own license that is located in the source code of the respective compone
 #More sophisticated requirement checking done at module load time.
 
 #My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
-# $PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
-# $ValidBranches = @("master","v2")
-
-$PNsxUrlBase = "https://raw.githubusercontent.com/nmbradford/powernsx"
-$ValidBranches = @("PowerNSXCoreInstaller")
-#TODO: Change back to defaults! here, installer as well, url and branch name!
-
+$PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
+$ValidBranches = @("master","v2")
 
 $CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
 $DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
