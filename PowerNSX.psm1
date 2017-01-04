@@ -3959,7 +3959,7 @@ function Update-PowerNsx {
 
         #Disable progress dialogs from iwr
         $PreviousProgPref = $ProgressPreference
-        $ProgressPreference = "SilentlyContinue"
+        $global:ProgressPreference = "SilentlyContinue"
     }
 
     if ( $Branch -eq "master" ) {
@@ -4003,7 +4003,7 @@ function Update-PowerNsx {
     }
     if ( $PreviousProgPref ) {
         #reenable progress dialogs from iwr
-        $ProgressPreference = $PreviousProgPref
+        $global:ProgressPreference = $PreviousProgPref
     }
     set-strictmode -Version Latest
 }
