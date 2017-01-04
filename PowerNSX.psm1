@@ -32,6 +32,7 @@ has its own license that is located in the source code of the respective compone
 
 $PNsxUrlBase = "https://raw.githubusercontent.com/nmbradford/powernsx"
 $ValidBranches = @("PowerNSXCoreInstaller")
+#TODO : Change back to defaults! here, installer as well, url and branch name!
 
 
 $CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
@@ -3932,7 +3933,7 @@ function Update-PowerNsx {
     $CurrentModpath = split-path $currentMod.Path -parent
 
     if ( $global:PNSXPsTarget -eq "Desktop") {
-        if $CurrentModpath = "$($env:ProgramFiles)\Common Files\Modules" {
+        if ($CurrentModpath -eq "$($env:ProgramFiles)\Common Files\Modules") {
             #Windows - AllUsers install check we have admin
 
             if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
