@@ -3956,6 +3956,10 @@ function Update-PowerNsx {
             $tmpdir = $env:TMPDIR
         }
         else { $tmpdir = "/tmp" }
+
+        #Disable progress dialogs from iwr
+        $PreviousProgPref = $ProgressPreference
+        $ProgressPreference = "SilentlyContinue"
     }
 
     if ( $Branch -eq "master" ) {
@@ -3996,6 +4000,10 @@ function Update-PowerNsx {
         foreach ( $mod in (get-module -ListAvailable PowerNSX) ) {
             write-warning "PowerNSX Install found in $($mod.path | split-path -parent )"
         }
+    }
+    if ( $PreviousProgPref ) {
+        #reenable progress dialogs from iwr
+        $ProgressPreference = $PreviousProgPref
     }
     set-strictmode -Version Latest
 }
