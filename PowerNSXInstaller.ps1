@@ -62,6 +62,7 @@ $DesktopPCLIMinVersion = 6
 # $PowerNSXManifest = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psd1"
 $PowerNSXMod = "https://raw.githubusercontent.com/nmbradford/powernsx/$Branch/PowerNSX.psm1"
 $PowerNSXManifest = "https://raw.githubusercontent.com/nmbradford/powernsx/$Branch/PowerNSX.psd1"
+#TODO: Change me back!
 
 #Module Path
 $ModulePath = "PowerNSX\PowerNSX.psm1"

@@ -32,7 +32,7 @@ has its own license that is located in the source code of the respective compone
 
 $PNsxUrlBase = "https://raw.githubusercontent.com/nmbradford/powernsx"
 $ValidBranches = @("PowerNSXCoreInstaller")
-#TODO : Change back to defaults! here, installer as well, url and branch name!
+#TODO: Change back to defaults! here, installer as well, url and branch name!
 
 
 $CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
@@ -3933,17 +3933,20 @@ function Update-PowerNsx {
     $CurrentModpath = split-path $currentMod.Path -parent
 
     if ( $global:PNSXPsTarget -eq "Desktop") {
-        if ($CurrentModpath -eq "$($env:ProgramFiles)\Common Files\Modules") {
-            #Windows - AllUsers install check we have admin
 
-            if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-                [Security.Principal.WindowsBuiltInRole] "Administrator"))) {
+        ## Dont know why we are doing this here, given that we do it in the installer anyway...
 
-                write-host -ForegroundColor Yellow "The PowerNSX installer requires Administrative rights to install for AllUsers."
-                write-host -ForegroundColor Yellow "Please restart PowerShell with right click, 'Run As Administrator' or install PowerNSX for the current user only."
-                return
-            }
-        }
+        # if ($CurrentModpath -eq "$($env:ProgramFiles)\Common Files\Modules") {
+        #     #Windows - AllUsers install check we have admin
+
+        #     if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+        #         [Security.Principal.WindowsBuiltInRole] "Administrator"))) {
+
+        #         write-host -ForegroundColor Yellow "The PowerNSX installer requires Administrative rights to install for AllUsers."
+        #         write-host -ForegroundColor Yellow "Please restart PowerShell with right click, 'Run As Administrator' or install PowerNSX for the current user only."
+        #         return
+        #     }
+        # }
         #OS specific temp variable
         $tmpdir = $($env:Temp)
     }
@@ -3968,7 +3971,7 @@ function Update-PowerNsx {
             invoke-webrequest -uri $PNsxUrl -outfile "$tmpdir\$filename"
         }
         catch {
-            #TODO : Confirm Proxy handling works with change to iwr.
+            #TODO: Confirm Proxy handling works with change to iwr.
             if ( $_.exception.innerexception -match "(407)") {
                 $ProxyCred = Get-Credential -Message "Proxy Authentication Required"
                 invoke-webrequest -uri $PNsxUrl -outfile "$tmpdir\$filename" -ProxyCredential $ProxyCred
@@ -3983,7 +3986,17 @@ function Update-PowerNsx {
         throw $_
     }
 
-    Import-Module PowerNSX -global -force
+    ## Not reloading module now, too many issues unloading dependant modules exist to make this robust and clean on all platforms.
+    # Import-Module PowerNSX -global -force
+    write-host -ForegroundColor Magenta "PowerNSX has been updated.  Please restart PowerShell to use the updated version."
+
+    #Check to make sure we dont have mutiple installs....
+    if ( (get-module -ListAvailable PowerNSX | measure ).count -ne 1 ) {
+        write-warning "Mutiple PowerNSX installations found.  It is recommended to remove one of them or the universe may implode! (Or you may end up using an older version without realising, which is nearly as bad!)"
+        foreach ( $mod in (get-module -ListAvailable PowerNSX) ) {
+            write-warning "PowerNSX Install found in $($mod.path)"
+        }
+    }
     set-strictmode -Version Latest
 }
 
