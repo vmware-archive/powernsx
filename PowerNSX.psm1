@@ -29,6 +29,7 @@ has its own license that is located in the source code of the respective compone
 #My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
 $PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
 $ValidBranches = @("master","v2")
+
 $CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
 $DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
 
@@ -887,7 +888,8 @@ function Validate-UpdateBranch {
         [Parameter (Mandatory=$true)]
         [object]$argument
     )
-    if ( $ValidBranches -contains $argument ) {
+    #Case sensitive
+    if ( $ValidBranches -Ccontains $argument ) {
         $true
     } else {
         throw "Invalid Branch.  Specify one of the valid branches : $($Validbranches -join ", ")"
@@ -3914,49 +3916,90 @@ function Update-PowerNsx {
         [Parameter (Mandatory = $True, Position=1)]
             #Valid Branches supported for upgrading to.
             [ValidateScript({ Validate-UpdateBranch $_ })]
-            [string]$Branch
+            [string]$Branch,
+            [ValidateSet("CurrentUser","AllUsers")][string]$InstallType="CurrentUser"
+
     )
 
     $PNsxUrl = "$PNsxUrlBase/$Branch/PowerNSXInstaller.ps1"
 
-    if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-        [Security.Principal.WindowsBuiltInRole] "Administrator"))) {
+    #Where am I currently installed?
+    $currentMod = Get-Module PowerNSX
+    $CurrentModpath = split-path $currentMod.Path -parent
 
-        write-host -ForegroundColor Yellow "Update-PowerNsx requires Administrative rights."
-        write-host -ForegroundColor Yellow "Please restart PowerCLI with right click, 'Run As Administrator' and try again."
-        return
+    if ( $global:PNSXPsTarget -eq "Desktop") {
+
+        ## Dont know why we are doing this here, given that we do it in the installer anyway...
+
+        # if ($CurrentModpath -eq "$($env:ProgramFiles)\Common Files\Modules") {
+        #     #Windows - AllUsers install check we have admin
+
+        #     if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
+        #         [Security.Principal.WindowsBuiltInRole] "Administrator"))) {
+
+        #         write-host -ForegroundColor Yellow "The PowerNSX installer requires Administrative rights to install for AllUsers."
+        #         write-host -ForegroundColor Yellow "Please restart PowerShell with right click, 'Run As Administrator' or install PowerNSX for the current user only."
+        #         return
+        #     }
+        # }
+        #OS specific temp variable
+        $tmpdir = $($env:Temp)
+    }
+    else {
+        #OS specific temp variable
+        if ( test-path env:TMPDIR ) {
+            $tmpdir = $env:TMPDIR
+        }
+        else { $tmpdir = "/tmp" }
+
+        #Disable progress dialogs from iwr
+        $PreviousProgPref = $ProgressPreference
+        $global:ProgressPreference = "SilentlyContinue"
     }
 
-    if ( $Branch -eq "Dev" ) {
-        write-warning "Updating to latest Dev branch commit.  Stability is not guaranteed."
+    if ( $Branch -eq "master" ) {
+        write-warning "Updating to latest $branch branch commit.  Stability is not guaranteed."
     }
 
     #Installer doesnt play nice in strict mode...
     set-strictmode -Off
+
     try {
-        $wc = new-object Net.WebClient
         $scr = try {
             $filename = split-path $PNsxUrl -leaf
-            $wc.Downloadfile($PNsxUrl, "$($env:Temp)\$filename")
+            invoke-webrequest -uri $PNsxUrl -outfile "$tmpdir\$filename"
         }
         catch {
+            #TODO: Confirm Proxy handling works with change to iwr.
             if ( $_.exception.innerexception -match "(407)") {
-                $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"
-                $wc.Downloadfile($PNsxUrl, "$($env:Temp)\$filename")
+                $ProxyCred = Get-Credential -Message "Proxy Authentication Required"
+                invoke-webrequest -uri $PNsxUrl -outfile "$tmpdir\$filename" -ProxyCredential $ProxyCred
             }
             else {
                 throw $_
             }
         }
-        invoke-expression "& `"$($env:Temp)\$filename`" -Upgrade"
+        invoke-expression "& `"$tmpdir\$filename`" -Upgrade -InstallType $InstallType"
     }
     catch {
         throw $_
     }
 
-    Remove-Module PowerNSX
-    Import-Module PowerNSX -global
+    ## Not reloading module now, too many issues unloading dependant modules exist to make this robust and clean on all platforms.
+    # Import-Module PowerNSX -global -force
+    write-host -ForegroundColor Magenta "PowerNSX has been updated.  Please restart PowerShell to use the updated version."
 
+    #Check to make sure we dont have mutiple installs....
+    if ( (get-module -ListAvailable PowerNSX | measure ).count -ne 1 ) {
+        write-warning "Mutiple PowerNSX installations found.  It is recommended to remove one of them or the universe may implode! (Or you may end up using an older version without realising, which is nearly as bad!)"
+        foreach ( $mod in (get-module -ListAvailable PowerNSX) ) {
+            write-warning "PowerNSX Install found in $($mod.path | split-path -parent )"
+        }
+    }
+    if ( $PreviousProgPref ) {
+        #reenable progress dialogs from iwr
+        $global:ProgressPreference = $PreviousProgPref
+    }
     set-strictmode -Version Latest
 }
 
@@ -5848,7 +5891,7 @@ function Get-NsxIpPool {
 
         $URI = "/api/2.0/services/ipam/pools/$ObjectId"
         $response = invoke-NsxWebRequest -method "get" -uri $URI -connection $connection
-        
+
         [system.xml.xmlDocument]$content = $response.content
         if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $content -Query 'child::ipamAddressPool'){
             $content.ipamAddressPool
