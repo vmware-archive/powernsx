@@ -3994,7 +3994,7 @@ function Update-PowerNsx {
     if ( (get-module -ListAvailable PowerNSX | measure ).count -ne 1 ) {
         write-warning "Mutiple PowerNSX installations found.  It is recommended to remove one of them or the universe may implode! (Or you may end up using an older version without realising, which is nearly as bad!)"
         foreach ( $mod in (get-module -ListAvailable PowerNSX) ) {
-            write-warning "PowerNSX Install found in $($mod.path)"
+            write-warning "PowerNSX Install found in $($mod.path | split-path -parent )"
         }
     }
     set-strictmode -Version Latest
