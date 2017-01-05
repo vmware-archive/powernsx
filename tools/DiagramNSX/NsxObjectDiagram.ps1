@@ -1,7 +1,7 @@
 #NSX Object Diagramming Script
 #Nick Bradford
 #nbradford@vmware.com
-#Version 0.1
+#Version 0.2
 
 
 #Copyright © 2015 VMware, Inc. All Rights Reserved.
