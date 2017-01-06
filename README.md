@@ -1,72 +1,68 @@
+# PowerNSX
 
-# PowerNSX #
+*A Powershell module for NSX for vSphere*
 
-## About ##
+**[Get the latest news from the team at the PowerNSX blog](https://powernsx.github.io/blog/)**
+
 PowerNSX is a PowerShell module that abstracts the VMware NSX API to a set of easily used PowerShell functions.
 
-This module is _not supported_ by VMware, and comes with no warranties express or implied.  Please test and validate its functionality before using in a production environment.
+This module is not supported by VMware, and comes with no warranties express or implied. Please test and validate its functionality before using this product in a production environment.
 
-It aims to focus on exposing New, Update, Remove and Get operations for all key NSX functions as well as adding additional functionality to extend the capabilities of NSX management beyond the native UI or API.  
+It aims to focus on exposing New, Update, Remove and Get operations for all key NSX functions as well as adding additional functionality to extend the capabilities of NSX management beyond the native UI or API.
 
-PowerNSX is still a work in progress, and it is unlikely that it will ever expose 100% of the NSX API. Feature requests are welcome via the issues tracker on the projects GitHub page.
+PowerNSX works closely with VMware PowerCLI, and PowerCLI users will feel quickly at home using PowerNSX.  Together these tools provide a comprehensive command line environment for managing your VMware NSX for vSphere environments.
 
-PowerNSX now has experimental PowerShell Core support available in the master (development) branch. Note that not all PowerNSX functions have been tested, and there are known issues (Remember, PowerShell Core and PowerCLI Core are both pre-release products as well.). See PowerNSX Core for details.
+PowerNSX is still a work in progress, and it is unlikely that it will ever expose 100% of the NSX API.  Feature requests are welcome via the [issues](https://github.com/vmware/powernsx/issues) tracker on the projects GitHub page.
 
-## Installing PowerNSX 
+PowerNSX now has experimental PowerShell Core support available in the master (development) branch.
+Note that not all PowerNSX functions have been tested, and there are known issues (Remember, PowerShell Core and PowerCLI Core are both pre-release products as well.).  See [PowerNSX Core](https://powernsx.github.io/powernsxcore/) for details.
 
-Installing PowerNSX is as simple as running the below onliner in a PowerCLI Window.  This will execute the PowerNSX installation script which will guide you through the installation of the latest stable release of PowerNSX.
+## Installing PowerNSX
+
+The quickest way of installing PowerNSX is as simple as running the oneliner below in a PowerShell Window. This will execute the PowerNSX installation script which will guide you through the installation of the latest stable release of PowerNSX.
 
 ```
 $Branch="v2";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { $wc = new-object Net.WebClient;$scr = try { $wc.DownloadString($url)} catch { if ( $_.exception.innerexception -match "(407)") { $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"; $wc.DownloadString($url) } else { throw $_ }}; $scr | iex } catch { throw $_ }
 ```
 
-The development version of PowerNSX can be installed using the Update-PowerNsx cmdlet of v2 or via the following oneliner.  
-_NOTE:  Live development occurs against this branch and should not be relied upon to be fully functional at all times.  You have been warned!_
-```
-Update-PowerNsx master
-```
-or 
-```
-$Branch="master";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { $wc = new-object Net.WebClient;$scr = try { $wc.DownloadString($url)} catch { if ( $_.exception.innerexception -match "(407)") { $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"; $wc.DownloadString($url) } else { throw $_ }}; $scr | iex } catch { throw $_ }
-```
+PowerNSX now has experimental PowerShell Core support available in the master (development) branch.
+Note that not all PowerNSX functions have been tested, and there are known issues (Remember, PowerShell Core and PowerCLI Core are both pre-release products as well.).  See the [PowerNSX Core](https://powernsx.github.io/powernsxcore/) section for details.
 
-The development version of PowerNSX can now be installed on PowerShell Core via the following oneliner.  
-_NOTE:  PowerShell Core support is still experimental._
-```
-$pp = $ProgressPreference;$global:ProgressPreference = "silentlycontinue"; $Branch="master";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { try { $response = Invoke-WebRequest -uri $url; $scr = $response.content } catch { if ( $_.exception.innerexception -match "(407)") { $credentials = Get-Credential -Message "Proxy Authentication Required"; $response = Invoke-WebRequest -uri $url -proxyCredential $credentials; $scr = $response.content } else { throw $_ }}; $scr | iex } catch { throw $_ };$global:ProgressPreference = $pp
-```
-
-See [Installing PowerNSX](https://github.com/vmware/powernsx/wiki/Installing-PowerNSX) for detailed Installation instructions.
+More install options for PowerNSX including Linux and OSX installation can be found here under [Installing PowerNSX](https://powernsx.github.io/install/)
 
 ## Using PowerNSX
 
-Refer to the project [website](https://powernsx.github.io/) for detailed PowerNSX usage information.
+For TLDR, basic and detailed PowerNSX usage, see the [Usage](https://powernsx.github.io/usage/) page.
 
-## Contribution guidelines ##
+## Contribution guidelines #
 
-Contribution and feature requests are more than welcome, please use the following methods:
+Contribution and feature requests are more than welcome. Please use the following methods:
 
-  * For bugs and issues, please use the issues register with details of the problem.
-  * For Feature Requests and bug reports, please use the issues register with details of what's required.
-  * For code contribution (bug fixes, or feature requests), please fork PowerNSX, create a feature branch to do your development, and submit a pull request when your work is complete.
- 
-## Who do I talk to? ##
+  * For bugs and [issues](https://github.com/vmware/powernsx/issues), please use the [issues](https://github.com/vmware/powernsx/issues) register with details of the problem.
+  * For Feature Requests, please use the [issues](https://github.com/vmware/powernsx/issues) register with details of what's required.
+  * For code contribution (bug fixes, or feature request), please request fork PowerNSX, create a feature branch, then submit a pull request.
 
-PowerNSX is a community based projected headed by some VMware staff. If you want to contribute please have a look at the issues page to see what is planned, requires triage, and to get started.
+For more details see [Contributing to PowerNSX](https://powernsx.github.io/contrib/)
 
-PowerNSX is an OpenSource project, and as such is not supported by VMware. Please feel free reach out to the team via the Issues page.
+## Who do I talk to?
+
+PowerNSX is a community based project headed by some VMware staff. If you want to contribute please have a look at the [issues](https://github.com/vmware/powernsx/issues) page to see what is planned, requires triage, and to get started.
+
+PowerNSX is an OpenSource project, and as such is not supported by VMware.  Please feel free reach out to the team via the [Issues](https://github.com/vmware/powernsx/issues) page.
+
+Find out more information about the author and the team [here](https://powernsx.github.io/about/)
 
 ## Blog
 
 Want to know what is new with PowerNSX? The team occasionally blogs [here](https://powernsx.github.io/blog/). Also, team member Anthony Burkes blog, where he posts a lot of useful usage information cant be found [here](http://networkinferno.net/tag/powernsx).
 
-## Support
+## Is PowerNSX supported?
 
-This module is opensource, and as such is _not supported by VMware_, and comes with no warranties express or implied. Please test and validate its functionality before using in a production environment.
+This module is opensource, and as such is _not supported_ by VMware, and comes with no warranties express or implied. Please test and validate its functionality before using in a production environment.
 
 Whist every endeavour is made to test functionality it is recommended that tools and scripts created with PowerNSX be validated and tested before using in production.
 
-## License ##
+## License
 
 PowerNSX is licensed under GPL v2
 
