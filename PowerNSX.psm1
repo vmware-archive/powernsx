@@ -303,7 +303,7 @@ function Invoke-XpathQuery {
     If ( $global:PNSXPsTarget -eq "Core") {
         #Use the XPath extensions class to perform the query
         switch ($QueryMethod) {
-        "SelectSingleNode" {
+            "SelectSingleNode" {
                 [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($node,$query)
             }
             "SelectNodes" {
