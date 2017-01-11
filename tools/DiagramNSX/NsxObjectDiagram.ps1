@@ -208,8 +208,16 @@ function add-visioobject{
 		if ( -not ($shape.CellExists($cell, $visExistsAnywhere ) -eq -1)) {
 			$newrow = $shape.AddNamedRow($visSectionProp,$cell, $visTagDefault )
 		}
-		$shape.Cells("Prop.$cell").Formula = [char]34 + $ShapeData.Item($cell) + [char]34
+		$value = $ShapeData.Item($cell)
 
+		if ( $value -match  "`"") {
+			#if config string contains double quotes (such as in a CN) then we have to swallow it...
+			Write-Warning "Removed `" characters from xmlconfig for object $item"
+
+			$value = $value -replace "`"", ""
+		}
+
+		$shape.Cells("Prop.$cell").Formula = [char]34 + $value + [char]34
 	}
 
 	#Return the visioobject to be used
