@@ -306,7 +306,14 @@ function Invoke-XpathQuery {
     }
     else {
         #Perform the query with the native methods on the node
-        $node.$QueryMethod($query)
+        switch ($QueryMethod) {
+            "SelectSingleNode" {
+                $node.SelectSingleNode($query)
+            }
+            "SelectNodes" {
+                $node.SelectNodes($query)
+            }
+        }
     }
 }
 
