@@ -7034,6 +7034,107 @@ function Remove-NsxTransportZone {
     end {}
 }
 
+function Add-NsxLicense {
+    <#
+    .SYNOPSIS
+    Adds the specified NSX license to vCenter
+
+    .DESCRIPTION
+    All 6.2.3 and higher deployments of NSX require a valid license in order
+    to prepare the infrasturucture for NSX.
+
+    The Add-NsxLicense cmdlet adds the license to the vCenter associated with
+    the specified (or default) NSX connection.
+
+    .EXAMPLE
+    Connect-NsxServer
+    Add-NsxLicense "aaaa-bbbb-cccc-dddd-eeee"
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [string]$LicenseKey,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+        If ( -not ( get-member -InputObject $Connection -MemberType Properties -Name VIConnection ) -or (-not ( $Connection.ViConnection.IsConnected)) ) {
+            throw "Specified connection has no associated vCenter server, or server is not connected."
+        }
+    }
+
+    process {
+        if ( $Connection.Version -gt 6.2.3) {
+            try {
+                $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
+                $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection
+                $LicenseAssignmentManager = Get-View $LicenseManager.licenseAssignmentManager -Server $connection.VIConnection
+                $LicenseAssignmentManager.UpdateAssignedLicense("nsx-netsec",$LicenseKey,$NULL)
+            }
+            catch {
+                throw "Unable to configure NSX license.  Check the license is valid and try again. $_"
+            }
+        }
+    }
+    end {}
+
+}
+
+function Get-NsxLicense {
+    <#
+    .SYNOPSIS
+    Retreives configured NSX license from vCenter
+
+    .DESCRIPTION
+    All 6.2.3 and higher deployments of NSX require a valid license in order
+    to prepare the infrasturucture for NSX.
+
+    The Get-NsxLicense cmdlet retreives existing licenses from the vCenter
+    associated with the specified (or default) NSX connection.
+
+    .EXAMPLE
+    Connect-NsxServer
+    Add-NsxLicense "aaaa-bbbb-cccc-dddd-eeee"
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        If ( -not ( get-member -InputObject $Connection -MemberType Properties -Name VIConnection ) -or (-not ( $Connection.ViConnection.IsConnected)) ) {
+            throw "Specified connection has no associated vCenter server, or server is not connected."
+        }
+    }
+
+    process {
+        if ( $Connection.Version -gt 6.2.3) {
+            try {
+                $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
+                $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection
+                $LicenseManager.Licenses | ? { $_.EditionKey -match 'nsx' }
+            }
+            catch {
+                throw "Unable to retreive NSX license. $_"
+            }
+        }
+    }
+    end {}
+
+}
+
 #########
 #########
 # L2 related functions
