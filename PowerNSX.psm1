@@ -3080,7 +3080,9 @@ function Invoke-InternalWebRequest {
                 $response.Dispose()
             }
             if ( test-path variable:content ) {
-                $content.dispose()
+                if ( $content -ne $null ) {
+                    $content.dispose()
+                }
             }
         }
     }
