@@ -3081,6 +3081,7 @@ function Invoke-InternalWebRequest {
             "ContentType" = $ContentType;
             "uri" = $Uri;
             "TimeoutSec" = $TimeoutSec;
+            "UseBasicParsing" = $True;
         }
 
         if ( $PsBoundParameters.ContainsKey('Body')) {
@@ -3241,7 +3242,8 @@ function Invoke-NsxRestMethod {
         "headers" = $headerDictionary;
         "ContentType" = "application/xml";
         "uri" = $FullURI;
-        "TimeoutSec" = $Timeout
+        "TimeoutSec" = $Timeout;
+        "UseBasicParsing" = $True
     }
     if ( $PsBoundParameters.ContainsKey('Body')) {
         # If there is a body specified, add it to the invoke-restmethod args...
