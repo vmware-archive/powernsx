@@ -3540,8 +3540,8 @@ function Invoke-NsxWebRequest {
         $PsCmdlet.ThrowTerminatingError($errorRecord)
     }
     catch {
-        #Not a webexception, log and throw the underlying ex string
-        $ErrorString = "$($MyInvocation.MyCommand.Name) : Exception occured calling invoke-restmethod. $($_.exception.tostring())"
+        #Not a webexception, log and throw the underlying ex string and trace
+        $ErrorString = "$($MyInvocation.MyCommand.Name) : An unknown exception occured calling invoke-internalwebrequest. $($_.exception.tostring()) `nStackTrace:`n$($_.ScriptStackTrace)"
         if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
             if ( $connection.DebugLogging ) {
                 "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
