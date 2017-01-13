@@ -165,7 +165,7 @@ Describe "Edge" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
             $rtg | New-NsxEdgePrefix -Name $PrefixName -Network $PrefixNetwork -confirm:$false
-            Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgePrefix -name $PrefixName | should not be $null
+            Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgePrefix -name $PrefixName | should not be $null
         }
 
         it "Can can remove a route prefix" {
@@ -209,8 +209,8 @@ Describe "Edge" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
             $rtg | New-NsxEdgePrefix -Name $ospfPrefixName -Network $PrefixNetwork -confirm:$false
-            Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgePrefix -name $ospfPrefixName | should not be $null
-            Get-NsxEdge | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName $ospfPrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
+            Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgePrefix -name $ospfPrefixName | should not be $null
+            Get-NsxEdge $Name | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName $ospfPrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
             $rule = Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner ospf  | ? { $_.prefixName -eq $ospfPrefixName }
             $rule.from.connected | should be "true"
             $rule.from.static | should be "true"
@@ -237,7 +237,7 @@ Describe "Edge" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
             $rtg | Get-NsxEdgeRedistributionRule -Learner ospf | Remove-NsxEdgeRedistributionRule -Confirm:$false
-            $rule = Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner ospf
+            $rule = Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner ospf
             $rule | should be $null
         }
 
@@ -275,9 +275,9 @@ Describe "Edge" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
             $rtg | New-NsxEdgePrefix -Name $bgpPrefixName -Network $PrefixNetwork -confirm:$false
-            Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgePrefix -name $bgpPrefixName | should not be $null
-            Get-NsxEdge | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName $bgpPrefixName -Learner bgp -FromConnected -FromStatic -FromOspf -Action permit -confirm:$false
-            $rule = Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner bgp
+            Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgePrefix -name $bgpPrefixName | should not be $null
+            Get-NsxEdge $Name | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName $bgpPrefixName -Learner bgp -FromConnected -FromStatic -FromOspf -Action permit -confirm:$false
+            $rule = Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner bgp
             $rule.from.connected | should be "true"
             $rule.from.static | should be "true"
             $rule.from.ospf | should be "true"
@@ -287,7 +287,7 @@ Describe "Edge" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
             $rtg | Get-NsxEdgeRedistributionRule -Learner bgp | Remove-NsxEdgeRedistributionRule -Confirm:$false
-            $rule = Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner bgp
+            $rule = Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner bgp
             $rule | should be $null
         }
 
@@ -295,7 +295,7 @@ Describe "Edge" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
             $rtg | Get-NsxEdgeRedistributionRule | Remove-NsxEdgeRedistributionRule -Confirm:$false
-            $rule = Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule
+            $rule = Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule
             $rule | should be $null
         }
 
