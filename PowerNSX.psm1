@@ -47,14 +47,14 @@ Function _init {
     #exported functions to workaround some limitations of core edition, so we export
     #the global PNSXPSTarget var to reference if required.
     if ( $PSVersionTable.PSVersion.Major -ge 5) {
-        $global:PNSXPSTarget = $PSVersionTable.PSEdition
+        $script:PNsxPSTarget = $PSVersionTable.PSEdition
     }
     else {
-        $global:PNSXPSTarget = "Desktop"
+        $script:PNsxPSTarget = "Desktop"
     }
 
     [System.Management.Automation.PSModuleInfo[]]$CurrentModules = Get-Module
-    if ( $global:PNSXPSTarget -eq "Core" ) {
+    if ( $script:PNsxPSTarget -eq "Core" ) {
         ##################WARNING############################
         $WarningString = @"
 ###################################WARNING######################################
@@ -119,7 +119,7 @@ https://github.com/vmware/powernsx/issues
 
     #Setup the PowerNSXConfiguration object.
     $global:PowerNSXConfiguration = @{}
-    if ( $global:PNSXPSTarget -eq "Desktop") {
+    if ( $script:PNsxPSTarget -eq "Desktop") {
         $global:PowerNSXConfiguration.Add("ProgressDialogs", $true)
     }
     else {
@@ -152,12 +152,12 @@ https://github.com/vmware/powernsx/issues
         }
 "@
 
-    if ( $global:PNSXPsTarget -eq "Desktop" ) {
+    if ( $script:PNsxPSTarget -eq "Desktop" ) {
         if ( -not ("TrustAllCertsPolicy" -as [type])) {
             add-type $TrustAllCertsPolicy
         }
     }
-    elseif ( $global:PNSXPsTarget -eq "Core") {
+    elseif ( $script:PNsxPSTarget -eq "Core") {
         if ( -not ("InternalHttpClientHandler" -as [type]) ) {
             add-type $InternalHttpClientHandler -ReferencedAssemblies System.Net.Http, System.Security.Cryptography.X509Certificates, System.Net.Primitives -WarningAction "SilentlyContinue"
         }
@@ -300,7 +300,7 @@ function Invoke-XpathQuery {
 
     )
 
-    If ( $global:PNSXPsTarget -eq "Core") {
+    If ( $script:PNsxPSTarget -eq "Core") {
         #Use the XPath extensions class to perform the query
         switch ($QueryMethod) {
             "SelectSingleNode" {
@@ -2960,7 +2960,7 @@ function Invoke-InternalWebRequest {
     }
 
     #For Core, we use the httpclient dotNet classes directly.
-    if ( $global:PNSXPSTarget -eq "Core" ) {
+    if ( $script:PNsxPSTarget -eq "Core" ) {
 
         $httpClientHandler = New-Object InternalHttpClientHandler($SkipCertificateCheck)
         $httpClient = New-Object System.Net.Http.Httpclient $httpClientHandler
@@ -3072,7 +3072,7 @@ function Invoke-InternalWebRequest {
         }
     }
 
-    elseif (  $global:PNSXPSTarget -eq "Desktop" ) {
+    elseif (  $script:PNsxPSTarget -eq "Desktop" ) {
         #For now, we continue to pass thru to the iwr cmdlet on desktop.  For now...
         #Use splatting to build up the IWR params
         $iwrSplat = @{
@@ -3178,7 +3178,7 @@ function Invoke-NsxRestMethod {
     Write-Debug "$($MyInvocation.MyCommand.Name) : ParameterSetName : $($pscmdlet.ParameterSetName)"
 
     #System.Net.ServicePointManager class does not exist on core.
-    if ( $global:PNSXPSTarget -eq "Desktop" ) {
+    if ( $script:PNsxPSTarget -eq "Desktop" ) {
         if (( -not $ValidateCertificate) -and ([System.Net.ServicePointManager]::CertificatePolicy.tostring() -eq 'System.Net.DefaultCertPolicy')) {
             #allow untrusted certificate presented by the remote system to be accepted
             [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
@@ -3249,7 +3249,7 @@ function Invoke-NsxRestMethod {
     }
 
     #Core (for now) uses a different mechanism to manipulating [System.Net.ServicePointManager]::CertificatePolicy
-    if ( ($global:PNSXPSTarget -eq 'Core') -and ( -not $ValidateCertificate )) {
+    if ( ($script:PNsxPSTarget -eq 'Core') -and ( -not $ValidateCertificate )) {
         $irmSplat.Add("SkipCertificateCheck", $true)
     }
 
@@ -3312,7 +3312,7 @@ function Invoke-NsxRestMethod {
         }
     }
 
-    if ( $global:PNSXPSTarget -eq "Desktop" ) {
+    if ( $script:PNsxPSTarget -eq "Desktop" ) {
         # Workaround for bug in invoke-restmethod where it doesnt complete the tcp session close to our server after certain calls.
         # We end up with connectionlimit number of tcp sessions in close_wait and future calls die with a timeout failure.
         # So, we are getting and killing active sessions after each call.  Not sure of performance impact as yet - to test
@@ -3941,7 +3941,7 @@ function Update-PowerNsx {
     $currentMod = Get-Module PowerNSX
     $CurrentModpath = split-path $currentMod.Path -parent
 
-    if ( $global:PNSXPsTarget -eq "Desktop") {
+    if ( $script:PNsxPSTarget -eq "Desktop") {
 
         ## Dont know why we are doing this here, given that we do it in the installer anyway...
 
