@@ -2950,14 +2950,20 @@ function Invoke-InternalWebRequest {
     )
 
     write-debug "$($MyInvocation.MyCommand.Name) : Method : $method, Content-Type : $ContentType, SkipCertificateCheck : $SkipcertificateCheck"
+
+
     #Validate method and body
     if ((($method -eq "get") -or ($method -eq "delete")) -and $PsBoundParameters.ContainsKey('body')) {
         throw "Cannot specify a body with a $method request."
     }
 
-    if ((($method -eq "put") -or ($method -eq "post")) -and (-not $PsBoundParameters.ContainsKey('body'))) {
-        throw "Cannot specify $method request without a body."
-    }
+    #At least one PowerNSX function (New-NsxSecurityTagAssignment) posts with no body.
+    #This check therefore is of course stupid - there is no need for body to be specified for a put/post.  The above (Get/Delete) though
+    #do not have overloads in the httpclient class that allows a body to be specced, hence the test remains for them...
+
+    # if ((($method -eq "put") -or ($method -eq "post")) -and (-not $PsBoundParameters.ContainsKey('body'))) {
+    #     throw "Cannot specify $method request without a body."
+    # }
 
     #For Core, we use the httpclient dotNet classes directly.
     if ( $script:PNsxPSTarget -eq "Core" ) {
@@ -2995,8 +3001,12 @@ function Invoke-InternalWebRequest {
                 }
                 "put" {
                     write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PutAsync"
-                    $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
-                    write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
+                    $content = $null
+                    if ( $PSBoundParameters.ContainsKey("Body")) {
+                        $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
+                        write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
+                    }
+
                     $task = $httpClient.PutAsync($Uri,$content)
                     if (!$task.result) {
                         throw $task.Exception
@@ -3005,8 +3015,11 @@ function Invoke-InternalWebRequest {
                 }
                 "post" {
                     write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PostAsync"
-                    $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
-                    write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
+                    $content = $null
+                    if ( $PSBoundParameters.ContainsKey("Body")) {
+                        $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
+                        write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
+                    }
                     $task = $httpClient.PostAsync($Uri,$content)
                     if (!$task.result) {
                         throw $task.Exception
@@ -3067,7 +3080,9 @@ function Invoke-InternalWebRequest {
                 $response.Dispose()
             }
             if ( test-path variable:content ) {
-                $content.dispose()
+                if ( $content -ne $null ) {
+                    $content.dispose()
+                }
             }
         }
     }
@@ -3527,8 +3542,8 @@ function Invoke-NsxWebRequest {
         $PsCmdlet.ThrowTerminatingError($errorRecord)
     }
     catch {
-        #Not a webexception, log and throw the underlying ex string
-        $ErrorString = "$($MyInvocation.MyCommand.Name) : Exception occured calling invoke-restmethod. $($_.exception.tostring())"
+        #Not a webexception, log and throw the underlying ex string and trace
+        $ErrorString = "$($MyInvocation.MyCommand.Name) : An unknown exception occured calling invoke-internalwebrequest. $($_.exception.tostring()) `nStackTrace:`n$($_.ScriptStackTrace)"
         if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
             if ( $connection.DebugLogging ) {
                 "$(Get-Date -format s)  REST Call to NSX Manager failed: $ErrorString" | out-file -Append -FilePath $Connection.DebugLogfile -Encoding utf8
