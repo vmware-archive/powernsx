@@ -20952,6 +20952,92 @@ function Add-NsxServiceGroupMember {
     end {}
 }
 
+function Get-NsxApplicableMember {
+
+    <#
+    .SYNOPSIS
+    Retrieves a list of applicable members for either Security Groups or Service
+    Groups
+
+    .DESCRIPTION
+    Security Groups and Service Groups can contain members of specific types.
+    Basic information about all valid (applicable) members can be retreived
+    using a simple API call which is typically much less expensive than the
+    alternative of retreiving the complete configuration from the API for a
+    specific type of object.
+
+    This cmdlet also exposes 'shortcut' functionality that lets you retreive
+    object name to objectId mapping of many object types in NSX that can improve
+    the performance of scripts in high scale environments.
+
+    Hat tip to Dale Coghlan (sneauku.com) for pointing out the usefulness of
+    this API in large scale environments.  See
+    http://www.sneaku.com/2016/07/13/how-to-find-object-ids-for-almost-everything/
+    for more information.
+
+    .EXAMPLE
+    Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine
+
+    Get the virtual machine applicable member list
+
+    .EXAMPLE
+    Get-NsxApplicableMember -ServiceGroupApplicableMembers
+
+    Get the applicable member list for ServiceGroup membership.
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
+    param (
+
+        [Parameter (Mandatory=$false)]
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$true, ParameterSetName="securitygroup" )]
+            [switch]$SecurityGroupApplicableMembers,
+        [Parameter (Mandatory=$true, ParameterSetName="applicationgroup" )]
+            [switch]$ServiceGroupApplicableMembers,
+        [Parameter (Mandatory=$true, ParameterSetName="securitygroup" )]
+            [ValidateSet("ClusterComputeResource", "VirtualWire", "VirtualMachine", "DirectoryGroup", "SecurityGroup", "VirtualApp", "ResourcePool", "DistributedVirtualPortgroup", "Datacenter", "Network", "Vnic", "SecurityTag", "MACSet", IgnoreCase=$false)]
+            [string]$MemberType,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin{
+
+    }
+    process{
+
+        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
+            $URI = "/api/2.0/services/securitygroup/scope/$scopeId/members/$MemberType"
+        }
+        else {
+            $URI = "/api/2.0/services/applicationgroup/scope/$scopeId/members/"
+        }
+        try {
+            $response = Invoke-NsxWebRequest -Uri $Uri -method Get -connection $connection
+        }
+        catch {
+            throw "Failed retreiving applicable members.  $_"
+        }
+        if ( $response | get-member -membertype Property -Name Content ) {
+            try {
+                [xml]$content = $response.Content
+                $content.list.basicInfo
+            }
+            catch {
+                throw "Content returned from NSX API could not be parsed as applicable member XML."
+            }
+        }
+        else {
+            throw "No Content returned from NSX API call."
+        }
+    }
+
+    end{}
+}
+
 #########
 #########
 # Firewall related functions
