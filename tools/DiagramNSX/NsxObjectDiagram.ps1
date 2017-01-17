@@ -33,6 +33,12 @@
 
 #v0.1 includes just topology diagramming in Visio, but additional functionality will follow.
 
+#TODO: Deal with relative paths in cap document
+#TODO: Specify output filename
+#TODO: start visio minimised (performance)
+
+
+
 Param (
 
 	[parameter ( Mandatory = $true, Position = 1 )]
