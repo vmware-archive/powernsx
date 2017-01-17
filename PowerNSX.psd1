@@ -316,7 +316,8 @@ FunctionsToExport = @(
     'Disconnect-NsxLogicalSwitch',
     'Get-NsxJobStatus',
     'Add-NsxLicense',
-    'Get-NsxLicense'
+    'Get-NsxLicense',
+    'Get-NsxApplicableMember'
 )
 
 # Cmdlets to export from this module
