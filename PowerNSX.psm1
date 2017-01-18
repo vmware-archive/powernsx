@@ -3258,7 +3258,8 @@ function Invoke-NsxRestMethod {
         "ContentType" = "application/xml";
         "uri" = $FullURI;
         "TimeoutSec" = $Timeout;
-        "UseBasicParsing" = $True
+        #Not supported on PowerShell 3
+        # "UseBasicParsing" = $True
     }
     if ( $PsBoundParameters.ContainsKey('Body')) {
         # If there is a body specified, add it to the invoke-restmethod args...
