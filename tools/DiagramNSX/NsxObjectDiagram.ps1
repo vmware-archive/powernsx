@@ -36,7 +36,7 @@
 #TODO: Deal with relative paths in cap document
 #TODO: Specify output filename
 #TODO: start visio minimised (performance)
-
+#TODO: implement object type specific explusion (and inclusion?) regex as per discussion with KO
 
 
 Param (
