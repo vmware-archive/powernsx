@@ -3257,7 +3257,7 @@ function Invoke-NsxRestMethod {
         "headers" = $headerDictionary;
         "ContentType" = "application/xml";
         "uri" = $FullURI;
-        "TimeoutSec" = $Timeout;
+        "TimeoutSec" = $Timeout
         #Not supported on PowerShell 3
         # "UseBasicParsing" = $True
     }
