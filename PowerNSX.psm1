@@ -20981,7 +20981,7 @@ function Get-NsxApplicableMember {
         [Parameter (Mandatory=$true, ParameterSetName="applicationgroup" )]
             [switch]$ServiceGroupApplicableMembers,
         [Parameter (Mandatory=$true, ParameterSetName="securitygroup" )]
-            [ValidateSet("ClusterComputeResource", "VirtualWire", "VirtualMachine", "DirectoryGroup", "SecurityGroup", "VirtualApp", "ResourcePool", "DistributedVirtualPortgroup", "Datacenter", "Network", "Vnic", "SecurityTag", "MACSet", IgnoreCase=$false)]
+            [ValidateSet("IPSet", "ClusterComputeResource", "VirtualWire", "VirtualMachine", "DirectoryGroup", "SecurityGroup", "VirtualApp", "ResourcePool", "DistributedVirtualPortgroup", "Datacenter", "Network", "Vnic", "SecurityTag", "MACSet", IgnoreCase=$false)]
             [string]$MemberType,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
