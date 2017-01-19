@@ -33,6 +33,27 @@ $ValidBranches = @("master","v2")
 $CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
 $DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
 
+$Script:AllValidServices = @("AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
+              "BPQ", "CUST", "DEC", "DIAG", "DNA_DL", "DNA_RC", "DNA_RT", "ESP",
+              "FR_ARP", "FTP", "GRE", "ICMP", "IEEE_802_1Q", "IGMP", "IPCOMP",
+              "IPV4", "IPV6", "IPV6FRAG", "IPV6ICMP", "IPV6NONXT", "IPV6OPTS",
+              "IPV6ROUTE", "IPX", "L2_OTHERS", "L2TP", "L3_OTHERS", "LAT", "LLC",
+              "LOOP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST",
+              "NBNS_BROADCAST", "NETBEUI", "ORACLE_TNS", "PPP", "PPP_DISC",
+              "PPP_SES", "RARP", "RAW_FR", "RSVP", "SCA", "SCTP", "SUN_RPC_TCP",
+               "SUN_RPC_UDP", "TCP", "UDP", "X25")
+
+$Script:AllServicesRequiringPort = @( "FTP", "L2_OTHERS", "L3_OTHERS",
+ "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS",
+  "SUN_RPC_TCP", "SUN_RPC_UDP", "TCP", "UDP" )
+
+$script:AllServicesNotRequiringPort = $Script:AllValidServices | ? { $AllServicesRequiringPort -notcontains $_ }
+
+$Script:AllValidIcmpTypes = @("echo-reply", "destination-unreachable",
+    "source-quench", "redirect", "echo-request", "time-exceeded",
+    "parameter-problem", "timestamp-request", "timestamp-reply",
+    "address-mask-request", "address-mask-reply"
+)
 
 set-strictmode -version Latest
 
@@ -20429,24 +20450,38 @@ function New-NsxService  {
             [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$true)]
-            [ValidateSet ("TCP","UDP",
-            "ORACLE_TNS","FTP","SUN_RPC_TCP",
-            "SUN_RPC_UDP","MS_RPC_TCP",
-            "MS_RPC_UDP","NBNS_BROADCAST",
-            "NBDG_BROADCAST")]
+            [ValidateSet ( "AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
+              "BPQ", "CUST", "DEC", "DIAG", "DNA_DL", "DNA_RC", "DNA_RT", "ESP",
+              "FR_ARP", "FTP", "GRE", "ICMP", "IEEE_802_1Q", "IGMP", "IPCOMP",
+              "IPV4", "IPV6", "IPV6FRAG", "IPV6ICMP", "IPV6NONXT", "IPV6OPTS",
+              "IPV6ROUTE", "IPX", "L2_OTHERS", "L2TP", "L3_OTHERS", "LAT", "LLC",
+              "LOOP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST",
+              "NBNS_BROADCAST", "NETBEUI", "ORACLE_TNS", "PPP", "PPP_DISC",
+              "PPP_SES", "RARP", "RAW_FR", "RSVP", "SCA", "SCTP", "SUN_RPC_TCP",
+               "SUN_RPC_UDP", "TCP", "UDP", "X25", IgnoreCase=$false )]
             [string]$Protocol,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$false)]
             [ValidateScript({
-                if ( ($Protocol -eq "TCP" ) -or ( $protocol -eq "UDP")) {
-                    if ( $_ -match "^[\d,-]+$" ) { $true } else { throw "TCP or UDP port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges." }
-                } else {
-                    #test we can cast to int
-                    if ( ($_ -as [int]) -and ( (1..65535) -contains $_) ) {
-                        $true
-                    } else {
-                        throw "Non TCP or UDP port numbers must be a single integer between 1-65535."
-                    }
+                if (( @("TCP", "UDP") -ccontains $protocol ) -and ( $_ -notmatch "^[\d,-]+$" )) {
+                    throw "TCP or UDP port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges."
                 }
+                elseif ( ( @("FTP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP")  -contains $Protocol ) -and (-not ( ($_ -as [int]) -and ( (1..65535) -contains $_ )))) {
+                    throw "Valid port numbers must be an integer between 1-65535."
+                }
+                elseif (( $protocol -eq "ICMP") -and ( $AllValidIcmpTypes -cnotcontains $_ )) {
+                    throw "Invalid ICMP protocol $_.  Specify one of $($AllValidIcmpTypes -join ", ")"
+                }
+                elseif (($protocol -eq "L2_OTHERS") -and ( $_ -notmatch "0x[0-9A-Fa-f]{4}" )) {
+                    throw "L2_OTHER protocoltype `'port`' must specify a valid ethertype in hex (eg. 0x0800)"
+                }
+                elseif (($protocol -eq "L3_OTHERS") -and ( (1..255) -notcontains $_ )) {
+                    throw "L3_OTHER protocoltype `'port`' must specify a valid IP protocol number in the range 1-255"
+                }
+                elseif ( ($protocol -ne "ICMP") -and ( $AllServicesNotRequiringPort -contains $Protocol )) {
+                    #Validation is only executed if user specified a value for port... ICMP is special in that you can, but dont have to specify a 'port'.
+                    throw "Specified protocol does not allow a port value to be specified."
+                }
+                $true
             })]
             [string]$port,
         [Parameter (Mandatory=$false)]
@@ -20457,7 +20492,13 @@ function New-NsxService  {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    begin {}
+    begin {
+
+        #Cant do this in Param validation due to fact that port must not be mandatory...
+        if (( $AllServicesRequiringPort -contains $protocol ) -and ( -not $PSBoundParameters.ContainsKey("Port")) ) {
+            throw "Specified protocol requires a port value to be specified."
+        }
+    }
     process {
 
         #Create the XMLRoot
@@ -20473,8 +20514,9 @@ function New-NsxService  {
         $xmlRoot.appendChild($xmlElement) | out-null
 
         Add-XmlElement -xmlRoot $xmlElement -xmlElementName "applicationProtocol" -xmlElementText $Protocol
-        Add-XmlElement -xmlRoot $xmlElement -xmlElementName "value" -xmlElementText $Port
-
+        if ( $PSBoundParameters.ContainsKey("Port")) {
+            Add-XmlElement -xmlRoot $xmlElement -xmlElementName "value" -xmlElementText $Port
+        }
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/application/$scopeId"
