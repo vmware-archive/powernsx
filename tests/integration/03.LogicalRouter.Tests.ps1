@@ -137,7 +137,7 @@ Describe "Logical Routing" {
             $rule | should be $null
         }
 
-        it "Can retreive an emty result set of redistribution rules" {
+        it "Can retreive an empty result set of redistribution rules" {
             Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule | Remove-NsxLogicalRouterRedistributionRule -Confirm:$false
             $rule = Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule
             $rule | should be $null

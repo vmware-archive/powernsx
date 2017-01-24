@@ -291,7 +291,7 @@ Describe "Edge" {
             $rule | should be $null
         }
 
-        it "Can retreive an emty result set of redistribution rules" {
+        it "Can retreive an empty result set of redistribution rules" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
             $rtg | Get-NsxEdgeRedistributionRule | Remove-NsxEdgeRedistributionRule -Confirm:$false
