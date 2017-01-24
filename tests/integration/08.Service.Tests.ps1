@@ -1,4 +1,4 @@
-#PowerNSX Test template.
+#PowerNSX Service Tests.
 #Nick Bradford : nbradford@vmware.com
 
 #Because PowerNSX is an API consumption tool, its test framework is limited to
@@ -76,6 +76,34 @@ Describe "Services" {
         disconnect-nsxserver
     }
 
+    Context "Service retrieval" {
+        BeforeAll {
+            $script:svcName = "$svcPrefix-get"
+            $svcDesc = "PowerNSX Pester Test get service"
+            $svcPort = 1234
+            $svcProto = "TCP"
+            $script:get = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort
+
+        }
+
+        it "Can retreive a service by name" {
+            {Get-NsxService -Name $svcName} | should not throw
+            $svc = Get-NsxService -Name $svcName
+            $svc | should not be $null
+            $svc.name | should be $svcName
+
+         }
+
+        it "Can retreive a service by id" {
+            {Get-NsxService -objectId $get.objectId } | should not throw
+            $svc = Get-NsxService -objectId $get.objectId
+            $svc | should not be $null
+            $svc.objectId | should be $get.objectId
+         }
+
+
+    }
+
     Context "Successful Service Creation" {
 
         AfterAll {
@@ -135,6 +163,28 @@ Describe "Services" {
 
             }
         }
+
+        it "Can create a service and return an objectId only" {
+            $svcName = "$svcPrefix-objonly-1234"
+            $svcDesc = "PowerNSX Pester Test objectidonly service"
+            $svcPort = 1234
+            $svcProto = "TCP"
+            $id = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -ReturnObjectIdOnly
+            $id | should BeOfType System.String
+            $id | should match "^application-\d*$"
+
+         }
+
+         it "Can create a service using a lowercase servicename" {
+            $svcName = "$svcPrefix-lowercase-1234"
+            $svcDesc = "PowerNSX Pester Test lowercase service"
+            $svcPort = 1234
+            $svcProto = "tcp"
+            $id = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -ReturnObjectIdOnly
+            $id | should BeOfType System.String
+            $id | should match "^application-\d*$"
+
+         }
     }
 
     Context "Unsuccessful Service Creation" {
@@ -193,17 +243,20 @@ Describe "Services" {
 
     Context "Service Deletion" {
 
-
-        it "Can delete a service by object" {
-
+        BeforeEach {
             $svcName = "$svcPrefix-delete"
             $svcDesc = "PowerNSX Pester Test delete service"
             $svcPort = 1234
             $svcProto = "TCP"
-            $delete = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort
+            $script:delete = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort
+
+        }
+
+        it "Can delete a service by object" {
 
             $delete | Remove-NsxService -confirm:$false
-            {Get-NsxService -objectId $svc.objectId} | should throw
+            {Get-NsxService -objectId $delete.objectId} | should throw
         }
+
     }
 }

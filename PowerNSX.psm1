@@ -19035,6 +19035,8 @@ function New-NsxSecurityGroup   {
             [object[]]$ExcludeMember,
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -19088,7 +19090,12 @@ function New-NsxSecurityGroup   {
         $URI = "/api/2.0/services/securitygroup/bulk/$scopeId"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxSecuritygroup -objectId $response.content -connection $connection
+        if ( $ReturnObjectIdOnly) {
+            $response.content
+        }
+        else {
+            Get-NsxSecuritygroup -objectId $response.content -connection $connection
+        }
     }
     end {}
 }
@@ -19923,6 +19930,8 @@ function New-NsxIpSet  {
             [string]$IPAddresses,
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -19948,7 +19957,12 @@ function New-NsxIpSet  {
         $URI = "/api/2.0/services/ipset/$scopeId"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxIPSet -objectid $response.content -connection $connection
+        if ( $ReturnObjectIdOnly) {
+            $response.content
+        }
+        else {
+            Get-NsxIPSet -objectid $response.content -connection $connection
+        }
     }
     end {}
 }
@@ -20458,17 +20472,17 @@ function New-NsxService  {
               "LOOP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST",
               "NBNS_BROADCAST", "NETBEUI", "ORACLE_TNS", "PPP", "PPP_DISC",
               "PPP_SES", "RARP", "RAW_FR", "RSVP", "SCA", "SCTP", "SUN_RPC_TCP",
-               "SUN_RPC_UDP", "TCP", "UDP", "X25", IgnoreCase=$false )]
+               "SUN_RPC_UDP", "TCP", "UDP", "X25" )]
             [string]$Protocol,
         [Parameter (Mandatory=$false)]
             [ValidateScript({
-                if (( @("TCP", "UDP") -ccontains $protocol ) -and ( $_ -notmatch "^[\d,-]+$" )) {
+                if (( @("TCP", "UDP") -contains $protocol ) -and ( $_ -notmatch "^[\d,-]+$" )) {
                     throw "TCP or UDP port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges."
                 }
                 elseif ( ( @("FTP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP")  -contains $Protocol ) -and (-not ( ($_ -as [int]) -and ( (1..65535) -contains $_ )))) {
                     throw "Valid port numbers must be an integer between 1-65535."
                 }
-                elseif (( $protocol -eq "ICMP") -and ( $AllValidIcmpTypes -cnotcontains $_ )) {
+                elseif (( $protocol -eq "ICMP") -and ( $AllValidIcmpTypes -notcontains $_ )) {
                     throw "Invalid ICMP protocol $_.  Specify one of $($AllValidIcmpTypes -join ", ")"
                 }
                 elseif (($protocol -eq "L2_OTHERS") -and ( $_ -notmatch "0x[0-9A-Fa-f]{4}" )) {
@@ -20486,6 +20500,8 @@ function New-NsxService  {
             [string]$port,
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -20513,7 +20529,7 @@ function New-NsxService  {
         [System.XML.XMLElement]$xmlElement = $XMLDoc.CreateElement("element")
         $xmlRoot.appendChild($xmlElement) | out-null
 
-        Add-XmlElement -xmlRoot $xmlElement -xmlElementName "applicationProtocol" -xmlElementText $Protocol
+        Add-XmlElement -xmlRoot $xmlElement -xmlElementName "applicationProtocol" -xmlElementText $Protocol.ToUpper()
         if ( $PSBoundParameters.ContainsKey("Port")) {
             Add-XmlElement -xmlRoot $xmlElement -xmlElementName "value" -xmlElementText $Port
         }
@@ -20522,7 +20538,12 @@ function New-NsxService  {
         $URI = "/api/2.0/services/application/$scopeId"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxService -objectId $response.content -connection $connection
+        if ( $ReturnObjectIdOnly) {
+            $response.content
+        }
+        else {
+            Get-NsxService -objectId $response.content -connection $connection
+        }
     }
     end {}
 }
@@ -20910,6 +20931,8 @@ function New-NsxServiceGroup {
         [Parameter (Mandatory=$false)]
             [ValidateNotNull()]
             [string]$Description = "",
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -20936,8 +20959,12 @@ function New-NsxServiceGroup {
         $uri = "/api/2.0/services/applicationgroup/globalroot-0"
         $response = invoke-nsxwebrequest -uri $uri -method $method -body $body -connection $connection
 
-        Get-NsxServiceGroup $Name
-
+        if ( $ReturnObjectIdOnly) {
+            $response.content
+        }
+        else {
+            Get-NsxServiceGroup -objectId $response.content -connection $connection
+        }
     }
 
     end {}
