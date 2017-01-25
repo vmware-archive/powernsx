@@ -1,37 +1,43 @@
 #NSX Object Diagramming Script
 #Nick Bradford
 #nbradford@vmware.com
-#Version 0.1
+#Version 0.2
 
 
 #Copyright © 2015 VMware, Inc. All Rights Reserved.
 
 #Permission is hereby granted, free of charge, to any person obtaining a copy of
-#this software and associated documentation files (the "Software"), to deal in 
-#the Software without restriction, including without limitation the rights to 
-#use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies 
-#of the Software, and to permit persons to whom the Software is furnished to do 
+#this software and associated documentation files (the "Software"), to deal in
+#the Software without restriction, including without limitation the rights to
+#use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies
+#of the Software, and to permit persons to whom the Software is furnished to do
 #so, subject to the following conditions:
 
-#The above copyright notice and this permission notice shall be included in all 
+#The above copyright notice and this permission notice shall be included in all
 #copies or substantial portions of the Software.
 
-#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR 
-#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, 
-#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE 
-#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER 
-#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, 
-#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE 
+#THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+#IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+#FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+#AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+#LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+#OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
 #SOFTWARE.
 
 #Requires -Version 3.0
 #Requires -Modules PowerNSX
 
 #This script is a sister script to NSXObjectCapture.ps1.  It reads the export
-#file created by NSXObjectCapture.ps1 and generates Topology and configuration 
+#file created by NSXObjectCapture.ps1 and generates Topology and configuration
 #Documentation.
 
 #v0.1 includes just topology diagramming in Visio, but additional functionality will follow.
+
+#TODO: Deal with relative paths in cap document
+#TODO: Specify output filename
+#TODO: start visio minimised (performance)
+#TODO: implement object type specific explusion (and inclusion?) regex as per discussion with KO
+
 
 Param (
 
@@ -41,40 +47,52 @@ Param (
 		[ValidateScript ({ if ( -not (test-path $_) ) { throw "OutputDir $_ does not exist." } else { $true } })]
 		[string]$OutputDir = $([system.Environment]::GetFolderPath('MyDocuments')),
 	[parameter ( Mandatory = $false )]
-		[switch]$IgnoreLinkLocal = $true
+		[switch]$IgnoreLinkLocal = $true,
+	[Parameter (Mandatory = $false )]
+		[switch]$IncludeVms = $true,
+	[Parameter (Mandatory = $false)]
+		[string]$TenantRegex,
+	[Parameter (Mandatory = $False)]
+		[switch]$EyeCandy = $false
 )
 
 
-Function Get-NicIpAddresses { 
+Function Get-NicIpAddresses {
 
 	param (
 		$MacAddress
 	)
 
 	$NicIpAddresses = ""
-	if ( $MacHash.ContainsKey($MacAddress) ) { 
+	if ( $MacHash.ContainsKey($MacAddress) ) {
 		if ( $IgnoreLinkLocal ) {
 			$NicIpAddresses = ($MacHash.Item($MacAddress).detectedipaddress.ipaddress | ? { $_ -notmatch "^fe80:" }) -join ", "
-		} 
+		}
 		else {
-			$NicIpAddresses = $MacHash.Item($MacAddress).detectedipaddress.ipaddress 
+			$NicIpAddresses = $MacHash.Item($MacAddress).detectedipaddress.ipaddress
 		}
 	}
 	$NicIpAddresses
 }
 
-Function VisConnectTo-LogicalSwitch { 
+Function VisConnectTo-LogicalSwitch {
 
 	param (
 
 		$LogicalSwitch,
 		$ConnectionText,
-		$VisioObj
+		$VisioObj,
+		[switch]$WarnOnNewPG
 
 	)
-	if ( -not $DrawnLogicalSwitchHash.contains($LogicalSwitch.ObjectId) ) { 
-		# Logical switch is not already on page... 
+	if ( -not $DrawnLogicalSwitchHash.contains($LogicalSwitch.ObjectId) ) {
+		# Logical switch is not already on page...
 
+		if ( $TenantRegex -and $WarnOnNewPG ) {
+			# If the Tenant Regex is set, we already expect to have switch or portgroup on the page (assuming the vm is connected to LS with a DLR or Edge on it.)
+			write-warning "Logical Switch $($LogicalSwitch.Name) does not exist on diagram and a TenantRegex is specified.  This implies that either the Logical Switch is isolated (no Edge/DLR), or it is connected to a LogicalRouter or Edge not matched by the TenantRegex."
+			write-warning "This may indicate a VM connected to two different Tenants logical infrastructure, or just that you need to modify your TenantRegex."
+		}
 		$VisioLs = add-visioobject $lsStencil $logicalswitch.Name @{
 			"ObjectId" = $LogicalSwitch.ObjectId;
 			"XmlConfig" = ($LogicalSwitch | format-xml);
@@ -94,12 +112,19 @@ Function VisConnectTo-VdPortGroup {
 	Param(
 		$VdPortGroup,
 		$ConnectionText,
-		$VisioObj
+		$VisioObj,
+		[switch]$WarnOnNewPG
 	)
 
 
-	if ( -not $DrawnVDPortGroupHash.ContainsKey($VdPortGroup.MoRef) ) { 
-		# PortGroup is not already on page... 
+	if ( -not $DrawnVDPortGroupHash.ContainsKey($VdPortGroup.MoRef) ) {
+		# PortGroup is not already on page...
+
+		if ( $TenantRegex -and $WarnOnNewPG ) {
+			# If the Tenant Regex is set, we already expect to have switch or portgroup on the page (assuming the vm is connected to LS with a DLR or Edge on it.)
+			write-warning "Distributed PortGroup $($VdPortGroup.Name) does not exist on diagram and a TenantRegex is specified.  This implies that either the Distributed PortGroup is isolated (no Edge/DLR), or it is connected to a LogicalRouter or Edge not matched by the TenantRegex."
+			write-warning "This may indicate a VM connected to two different Tenants logical infrastructure, or just that you need to modify your TenantRegex."
+		}
 
 		$VisioDvPg = add-visioobject $dvpgStencil $VdPortGroup.Name @{
 			"MoRef" = $VdPortGroup.MoRef;
@@ -116,12 +141,19 @@ Function VisConnectTo-StdPortGroup {
 	Param(
 		$StdPortGroup,
 		$ConnectionText,
-		$VisioObj
+		$VisioObj,
+		[switch]$WarnOnNewPG
 	)
 
 
-	if ( -not $DrawnStdPortGroupHash.ContainsKey($StdPortGroup.Name) ) { 
-		# PortGroup is not already on page... 
+	if ( -not $DrawnStdPortGroupHash.ContainsKey($StdPortGroup.Name) ) {
+		# PortGroup is not already on page...
+
+		if ( $TenantRegex -and $WarnOnNewPG ) {
+			# If the Tenant Regex is set, we already expect to have switch or portgroup on the page (assuming the vm is connected to LS with a DLR or Edge on it.)
+			write-warning "Standard PortGroup $($StdPortGroup.Name) does not exist on diagram and a TenantRegex is specified.  This implies that either the PortGroup is isolated (no Edge/DLR), or it is connected to a LogicalRouter or Edge not matched by the TenantRegex."
+			write-warning "This may indicate a VM connected to two different Tenants logical infrastructure, or just that you need to modify your TenantRegex."
+		}
 
 		$VisioStdPg = add-visioobject $stdpgStencil $StdPortGroup.Name @{
 			"VlanId" = $StdPortGroup.VlanId
@@ -133,28 +165,28 @@ Function VisConnectTo-StdPortGroup {
 }
 
 
-function connect-visioobject { 
+function connect-visioobject {
 	param (
-		[object]$firstObj, 
-		[object]$secondObj, 
+		[object]$firstObj,
+		[object]$secondObj,
 		[string]$text,
 		[System.Collections.Hashtable]$shapedata
 	)
-	
+
 	Write-Host "  Connecting $($FirstObj.Name) with $($SecondObj.Name) with text: $text"
 	$Connector = $FirstPage.Drop($FirstPage.Application.ConnectorToolDataObject, 0, 0)
-	
+
 	$Connector.Text = $text
 	#// Connect its Begin to the 'From' shape:
 	$connectBegin = $Connector.CellsU("BeginX").GlueTo($firstObj.CellsU("PinX"))
-	
+
 	#// Connect its End to the 'To' shape:
 	$connectEnd = $Connector.CellsU("EndX").GlueTo($secondObj.CellsU("PinX"))
 
 	#Set ShapeData if exists...
 	foreach ( $cell in $shapedata.keys ) {
 
-		if ( -not ($Connector.CellExists($cell, $visExistsAnywhere ) -eq -1)) { 
+		if ( -not ($Connector.CellExists($cell, $visExistsAnywhere ) -eq -1)) {
 			$newrow = $Connector.AddNamedRow($visSectionProp,$cell, $visTagDefault )
 		}
 		$Connector.Cells("Prop.$cell").Formula = [char]34 + $ShapeData.Item($cell) + [char]34
@@ -179,11 +211,19 @@ function add-visioobject{
 
 	foreach ( $cell in $shapedata.keys ) {
 
-		if ( -not ($shape.CellExists($cell, $visExistsAnywhere ) -eq -1)) { 
+		if ( -not ($shape.CellExists($cell, $visExistsAnywhere ) -eq -1)) {
 			$newrow = $shape.AddNamedRow($visSectionProp,$cell, $visTagDefault )
 		}
-		$shape.Cells("Prop.$cell").Formula = [char]34 + $ShapeData.Item($cell) + [char]34
+		$value = $ShapeData.Item($cell)
 
+		if ( $value -match  "`"") {
+			#if config string contains double quotes (such as in a CN) then we have to swallow it...
+			Write-Warning "Removed `" characters from xmlconfig for object $item"
+
+			$value = $value -replace "`"", ""
+		}
+
+		$shape.Cells("Prop.$cell").Formula = [char]34 + $value + [char]34
 	}
 
 	#Return the visioobject to be used
@@ -204,9 +244,9 @@ $TempDir = "$($env:Temp)\VMware\NSXObjectDiagram\$RelTempDir"
 
 if ( test-path $TempDir) { remove-item $TempDir -confirm:$false -recurse }
 
-try { 
+try {
 	Add-Type -assembly "system.io.compression.filesystem"
-	[io.compression.zipfile]::ExtractToDirectory($CaptureBundle, $TempDir) 
+	[io.compression.zipfile]::ExtractToDirectory($CaptureBundle, $TempDir)
 }
 catch {
 	Throw "Unable to extract capture bundle. $_"
@@ -221,7 +261,7 @@ $VmExportFile = "$TempDir\VmExport.xml"
 $CtrlExportFile = "$TempDir\CtrlExport.xml"
 $MacAddressExportFile = "$TempDir\MacExport.xml"
 
-try { 
+try {
 	$LsHash = Import-CliXml $LsExportFile
 	$VdPortGroupHash = Import-CliXml $VdPgExportFile
 	$StdPortGroupHash = Import-CliXml $StdPgExportFile
@@ -255,7 +295,7 @@ $DrawnLogicalRouterHash = @{}
 [int]$visSectionProp = 243
 [int]$visTagDefault = 0
 
-$OutputFile = join-path $OutputDir "$( [io.path]::GetFileNameWithoutExtension($CaptureBundle)).vsdx" 
+$OutputFile = join-path $OutputDir "$( [io.path]::GetFileNameWithoutExtension($CaptureBundle)).vsdx"
 $MyDir = split-path $myinvocation.MyCommand.Path
 $NSXShapeFile = "$MyDir\nsxdiagram.vssx"
 if ( -not (test-path $NSXShapeFile) ) { throw "Visio Shape file not found.  Ensure it exists in the same directory as this script." }
@@ -273,6 +313,13 @@ write-host -ForeGroundColor Green "`nLaunching Microsoft Visio."
 
 try {
 	$AppVisio = New-Object -ComObject Visio.Application
+
+	if ( -not $EyeCandy ) {
+		#Lets not draw all the stuff as its placed on the screen
+		$AppVisio.ScreenUpdating = $False
+		$AppVisio.EventsEnabled = $False
+	}
+
 	$Documents = $AppVisio.Documents
 	$Document = $Documents.Add("Basic Diagram.vst")
 
@@ -296,7 +343,7 @@ catch {
 	return
 }
 
-try { 
+try {
 	$lsStencil = $NSXStencil.Masters.Item("Logical Switch")
 	$vmStencil  = $NSXStencil.Masters.Item("VM Basic")
 	$esgStencil = $NSXStencil.Masters.Item("Edge")
@@ -312,11 +359,11 @@ catch {
 	return
 }
 
-try { 
+try {
 	#Set default shape layout style :
 	$FirstPage.PageSheet.Cells("PlaceStyle").ResultIU = $visLOPlaceRadial
 
-	#ConnectorStyle : 
+	#ConnectorStyle :
 	$FirstPage.PageSheet.Cells("RouteStyle").ResultIU = $visLORouteStraight
 
 	#And Spacing
@@ -336,108 +383,51 @@ write-host -ForeGroundColor Green "`nBuilding Diagram"
 [System.Xml.XmlDocument[]]$CtrlDoc = $CtrlHash.Values
 $Controllers = $CtrlDoc.controller
 
-#Add all vms.
-ForEach ( $vmid in $VmHash.Keys ){
 
-	$applianceIp = ""
-	if ( $vmhash.Item($vmid).IsLogicalRouter -or $vmhash.Item($vmid).IsEdge ) { 
-		#Get out, we dont want to diagram edge or DLR here....
-		Continue
-	}
-	elseif ( $vmhash.Item($vmid).IsManager ) { 
-		$VisioVm = Add-VisioObject $mgrStencil $vmhash.Item($vmid).Name @{ "MoRef" = $vmid }
-		if ( $IgnoreLinkLocal ) {
-			$ApplianceIp = $vmhash.Item($vmid).ToolsIp | ? { $_ -notmatch "^fe80:" } 
-		} 
-		else {
-			$ApplianceIp = $vmhash.Item($vmid).ToolsIp
-		}
-	}
-	elseif ( $vmhash.Item($vmid).IsController ) { 
-		$controller = $Controllers | ? {  $_.virtualMachineInfo.objectId -eq $vmid }
-		$VisioVm = Add-VisioObject $ctrlstencil $vmhash.Item($vmid).Name @{ "MoRef" = $vmid}
-		$ApplianceIp = $Controller.IpAddress
-
-	}
-	else {
-		$VisioVm = Add-VisioObject $vmStencil $vmhash.Item($vmid).Name @{ "MoRef" = $vmid }
-	}
-	$DrawnVmHash.add($vmid, $VisioVm)
-
-	#Connect VM to Network...
-	foreach ( $Nic in ($vmhash.Item($vmid).Nics) ) { 
-
-		$NicIpAddresses = Get-NicIpAddresses -MacAddress ($nic.MacAddress)
-		if ( $NicIpAddresses ) { 
-			$ConnIp = $NicIpAddresses 
-		} 
-		elseif ( $applianceIp ) {
-			$ConnIp = $ApplianceIp 
-		} 
-		else {
-			$ConnIp = "" 
-		}
-
-		#Try to get the LS Associated with the VMs attached PG.
-		$LogicalSwitch = $LogicalSwitches.VirtualWire | ? { $_.vdscontextwithbacking.backingValue -eq $Nic.Portgroup }
-		if ( $LogicalSwitch) { 
-			#Entity is connected to a Logical Switch
-			VisConnectTo-LogicalSwitch -LogicalSwitch $LogicalSwitch -ConnectionText $ConnIp -VisioObj $VisioVm
-		}
-		else {
-			if ( $VdPortGroupHash.ContainsKey($Nic.Portgroup) ) { 
-				#Entity is connected to a DV PortGroup	
-				$VdPortGroup = $VdPortGroupHash.Item($Nic.Portgroup)
-				VisConnectTo-VdPortGroup -VdPortGroup $VdPortGroup -ConnectionText $ConnIp -VisioObj $VisioVm
-			}
-			elseif ( $StdPortGroupHash.ContainsKey($Nic.Portgroup) ) {
-				$StdPortGroup = $StdPortGroupHash.Item($Nic.Portgroup)
-				VisConnectTo-StdPortGroup -StdPortGroup $StdPortGroup -ConnectionText $ConnIp -VisioObj $VisioVm
-			} 
-			else {
-				write-warning "No LS DV or Standard portgroup found for $($Nic.Portgroup)"
-			}
-		}
-	}
-}
 
 #Add all dlr.
 ForEach ($LrId in $LrHash.Keys){
 	[System.Xml.XmlDocument]$Doc = $LrHash.Item($LrId)
 	$logicalrouter = $Doc.edge
-	$VisioLr = add-visioobject $dlrStencil $LogicalRouter.Name @{
-		"ObjectId" = $LrId
-		"XmlConfig" = ($LogicalRouter.OuterXml);
-	}
-	$DrawnLogicalRouterHash.add($LrId, $VisioLr)
+	if ( ( -not $TenantRegex) -or ( $logicalrouter.Tenant -match $TenantRegex ) ) {
 
-	#Connect DLR to Network
-	foreach ( $Interface in ( $LogicalRouter.interfaces.interface | ? { $_.isConnected -eq 'true' } ) ) { 
-		
-		#get concat list of ip addresses
-		$IpAddresses = @()
-		$Interface.addressGroups.addressGroup | % {
-			$ipaddresses += $_.PrimaryAddress
-			$_.secondaryaddresses | % {
-				$ipaddresses += $_.ipaddress
+		$VisioLr = add-visioobject $dlrStencil $LogicalRouter.Name @{
+			"ObjectId" = $LrId
+			"XmlConfig" = ($LogicalRouter.OuterXml);
+		}
+		$DrawnLogicalRouterHash.add($LrId, $VisioLr)
+
+		#Connect DLR to Network
+		foreach ( $Interface in ( $LogicalRouter.interfaces.interface | ? { $_.isConnected -eq 'true' } ) ) {
+
+			#get concat list of ip addresses
+			$IpAddresses = @()
+			$Interface.addressGroups.addressGroup | % {
+				$ipaddresses += $_.PrimaryAddress
+				$_.secondaryaddresses | % {
+					$ipaddresses += $_.ipaddress
+				}
 			}
-		}
-		#Check if its VLAN backed (PG) or Logical Switch (virtualwire)
-		If ( $Interface.connectedToId -match 'virtualwire') { 
-			
-			[System.Xml.XmlDocument]$LogicalSwitch = $LsHash.item($Interface.connectedToId)	
-			VisConnectTo-LogicalSwitch -LogicalSwitch $LogicalSwitch.virtualWire -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioLr
-		}
-		else { 
-			$VdPortGroup = $VdPortGroupHash.Item($Interface.connectedToId)
-			if ( $VdPortGroup ) { 
-				#Entity is connected to a DV PortGroup
-				VisConnectTo-VdPortGroup -VdPortGroup $VdPortGroupHash.Item($Interface.connectedToId) -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioLr
+			#Check if its VLAN backed (PG) or Logical Switch (virtualwire)
+			If ( $Interface.connectedToId -match 'virtualwire') {
+
+				[System.Xml.XmlDocument]$LogicalSwitch = $LsHash.item($Interface.connectedToId)
+				VisConnectTo-LogicalSwitch -LogicalSwitch $LogicalSwitch.virtualWire -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioLr
 			}
 			else {
-				write-warning "No LS or DV portgroup found for $($Interface.connectedToId)"
+				$VdPortGroup = $VdPortGroupHash.Item($Interface.connectedToId)
+				if ( $VdPortGroup ) {
+					#Entity is connected to a DV PortGroup
+					VisConnectTo-VdPortGroup -VdPortGroup $VdPortGroupHash.Item($Interface.connectedToId) -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioLr
+				}
+				else {
+					write-warning "No LS or DV portgroup found for $($Interface.connectedToId)"
+				}
 			}
 		}
+	}
+	else {
+		write-host -ForegroundColor DarkGray "Skipping DLR $($logicalrouter.Name) with tenant property $($logicalrouter.Tenant)"
 	}
 }
 
@@ -446,49 +436,153 @@ ForEach ($LrId in $LrHash.Keys){
 ForEach ($EdgeId in $EdgeHash.Keys){
 	[System.Xml.XmlDocument]$Doc = $EdgeHash.Item($EdgeId)
 	$Edge = $Doc.Edge
-	$VisioEdge = add-visioobject $esgStencil $Edge.Name @{
-		"ObjectId" = $EdgeId
-		"XmlConfig" = ($Edge.OuterXml);
-	}
-	$DrawnEdgeHash.add($EdgeId, $VisioEdge)
+	if ( (-not $TenantRegex) -or ( $Edge.Tenant -match $TenantRegex ) ) {
 
-	#Connect edge to Network
-	foreach ( $Interface in ( $Edge.vnics.vnic | ? { $_.isConnected -eq 'true' } ) ) { 
-		
-		#get concat list of ip addresses
-		$IpAddresses = @()
-		$Interface.addressGroups.addressGroup | % {
-			$ipaddresses += $_.PrimaryAddress
-			$_.secondaryaddresses | % {
-				$ipaddresses += $_.ipaddress
+		$VisioEdge = add-visioobject $esgStencil $Edge.Name @{
+			"ObjectId" = $EdgeId
+			"XmlConfig" = ($Edge.OuterXml);
+		}
+		$DrawnEdgeHash.add($EdgeId, $VisioEdge)
+
+		#Connect edge to Network
+		foreach ( $Interface in ( $Edge.vnics.vnic | ? { $_.isConnected -eq 'true' } ) ) {
+
+			#get concat list of ip addresses
+			$IpAddresses = @()
+			$Interface.addressGroups.addressGroup | % {
+				$ipaddresses += $_.PrimaryAddress
+				$_.secondaryaddresses | % {
+					$ipaddresses += $_.ipaddress
+				}
 			}
-		}
 
-		#Check if its VLAN backed (PG) or Logical Switch (virtualwire)
-		If ( $Interface.portgroupId -match 'virtualwire') { 
-			
-			[System.Xml.XmlDocument]$LogicalSwitch = $LsHash.item($Interface.portgroupId)				
-			VisConnectTo-LogicalSwitch -LogicalSwitch $LogicalSwitch.virtualWire -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioEdge
-		}
-		else { 
-			$VdPortGroup = $VdPortGroupHash.Item($Interface.portgroupId)
-			if ( $VdPortGroup ) { 
-				#Entity is connected to a DV PortGroup
-				VisConnectTo-VdPortGroup -VdPortGroup $VdPortGroupHash.Item($Interface.portgroupId) -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioEdge
+			#Check if its VLAN backed (PG) or Logical Switch (virtualwire)
+			If ( $Interface.portgroupId -match 'virtualwire') {
+
+				[System.Xml.XmlDocument]$LogicalSwitch = $LsHash.item($Interface.portgroupId)
+				VisConnectTo-LogicalSwitch -LogicalSwitch $LogicalSwitch.virtualWire -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioEdge
 			}
 			else {
-				write-warning "No LS or DV portgroup found for $($Interface.portgroupId)"
+				$VdPortGroup = $VdPortGroupHash.Item($Interface.portgroupId)
+				if ( $VdPortGroup ) {
+					#Entity is connected to a DV PortGroup
+					VisConnectTo-VdPortGroup -VdPortGroup $VdPortGroupHash.Item($Interface.portgroupId) -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioEdge
+				}
+				else {
+					write-warning "No LS or DV portgroup found for $($Interface.portgroupId)"
+				}
 			}
+		}
+	}
+	else {
+		write-host -ForegroundColor DarkGray "Skipping Edge $($Edge.Name) with tenant property $($edge.Tenant)"
+	}
+}
+
+#Add vms.
+if ( $IncludeVms ) {
+	ForEach ( $vmid in $VmHash.Keys ){
+
+		if ( $TenantRegex ) {
+			$TenantVM = $False
+			foreach ( $Nic in ($vmhash.Item($vmid).Nics) ) {
+				#We are doing this if the user has specified TenantRegex, to ensure that the VM is attached to a portgroup or LS already drawn on the page.  Otherwise, we skip it.
+				$LS = $LogicalSwitches.VirtualWire | ? { $_.vdscontextwithbacking.backingValue -eq $Nic.Portgroup }
+				if ( $LS ) {
+					#Entity is connected to a Logical Switch.
+					if ( $DrawnLogicalSwitchHash.ContainsKey($LS.objectId)) {
+						#Entity is connected to a drawn Logical Switch
+						$TenantVM = $true
+						Break
+					}
+				}
+				#check VDPortGroup and StdPg separately.
+				if ( $DrawnVDPortGroupHash.ContainsKey($nic.PortGroup) -or $DrawnStdPortGroupHash.ContainsKey($nic.PortGroup) ) {
+					#Entity is connected to a drawn Portgroup
+					$TenantVM = $true
+					Break
+				}
+			}
+		}
+
+		if ( (-not $TenantRegex) -or ( $TenantVM )) {
+			#Only add the VM if there is not tenant filter, or if the VM has been found to have a NIC on an already drawn LS or PG.
+			$applianceIp = ""
+			if ( $vmhash.Item($vmid).IsLogicalRouter -or $vmhash.Item($vmid).IsEdge ) {
+				#Get out, we dont want to diagram edge or DLR here....
+				Continue
+			}
+			elseif ( $vmhash.Item($vmid).IsManager ) {
+				$VisioVm = Add-VisioObject $mgrStencil $vmhash.Item($vmid).Name @{ "MoRef" = $vmid }
+				if ( $IgnoreLinkLocal ) {
+					$ApplianceIp = $vmhash.Item($vmid).ToolsIp | ? { $_ -notmatch "^fe80:" }
+				}
+				else {
+					$ApplianceIp = $vmhash.Item($vmid).ToolsIp
+				}
+			}
+			elseif ( $vmhash.Item($vmid).IsController ) {
+				$controller = $Controllers | ? {  $_.virtualMachineInfo.objectId -eq $vmid }
+				$VisioVm = Add-VisioObject $ctrlstencil $vmhash.Item($vmid).Name @{ "MoRef" = $vmid}
+				$ApplianceIp = $Controller.IpAddress
+
+			}
+			else {
+				$VisioVm = Add-VisioObject $vmStencil $vmhash.Item($vmid).Name @{ "MoRef" = $vmid }
+			}
+			$DrawnVmHash.add($vmid, $VisioVm)
+
+			#Connect VM to Network...
+			foreach ( $Nic in ($vmhash.Item($vmid).Nics) ) {
+
+				$NicIpAddresses = Get-NicIpAddresses -MacAddress ($nic.MacAddress)
+				if ( $NicIpAddresses ) {
+					$ConnIp = $NicIpAddresses
+				}
+				elseif ( $applianceIp ) {
+					$ConnIp = $ApplianceIp
+				}
+				else {
+					$ConnIp = ""
+				}
+
+				#Try to get the LS Associated with the VMs attached PG.
+				$LS = $LogicalSwitches.VirtualWire | ? { $_.vdscontextwithbacking.backingValue -eq $Nic.Portgroup }
+				if ( $LS) {
+					#Entity is connected to a Logical Switch
+					VisConnectTo-LogicalSwitch -LogicalSwitch $LS -ConnectionText $ConnIp -VisioObj $VisioVm -WarnOnNewPG
+				}
+				else {
+					if ( $VdPortGroupHash.ContainsKey($Nic.Portgroup) ) {
+						#Entity is connected to a DV PortGroup
+						$VdPortGroup = $VdPortGroupHash.Item($Nic.Portgroup)
+						VisConnectTo-VdPortGroup -VdPortGroup $VdPortGroup -ConnectionText $ConnIp -VisioObj $VisioVm -WarnOnNewPG
+					}
+					elseif ( $StdPortGroupHash.ContainsKey($Nic.Portgroup) ) {
+						$StdPortGroup = $StdPortGroupHash.Item($Nic.Portgroup)
+						VisConnectTo-StdPortGroup -StdPortGroup $StdPortGroup -ConnectionText $ConnIp -VisioObj $VisioVm -WarnOnNewPG
+					}
+					else {
+						write-warning "No LS DV or Standard portgroup found for $($Nic.Portgroup)"
+					}
+				}
+			}
+		}
+		else {
+			write-host -ForegroundColor DarkGray "Skipping VM $($vmhash.Item($vmid).Name) as it has no NICs connected to already drawn Logical Switches or Port Groups."
+
 		}
 	}
 }
+
+
 
 # Final Layout and Resize to fit page
 $FirstPage.Layout()
 $FirstPage.ResizeToFitContents()
 
 # Save the diagram
-try { 
+try {
 	$Document.SaveAs("$OutputFile") | out-null
 	write-host -ForeGroundColor Green "`nSaved diagram at $OutputFile"
 }
