@@ -9942,7 +9942,7 @@ function Clear-NsxEdgeInterface {
 
         if ( $confirm ) {
 
-            $message  = "Interface ($Interface.Name) config will be cleared."
+            $message  = "Interface $($Interface.Name) config will be cleared."
             $question = "Proceed with interface reconfiguration for interface $($interface.index)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
