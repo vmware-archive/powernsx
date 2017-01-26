@@ -5815,6 +5815,16 @@ function New-NsxIpPool {
 
     The New-NsxIpPool cmdlet creates a new IP Pool on the connected NSX manager.
 
+    .EXAMPLE
+    New-NsxIpPool -name Controller_Pool -Gateway "192.168.103.1" 
+    -SubnetPrefixLength "24" -DnsServer1 "192.168.100.4" -DnsSuffix "lab.local"
+    -StartAddress "192.168.103.101" -EndAddress "192.168.103.115"
+
+    This example creates a pool called Controller_Pool. It uses the IP range
+    192.168.103.101-115, has a defined gateway of 192.168.103.1 and has DNS
+    settings configured.
+
+
     #>
 
 
@@ -5920,8 +5930,15 @@ function Get-NsxIpPool {
     address asignment for multiple NSX technologies including VTEP interfaces
     NSX Controllers.
 
+    .EXAMPLE
+    This example retrieves all NSX IP Pools
 
-    The Get-IpPool cmdlet retreives an NSX IP Pools
+    Get-NsxIpPool
+
+    .EXAMPLE
+    This example retrieves an NSX IP Pool by name
+
+    Get-NsxIpPool -name Controller_Pool
 
     #>
 
@@ -20226,6 +20243,16 @@ function Get-NsxMacSet {
 
     This cmdlet returns MAC Set objects.
 
+    .EXAMPLE
+    Retrieves all NSX MAC Sets
+
+    Get-NsxMacSet
+
+    .EXAMPLE
+    Retrieves NSX MAC Set by name
+
+    Get-NsxMacSet TEST_MAC_SET
+
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
@@ -20317,6 +20344,11 @@ function New-NsxMacSet  {
     separated by commas
     Mac address: (eg, 00:00:00:00:00:00)
 
+    .EXAMPLE
+    Creates a MAC Set with the MAC address BEEF:CAFE:DEAD
+
+    PS /Users/Anthony> new-nsxmacset -name MAC_SET_TEST -Description "A sample MAC"
+     -MacAddresses "BE:EF:CA:FE:DE:AD"
 
     #>
 
@@ -20381,7 +20413,13 @@ function Remove-NsxMacSet {
     but be aware that the firewall rulebase will become invalid and will need
     to be corrected before publish operations will succeed again.
 
+    .EXAMPLE
 
+    This will remove a MAC Set by name.
+
+    Get-NsxMacSet MAC_SET_TEST | Remove-NsxMacSet
+
+    -confirm:$false can be used to avoid being prompted.
     #>
 
     param (
