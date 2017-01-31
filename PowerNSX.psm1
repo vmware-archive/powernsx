@@ -2110,50 +2110,40 @@ Function Validate-SecurityGroupMember {
         [object]$argument
     )
 
-    #Check types first - This is not 100% complete at this point!
-    if (-not (
-         ($argument -is [System.Xml.XmlElement]) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.DatacenterInterop] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.VirtualPortGroupBaseInterop] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop] ) -or
-         ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ))) {
+    #Populate the global membertype cache if not already done
+    #Using the API rather than hardcoding incase this changes with versions of NSX
+    if ( -not (test-path Variable:\NsxMemberTypes) ) {
+        $global:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
+    }
 
-            throw "Member is not a supported type.  Specify a Datacenter, Cluster, `
-            DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-            IPSet, SecurityGroup, SecurityTag or Logical Switch object."
+    #check if we are valid type
+    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+        $true
+    }
+    elseif ( ($argument -is [string]) -and ( $NsxMemberTypes -contains ($argument -replace "-\d+$"))) {
+        $true
+    }
+    elseif (($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $argument.ExtensionData.MoRef.Type)) {
+        $true
+    }
+    elseif ($argument -is [System.Xml.XmlElement]) {
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) {
+            throw "Member is not a supported type.  Specify an object of type $($NsxMemberTypes -join ",")."
+        }
+        if ( -not ( $argument | get-member -name objectTypeName -Membertype Properties)) {
+            throw "Member is not a supported type.  Specify an object of type $($NsxMemberTypes -join ",")."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) {
+            throw "Member is not a supported type.  Specify an object of type $($NsxMemberTypes -join ",")."
+        }
+        if ( $NsxMemberTypes -notcontains $argument.objectTypeName) {
+            throw "Member is not a supported type.  Specify an object of type $($NsxMemberTypes -join ",")."
+        }
+        $true
     }
     else {
-
-        #Check if we have an ID property
-        if ($argument -is [System.Xml.XmlElement] ) {
-            if ( -not ( $argument | get-member -name objectId -Membertype Properties)) {
-                throw "XML Element specified does not contain an objectId property."
-            }
-            if ( -not ( $argument | get-member -name objectTypeName -Membertype Properties)) {
-                throw "XML Element specified does not contain a type property."
-            }
-            if ( -not ( $argument | get-member -name name -Membertype Properties)) {
-                throw "XML Element specified does not contain a name property."
-            }
-
-            switch ($argument.objectTypeName) {
-
-                "IPSet"{}
-                "MacSet"{}
-                "SecurityGroup" {}
-                "VirtualWire" {}
-                "SecurityTag" {}
-                default {
-                    throw "Member is not a supported type.  Specify a Datacenter, Cluster, `
-                         DistributedPortGroup, PortGroup, ResourcePool, VirtualMachine, NetworkAdapter, `
-                         IPSet, MacSet, SecurityGroup, SecurityTag or Logical Switch object."
-                }
-            }
-        }
+        throw "Member is not a supported type.  Specify an object of type $($NsxMemberTypes -join ",")."
     }
-    $true
 }
 
 Function Validate-FirewallRuleSourceDest {
@@ -19190,6 +19180,65 @@ function Remove-NsxSecurityGroup {
     end {}
 }
 
+function Get-NsxSecurityGroupMemberTypes {
+
+    <#
+    .SYNOPSIS
+    Retrieves all potential NSX Security Group Member Types
+
+    .DESCRIPTION
+    An NSX Security Group is a grouping construct that provides a powerful
+    grouping function that can be used in DFW Firewall Rules and the NSX
+    Service Composer.
+
+    This cmdlet queries the NSX API to determine all the applicable member types
+    that can be added to a Security Group.
+
+    .EXAMPLE
+    Get-NsxSecurityGroupMemberTypes
+
+    IPSet
+    ClusterComputeResource
+    VirtualMachine
+    VirtualWire
+    SecurityGroup
+    DirectoryGroup
+    VirtualApp
+    ResourcePool
+    DistributedVirtualPortgroup
+    Datacenter
+    Network
+    Vnic
+    SecurityTag
+    MACSet
+
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$false)]
+            #Scopeid - default globalroot-0
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process {
+
+        $URI = "/api/2.0/services/securitygroup/scope/$scopeId/memberTypes"
+        $response = Invoke-NsxWebRequest -method "get" -uri $URI -connection $connection
+        [xml]$Members = $response.Content
+        $members.list.objecttype.typeName
+    }
+
+    end {}
+}
 
 function Add-NsxSecurityGroupMember {
 
@@ -19218,7 +19267,7 @@ function Add-NsxSecurityGroupMember {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateNotNullOrEmpty()]
-            [System.Xml.XmlElement]$SecurityGroup,
+            [object]$SecurityGroup,
         [Parameter (Mandatory=$False)]
             [switch]$FailIfExists=$false,
         [Parameter (Mandatory=$true)]
@@ -19232,27 +19281,55 @@ function Add-NsxSecurityGroupMember {
     )
 
     begin {
+
+        #Populate the global membertype cache if not already done
+        #Using the API rather than hardcoding incase this changes with versions of NSX
+        if ( -not (test-path Variable:\NsxMemberTypes) ) {
+            $global:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
+        }
     }
 
     process {
 
+        #Get our SG id...
+        if ( $SecurityGroup -is [System.Xml.XmlElement] ) {
+            $SecurityGroupId = $securityGroup.objectId
+        }
+        elseif ( ($securityGroup -is [string]) -and ($SecurityGroup -match "securitygroup-\d+")) {
+            $SecurityGroupId = $securityGroup
+        }
+        else {
+            throw "Invalid SecurityGroup specified.  Specify a PowerNSX SecurityGroup object or a valid securitygroup objectid."
+        }
+
         if ( $PsBoundParameters.ContainsKey('Member') ) {
             foreach ( $_Member in $Member) {
 
-                #This is probably not safe - need to review all possible input types to confirm.
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
-                } else {
+                }
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                    $MemberMoref = $_Member
+
+                }
+                elseif (( $_Member -is [string]) -and ( $NsxMemberTypes -contains ($_Member -replace "-\d+$") ) ) {
+                    $MemberMoref = $_Member
+                }
+                elseif (( $_Member -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $_Member.ExtensionData.MoRef.Type)) {
                     $MemberMoref = $_Member.ExtensionData.MoRef.Value
                 }
+                else {
+                    #Not throwing here, user can continue with invalid member?
+                    throw "Invalid member specified $($_Member)"
+                }
 
-                $URI = "/api/2.0/services/securitygroup/$($securityGroup.objectId)/members/$($MemberMoref)?failIfExists=$($FailIfExists.ToString().ToLower())"
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Adding member $MemberMoref to Security Group $($securityGroup.objectId)" }
+                $URI = "/api/2.0/services/securitygroup/$SecurityGroupId/members/$($MemberMoref)?failIfExists=$($FailIfExists.ToString().ToLower())"
+                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Adding member $MemberMoref to Security Group $SecurityGroupId" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Adding member $MemberMoref to Security Group $($securityGroup.objectId)" -completed }
+                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Adding member $MemberMoref to Security Group $SecurityGroupId" -completed }
             }
         }
-        Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
+        #Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
     }
 
     end {}
