@@ -476,19 +476,33 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an VNIC member by object" {
+        it "Can add a VNIC member by object" {
+            $vmUuid = ($MemberVnic1.parent | get-view).config.instanceuuid
+            $VnicId = "$vmUuid.$($MemberVnic1.id.substring($MemberVnic1.id.length-3))"
+
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVnic1
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
             $get.description | should be $secGrp.description
 
             $get.member | should beoftype System.xml.xmlelement
-            $get.member.name | should be $MemberVnicName1
-            $get.member.objectId | should be $MemberVnic1.ExtensionData.MoRef.Value
+            $get.member.objectId | should be $VnicId
 
         }
 
-        it "Can add a VNIC member by id" {}
+        it "Can add a VNIC member by id" {
+
+            $vmUuid = ($MemberVnic1.parent | get-view).config.instanceuuid
+            $VnicId = "$vmUuid.$($MemberVnic1.id.substring($MemberVnic1.id.length-3))"
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $VnicId
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            $get.member | should beoftype System.xml.xmlelement
+            $get.member.objectId | should be $VnicId
+
+        }
 
         it "Can add an SecurityTag member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1

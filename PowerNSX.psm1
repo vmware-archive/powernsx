@@ -2118,12 +2118,23 @@ Function Validate-SecurityGroupMember {
 
     #check if we are valid type
     if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+        #argument is moref string and refers to vm, resource pool or dvportgroup.
         $true
     }
     elseif ( ($argument -is [string]) -and ( $NsxMemberTypes -contains ($argument -replace "-\d+$"))) {
+        #Argument is objectid and matches a recognised NSX SG membertype
+        $true
+    }
+    elseif ( ($argument -is [string] ) -and ( [guid]::tryparse(($argument -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
+        #Argument is vNIC as object ID.
+        $true
+    }
+    elseif ( $argument -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+        #Argument is a NIC object.
         $true
     }
     elseif (($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $argument.ExtensionData.MoRef.Type)) {
+        #Argument is a VI ob ject and matches a recognised NSX SG member type
         $true
     }
     elseif ($argument -is [System.Xml.XmlElement]) {
@@ -19180,6 +19191,7 @@ function Remove-NsxSecurityGroup {
     end {}
 }
 
+
 function Get-NsxSecurityGroupMemberTypes {
 
     <#
@@ -19240,6 +19252,7 @@ function Get-NsxSecurityGroupMemberTypes {
     end {}
 }
 
+
 function Add-NsxSecurityGroupMember {
 
     <#
@@ -19291,12 +19304,14 @@ function Add-NsxSecurityGroupMember {
 
     process {
 
-        #Get our SG id...
+        #Get our internal SG object and id.  The internal obejct is used to modify and put for bulk update.
         if ( $SecurityGroup -is [System.Xml.XmlElement] ) {
             $SecurityGroupId = $securityGroup.objectId
+            $_SecurityGroup = $SecurityGroup.cloneNode($true)
         }
         elseif ( ($securityGroup -is [string]) -and ($SecurityGroup -match "securitygroup-\d+")) {
             $SecurityGroupId = $securityGroup
+            $_SecurityGroup = Get-NsxSecurityGroup -objectId $SecurityGroupId -connection $connection
         }
         else {
             throw "Invalid SecurityGroup specified.  Specify a PowerNSX SecurityGroup object or a valid securitygroup objectid."
@@ -19310,24 +19325,45 @@ function Add-NsxSecurityGroupMember {
                 }
                 elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
                     $MemberMoref = $_Member
-
+                }
+                elseif ( ($_Member -is [string] ) -and ( [guid]::tryparse(($_Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
+                    $MemberMoref = $_Member
                 }
                 elseif (( $_Member -is [string]) -and ( $NsxMemberTypes -contains ($_Member -replace "-\d+$") ) ) {
                     $MemberMoref = $_Member
+                }
+                elseif ( $_Member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+                    #See NSX API guide 'Attach or Detach a Virtual Machine from a Logical Switch' for
+                    #how to construct NIC id.
+                    $vmUuid = ($_Member.parent | get-view).config.instanceuuid
+                    $MemberMoref = "$vmUuid.$($_Member.id.substring($_Member.id.length-3))"
+
                 }
                 elseif (( $_Member -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $_Member.ExtensionData.MoRef.Type)) {
                     $MemberMoref = $_Member.ExtensionData.MoRef.Value
                 }
                 else {
-                    #Not throwing here, user can continue with invalid member?
                     throw "Invalid member specified $($_Member)"
                 }
 
-                $URI = "/api/2.0/services/securitygroup/$SecurityGroupId/members/$($MemberMoref)?failIfExists=$($FailIfExists.ToString().ToLower())"
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Adding member $MemberMoref to Security Group $SecurityGroupId" }
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Adding member $MemberMoref to Security Group $SecurityGroupId" -completed }
+                if ( $FailIfExists) {
+                    #Need to check before adding the member, because we are now using bulk update, the API doesnt support detecting duplicates.
+                    #To support the prior functionality of FailIfExists, we have to check ourselves...
+                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -query "child::member[objectId=`"$MemberMoref`"]" ) {
+                        throw "Member $($_Member.Name) ($MemberMoref) is already a member of the specified SecurityGroup."
+                    }
+                }
+
+                #Create a new member node
+                $null = $memberxml = $_SecurityGroup.OwnerDocument.CreateElement("member")
+                $null = $_SecurityGroup.AppendChild($memberxml)
+                Add-XmlElement -xmlRoot $memberxml -xmlElementName "objectId" -xmlElementText $MemberMoref
+
             }
+            $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
+            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating membership of Security Group $SecurityGroupId" }
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
+            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed }
         }
         #Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
     }
@@ -19358,12 +19394,11 @@ function Remove-NsxSecurityGroupMember {
 
     #>
 
-
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateNotNullOrEmpty()]
-            [System.Xml.XmlElement]$SecurityGroup,
+            [object]$SecurityGroup,
         [Parameter (Mandatory=$False)]
             [switch]$FailIfAbsent=$true,
         [Parameter (Mandatory=$true)]
@@ -19377,29 +19412,80 @@ function Remove-NsxSecurityGroupMember {
     )
 
     begin {
+
+        #Populate the global membertype cache if not already done
+        #Using the API rather than hardcoding incase this changes with versions of NSX
+        if ( -not (test-path Variable:\NsxMemberTypes) ) {
+            $global:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
+        }
     }
 
     process {
 
+        #Get our internal SG object and id.  The internal obejct is used to modify and put for bulk update.
+        if ( $SecurityGroup -is [System.Xml.XmlElement] ) {
+            $SecurityGroupId = $securityGroup.objectId
+            $_SecurityGroup = $SecurityGroup.cloneNode($true)
+        }
+        elseif ( ($securityGroup -is [string]) -and ($SecurityGroup -match "securitygroup-\d+")) {
+            $SecurityGroupId = $securityGroup
+            $_SecurityGroup = Get-NsxSecurityGroup -objectId $SecurityGroupId -connection $connection
+        }
+        else {
+            throw "Invalid SecurityGroup specified.  Specify a PowerNSX SecurityGroup object or a valid securitygroup objectid."
+        }
+
         if ( $PsBoundParameters.ContainsKey('Member') ) {
             foreach ( $_Member in $Member) {
 
-                #This is probably not safe - need to review all possible input types to confirm.
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
-                } else {
+                }
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                    $MemberMoref = $_Member
+
+                }
+                elseif ( ($_Member -is [string] ) -and ( [guid]::tryparse(($_Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
+                    $MemberMoref = $_Member
+                }
+                elseif (( $_Member -is [string]) -and ( $NsxMemberTypes -contains ($_Member -replace "-\d+$") ) ) {
+                    $MemberMoref = $_Member
+                }
+                elseif ( $_Member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+                    #See NSX API guide 'Attach or Detach a Virtual Machine from a Logical Switch' for
+                    #how to construct NIC id.
+                    $vmUuid = ($_Member.parent | get-view).config.instanceuuid
+                    $MemberMoref = "$vmUuid.$($_Member.id.substring($_Member.id.length-3))"
+
+                }
+                elseif (( $_Member -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $_Member.ExtensionData.MoRef.Type)) {
                     $MemberMoref = $_Member.ExtensionData.MoRef.Value
                 }
+                else {
+                    throw "Invalid member specified $($_Member)"
+                }
 
-                $URI = "/api/2.0/services/securitygroup/$($securityGroup.objectId)/members/$($MemberMoref)?failIfAbsent=$($FailIfAbsent.ToString().ToLower())"
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting member $MemberMoref from Security Group $($securityGroup.objectId)" }
-                $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Deleting member $MemberMoref from Security Group $($securityGroup.objectId)" -completed }
+                if ( $FailIfAbsent) {
+                    #Need to check before removing the member, because we are now using bulk update, the API doesnt do this for us.
+                    #To support the prior functionality of failIfAbsent, we have to check ourselves...
+
+                    $existingMember = (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -query "child::member[objectId=`"$MemberMoref`"]" )
+
+                    if ( $existingMember -eq $null ) {
+                        throw "Member $($_Member.Name) ($MemberMoref) is not a member of the specified SecurityGroup."
+                    }
+                    else {
+                        $null = $_SecurityGroup.Removechild($existingMember)
+                    }
+                }
             }
+            $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
+            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating membership of Security Group $SecurityGroupId" }
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
+            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed }
         }
-        Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
+        #Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
     }
-
     end {}
 }
 
