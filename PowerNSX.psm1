@@ -25549,7 +25549,7 @@ function Copy-NsxEdge{
 
             if ( @($UserFwRules).count -ne 0 ) {
                 #If there are userrules to process
-                $UserFWXml = $UserFWRules[0].OwnerDocument.CreateElement("firewallRules")
+                $UserFWXml = @($UserFWRules)[0].OwnerDocument.CreateElement("firewallRules")
 
                 foreach ( $rule in $UserFWRules ) {
                     #For each rule - perform any local object updates required, then append it to the new edge fw rules...
