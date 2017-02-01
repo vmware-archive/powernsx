@@ -317,7 +317,8 @@ FunctionsToExport = @(
     'Get-NsxJobStatus',
     'Add-NsxLicense',
     'Get-NsxLicense',
-    'Get-NsxApplicableMember'
+    'Get-NsxApplicableMember',
+    'Get-NsxSecurityGroupMemberTypes'
 )
 
 # Cmdlets to export from this module
