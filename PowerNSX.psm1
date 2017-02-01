@@ -20212,6 +20212,76 @@ function Remove-NsxIpSet {
 }
 
 
+function Remove-NsxIpPool {
+
+    <#
+    .SYNOPSIS
+    Removes the specified NSX IPPool.
+
+    .DESCRIPTION
+    An IP Pool is a simple IPAM construct in NSX that simplifies automated IP
+    address asignment for multiple NSX technologies including VTEP interfaces
+    NSX Controllers.
+
+    This cmdlet removes the specified IP Pool. If the object 
+    is currently in use the api will return an error.
+
+    .EXAMPLE
+    PS C:\> Get-NsxIPPool TestIPPool | Remove-NsxIPPool
+
+    #>
+ 
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$IPPool,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+
+    )
+    
+    begin {
+
+    }
+
+    process {
+
+        if ($ippool.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) {
+            write-warning "Not removing $($Ippool.Name) as it is set as read-only." 
+        }
+        else { 
+            if ( $confirm ) { 
+                $message  = "IPPool removal is permanent."
+                $question = "Proceed with removal of IP Pool $($IPPool.Name)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 } 
+            if ($decision -eq 0) {
+                $URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=false"
+                
+                Write-Progress -activity "Remove IP Pool $($IPPool.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove IP Pool $($IPPool.Name)" -completed
+            }
+        }
+    }
+
+    end {}
+}
+
+
 function Get-NsxMacSet {
 
     <#
