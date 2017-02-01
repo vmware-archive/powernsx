@@ -139,12 +139,12 @@ https://github.com/vmware/powernsx/issues
     }
 
     #Setup the PowerNSXConfiguration object.
-    $global:PowerNSXConfiguration = @{}
+    $script:PowerNSXConfiguration = @{}
     if ( $script:PNsxPSTarget -eq "Desktop") {
-        $global:PowerNSXConfiguration.Add("ProgressDialogs", $true)
+        $script:PowerNSXConfiguration.Add("ProgressDialogs", $true)
     }
     else {
-        $global:PowerNSXConfiguration.Add("ProgressDialogs", $false)
+        $script:PowerNSXConfiguration.Add("ProgressDialogs", $false)
     }
 
 
@@ -2113,7 +2113,7 @@ Function Validate-SecurityGroupMember {
     #Populate the global membertype cache if not already done
     #Using the API rather than hardcoding incase this changes with versions of NSX
     if ( -not (test-path Variable:\NsxMemberTypes) ) {
-        $global:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
+        $script:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
     }
 
     #check if we are valid type
@@ -4551,9 +4551,9 @@ function Set-NsxHostUvsmLogging {
         # #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/1.0/usvmlogging/$($VMhost.Extensiondata.Moref.Value)/changelevel"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating log level on host $($VMhost.Name)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating log level on host $($VMhost.Name)" }
         invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection| out-null
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Updating log level on host $($VMhost.Name)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating log level on host $($VMhost.Name)" -completed }
 
     }
     end {}
@@ -4767,14 +4767,14 @@ function New-NsxManager{
         $OvfConfiguration.common.vsm_isSSHEnabled.value    = $EnableSsh
 
         # Deploy the OVA.
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Deploying NSX Manager OVA" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Deploying NSX Manager OVA" }
         $VM = Import-vApp -Source $NsxManagerOvf -OvfConfiguration $OvfConfiguration -Name $Name -Location $ClusterName -VMHost $TargetVMHost -Datastore $DatastoreName
 
         If ( $PSBoundParameters.ContainsKey('FolderName')) {
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Moving NSX Manager VM to folder: $folderName" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Moving NSX Manager VM to folder: $folderName" }
             $VM | Move-VM -Location $FolderName
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Moving NSX Manager VM to folder: $folderName" -Completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Moving NSX Manager VM to folder: $folderName" -Completed }
 
         } # end if
 
@@ -4792,13 +4792,13 @@ function New-NsxManager{
 
         } # end if
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Deploying NSX Manager OVA" -Completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Deploying NSX Manager OVA" -Completed }
 
         if ( $StartVM )  {
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Starting NSX Manager" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Starting NSX Manager" }
             $VM | Start-VM
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Starting NSX Manager" -Completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Starting NSX Manager" -Completed }
 
         } # end if
 
@@ -4807,7 +4807,7 @@ function New-NsxManager{
             # User wants to wait for Manager API to start.
             $waitStep = 30
             $Timer = 0
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100) }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100) }
 
             do {
 
@@ -4832,7 +4832,7 @@ function New-NsxManager{
 
                 } catch {
 
-                    if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100) }
+                    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Waiting for NSX Manager api to become available" -PercentComplete $(($Timer/$WaitTimeout)*100) }
 
                 } # end try/catch
 
@@ -4861,7 +4861,7 @@ function New-NsxManager{
 
             } while ( $true )
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Waiting for NSX Manager api to become available" -Completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Waiting for NSX Manager api to become available" -Completed }
 
         } # end if $PSBoundParameters.ContainsKey('Wait')
 
@@ -5707,9 +5707,9 @@ function New-NsxController {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Deploying NSX Controller" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Deploying NSX Controller" }
             $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Deploying NSX Controller" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deploying NSX Controller" -completed }
             $Controller = Get-NsxController -connection $connection | Sort-Object -Property id | Select-Object -last 1
 
             if ( $Wait ) {
@@ -5721,7 +5721,7 @@ function New-NsxController {
                 while ( $Controller.status -ne 'RUNNING' ) {
 
                     #Loop while the controller is deploying (not RUNNING)
-                    if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) " }
+                    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) " }
                     start-sleep $WaitStep
                     $Timer += $WaitStep
 
@@ -5744,7 +5744,7 @@ function New-NsxController {
 
                     $Controller = Get-Nsxcontroller -connection $connection -objectId ($controller.id)
                 }
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
             }
             $controller
         }
@@ -5898,9 +5898,9 @@ function New-NsxIpPool {
         # #Do the post
         $body = $xmlPool.OuterXml
         $URI = "/api/2.0/services/ipam/pools/scope/globalroot-0"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating IP Pool." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating IP Pool." }
         $response = invoke-NsxWebRequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Creating IP Pool." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Creating IP Pool." -completed }
 
         Get-NsxIpPool -objectId $response.content -connection $connection
 
@@ -6099,9 +6099,9 @@ function New-NsxVdsContext {
         # #Do the post
         $body = $xmlContext.OuterXml
         $URI = "/api/2.0/nwfabric/configure"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Configuring VDS context on VDS $($VirtualDistributedSwitch.Name)." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Configuring VDS context on VDS $($VirtualDistributedSwitch.Name)." }
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Configuring VDS context on VDS $($VirtualDistributedSwitch.Name)." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Configuring VDS context on VDS $($VirtualDistributedSwitch.Name)." -completed }
 
         Get-NsxVdsContext -objectId $VirtualDistributedSwitch.Extensiondata.Moref.Value -connection $connection
 
@@ -6161,9 +6161,9 @@ function Remove-NsxVdsContext {
         else { $decision = 0 }
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/switches/$($VdsContext.Switch.ObjectId)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Vds Context for Vds $($VdsContext.Switch.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Vds Context for Vds $($VdsContext.Switch.Name)" }
             $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Vds Context for Vds $($VdsContext.Switch.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Vds Context for Vds $($VdsContext.Switch.Name)" -completed }
 
         }
     }
@@ -6263,7 +6263,7 @@ function New-NsxClusterVxlanConfig {
         Add-XmlElement -xmlRoot $xmlSwitch -xmlElementName "objectId" -xmlElementText $VirtualDistributedSwitch.Extensiondata.Moref.Value.ToString()
         Add-XmlElement -xmlRoot $xmlResourceConfig -xmlElementName "resourceId" -xmlElementText $Cluster.Extensiondata.Moref.Value.ToString()
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Configuring VXLAN on cluster $($Cluster.Name)." -status "In Progress..." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Configuring VXLAN on cluster $($Cluster.Name)." -status "In Progress..." }
 
         # #Do the post
         $body = $xmlContext.OuterXml
@@ -6295,16 +6295,16 @@ function New-NsxClusterVxlanConfig {
 
             #Check Status
             if ( $hostprep -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status }
 
             if ( $fw -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status }
 
             if ( $messagingInfra -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status }
 
             if ( $VxlanConfig -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -status $status }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -status $status }
 
             if ($Timer -ge $VxlanPrepTimeout) {
 
@@ -6323,11 +6323,11 @@ function New-NsxClusterVxlanConfig {
             }
         }
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed }
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed }
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed }
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed }
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Configuring VXLAN on cluster $($Cluster.Name)." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Configuring VXLAN on cluster $($Cluster.Name)." -completed }
         $cluster | get-NsxClusterStatus -connection $connection
 
     }
@@ -6383,7 +6383,7 @@ function Install-NsxCluster {
 
         Add-XmlElement -xmlRoot $xmlResourceConfig -xmlElementName "resourceId" -xmlElementText $Cluster.Extensiondata.Moref.Value.ToString()
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Preparing cluster $($Cluster.Name)." -status "In Progress..." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Preparing cluster $($Cluster.Name)." -status "In Progress..." }
 
         # #Do the post
         $body = $xmlContext.OuterXml
@@ -6412,13 +6412,13 @@ function Install-NsxCluster {
 
             #Check Status
             if ( $hostprep -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status }
 
             if ( $fw -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status }
 
             if ( $messagingInfra -eq 'GREEN' ) { $status = "Complete"} else { $status = "Waiting" }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status }
 
             if ($Timer -ge $VxlanPrepTimeout) {
                 $message  = "Cluster $($cluster.name) preparation has not completed within the timeout period."
@@ -6435,10 +6435,10 @@ function Install-NsxCluster {
                 $Timer = 0            }
         }
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed }
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed }
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed }
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Preparing cluster $($Cluster.Name)." -status "In Progress..." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Preparing cluster $($Cluster.Name)." -status "In Progress..." -completed }
         $cluster | get-NsxClusterStatus -connection $connection
     }
 
@@ -6518,7 +6518,7 @@ function Remove-NsxCluster {
 
             #Now we actually do the unprep...
             ##############
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Unpreparing cluster $($Cluster.Name)." -status "In Progress..." }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Unpreparing cluster $($Cluster.Name)." -status "In Progress..." }
 
             # #Do the post
             $body = $xmlContext.OuterXml
@@ -6547,13 +6547,13 @@ function Remove-NsxCluster {
 
                 #Check Status
                 if ( $hostprep -eq 'UNKNOWN' ) { $status = "Complete"} else { $status = "Waiting" }
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -status $status }
 
                 if ( $fw -eq 'UNKNOWN' ) { $status = "Complete"} else { $status = "Waiting" }
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -status $status }
 
                 if ( $messagingInfra -eq 'UNKNOWN' ) { $status = "Complete"} else { $status = "Waiting" }
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -status $status }
 
                 if ($Timer -ge $VxlanPrepTimeout) {
 
@@ -6573,10 +6573,10 @@ function Remove-NsxCluster {
                     $Timer = 0            }
             }
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Unpreparing cluster $($Cluster.Name)." -status "In Progress..." -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 3 -activity "Firewall Install Status: $fw" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 4 -activity "Messaging Infra Status: $messagingInfra" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Unpreparing cluster $($Cluster.Name)." -status "In Progress..." -completed }
             $cluster | get-NsxClusterStatus -connection $connection
         }
     }
@@ -6652,7 +6652,7 @@ function Remove-NsxClusterVxlanConfig {
         else { $decision = 0 }
         if ($decision -eq 0) {
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Unconfiguring VXLAN on $($Cluster.Name)." -status "In Progress..." }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Unconfiguring VXLAN on $($Cluster.Name)." -status "In Progress..." }
 
             # #Do the post
             $body = $xmlContext.OuterXml
@@ -6675,7 +6675,7 @@ function Remove-NsxClusterVxlanConfig {
 
                 #Check Status
                 if ( $VxlanConfig -eq 'UNKNOWN' ) { $status = "Complete"} else { $status = "Waiting" }
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -status $status }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -status $status }
 
                 if ($Timer -ge $VxlanPrepTimeout) {
                     $message  = "Cluster $($cluster.name) VXLAN unconfiguration has not completed within the timeout period."
@@ -6693,8 +6693,8 @@ function Remove-NsxClusterVxlanConfig {
                 }
             }
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed }
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Unconfiguring VXLAN on $($Cluster.Name)." -status "In Progress..." -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -id 1 -activity "Unconfiguring VXLAN on $($Cluster.Name)." -status "In Progress..." -completed }
             $cluster | get-NsxClusterStatus -connection $connection | ? { $_.featureId -eq "com.vmware.vshield.vsm.vxlan" }
         }
     }
@@ -6761,9 +6761,9 @@ function New-NsxSegmentIdRange {
         # #Do the post
         $body = $xmlRange.OuterXml
         $URI = "/api/2.0/vdn/config/segments"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Segment Id Range" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Segment Id Range" }
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Creating Segment Id Range" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Creating Segment Id Range" -completed }
 
         Get-NsxSegmentIdRange -objectId $response.segmentRange.id -connection $connection
 
@@ -6870,9 +6870,9 @@ function Remove-NsxSegmentIdRange {
         else { $decision = 0 }
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/config/segments/$($SegmentIdRange.Id)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Segment Id Range $($SegmentIdRange.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Segment Id Range $($SegmentIdRange.Name)" }
             $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Segment Id Range $($SegmentIdRange.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Segment Id Range $($SegmentIdRange.Name)" -completed }
 
         }
     }
@@ -7013,9 +7013,9 @@ function New-NsxTransportZone {
         # #Do the post
         $body = $xmlScope.OuterXml
         $URI = "/api/2.0/vdn/scopes?isUniversal=$($Universal.ToString().ToLower())"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Transport Zone." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Transport Zone." }
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Creating Transport Zone." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Creating Transport Zone." -completed }
 
         Get-NsxTransportZone -objectId $response -connection $connection
 
@@ -7078,9 +7078,9 @@ function Remove-NsxTransportZone {
         else { $decision = 0 }
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Transport Zone $($TransportZone.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Transport Zone $($TransportZone.Name)" }
             $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Transport Zone $($TransportZone.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Transport Zone $($TransportZone.Name)" -completed }
 
         }
     }
@@ -7459,9 +7459,9 @@ function Remove-NsxLogicalSwitch {
         else { $decision = 0 }
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/virtualwires/$($virtualWire.ObjectId)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Logical Switch $($virtualWire.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Logical Switch $($virtualWire.Name)" }
             $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Logical Switch $($virtualWire.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Logical Switch $($virtualWire.Name)" -completed }
 
         }
     }
@@ -7530,9 +7530,9 @@ function Connect-NsxLogicalSwitch {
             #Do the post
             $body = $xmlroot.OuterXml
             $URI = "/api/2.0/vdn/virtualwires/vm/vnic"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Connecting $vnicuuid to logical switch $($LogicalSwitch.objectId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Connecting $vnicuuid to logical switch $($LogicalSwitch.objectId)" }
             $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Connecting $vnicuuid to logical switch $($LogicalSwitch.objectId)" -Completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Connecting $vnicuuid to logical switch $($LogicalSwitch.objectId)" -Completed }
             #api returns a task id.
             $job = [xml]$response.content
             $jobId = $job."com.vmware.vshield.vsm.vdn.dto.ui.ReconfigureVMTaskResultDto".jobId
@@ -7544,13 +7544,13 @@ function Connect-NsxLogicalSwitch {
                     try {
                         [xml]$job = Get-NsxJobStatus -jobId $JobId
                         $status = $job.edgeJob.status
-                        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" }
+                        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" }
                         if ( $status -ne "COMPLETED" ) {
                             write-verbose "Waiting for async job $jobid to complete.  Current status $status."
                             start-sleep -Milliseconds 1000
                         }
                         else {
-                            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" -completed }
+                            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" -completed }
                             break
                         }
                     }
@@ -7668,9 +7668,9 @@ function Disconnect-NsxLogicalSwitch {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Disconnecting $vnicuuid from logical switch" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Disconnecting $vnicuuid from logical switch" }
                 $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Disconnecting $vnicuuid from logical switch" -Completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Disconnecting $vnicuuid from logical switch" -Completed }
 
                 $job = [xml]$response.content
                 $jobId = $job."com.vmware.vshield.vsm.vdn.dto.ui.ReconfigureVMTaskResultDto".jobId
@@ -7681,14 +7681,14 @@ function Disconnect-NsxLogicalSwitch {
                     while ( $failCount -lt 3 ) {
                         try {
                             [xml]$job = Get-NsxJobStatus -jobId $JobId
-                            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" }
+                            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" }
                             $status = $job.edgeJob.status
                             if ( $status -ne "COMPLETED" ) {
                                 write-verbose "Waiting for async job $jobid to complete.  Current status $status."
                                 start-sleep -Milliseconds 1000
                             }
                             else {
-                                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" -completed }
+                                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" -completed }
                                 break
                             }
                         }
@@ -8063,9 +8063,9 @@ function Remove-NsxSpoofguardPolicy {
             if ($decision -eq 0) {
                 $URI = "/api/4.0/services/spoofguard/policies/$($SpoofguardPolicy.policyId)"
 
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)" }
                 $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Spoofguard Policy $($SpoofguardPolicy.Name)" -completed }
             }
         }
     }
@@ -8140,9 +8140,9 @@ function Publish-NsxSpoofguardPolicy {
         if ($decision -eq 0) {
             $URI = "/api/4.0/services/spoofguard/$($SpoofguardPolicy.policyId)?action=publish"
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Publish Spoofguard Policy $($SpoofguardPolicy.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Publish Spoofguard Policy $($SpoofguardPolicy.Name)" }
             invoke-nsxrestmethod -method "post" -uri $URI -connection $connection | out-null
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Publish Spoofguard Policy $($SpoofguardPolicy.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Publish Spoofguard Policy $($SpoofguardPolicy.Name)" -completed }
 
             Get-NsxSpoofguardPolicy -objectId $($SpoofguardPolicy.policyId) -connection $connection
         }
@@ -8968,9 +8968,9 @@ function New-NsxLogicalRouter {
         $body = $xmlroot.OuterXml
         $URI = "/api/4.0/edges"
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Logical Router $Name" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Logical Router $Name" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Logical Router $Name"  -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Logical Router $Name"  -completed }
         $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)]
 
         if ( $EnableHA ) {
@@ -8979,9 +8979,9 @@ function New-NsxLogicalRouter {
             Add-XmlElement -xmlRoot $xmlHA -xmlElementName "enabled" -xmlElementText "true"
             $body = $xmlHA.OuterXml
             $URI = "/api/4.0/edges/$edgeId/highavailability/config"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Enable HA on Logical Router $Name" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Enable HA on Logical Router $Name" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Enable HA on Logical Router $Name" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Enable HA on Logical Router $Name" -completed }
 
         }
         Get-NsxLogicalRouter -objectID $edgeId -connection $connection
@@ -9046,9 +9046,9 @@ function Remove-NsxLogicalRouter {
         else { $decision = 0 }
         if ($decision -eq 0) {
             $URI = "/api/4.0/edges/$($LogicalRouter.Edgesummary.ObjectId)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Logical Router $($LogicalRouter.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Logical Router $($LogicalRouter.Name)" }
             invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection | out-null
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Logical Router $($LogicalRouter.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Logical Router $($LogicalRouter.Name)" -completed }
 
         }
     }
@@ -9153,9 +9153,9 @@ function Set-NsxLogicalRouterInterface {
         # #Do the post
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($Interface.logicalRouterId)/interfaces/?action=patch"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Logical Router interface configuration for interface $($Interface.Index)." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Logical Router interface configuration for interface $($Interface.Index)." }
         invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Updating Logical Router interface configuration for interface $($Interface.Index)." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Logical Router interface configuration for interface $($Interface.Index)." -completed }
 
     }
 
@@ -9241,9 +9241,9 @@ function New-NsxLogicalRouterInterface {
         # #Do the post
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($LogicalRouter.Id)/interfaces/?action=patch"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Logical Router interface." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Logical Router interface." }
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Creating Logical Router interface." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Creating Logical Router interface." -completed }
         $response.interfaces
     }
 
@@ -9303,9 +9303,9 @@ function Remove-NsxLogicalRouterInterface {
 
         # #Do the delete
         $URI = "/api/4.0/edges/$($Interface.logicalRouterId)/interfaces/$($Interface.Index)"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)." }
         $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Deleting interface $($Interface.Index) on logical router $($Interface.logicalRouterId)." -completed }
 
     }
 
@@ -9886,9 +9886,9 @@ function Set-NsxEdgeInterface {
         # #Do the post
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($Interface.edgeId)/vnics/?action=patch"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)." }
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)." -completed }
 
         write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
         Get-NsxEdge -objectId $($Interface.edgeId) -connection $connection | Get-NsxEdgeInterface -index "$($Interface.Index)" -connection $connection
@@ -9959,9 +9959,9 @@ function Clear-NsxEdgeInterface {
 
         # #Do the delete
         $URI = "/api/4.0/edges/$($interface.edgeId)/vnics/$($interface.Index)"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Clearing Edge Services Gateway interface configuration for interface $($interface.Index)." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Clearing Edge Services Gateway interface configuration for interface $($interface.Index)." }
         $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Clearing Edge Services Gateway interface configuration for interface $($interface.Index)." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Clearing Edge Services Gateway interface configuration for interface $($interface.Index)." -completed }
 
     }
 
@@ -10190,9 +10190,9 @@ function New-NsxEdgeSubInterface {
     # #Do the post
     $body = $_Interface.OuterXml
     $URI = "/api/4.0/edges/$($EdgeId)/vnics/$($_Interface.Index)"
-    if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)." }
+    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)." }
     invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
-    if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)." -completed }
+    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway interface configuration for $($_Interface.Name)." -completed }
 }
 
 function Remove-NsxEdgeSubInterface {
@@ -10267,9 +10267,9 @@ function Remove-NsxEdgeSubInterface {
         #Put the modified VNIC xml
         $body = $ParentVnic.OuterXml
         $URI = "/api/4.0/edges/$($SubInterface.edgeId)/vnics/$($ParentVnic.Index)"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." }
         invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($ParentVnic.Name)." -completed }
 
     }
     End {}
@@ -10509,9 +10509,9 @@ function Add-NsxEdgeInterfaceAddress {
         #Do the post
         $body = $_Interface.OuterXml
         $URI = "/api/4.0/edges/$($edgeId)/vnics/$($_Interface.Index)"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)." }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)." }
         $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)." -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)." -completed }
 
         write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
         Get-NsxEdge -objectId $($edgeId) -connection $connection | Get-NsxEdgeInterface -index "$($_Interface.Index)" -connection $connection
@@ -10597,9 +10597,9 @@ function Remove-NsxEdgeInterfaceAddress {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             }
         }
         else {
@@ -10986,9 +10986,9 @@ function New-NsxEdge {
         # #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/4.0/edges"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Edge Services Gateway $Name" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Edge Services Gateway $Name" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Creating Edge Services Gateway $Name" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Creating Edge Services Gateway $Name" -completed }
         $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)]
 
         Get-NsxEdge -objectID $edgeId -connection $connection
@@ -11070,9 +11070,9 @@ function Repair-NsxEdge {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Repairing Edge Services Gateway $($Edge.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Repairing Edge Services Gateway $($Edge.Name)" }
             $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Reparing Edge Services Gateway $($Edge.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Reparing Edge Services Gateway $($Edge.Name)" -completed }
             Get-NsxEdge -objectId $($Edge.Id) -connection $connection
         }
     }
@@ -11155,9 +11155,9 @@ function Set-NsxEdge {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed }
             Get-NsxEdge -objectId $($Edge.Id) -connection $connection
         }
     }
@@ -11219,9 +11219,9 @@ function Remove-NsxEdge {
         else { $decision = 0 }
         if ($decision -eq 0) {
             $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Edge Services Gateway $($Edge.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Edge Services Gateway $($Edge.Name)" }
             invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection| out-null
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Edge Services Gateway $($Edge.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Edge Services Gateway $($Edge.Name)" -completed }
 
         }
     }
@@ -11271,9 +11271,9 @@ function Enable-NsxEdgeSsh {
     process {
 
         $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/cliremoteaccess?enable=true"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Enable SSH on Edge Services Gateway $($Edge.Name)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Enable SSH on Edge Services Gateway $($Edge.Name)" }
         invoke-nsxrestmethod -method "post" -uri $URI -connection $connection| out-null
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Enable SSH on Edge Services Gateway $($Edge.Name)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Enable SSH on Edge Services Gateway $($Edge.Name)" -completed }
 
     }
 
@@ -11335,9 +11335,9 @@ function Disable-NsxEdgeSsh {
         else { $decision = 0 }
         if ($decision -eq 0) {
             $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/cliremoteaccess?enable=false"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Disable SSH on Edge Services Gateway $($Edge.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Disable SSH on Edge Services Gateway $($Edge.Name)" }
             invoke-nsxrestmethod -method "post" -uri $URI -connection $connection| out-null
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Disable SSH on Edge Services Gateway $($Edge.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Disable SSH on Edge Services Gateway $($Edge.Name)" -completed }
         }
     }
 
@@ -11433,9 +11433,9 @@ function Set-NsxEdgeNat {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeNat
         }
     }
@@ -11683,9 +11683,9 @@ function New-NsxEdgeNatRule {
             $body = $Rule.OuterXml
         }
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
         $ruleid = $response.Headers.Location -replace "/api/4.0/edges/$edgeid/nat/config/rules/",""
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxEdgeNat | Get-NsxEdgeNatRule -ruleid $ruleid
     }
@@ -11757,9 +11757,9 @@ function Remove-NsxEdgeNatRule {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
         }
     }
 
@@ -11957,9 +11957,9 @@ function New-NsxEdgeCsr{
         $URI = "/api/2.0/services/truststore/csr/$edgeId"
         $body = $csr.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" }
         $response = Invoke-NsxRestMethod -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
         $response.csr
 
     }
@@ -12030,9 +12030,9 @@ function Remove-NsxEdgeCsr{
         if ($decision -eq 0) {
             $URI = "/api/2.0/services/truststore/csr/$($csr.objectId)"
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove CSR $($Csr.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove CSR $($Csr.Name)" }
             $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove CSR $($Csr.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove CSR $($Csr.Name)" -completed }
 
         }
     }
@@ -12160,9 +12160,9 @@ function New-NsxEdgeSelfSignedCertificate{
 
         $URI = "/api/2.0/services/truststore/csr/$($csr.objectId)?noOfDays=$NumberOfDays"
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" }
         $response = Invoke-NsxRestMethod -method "Put" -uri $URI -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
         $response.Certificate
 
     }
@@ -12232,9 +12232,9 @@ function Remove-NsxEdgeCertificate{
         if ($decision -eq 0) {
             $URI = "/api/2.0/services/truststore/certificate/$($certificate.objectId)"
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Certificate $($Csr.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Certificate $($Csr.Name)" }
             $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Certificate $($Csr.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Certificate $($Csr.Name)" -completed }
 
         }
     }
@@ -12524,9 +12524,9 @@ function Set-NsxSslVpn {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxSslVpn
         }
     }
@@ -12637,9 +12637,9 @@ function New-NsxSslVpnAuthServer {
         $URI = "/api/4.0/edges/$EdgeId/sslvpn/config"
         $body = $_EdgeSslVpn.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
 
         #Totally cheating here while we only support local auth server. Will have to augment this later...
         Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxSslVpn | Get-NsxSslVpnAuthServer -Servertype local
@@ -12795,9 +12795,9 @@ function New-NsxSslVpnUser{
         $URI = "/api/4.0/edges/$edgeId/sslvpn/config/auth/localserver/users/"
         $body = $User.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
 
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnUser -UserName $UserName
     }
@@ -12879,9 +12879,9 @@ function Remove-NsxSslVpnUser {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId" -completed }
         }
     }
 
@@ -12964,9 +12964,9 @@ function New-NsxSslVpnIpPool {
         $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/ippools/"
         $body = $IpAddressPool.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
 
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnIpPool -IpRange $IpRange
     }
@@ -13049,9 +13049,9 @@ function Remove-NsxSslVpnIpPool {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId" -completed }
         }
     }
 
@@ -13127,9 +13127,9 @@ function New-NsxSslVpnPrivateNetwork {
         $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/privatenetworks"
         $body = $PrivateNetwork.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
 
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnPrivateNetwork -Network $Network
     }
@@ -13212,9 +13212,9 @@ function Remove-NsxSslVpnPrivateNetwork {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId" -completed }
         }
     }
 
@@ -13332,9 +13332,9 @@ function New-NsxSslVpnClientInstallationPackage {
         $URI = "/api/4.0/edges/$edgeId/sslvpn/config/client/networkextension/installpackages/"
         $body = $clientInstallPackage.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
 
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnClientInstallationPackage -Name $Name
     }
@@ -13417,9 +13417,9 @@ function Remove-NsxSslVpnClientInstallationPackage {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId" -completed }
         }
     }
 
@@ -13729,9 +13729,9 @@ function Set-NsxEdgeRouting {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting
         }
     }
@@ -13984,9 +13984,9 @@ function New-NsxEdgeStaticRoute {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute -Network $Network -NextHop $NextHop
         }
     }
@@ -14081,9 +14081,9 @@ function Remove-NsxEdgeStaticRoute {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             }
         }
         else {
@@ -14278,9 +14278,9 @@ function New-NsxEdgePrefix {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgePrefix -Network $Network -Name $Name
         }
     }
@@ -14373,9 +14373,9 @@ function Remove-NsxEdgePrefix {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             }
         }
         else {
@@ -14597,9 +14597,9 @@ function Set-NsxEdgeBgp {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
         }
     }
@@ -14820,9 +14820,9 @@ function New-NsxEdgeBgpNeighbour {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
                 Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
             }
         }
@@ -14925,9 +14925,9 @@ function Remove-NsxEdgeBgpNeighbour {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             }
         }
         else {
@@ -15133,9 +15133,9 @@ function Set-NsxEdgeOspf {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
         }
     }
@@ -15304,9 +15304,9 @@ function Remove-NsxEdgeOspfArea {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             }
         }
         else {
@@ -15446,9 +15446,9 @@ function New-NsxEdgeOspfArea {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
                 Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeOspfArea -AreaId $AreaId
             }
         }
@@ -15638,9 +15638,9 @@ function Remove-NsxEdgeOspfInterface {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             }
         }
         else {
@@ -15777,9 +15777,9 @@ function New-NsxEdgeOspfInterface {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
                 Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface -AreaId $AreaId
             }
         }
@@ -15998,9 +15998,9 @@ function Remove-NsxEdgeRedistributionRule {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
             }
         }
         else {
@@ -16143,9 +16143,9 @@ function New-NsxEdgeRedistributionRule {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
                 (Get-NsxEdge -objectId $EdgeId  -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner $Learner)[-1]
 
             }
@@ -16492,9 +16492,9 @@ function Set-NsxLogicalRouterRouting {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting
         }
     }
@@ -16738,9 +16738,9 @@ function New-NsxLogicalRouterStaticRoute {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $Network -NextHop $NextHop
         }
     }
@@ -16832,9 +16832,9 @@ function Remove-NsxLogicalRouterStaticRoute {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             }
         }
         else {
@@ -17019,9 +17019,9 @@ function New-NsxLogicalRouterPrefix {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -Network $Network -Name $Name
         }
     }
@@ -17107,9 +17107,9 @@ function Remove-NsxLogicalRouterPrefix {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             }
         }
         else {
@@ -17325,9 +17325,9 @@ function Set-NsxLogicalRouterBgp {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgp
         }
     }
@@ -17551,9 +17551,9 @@ function New-NsxLogicalRouterBgpNeighbour {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
                 Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
             }
         }
@@ -17653,9 +17653,9 @@ function Remove-NsxLogicalRouterBgpNeighbour {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             }
         }
         else {
@@ -17892,9 +17892,9 @@ function Set-NsxLogicalRouterOspf {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspf
         }
     }
@@ -18057,9 +18057,9 @@ function Remove-NsxLogicalRouterOspfArea {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             }
         }
         else {
@@ -18196,9 +18196,9 @@ function New-NsxLogicalRouterOspfArea {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
                 Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $AreaId
             }
         }
@@ -18382,9 +18382,9 @@ function Remove-NsxLogicalRouterOspfInterface {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             }
         }
         else {
@@ -18518,9 +18518,9 @@ function New-NsxLogicalRouterOspfInterface {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
                 Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId $AreaId
             }
         }
@@ -18735,9 +18735,9 @@ function Remove-NsxLogicalRouterRedistributionRule {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
             }
         }
         else {
@@ -18877,9 +18877,9 @@ function New-NsxLogicalRouterRedistributionRule {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed }
                 (Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner $Learner)[-1]
 
             }
@@ -19180,9 +19180,9 @@ function Remove-NsxSecurityGroup {
                     $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)?force=false"
                 }
 
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Security Group $($SecurityGroup.Name)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Security Group $($SecurityGroup.Name)" }
                 $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Security Group $($SecurityGroup.Name)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Security Group $($SecurityGroup.Name)" -completed }
 
             }
         }
@@ -19298,7 +19298,7 @@ function Add-NsxSecurityGroupMember {
         #Populate the global membertype cache if not already done
         #Using the API rather than hardcoding incase this changes with versions of NSX
         if ( -not (test-path Variable:\NsxMemberTypes) ) {
-            $global:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
+            $script:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
         }
     }
 
@@ -19361,9 +19361,9 @@ function Add-NsxSecurityGroupMember {
 
             }
             $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating membership of Security Group $SecurityGroupId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating membership of Security Group $SecurityGroupId" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed }
         }
         #Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
     }
@@ -19416,7 +19416,7 @@ function Remove-NsxSecurityGroupMember {
         #Populate the global membertype cache if not already done
         #Using the API rather than hardcoding incase this changes with versions of NSX
         if ( -not (test-path Variable:\NsxMemberTypes) ) {
-            $global:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
+            $script:NsxMemberTypes = Get-NsxSecurityGroupMemberTypes
         }
     }
 
@@ -19480,9 +19480,9 @@ function Remove-NsxSecurityGroupMember {
                 }
             }
             $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating membership of Security Group $SecurityGroupId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating membership of Security Group $SecurityGroupId" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed }
         }
         #Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
     }
@@ -19709,9 +19709,9 @@ function Remove-NsxSecurityTag {
             if ($decision -eq 0) {
                 $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)?force=$($Force.ToString().ToLower())"
 
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Security Tag $($SecurityTag.Name)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Security Tag $($SecurityTag.Name)" }
                 $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Security Tag $($SecurityTag.Name)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Security Tag $($SecurityTag.Name)" -completed }
 
             }
         }
@@ -19803,7 +19803,7 @@ function Get-NsxSecurityTagAssignment {
                 #I know this is inneficient, but attempt at refactoring has led down a rabbit hole I dont have time for at the moment.
                 # 'Ill be back...''
                 $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)" }
                 Get-NsxSecurityTag -connection $connection | Get-NsxSecurityTagAssignment -connection $connection | Where-Object {($_.VirtualMachine.id -replace "VirtualMachine-","") -eq $($vmMoid)}
             }
         }
@@ -19882,9 +19882,9 @@ function New-NsxSecurityTagAssignment {
                 $vmMoid = $vm.ExtensionData.MoRef.Value
 
                 $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Adding Security Tag $($TagIdentifierString) to Virtual Machine $($vmMoid)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Adding Security Tag $($TagIdentifierString) to Virtual Machine $($vmMoid)" }
                 $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed }
             }
         }
     }
@@ -19954,9 +19954,9 @@ function Remove-NsxSecurityTagAssignment {
         if ($decision -eq 0) {
 
             $URI = "/api/2.0/services/securitytags/tag/$($TagAssignment.SecurityTag.ObjectId)/vm/$($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)"
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Removing Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Removing Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Adding Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Adding Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)" -completed }
         }
     }
 
@@ -20201,9 +20201,9 @@ function Remove-NsxIpSet {
                     $URI = "/api/2.0/services/ipset/$($IPSet.objectId)?force=false"
                 }
 
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove IP Set $($IPSet.Name)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove IP Set $($IPSet.Name)" }
                 $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove IP Set $($IPSet.Name)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove IP Set $($IPSet.Name)" -completed }
             }
         }
     }
@@ -20431,9 +20431,9 @@ function Remove-NsxMacSet {
                     $URI = "/api/2.0/services/macset/$($MACSet.objectId)?force=false"
                 }
 
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove MAC Set $($MACSet.Name)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove MAC Set $($MACSet.Name)" }
                 $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove MAC Set $($MACSet.Name)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove MAC Set $($MACSet.Name)" -completed }
 
             }
         }
@@ -20775,9 +20775,9 @@ function Remove-NsxService {
                     $URI = "/api/2.0/services/application/$($Service.objectId)?force=false"
                 }
 
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Service $($Service.Name)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Service $($Service.Name)" }
                 $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Service $($Service.Name)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Service $($Service.Name)" -completed }
 
             }
         }
@@ -21040,9 +21040,9 @@ function Remove-NsxServiceGroup {
                 $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectid)?force=false"
             }
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Service Group $($ServiceGroup.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Service Group $($ServiceGroup.Name)" }
             $null = Invoke-NsxWebRequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Remove Service Group $($ServiceGroup.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Remove Service Group $($ServiceGroup.Name)" -completed }
         }
     }
 
@@ -21178,7 +21178,7 @@ function Add-NsxServiceGroupMember {
         foreach ($Mem in $Member){
             $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectId)/members/$($Mem.objectId)"
             $response = invoke-nsxwebrequest -method "PUT" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Adding Service or Service Group $($Mem) to Service Group $($ServiceGroup)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Adding Service or Service Group $($Mem) to Service Group $($ServiceGroup)" }
         }
 
     }
@@ -21668,9 +21668,9 @@ function Remove-NsxFirewallSection {
                     }
                 }
 
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Section $($Section.Name)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Section $($Section.Name)" }
                 $null = invoke-NsxWebRequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Section $($Section.Name)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Section $($Section.Name)" -completed }
             }
         }
     }
@@ -22055,9 +22055,9 @@ function Remove-NsxFirewallRule {
             $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)/rules/$($Rule.id)"
 
 
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Rule $($Rule.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Rule $($Rule.Name)" }
             $null = invoke-NsxWebRequest -method "delete" -uri $URI  -extraheader $IfMatchHeader -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Rule $($Rule.Name)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Rule $($Rule.Name)" -completed }
 
         }
     }
@@ -22475,9 +22475,9 @@ function Set-NsxLoadBalancer {
         $URI = "/api/4.0/edges/$($edgeId)/loadbalancer/config"
         $body = $_LoadBalancer.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($edgeId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($edgeId)" }
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed }
         Get-NsxEdge -objectId $($edgeId)  -connection $connection | Get-NsxLoadBalancer
     }
 
@@ -22752,9 +22752,9 @@ function New-NsxLoadBalancerMonitor {
         $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/monitors"
         $body = $xmlmonitor.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Monitor Config" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Monitor Config" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed }
 
         get-nsxedge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -name $Name
     }
@@ -22823,9 +22823,9 @@ function Remove-NsxLoadBalancerMonitor {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Monitor $MonitorId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Monitor $MonitorId" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
 
         }
     }
@@ -23025,9 +23025,9 @@ function New-NsxLoadBalancerApplicationProfile {
         $URI = "/api/4.0/edges/$edgeId/loadbalancer/config"
         $body = $_LoadBalancer.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Config" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Config" }
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed }
 
         $updatedEdge = Get-NsxEdge -objectId $($edgeId) -connection $connection
 
@@ -23042,9 +23042,9 @@ function New-NsxLoadBalancerApplicationProfile {
         }
 
         $body = $updatedEdge.features.loadbalancer.OuterXml
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Config" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Config" }
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed }
 
         #filter output for our newly created app profile - name is safe as it has to be unique.
         $return = $updatedEdge.features.loadbalancer.applicationProfile | ? { $_.name -eq $name }
@@ -23120,9 +23120,9 @@ function Remove-NsxLoadBalancerApplicationProfile {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Application Profile $AppProfileId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Application Profile $AppProfileId" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
 
         }
     }
@@ -23325,9 +23325,9 @@ function New-NsxLoadBalancerPool {
         $URI = "/api/4.0/edges/$EdgeId/loadbalancer/config"
         $body = $_LoadBalancer.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Load Balancer Config" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Load Balancer Config" }
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
 
         $UpdatedEdge = Get-NsxEdge -objectId $($EdgeId) -connection $connection
         $return = $UpdatedEdge.features.loadBalancer.pool | ? { $_.name -eq $Name }
@@ -23483,9 +23483,9 @@ function Remove-NsxLoadBalancerPool {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing pool $poolId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing pool $poolId" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
 
             Get-NSxEdge -objectID $edgeId -connection $connection | Get-NsxLoadBalancer
         }
@@ -23647,13 +23647,13 @@ function Add-NsxLoadBalancerPoolMember {
         $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/pools/$($_LoadBalancerPool.poolId)"
         $body = $_LoadBalancerPool.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Pool config for $($_LoadBalancerPool.poolId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Pool config for $($_LoadBalancerPool.poolId)" }
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
 
         #Get updated pool
         $URI = "/api/4.0/edges/$edgeId/loadbalancer/config/pools/$($_LoadBalancerPool.poolId)"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Retrieving Updated Pool for $($EdgeId)" -status "Pool $($_LoadBalancerPool.poolId)" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Retrieving Updated Pool for $($EdgeId)" -status "Pool $($_LoadBalancerPool.poolId)" }
         $return = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         $Pool = $return.pool
         Add-XmlElement -xmlroot $Pool -xmlElementName "edgeId" -xmlElementText $edgeId
@@ -23741,9 +23741,9 @@ function Remove-NsxLoadBalancerPoolMember {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Pool config for $poolId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Pool config for $poolId" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
 
             Get-NSxEdge -objectID $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -poolId $poolId
         }
@@ -23933,9 +23933,9 @@ function Add-NsxLoadBalancerVip {
         $URI = "/api/4.0/edges/$($EdgeId)/loadbalancer/config"
         $body = $_LoadBalancer.OuterXml
 
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Load Balancer Config" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Load Balancer Config" }
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $EdgeId" -completed }
 
         $UpdatedLB = Get-NsxEdge -objectId $EdgeId  -connection $connection | Get-NsxLoadBalancer
         $UpdatedLB
@@ -24008,9 +24008,9 @@ function Remove-NsxLoadBalancerVip {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Removing VIP $VipId" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Removing VIP $VipId" }
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-            if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
         }
     }
 
@@ -24394,9 +24394,9 @@ function Remove-NsxSecurityPolicy {
                     $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.ObjectId)?force=false"
                 }
 
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Security Policy $($SecurityPolicy.Name)" }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Security Policy $($SecurityPolicy.Name)" }
                 $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-                if ($global:PowerNsxConfiguration.ProgressDialogs) { write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed }
 
             }
         }
@@ -25537,9 +25537,9 @@ function Copy-NsxEdge{
 
         $body = $_Edge.OuterXml
         $URI = "/api/4.0/edges"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Edge Services Gateway $Name" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Edge Services Gateway $Name" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Creating Edge Services Gateway $Name" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Creating Edge Services Gateway $Name" -completed }
         $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)]
 
 
@@ -25781,9 +25781,9 @@ function Copy-NsxEdge{
 
         $body = $_NewEdge.OuterXml
         $URI = "/api/4.0/edges/$edgeid"
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway $Name" }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Edge Services Gateway $Name" }
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        if ($global:PowerNsxConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway $Name" -completed }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Edge Services Gateway $Name" -completed }
 
         #Get final updated Edge object and return to user.
         Get-NsxEdge -objectID $edgeId -connection $connection
