@@ -19547,7 +19547,7 @@ function New-NsxSecurityTag {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/securitytags/tag"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
         #Return our shiny new tag...
         Get-NsxSecurityTag -name $Name -connection $connection
