@@ -21332,7 +21332,7 @@ function New-NsxSourceDestNode {
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
 
                 $vmUuid = ($item.parent | get-view).config.instanceuuid
-                $MemberMoref = "$vmUuid.$($item.id.substring($_Member.id.length-3))"
+                $MemberMoref = "$vmUuid.$($item.id.substring($item.id.length-3))"
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $MemberMoref
             }
             else {
@@ -21419,7 +21419,7 @@ function New-NsxAppliedToListNode {
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
 
                 $vmUuid = ($item.parent | get-view).config.instanceuuid
-                $MemberMoref = "$vmUuid.$($item.id.substring($_Member.id.length-3))"
+                $MemberMoref = "$vmUuid.$($item.id.substring($item.id.length-3))"
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $MemberMoref
             }
             else {
