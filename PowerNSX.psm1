@@ -21331,13 +21331,9 @@ function New-NsxSourceDestNode {
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
 
-                #Getting the NIC identifier is a bit of hackery at the moment, if anyone can show me a more deterministic or simpler way, then im all ears.
-                $nicIndex = [array]::indexof($item.parent.NetworkAdapters.name,$item.name)
-                if ( -not ($nicIndex -eq -1 )) {
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
-                } else {
-                    throw "Unable to determine nic index in parent object.  Make sure the NIC object is valid"
-                }
+                $vmUuid = ($item.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($item.id.substring($_Member.id.length-3))"
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $MemberMoref
             }
             else {
                 #any other accepted PowerCLI object, we just need to grab details from the moref.
@@ -21422,13 +21418,9 @@ function New-NsxAppliedToListNode {
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
 
-                #Getting the NIC identifier is a bit of hackery at the moment, if anyone can show me a more deterministic or simpler way, then im all ears.
-                $nicIndex = [array]::indexof($item.parent.NetworkAdapters.name,$item.name)
-                if ( -not ($nicIndex -eq -1 )) {
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
-                } else {
-                    throw "Unable to determine nic index in parent object.  Make sure the NIC object is valid"
-                }
+                $vmUuid = ($item.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($item.id.substring($_Member.id.length-3))"
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $MemberMoref
             }
             else {
                 #any other accepted PowerCLI object, we just need to grab details from the moref.
