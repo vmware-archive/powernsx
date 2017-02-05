@@ -21392,7 +21392,6 @@ function New-NsxAppliedToListNode {
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.edgeSummary.name
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.edgeSummary.objectTypeName
 
-
             }
             else {
 
@@ -21407,6 +21406,9 @@ function New-NsxAppliedToListNode {
             }
         }
         else {
+
+            #Something specific passed in applied to list, turn off Apply to DFW.
+            $ApplyToDFW = $false
 
             write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
             #Proper PowerCLI Object passed
