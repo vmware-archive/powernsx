@@ -22,6 +22,8 @@ Describe "Distributed Firewall" {
         write-warning "Using cluster $cl for edge appliance deployment"
         $script:ds = $cl | get-datastore | select -first 1
         write-warning "Using datastore $ds for edge appliance deployment"
+        $script:dc = Get-Datacenter | select -first 1
+        write-warning "Using Datacenter $dc for object identifier"
 
         #Put any script scope variables you need to reference in your tests.
         #For naming items that will be created in NSX, use a unique prefix
@@ -382,18 +384,78 @@ Describe "Distributed Firewall" {
         }
 
         it "Can create an l3 rule with an ipset based source" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -source $TestIpSet -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources.source.name | should be "$testIPSetName"
+            $rule.destinations | should be $null
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
         }
 
         it "Can create an l3 rule with a security group based source" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -source $TestSG1 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources.source.name | should be "$testSGName1"
+            $rule.destinations | should be $null
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
         }
 
         it "Can create an l3 rule with a cluster based source" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -source $cl -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources.source.name | should be "$($cl.name)"
+            $rule.destinations | should be $null
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
         }
 
         it "Can create an l3 rule with a vmhost based source" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -source $vmhost -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources.source.name | should be "$($vmhost.name)"
+            $rule.destinations | should be $null
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
         }
 
         it "Can create an l3 rule with a datacenter based source" {
+                    $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -source $dc -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources.source.name | should be "$($dc.name)"
+            $rule.destinations | should be $null
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
         }
 
         it "Can create an l3 rule with a dvportgroup based source" {
