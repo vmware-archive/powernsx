@@ -7586,7 +7586,7 @@ function Connect-NsxLogicalSwitch {
                 }
             }
             "NIC" {
-                foreach ( $nic in $nics ) {
+                foreach ( $nic in $NetworkAdapter ) {
                      _Process-Nic $nic
                 }
             }
