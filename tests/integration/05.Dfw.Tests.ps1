@@ -829,8 +829,21 @@ Describe "Distributed Firewall" {
 
         #############
         #Currently skipped as applied to functionality is busted :(
-        it "Can create a rule to apply to all edges" -skip {
+        it "Can create a rule to apply to all edges" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -ApplyToAllEdges
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            @($rule.appliedToList.appliedTo).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be $dfwEdgeName
+            $rule.appliedToList.appliedTo.Value | should be $dfwEdge.id
+            $rule.appliedToList.appliedTo.Type | should be edge
+            $rule.name | should be "pester_dfw_rule1"
+        }
+
+          it "Can create a rule to apply to all edges without DFW" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -ApplyToAllEdges -ApplytoDfw:$false
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
@@ -844,16 +857,27 @@ Describe "Distributed Firewall" {
 
 
         #Currently skipped as applied to functionality is busted :(
-        it "Can create a rule to apply to a specific edge" -skip {
+        it "Can create a rule to apply to a specific edge" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -AppliedTo $dfwEdge
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
             @($rule.appliedToList.appliedTo).count | should be 1
-            $rule.appliedToList.appliedTo.Name | should be $dfwEdgeName
-            $rule.appliedToList.appliedTo.Value | should be $dfwEdge.id
-            $rule.appliedToList.appliedTo.Type | should be edge
+            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
+            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be True
+            $rule.name | should be "pester_dfw_rule1"
+        }
+
+         it "Can create a rule to apply to a specific edge without DFW" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -AppliedTo $dfwEdge -ApplytoDfw:$false
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            @($rule.appliedToList.appliedTo).count | should be 1
+            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
+            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be False
             $rule.name | should be "pester_dfw_rule1"
         }
 
