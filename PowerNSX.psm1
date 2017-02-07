@@ -3071,7 +3071,7 @@ function Invoke-InternalWebRequest {
             foreach ( $header in $response.Headers ) {
 
                 #Response header values are an array of strings -
-                if ( @($header.Value).count -ne 1 ) {
+                if ( @($header.Value).count -gt 1 ) {
                     write-warning "Response header $header.key has more than one value.  Only the first value is retained.  Please raise an issue on the PowerNSX Github site with steps to reproduce if you see this warning!"
                 }
                 $WebResponse.Headers.Add($header.key, @($Header.Value)[0])
