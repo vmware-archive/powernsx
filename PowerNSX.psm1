@@ -20224,7 +20224,8 @@ function Remove-NsxIpPool {
     NSX Controllers.
 
     This cmdlet removes the specified IP Pool. If the object 
-    is currently in use the api will return an error.
+    has current IP Address allolcations the api will return an error.
+	Use -force to override.
 
     .EXAMPLE
     PS C:\> Get-NsxIPPool TestIPPool | Remove-NsxIPPool
@@ -20234,11 +20235,13 @@ function Remove-NsxIpPool {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateNotNullOrEmpty()]
+            [ValidateScript({ Validate-IpPool $_ })]
             [System.Xml.XmlElement]$IPPool,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            [switch]$force=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -20253,12 +20256,12 @@ function Remove-NsxIpPool {
 
     process {
 
-        if ($ippool.SelectSingleNode("descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) {
-            write-warning "Not removing $($Ippool.Name) as it is set as read-only." 
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $IPPool -Query "descendant::usedAddressCount[. != 0]") -and ( -not $force)) {
+            write-warning "Not removing $($IPPool.Name) as it is set as read-only." 
         }
         else { 
-            if ( $confirm ) { 
-                $message  = "IPPool removal is permanent."
+            if ( $confirm ) {
+                $message  = "IP Pool removal is permanent."
                 $question = "Proceed with removal of IP Pool $($IPPool.Name)?"
 
                 $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
@@ -20269,7 +20272,12 @@ function Remove-NsxIpPool {
             }
             else { $decision = 0 } 
             if ($decision -eq 0) {
-                $URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=false"
+                if ( $force ) {
+					$URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=true"
+                }
+                else {
+					$URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=false"
+                }
                 
                 Write-Progress -activity "Remove IP Pool $($IPPool.Name)"
                 invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
