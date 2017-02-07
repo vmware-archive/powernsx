@@ -7586,7 +7586,7 @@ function Connect-NsxLogicalSwitch {
                 }
             }
             "NIC" {
-                foreach ( $nic in $nics ) {
+                foreach ( $nic in $NetworkAdapter ) {
                      _Process-Nic $nic
                 }
             }
@@ -21331,13 +21331,9 @@ function New-NsxSourceDestNode {
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
 
-                #Getting the NIC identifier is a bit of hackery at the moment, if anyone can show me a more deterministic or simpler way, then im all ears.
-                $nicIndex = [array]::indexof($item.parent.NetworkAdapters.name,$item.name)
-                if ( -not ($nicIndex -eq -1 )) {
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
-                } else {
-                    throw "Unable to determine nic index in parent object.  Make sure the NIC object is valid"
-                }
+                $vmUuid = ($item.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($item.id.substring($item.id.length-3))"
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $MemberMoref
             }
             else {
                 #any other accepted PowerCLI object, we just need to grab details from the moref.
@@ -21396,7 +21392,6 @@ function New-NsxAppliedToListNode {
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.edgeSummary.name
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.edgeSummary.objectTypeName
 
-
             }
             else {
 
@@ -21412,6 +21407,9 @@ function New-NsxAppliedToListNode {
         }
         else {
 
+            #Something specific passed in applied to list, turn off Apply to DFW.
+            $ApplyToDFW = $false
+
             write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
             #Proper PowerCLI Object passed
             #If passed object is a NIC, we have to do some more digging
@@ -21422,13 +21420,9 @@ function New-NsxAppliedToListNode {
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
                 Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
 
-                #Getting the NIC identifier is a bit of hackery at the moment, if anyone can show me a more deterministic or simpler way, then im all ears.
-                $nicIndex = [array]::indexof($item.parent.NetworkAdapters.name,$item.name)
-                if ( -not ($nicIndex -eq -1 )) {
-                    Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText "$($item.parent.PersistentId).00$nicINdex"
-                } else {
-                    throw "Unable to determine nic index in parent object.  Make sure the NIC object is valid"
-                }
+                $vmUuid = ($item.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($item.id.substring($item.id.length-3))"
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $MemberMoref
             }
             else {
                 #any other accepted PowerCLI object, we just need to grab details from the moref.
@@ -21656,15 +21650,25 @@ function Remove-NsxFirewallSection {
             if ( $Section.Name -match 'Default Section' ) {
                 write-warning "Will not delete $($Section.Name)."
             }
-                else {
+            else {
+
+                #Changed to avoid need for traversal to parent XML node to determine section type which fails in some scenarios.
+                switch ( $Section.Type) {
+                    "LAYER3" {  $sectiontype = "layer3sections" }
+                    "LAYER2" { $Sectiontype = "layer2sections" }
+                    "L3REDIRECT" { $sectiontype = "layer3redirectsections" }
+                }
+
                 if ( $force ) {
-                    $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)"
+                    $URI = "/api/4.0/firewall/globalroot-0/config/$sectiontype/$($Section.Id)"
                 }
                 else {
 
-                    if ( $section |  get-member -MemberType Properties -Name rule ) { throw "Section $($section.name) contains rules.  Specify -force to delete this section" }
+                    if ( $section |  get-member -MemberType Properties -Name rule ) {
+                        throw "Section $($section.name) contains rules.  Specify -force to delete this section"
+                    }
                     else {
-                        $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)"
+                        $URI = "/api/4.0/firewall/globalroot-0/config/$sectiontype/$($Section.Id)"
                     }
                 }
 
