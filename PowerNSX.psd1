@@ -319,10 +319,13 @@ FunctionsToExport = @(
     'Get-NsxLicense',
     'Get-NsxApplicableMember',
     'Get-NsxSecurityGroupMemberTypes',
+    'Get-NsxFirewallThreshold',
+    'Set-NsxFirewallThreshold',
     'Get-NsxSecurityGroupEffectiveVirtualMachine',
     'Get-NsxSecurityGroupEffectiveIpAddress',
     'Get-NsxSecurityGroupEffectiveMacAddress',
     'Get-NsxSecurityGroupEffectiveVnic'
+
 )
 
 # Cmdlets to export from this module

@@ -52,6 +52,9 @@ Describe "Distributed Firewall" {
         $script:TestMacSetName2 = "pester_dfw_macset2"
         $script:TestMac1 = "00:50:56:00:00:00"
         $script:TestMac2 = "00:50:56:00:00:01"
+        $script:cpuThreshold = "75"
+        $script:memoryThreshold = "75"
+        $script:cpsThreshold = "125000"
 
         #Logical Switch
         $script:testls = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testlsname
@@ -117,10 +120,30 @@ Describe "Distributed Firewall" {
         Get-NsxService $TestServiceName1 | Remove-NsxService -confirm:$false
         Get-NsxService $TestServiceName2 | Remove-NsxService -confirm:$false
 
+        Set-NsxFirewallThreshold -Cpu 100 -Memory 100 -ConnectionsPerSecond 100000 | out-null
+
         disconnect-nsxserver
         write-host -ForegroundColor Green "Completed cleanup tasks for DFW tests"
 
     }
+
+    Context "DFW Global options" {
+        it "Can adjust default DFW event threshold" {
+                $threshold = Set-NsxFirewallThreshold -Cpu $cputhreshold -Memory $memorythreshold -ConnectionsPerSecond $cpsThreshold
+                $threshold | should not be $null
+                $threshold.Cpu | should be $cputhreshold
+                $threshold.Memory | should be $memorythreshold
+                $threshold.ConnectionsPerSecond | should be $cpsThreshold
+        }
+        it "Can adjust Global Containers"{
+
+        }
+
+        it "Can adjust TCP Optimisation"{
+
+        }
+    }
+     
 
     Context "L3 Sections" {
         it "Can create an L3 section" {
