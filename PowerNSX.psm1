@@ -22428,7 +22428,137 @@ function Get-NsxFirewallSavedConfiguration {
 }
 
 
-########
+function Get-NsxFirewallThreshold {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Distributed Firewall thresholds for CPU, Memory 
+    and Connections per Second
+
+    .DESCRIPTION
+    The firewall module generates system events when the memory and CPU usage
+    crosses these thresholds.
+
+    This command will retrieve the threshold configuration for the 
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Get-NsxFirewallThreshold
+
+    CPU Memory ConnectionsPerSecond
+    --- ------ --------------------
+    80  80     100000
+
+
+    #>
+
+    begin {
+
+    }
+
+    process {
+        
+        
+        $URI = "/api/4.0/firewall/stats/eventthresholds"
+        $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+       
+        
+        $threshold=[system.xml.xmldocument]$response.content
+
+        [PSCustomobject]@{
+                    "CPU" = $threshold.eventthresholds.cpu.percentvalue;
+                    "Memory" = $threshold.eventthresholds.memory.percentvalue;
+                    "ConnectionsPerSecond" = $threshold.eventThresholds.connectionsPerSecond.value
+                }
+    
+    }
+
+        
+       
+
+    end{}
+}
+
+function Set-NsxFirewallThreshold {
+
+    <#
+    .SYNOPSIS
+    Sets the Distributed Firewall thresholds for CPU, Memory 
+    and Connections per Second
+
+    .DESCRIPTION
+    The firewall module generates system events when the memory and CPU usage
+    crosses these thresholds.
+
+    This command will set the threshold configuration for the 
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Set-NsxFirewallThreshold -Cpu 70 -Memory 70 -ConnectionsPerSecond 35000
+
+    CPU Memory ConnectionsPerSecond
+    --- ------ --------------------
+    70  70     35000
+
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(1,100)]
+            [int]$Memory,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(1,100)]
+            [int]$Cpu,
+        [Parameter (Mandatory=$true)]
+            [ValidateRange(1,500000)]
+            [int]$ConnectionsPerSecond,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+         #Create the XMLRoot
+            [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+            [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("eventThresholds")
+            $xmlDoc.appendChild($xmlRoot) | out-null
+
+            #Create an Element and append it to the root
+
+            [System.XML.XMLElement]$xmlcpu = $xmlDoc.CreateElement("cpu")
+            [System.XML.XMLElement]$xmlmemory = $xmlDoc.CreateElement("memory")
+            [System.XML.XMLElement]$xmlconnections = $xmlDoc.CreateElement("connectionsPerSecond")
+
+
+            Add-XmlElement -xmlRoot $xmlcpu -xmlElementName "percentValue" -xmlElementText $cpu
+            Add-XmlElement -xmlRoot $xmlmemory -xmlElementName "percentValue" -xmlElementText $memory
+            Add-XmlElement -xmlRoot $xmlconnections -xmlElementName "value" -xmlElementText $ConnectionsPerSecond
+            
+            $xmlRoot.AppendChild($xmlcpu) | out-null
+            $xmlRoot.AppendChild($xmlmemory) | out-null
+            $xmlRoot.AppendChild($xmlconnections) | out-null
+            
+
+            $uri = "/api/4.0/firewall/stats/eventthresholds"
+            
+            $body = $xmlroot.outerXml
+            Invoke-NsxWebRequest -method "PUT" -URI $uri -body $body | out-null
+
+            Get-NsxFirewallThreshold
+
+    }
+
+    end {}
+
+}
+
 ########
 # Load Balancing
 
