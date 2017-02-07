@@ -21650,15 +21650,25 @@ function Remove-NsxFirewallSection {
             if ( $Section.Name -match 'Default Section' ) {
                 write-warning "Will not delete $($Section.Name)."
             }
-                else {
+            else {
+
+                #Changed to avoid need for traversal to parent XML node to determine section type which fails in some scenarios.
+                switch ( $Section.Type) {
+                    "LAYER3" {  $sectiontype = "layer3sections" }
+                    "LAYER2" { $Sectiontype = "layer2sections" }
+                    "L3REDIRECT" { $sectiontype = "layer3redirectsections" }
+                }
+
                 if ( $force ) {
-                    $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)"
+                    $URI = "/api/4.0/firewall/globalroot-0/config/$sectiontype/$($Section.Id)"
                 }
                 else {
 
-                    if ( $section |  get-member -MemberType Properties -Name rule ) { throw "Section $($section.name) contains rules.  Specify -force to delete this section" }
+                    if ( $section |  get-member -MemberType Properties -Name rule ) {
+                        throw "Section $($section.name) contains rules.  Specify -force to delete this section"
+                    }
                     else {
-                        $URI = "/api/4.0/firewall/globalroot-0/config/$($Section.ParentNode.name.tolower())/$($Section.Id)"
+                        $URI = "/api/4.0/firewall/globalroot-0/config/$sectiontype/$($Section.Id)"
                     }
                 }
 
