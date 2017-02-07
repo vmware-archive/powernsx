@@ -195,7 +195,7 @@ Get-Vm -server $connection.ViConnection| % {
 
 write-host "  Getting IP and MAC details from Spoofguard"
 Get-NsxSpoofguardPolicy -connection $connection | Get-NsxSpoofguardNic -connection $connection | % {
-    if $MacHash.ContainsKey($_.detectedmacAddress) {
+    if ($MacHash.ContainsKey($_.detectedmacAddress)) {
         write-warning "Duplicate MAC ($($_.detectedMacAddress) - $($_.nicname)) found.  Skipping NIC!"
     }
     else {
