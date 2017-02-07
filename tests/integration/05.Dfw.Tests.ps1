@@ -145,9 +145,7 @@ Describe "Distributed Firewall" {
             $section = New-NsxFirewallSection $l3sectionname
             $section | should not be $null
             @($section).count | should be 1
-            $defaultNsxConnection.DebugLogging = $true
             $section | Remove-NsxFirewallSection -confirm:$false
-            $defaultNsxConnection.DebugLogging = $false
             $section = Get-NsxFirewallSection $l3sectionname
             $section | should be $null
         }
