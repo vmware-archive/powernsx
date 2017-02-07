@@ -318,7 +318,9 @@ FunctionsToExport = @(
     'Add-NsxLicense',
     'Get-NsxLicense',
     'Get-NsxApplicableMember',
-    'Get-NsxSecurityGroupMemberTypes'
+    'Get-NsxSecurityGroupMemberTypes',
+    'Get-NsxFirewallThreshold',
+    'Set-NsxFirewallThreshold'
 )
 
 # Cmdlets to export from this module
