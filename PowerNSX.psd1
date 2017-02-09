@@ -284,7 +284,7 @@ FunctionsToExport = @(
     'Remove-NsxLoadBalancerVip',
     'Get-NsxSecurityPolicy',
     'Remove-NsxSecurityPolicy',
-    'Get-NsxSecurityGroupEffectiveMembers',
+    'Get-NsxSecurityGroupEffectiveMember',
     'Find-NsxWhereVMUsed',
     'Get-NsxBackingPortGroup',
     'Get-NsxBackingDVSwitch',
@@ -318,7 +318,11 @@ FunctionsToExport = @(
     'Add-NsxLicense',
     'Get-NsxLicense',
     'Get-NsxApplicableMember',
-    'Get-NsxSecurityGroupMemberTypes'
+    'Get-NsxSecurityGroupMemberTypes',
+    'Get-NsxSecurityGroupEffectiveVirtualMachine',
+    'Get-NsxSecurityGroupEffectiveIpAddress',
+    'Get-NsxSecurityGroupEffectiveMacAddress',
+    'Get-NsxSecurityGroupEffectiveVnic'
 )
 
 # Cmdlets to export from this module

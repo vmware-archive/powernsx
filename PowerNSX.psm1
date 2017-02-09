@@ -24415,31 +24415,86 @@ function Remove-NsxSecurityPolicy {
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
 
 
-function Get-NsxSecurityGroupEffectiveMembers {
+function Get-NsxSecurityGroupEffectiveMember {
 
     <#
     .SYNOPSIS
-    Determines the effective memebership of a security group including dynamic
-    members.
+    Determines the effective memebership of a security group.
 
     .DESCRIPTION
     An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
-    or interfaces) by virtue of static or dynamic inclusion.  This cmdlet determines
-    the static and dynamic membership of a given group.
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective Membership' of a given security group.  The membership output
+    by Get-NsxSecurityGroupEffectiveMember is determined by NSX itself.
+
+    Note:  In order for IPAddress membership to be accurate, IP Discovery
+    of virtual machines must be operational (as it must for the dataplane to
+    function as well.)
+
+    If IPAddress membership is not accurately represented here, verify that
+    an appropriate IP discovery mechanism is operational, and NSX 'detects'
+    the ip addresses you are expecting.  Using the Get-NsxSpoofguardNic cmdlet
+    will allow visibility of the detection state of a given nic or VM.
+
+    Note: Previous versions of this cmdlet included direct static inclusions
+    (only) which is not useful in the context of determining 'effective
+    membership' and has been removed.
+
+    If you wish to know how a given SG is configured with respect to
+    inclusions/exclusions, use the Get-NsxSecurityGroup cmdlet.
+
+    Return properties have also been renamed to make their function clearer, and
+    the cmdlet renamed to be consistent with PowerShell naming convention
+    (singular).
+
+    Note:  In addition to this cmdlet, four individual wrapper cmdlets exist
+    that allow a translation query for a specific object type (ie vms only)
+    to be executed, and whose output is easier to parse for intelligent monkeys.
+
+    Review Get-NsxSecurityGroupEffectiveVirtualMachine,
+    Get-NsxSecurityGroupEffectiveIpAddress,
+    Get-NsxSecurityGroupEffectiveMacAddress,
+    Get-NsxSecurityGroupEffectiveVnic for more information.
 
     .EXAMPLE
+    Get-NsxSecurityGroup TestSG | Get-NsxSecurityGroupEffectiveMembers
 
-    PS C:\>  Get-NsxSecurityGroup TestSG | Get-NsxSecurityGroupEffectiveMembers
+    Retrieve the effective membership of the securitygroup testsg by passing
+    the securitygroup object on the pipline.
+
+    .EXAMPLE
+    Get-NsxSecurityGroupEffectiveMembers -SecurityGroupId securitygroup-1234
+
+    Retrieve the effective membership of a securitygroup by passing
+    the securitygroup objectid.
+
+    .EXAMPLE
+    $testSG | Get-NsxSecurityGroupEffectiveMembers -ReturnTypes -ReturnTypes VirtualMachine, Vnic
+
+    Retrieve just the VM and VNIC effective membership of the SecurityGroup stored
+    in $testSG
 
     #>
 
-    [CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="object")]
 
     param (
 
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
             [ValidateNotNull()]
             [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("All", "VirtualMachine", "IpAddress", "MacAddress", "Vnic")]
+            [string[]]$ReturnTypes="All",
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -24447,50 +24502,346 @@ function Get-NsxSecurityGroupEffectiveMembers {
 
     )
 
-    begin {
-
-    }
+    begin {}
 
     process {
 
-        if ( $securityGroup| get-member -MemberType Properties -Name member ) { $StaticIncludes = $SecurityGroup.member } else { $StaticIncludes = $null }
+        $EffectiveVMNodes = $null
+        $EffectiveIPNodes = $null
+        $EffectiveMACNodes = $null
+        $EffectiveVNICNodes = $null
 
-        #Have to construct Dynamic Includes:
-        #GET https://<nsxmgr-ip>/api/2.0/services/securitygroup/ObjectID/translation/virtualmachines
-        #GET https://<nsxmgr-ip>/api/2.0/services/securitygroup/ObjectID/translation/ipaddresses
-        #GET https://<nsxmgr-ip>/api/2.0/services/securitygroup/ObjectID/translation/macaddresses
-        #GET https://<nsxmgr-ip>/api/2.0/services/securitygroup/ObjectID/translation/vnics
+        if ( $PSCmdlet.ParameterSetName -eq "object" ) {
+            $sgid = $SecurityGroup.ObjectId
+        }
+        else {
+            $sgid = $SecurityGroupId
+        }
 
-        write-debug "$($MyInvocation.MyCommand.Name) : Getting virtualmachine dynamic includes for SG $($SecurityGroup.Name)"
-        $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/virtualmachines"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        if ( $response.GetElementsByTagName("vmnodes").haschildnodes) { $dynamicVMNodes = $response.GetElementsByTagName("vmnodes")} else { $dynamicVMNodes = $null }
+        if ( ($ReturnTypes -eq "All") -or ($ReturnTypes -eq "VirtualMachine")) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting effective VM membership for Security Group $sgid"
+            $URI = "/api/2.0/services/securitygroup/$sgid/translation/virtualmachines"
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
 
-         write-debug "$($MyInvocation.MyCommand.Name) : Getting ipaddress dynamic includes for SG $($SecurityGroup.Name)"
-        $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/ipaddresses"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        if ( $response.GetElementsByTagName("ipNodes").haschildnodes) { $dynamicIPNodes = $response.GetElementsByTagName("ipNodes") } else { $dynamicIPNodes = $null}
+            if ( $response.content -as [system.xml.xmldocument] ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : got xml response from api"
+                [system.xml.xmldocument]$body = $response.content
+                if ( $body.GetElementsByTagName("vmnodes").haschildnodes) { $EffectiveVMNodes = $body.GetElementsByTagName("vmnodes")}
+            }
+        }
 
-         write-debug "$($MyInvocation.MyCommand.Name) : Getting macaddress dynamic includes for SG $($SecurityGroup.Name)"
-        $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/macaddresses"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        if ( $response.GetElementsByTagName("macNodes").haschildnodes) { $dynamicMACNodes = $response.GetElementsByTagName("macNodes")} else { $dynamicMACNodes = $null}
+        if ( ($ReturnTypes -eq "All") -or ($ReturnTypes -eq "IpAddress")) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting effective ipaddress membership for Security Group $sgid"
+            $URI = "/api/2.0/services/securitygroup/$sgid/translation/ipaddresses"
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            if ( $response.content -as [system.xml.xmldocument] ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : got xml response from api"
+                [system.xml.xmldocument]$body = $response.content
+                if ( $body.GetElementsByTagName("ipNodes").haschildnodes) { $EffectiveIPNodes = $body.GetElementsByTagName("ipNodes") }
+            }
+        }
 
-         write-debug "$($MyInvocation.MyCommand.Name) : Getting VNIC dynamic includes for SG $($SecurityGroup.Name)"
-        $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/vnics"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        if ( $response.GetElementsByTagName("vnicNodes").haschildnodes) { $dynamicVNICNodes = $response.GetElementsByTagName("vnicNodes")} else { $dynamicVNICNodes = $null }
+        if ( ($ReturnTypes -eq "All") -or ($ReturnTypes -eq "MacAddress")) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting effective macaddress membership for Security Group $sgid"
+            $URI = "/api/2.0/services/securitygroup/$sgid/translation/macaddresses"
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            if ( $response.content -as [system.xml.xmldocument] ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : got xml response from api"
+                [system.xml.xmldocument]$body = $response.content
+                if ( $body.GetElementsByTagName("macNodes").haschildnodes) { $EffectiveMACNodes = $body.GetElementsByTagName("macNodes")}
+            }
+        }
 
-        $return = New-Object psobject
-        $return | add-member -memberType NoteProperty -Name "StaticInclude" -value $StaticIncludes
-        $return | add-member -memberType NoteProperty -Name "DynamicIncludeVM" -value $dynamicVMNodes
-        $return | add-member -memberType NoteProperty -Name "DynamicIncludeIP" -value $dynamicIPNodes
-        $return | add-member -memberType NoteProperty -Name "DynamicIncludeMAC" -value $dynamicMACNodes
-        $return | add-member -memberType NoteProperty -Name "DynamicIncludeVNIC" -value $dynamicVNICNodes
+        if ( ($ReturnTypes -eq "All") -or ($ReturnTypes -eq "Vnic")) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting effective vnic membership for Security Group $sgid"
+            $URI = "/api/2.0/services/securitygroup/$sgid/translation/vnics"
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            if ( $response.content -as [system.xml.xmldocument] ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : got xml response from api"
+                [system.xml.xmldocument]$body = $response.content
+                if ( $body.GetElementsByTagName("vnicNodes").haschildnodes) { $EffectiveVNICNodes = $body.GetElementsByTagName("vnicNodes")}
+            }
+        }
 
-        $return
+        [pscustomobject]@{
+            "VirtualMachine" = $EffectiveVMNodes
+            "IpAddress" = $EffectiveIPNodes
+            "MacAddress" = $EffectiveMACNodes
+            "Vnic" = $EffectiveVNICNodes
+        }
+    }
+
+    end {}
+
+}
+
+function Get-NsxSecurityGroupEffectiveVirtualMachine {
+
+    <#
+    .SYNOPSIS
+    Determines the effective VM membership of a security group.
+
+    .DESCRIPTION
+    An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective VM Membership' of a given security group.  The membership output
+    by this cmdlet is determined by NSX itself.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup testSG | Get-NsxSecurityGroupEffectiveVirtualMachine
+
+    VmName VmId
+    ------ ----
+    Web01  vm-1270
+
+    Determine the effective VM membership of testSG
+
+    .EXAMPLE
+    Get-NsxSecurityGroupEffectiveVirtualMachine -SecurityGroupId securitygroup-1234
+
+    VmName VmId
+    ------ ----
+    Web01  vm-1270
+
+    Determine the effective VM membership of a security group by object id.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
+            [ValidateNotNull()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes VirtualMachine | Select @{ "n" = "VmName"; "e" = { $_.virtualmachine.vmnode.vmname }}, @{ "n" = "VmId"; "e" = { $_.virtualmachine.vmnode.VmId }}
+    }
+
+    end {}
+
+}
+
+function Get-NsxSecurityGroupEffectiveIpAddress {
+
+    <#
+    .SYNOPSIS
+    Determines the effective VM membership of a security group.
+
+    .DESCRIPTION
+    An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective VM Membership' of a given security group.  The membership output
+    by this cmdlet is determined by NSX itself.
+
+    Note:  In order for IPAddress membership to be accurate, IP Discovery
+    of virtual machines must be operational (as it must for the dataplane to
+    function as well.)
+
+    If IPAddress membership is not accurately represented here, verify that
+    an appropriate IP discovery mechanism is operational, and NSX 'detects'
+    the ip addresses you are expecting.  Using the Get-NsxSpoofguardNic cmdlet
+    will allow visibility of the detection state of a given nic or VM.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup TestSG | Get-Get-NsxSecurityGroupEffectiveIpAddress
+
+    IpAddress
+    ---------
+    fe80::250:56ff:fe80:3e20
+
+    Determine the effective ipaddress membership of securitygroup
+
+    .EXAMPLE
+    Get-NsxSecurityGroup TestSG | Get-Get-NsxSecurityGroupEffectiveIpAddress
+
+    IpAddress
+    ---------
+    fe80::250:56ff:fe80:3e20
+
+    Determine the effective ipaddress membership of a security group by objectid
+
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
+            [ValidateNotNull()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes IpAddress | Select @{ "n" = "IpAddress"; "e" = { $_.ipaddress.ipnode.ipaddresses.string }}
+    }
+
+    end {}
+
+}
+
+function Get-NsxSecurityGroupEffectiveMacAddress {
+
+    <#
+    .SYNOPSIS
+    Determines the effective Mac Address membership of a security group.
+
+    .DESCRIPTION
+    An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective MAC Address Membership' of a given security group.
+    The membership output by this cmdlet is determined by NSX itself.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup testSG | Get-NsxSecurityGroupEffectiveMacAddress
+
+    MacAddress
+    ----------
+    {00:50:56:80:3e:20, 00:50:56:80:5f:d0}
+
+    Determine the effective MAC Address membership of testSG.
+
+    .EXAMPLE
+    Get-NsxSecurityGroupEffectiveMacAddress -SecurityGroupId securitygroup-1234
+
+    MacAddress
+    ----------
+    {00:50:56:80:3e:20, 00:50:56:80:5f:d0}
+
+    Determine the effective Mac Address membership of a security group by object
+    id.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
+            [ValidateNotNull()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes MacAddress | Select @{ "n" = "MacAddress"; "e" = { $_.macaddress.macnode.macaddress }}
+    }
+
+    end {}
+
+}
+
+function Get-NsxSecurityGroupEffectiveVnic {
+
+    <#
+    .SYNOPSIS
+    Determines the effective VNIC Address membership of a security group.
+
+    .DESCRIPTION
+    An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective VNIC Address Membership' of a given security group.
+    The membership output by this cmdlet is determined by NSX itself.
+
+    Note:  The IPAddress listed against a vnic via the VNIC translation API may
+    NOT reflect true IPAddress membership of the group as exclusions are not
+    taken into account.
+
+    Use the Get-NsxSecurityGroupEffectiveIpAddress cmdlet for accurate IP
+    address determination.
 
 
+    .EXAMPLE
+    Get-NsxSecurityGroup testSG | Get-NsxSecurityGroupEffectiveVnic
+
+    Uuid                                                                                 IpAddresses                           MacAddress
+    ----                                                                                 -----------                           ----------
+    {50005aa9-a365-5d39-5e73-ab1239eb997e.000, 50004328-f0f5-1115-eb45-1de4261748a1.001} {fe80::250:56ff:fe80:3e20, 10.0.1.11} {00:50:56:80:3e:20, 00:50:56:80:5f:d0}
+
+    Determine the effective VNIC membership of testSG.
+
+    .EXAMPLE
+    Get-NsxSecurityGroupEffectiveVnic -SecurityGroupId securitygroup-1234
+
+    Uuid                                                                                 IpAddresses                           MacAddress
+    ----                                                                                 -----------                           ----------
+    {50005aa9-a365-5d39-5e73-ab1239eb997e.000, 50004328-f0f5-1115-eb45-1de4261748a1.001} {fe80::250:56ff:fe80:3e20, 10.0.1.11} {00:50:56:80:3e:20, 00:50:56:80:5f:d0}
+
+    Determine the effective VNIC membership of a security group by object id.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
+            [ValidateNotNull()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes Vnic | Select @{ "n" = "Uuid"; "e" = { $_.Vnic.vnicnode.uuid }}, @{ "n" = "IpAddresses"; "e" = { $_.Vnic.vnicnode.IpAddresses.string }}, @{ "n" = "MacAddress"; "e" = { $_.Vnic.vnicnode.MacAddress }}
     }
 
     end {}
@@ -24548,12 +24899,12 @@ function Find-NsxWhereVMUsed {
         $MatchedFWL2 = @()
         foreach ( $SecurityGroup in $securityGroups ) {
 
-            $Members = $securityGroup | Get-NsxSecurityGroupEffectiveMembers -connection $connection
+            $Members = $securityGroup | Get-NsxSecurityGroupEffectiveMember -connection $connection -ReturnTypes VirtualMachine
 
             write-debug "$($MyInvocation.MyCommand.Name) : Checking securitygroup $($securitygroup.name) for VM $($VM.name)"
 
-            If ( $members.DynamicIncludeVM ) {
-                foreach ( $member in $members.DynamicIncludeVM) {
+            If ( $members.VirtualMachine ) {
+                foreach ( $member in $members.VirtualMachine) {
                     if ( $member.vmnode.vmid -eq $VM.ExtensionData.MoRef.Value ) {
                         $MatchedSG += $SecurityGroup
                     }
