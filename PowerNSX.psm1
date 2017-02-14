@@ -2681,6 +2681,23 @@ Function Validate-TagAssignment {
     }
 }
 
+Function Validate-FwSourceDestFilter {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( ($argument -as [ipaddress]) -or
+        ($argument -as [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]) ) {
+        $true
+    }
+    elseif ( ($argument -as [string]) -and ($argument -match "^vm-\d+$") ) {
+        $True
+    }
+    else {
+        throw "Source or Destination Filter must be an IPAddress, VM object, or vmmoid"
+    }
+}
+
 
 
 ##########
@@ -21713,7 +21730,7 @@ function Get-NsxFirewallRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Section")]
-        [ValidateNotNull()]
+            [ValidateNotNull()]
             [System.Xml.XmlElement]$Section,
         [Parameter (Mandatory=$false, Position=1)]
             [ValidateNotNullorEmpty()]
@@ -21723,9 +21740,16 @@ function Get-NsxFirewallRule {
             [string]$RuleId,
         [Parameter (Mandatory=$false)]
             [string]$ScopeId="globalroot-0",
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false,ParameterSetName="Section")]
+        [Parameter (Mandatory=$false,ParameterSetName="RuleId")]
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
+        [Parameter (Mandatory=$False,ParameterSetName="Filter")]
+            [ValidateScript({ Validate-FwSourceDestFilter $_ })]
+            [object]$Source,
+        [Parameter (Mandatory=$False,ParameterSetName="Filter")]
+            [ValidateScript({ Validate-FwSourceDestFilter $_ })]
+            [object]$Destination,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -21753,6 +21777,33 @@ function Get-NsxFirewallRule {
                         $response.section.rule
                     }
                 }
+            }
+        }
+        elseif ( $PSCmdlet.ParameterSetName -eq "Filter" )  {
+
+            Switch ( $Source ) {
+                { $_ -as [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]} {
+                    $SourceString = $_.id -replace "virtualmachine-"
+                }
+                default {
+                    #either a vmmoid or ipaddress.
+                    $SourceString = $Source
+                }
+            }
+            Switch ( $Destination ) {
+                { $_ -as [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]} {
+                    $DestinationString = $_.id -replace "virtualmachine-"
+                }
+                default {
+                    #either a vmmoid or ipaddress.
+                    $DestinationString = $Destination
+                }
+            }
+            $URI = "/api/4.0/firewall/$ScopeId/config?ruleType=LAYER3&source=$SourceString&destination=$DestinationString&name=$Name"
+
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "descendant::filteredfirewallConfiguration/layer3Sections/section/rule" -Node $response ){
+                $response.filteredfirewallConfiguration.layer3Sections.Section.rule
             }
         }
         else {
