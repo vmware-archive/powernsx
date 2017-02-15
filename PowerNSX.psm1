@@ -22400,6 +22400,14 @@ function Get-NsxFirewallThreshold {
 
 
     #>
+    param (
+
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
 
     begin {
 
@@ -22408,16 +22416,22 @@ function Get-NsxFirewallThreshold {
     process { 
         
         $URI = "/api/4.0/firewall/stats/eventthresholds"
-        $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
-       
-        $threshold=[system.xml.xmldocument]$response.content
         
-        [PSCustomobject]@{
-                "CPU" = $threshold.eventthresholds.cpu.percentvalue;
-                "Memory" = $threshold.eventthresholds.memory.percentvalue;
-                "ConnectionsPerSecond" = $threshold.eventThresholds.connectionsPerSecond.value
-            }
-    
+        try {
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            [system.xml.xmldocument]$Content = $response.content
+            
+        }
+        
+        catch {
+            Throw "Unexpected API response $_"
+        }
+
+        if ( Invoke-XPathQuery -Node $content -QueryMethod SelectSingleNode -query "child::eventThresholds" ){
+            
+        $Content.eventThresholds
+
+        }
     }
 
     end{}
@@ -22468,49 +22482,29 @@ function Set-NsxFirewallThreshold {
 
     begin {
 
-        #Create the XMLRoot
-        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("eventThresholds")
-        $xmlDoc.appendChild($xmlRoot) | out-null
-
-        #Create an Element and append it to the root
-        [System.XML.XMLElement]$xmlcpu = $xmlDoc.CreateElement("cpu")
-        [System.XML.XMLElement]$xmlmemory = $xmlDoc.CreateElement("memory")
-        [System.XML.XMLElement]$xmlconnections = $xmlDoc.CreateElement("connectionsPerSecond")
-
         #Capture existing thresholds
-        $CurrentThreshold =  Get-NsxFirewallThreshold
+        $currentthreshold =  Get-NsxFirewallThreshold
 
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('Cpu') ) {
-            Add-XmlElement -xmlRoot $xmlcpu -xmlElementName "percentValue" -xmlElementText $Cpu
-            } 
-        else {
-            Add-XmlElement -xmlRoot $xmlcpu -xmlElementName "percentValue" -xmlElementText $CurrentThreshold.Cpu
-        }
+             $currentthreshold.cpu.percentValue = $Cpu
+        } 
+       
 
         if ( $PsBoundParameters.ContainsKey('Memory') ) {
-            Add-XmlElement -xmlRoot $xmlmemory -xmlElementName "percentValue" -xmlElementText $Memory
-            } 
-        else {
-            Add-XmlElement -xmlRoot $xmlmemory -xmlElementName "percentValue" -xmlElementText $CurrentThreshold.Memory
-        }
+            $currentthreshold.memory.percentValue = $Memory
+        } 
+        
 
         if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) { 
-            Add-XmlElement -xmlRoot $xmlconnections -xmlElementName "value" -xmlElementText $ConnectionsPerSecond
-            } 
-        else {
-            Add-XmlElement -xmlRoot $xmlconnections -xmlElementName "value" -xmlElementText $CurrentThreshold.ConnectionsPerSecond
-        }
-    
-        $xmlRoot.AppendChild($xmlcpu) | out-null
-        $xmlRoot.AppendChild($xmlmemory) | out-null
-        $xmlRoot.AppendChild($xmlconnections) | out-null
+            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond
+        } 
+      
         $uri = "/api/4.0/firewall/stats/eventthresholds"
         
-        $body = $xmlroot.outerXml
+        $body = $currentthreshold.outerXml
         Invoke-NsxWebRequest -method "PUT" -URI $uri -body $body | out-null
 
         Get-NsxFirewallThreshold
