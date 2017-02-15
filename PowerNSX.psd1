@@ -325,7 +325,6 @@ FunctionsToExport = @(
     'Get-NsxSecurityGroupEffectiveIpAddress',
     'Get-NsxSecurityGroupEffectiveMacAddress',
     'Get-NsxSecurityGroupEffectiveVnic'
-
 )
 
 # Cmdlets to export from this module
