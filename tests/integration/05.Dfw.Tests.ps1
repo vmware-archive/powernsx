@@ -34,10 +34,13 @@ Describe "Distributed Firewall" {
         $script:l2sectionname = "pester_dfw_l2section1"
         $script:testVMName1 = "pester_dfw_vm1"
         $script:testVMName2 = "pester_dfw_vm2"
+        $script:testVMName3 = "pester_dfw_vm3"
         $script:testSGName1 = "pester_dfw_sg1"
         $script:testSGName2 = "pester_dfw_sg2"
         $script:testIPSetName = "pester_dfw_ipset1"
+        $script:testIPSetName2 = "pester_dfw_ipset2"
         $script:testIPs = "1.1.1.1,2.2.2.2"
+        $script:testIPs2 = "1.1.1.0/24"
         $script:testServiceName1 = "pester_dfw_svc1"
         $script:testServiceName2 = "pester_dfw_svc2"
         $script:testPort = "80"
@@ -75,9 +78,11 @@ Describe "Distributed Firewall" {
         }
         $script:testvm1 = new-vm -name $testVMName1 @vmsplat
         $script:testvm2 = new-vm -name $testVMName2 @vmsplat
+        $script:testvm3 = new-vm -name $testVMName3 @vmsplat
 
         #Create Groupings
         $script:TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Pester dfw Test IP Set" -IpAddresses $testIPs
+        $script:TestIpSet2 = New-NsxIpSet -Name $testIPSetName2 -Description "Pester dfw Test IP Set2" -IpAddresses $testIPs2
         $script:TestMacSet1 = New-NsxMacSet -Name $testMacSetName1 -Description "Pester dfw Test MAC Set1" -MacAddresses "$TestMac1,$TestMac2"
         $script:TestMacSet2 = New-NsxMacSet -Name $testMacSetName2 -Description "Pester dfw Test MAC Set2" -MacAddresses "$TestMac1,$TestMac2"
         $script:TestSG1 = New-NsxSecurityGroup -Name $testSGName1 -Description "Pester dfw Test SG1" -IncludeMember $testVM1, $testVM2
@@ -96,6 +101,7 @@ Describe "Distributed Firewall" {
         write-host -ForegroundColor Green "Performing cleanup tasks for DFW tests"
         get-vm $testVMName1 | remove-vm -Confirm:$false
         get-vm $testVMName2 | remove-vm -Confirm:$false
+        get-vm $testVMName3 | remove-vm -Confirm:$false
         get-nsxedge $dfwedgename | remove-nsxedge -confirm:$false
         start-sleep 5
 
@@ -103,6 +109,7 @@ Describe "Distributed Firewall" {
         Get-NsxFirewallSection $l2sectionname -sectionType layer2sections | Remove-NsxFirewallSection -Confirm:$false -force:$true
         get-nsxlogicalswitch $testlsname | Remove-NsxLogicalSwitch -Confirm:$false
         get-nsxipset $testIPSetName  | Remove-NsxIpSet -Confirm:$false
+        get-nsxipset $testIPSetName2  | Remove-NsxIpSet -Confirm:$false
         get-nsxmacset $TestMacSetName1 | Remove-NsxMacSet -Confirm:$false
         get-nsxmacset $TestMacSetName2 | Remove-NsxMacSet -Confirm:$false
         Get-NsxSecurityGroup $testSGName1 | Remove-NsxSecurityGroup -confirm:$false
@@ -184,6 +191,156 @@ Describe "Distributed Firewall" {
             $section | should not be $null
             $section | Get-NsxFirewallRule | should not be $null
             { $section | Remove-NsxFirewallSection -Confirm:$false -force } | should not Throw
+        }
+    }
+
+    Context "Rule Filtering" {
+
+        it "Can query for a rule by ip" {
+
+            $rule1 = Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -Source $TestIpSet -Destination $testipset
+            $rule2 = Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow -Source $TestIpSet2 -Destination $testipset2
+
+            #Test positive hits for our first matching rule by source
+            $filteredrules = Get-NsxFirewallRule -Source "2.2.2.2"
+            $filteredrules.sources.source.value -contains $testIpSet.objectId | should be $true
+            $filteredrules.sources.source.value -contains $testIpSet2.objectId | should not be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+            #Test matching both rules by source
+            $filteredrules = Get-NsxFirewallRule -Source "1.1.1.1"
+            $filteredrules.sources.source.value -contains $testIpSet.objectId | should be $true
+            $filteredrules.sources.source.value -contains $testIpSet2.objectId | should be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+            $filteredrules.id -contains $rule2.id | should be $true
+
+            #Test negative query by source
+            $filteredrules = Get-NsxFirewallRule -Source "3.3.3.3"
+            $filteredrules.sources.source.value -contains $testIpSet.objectId | should not be $true
+            $filteredrules.sources.source.value -contains $testIpSet2.objectId | should not be $true
+            $filteredrules.id -contains $rule1.id | should not be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+            #Test positive hits for our first matching rule by destination
+            $filteredrules = Get-NsxFirewallRule -Destination "2.2.2.2"
+            $filteredrules.destinations.destination.value -contains $testIpSet.objectId | should be $true
+            $filteredrules.destinations.destination.value -contains $testIpSet2.objectId | should not be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+            #Test matching both rules by destination
+            $filteredrules = Get-NsxFirewallRule -Destination "1.1.1.1"
+            $filteredrules.destinations.destination.value -contains $testIpSet.objectId | should be $true
+            $filteredrules.destinations.destination.value -contains $testIpSet2.objectId | should be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+            $filteredrules.id -contains $rule2.id | should be $true
+
+            #Test negative query by destination
+            $filteredrules = Get-NsxFirewallRule -Destination "3.3.3.3"
+            $filteredrules.destinations.destination.value -contains $testIpSet.objectId | should not be $true
+            $filteredrules.destinations.destination.value -contains $testIpSet2.objectId | should not be $true
+            $filteredrules.id -contains $rule1.id | should not be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+            #Test positive hits for our first matching rule by source and destination
+            $filteredrules = Get-NsxFirewallRule -source "2.2.2.2" -Destination "2.2.2.2"
+            $filteredrules.destinations.destination.value -contains $testIpSet.objectId | should be $true
+            $filteredrules.destinations.destination.value -contains $testIpSet2.objectId | should not be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+            #Test matching both rules by source and destination
+            $filteredrules = Get-NsxFirewallRule -source "1.1.1.1" -Destination "1.1.1.1"
+            $filteredrules.destinations.destination.value -contains $testIpSet.objectId | should be $true
+            $filteredrules.destinations.destination.value -contains $testIpSet2.objectId | should be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+            $filteredrules.id -contains $rule2.id | should be $true
+
+            #Test negative query by source and destination
+            $filteredrules = Get-NsxFirewallRule -source "3.3.3.3" -Destination "3.3.3.3"
+            $filteredrules.destinations.destination.value -contains $testIpSet.objectId | should not be $true
+            $filteredrules.destinations.destination.value -contains $testIpSet2.objectId | should not be $true
+            $filteredrules.id -contains $rule1.id | should not be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+        }
+
+        it "Can query for a rule by source vm object" {
+            $rule1 = Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -Source $TestVM1 -Destination $TestVM1
+            $rule2 = Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow -Source $TestVM2 -Destination $TestVM2
+
+            #Test positive hits for our first matching rule by source
+            $filteredrules = Get-NsxFirewallRule -Source $TestVM1
+            $filteredrules.sources.source.value -contains ($TestVM1.id -replace "virtualmachine-") | should be $true
+            $filteredrules.sources.source.value -contains ($TestVM2.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+
+            #Test negative query by source
+            $filteredrules = Get-NsxFirewallRule -Source $TestVM3
+            $filteredrules.sources.source.value -contains ($TestVM1.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.sources.source.value -contains ($TestVM2.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.id -contains $rule1.id | should not be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+            #Test positive hits for our first matching rule by destination
+            $filteredrules = Get-NsxFirewallRule -Destination $TestVM1
+            $filteredrules.destinations.destination.value -contains ($TestVM1.id -replace "virtualmachine-") | should be $true
+            $filteredrules.destinations.destination.value -contains ($TestVM2.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+            #Test negative query by destination
+            $filteredrules = Get-NsxFirewallRule -Destination $TestVM3
+            $filteredrules.destinations.destination.value -contains ($TestVM1.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.destinations.destination.value -contains ($TestVM2.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.id -contains $rule1.id | should not be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+            #Test positive hits for our first matching rule by source and destination
+            $filteredrules = Get-NsxFirewallRule -source $TestVM2 -Destination $TestVM2
+            $filteredrules.destinations.destination.value -contains ($TestVM2.id -replace "virtualmachine-") | should be $true
+            $filteredrules.destinations.destination.value -contains ($TestVM1.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.id -contains $rule2.id | should be $true
+            $filteredrules.id -contains $rule1.id | should not be $true
+
+            #Test negative query by source and destination
+            $filteredrules = Get-NsxFirewallRule -source $TestVM3 -Destination $TestVM3
+            $filteredrules.destinations.destination.value -contains ($TestVM1.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.destinations.destination.value -contains ($TestVM2.id -replace "virtualmachine-") | should not be $true
+            $filteredrules.id -contains $rule1.id | should not be $true
+            $filteredrules.id -contains $rule2.id | should not be $true
+
+        }
+
+        it "Can query for a rule by name" {
+            $rule1 = Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -Source $TestVM1 -Destination $TestVM1
+
+            #Test positive hits for our first matching rule by name
+            $filteredrules = Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $filteredrules.name -contains "pester_dfw_rule1" | should be $true
+            $filteredrules.id -contains $rule1.id | should be $true
+
+            #Test negative hits for our first matching rule by name
+            $filteredrules = Get-NsxFirewallRule -Name "fred"
+            $filteredrules.name -contains "pester_dfw_rule1" | should not be $true
+            $filteredrules.id -contains $rule1.id | should not be $true
+        }
+
+
+
+        BeforeEach {
+            #create new sections for each test.
+
+            $script:l3sec = New-NsxFirewallSection -Name $l3sectionname
+        }
+        AfterEach {
+            #tear down new sections after each test.
+            # read-host "waiting"
+            if ($pause) { read-host "pausing" }
+            Get-NsxFirewallSection -Name $l3sectionname | Remove-NsxFirewallSection -force -Confirm:$false
         }
     }
 

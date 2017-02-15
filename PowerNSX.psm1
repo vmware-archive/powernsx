@@ -21725,14 +21725,15 @@ function Get-NsxFirewallRule {
     #>
 
 
-    [CmdletBinding(DefaultParameterSetName="Section")]
+    [CmdletBinding(DefaultParameterSetName="Filter")]
 
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Section")]
             [ValidateNotNull()]
             [System.Xml.XmlElement]$Section,
-        [Parameter (Mandatory=$false, Position=1)]
+        [Parameter (Mandatory=$false, Position=1, ParameterSetName="Filter")]
+        [Parameter (Mandatory=$false, Position=1, ParameterSetName="Section")]
             [ValidateNotNullorEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="RuleId")]
