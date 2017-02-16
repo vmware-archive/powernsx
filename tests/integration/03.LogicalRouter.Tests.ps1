@@ -158,7 +158,7 @@ Describe "Logical Routing" {
         }
 
         it "Can disable OSPF" {
-            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting |Set-NsxLogicalRouterRouting -EnableOspf:$false -Confirm:$false #-RouterId $routerId -LocalAS $LocalAS -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2"
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableOspf:$false -Confirm:$false -RouterId $routerId -LocalAS $LocalAS -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2"
             $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
             $rtg.ospf.enabled | should be "false"
         }
