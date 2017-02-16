@@ -5959,6 +5959,16 @@ function New-NsxIpPool {
 
     The New-NsxIpPool cmdlet creates a new IP Pool on the connected NSX manager.
 
+    .EXAMPLE
+    New-NsxIpPool -name Controller_Pool -Gateway "192.168.103.1" 
+    -SubnetPrefixLength "24" -DnsServer1 "192.168.100.4" -DnsSuffix "lab.local"
+    -StartAddress "192.168.103.101" -EndAddress "192.168.103.115"
+
+    This example creates a pool called Controller_Pool. It uses the IP range
+    192.168.103.101-115, has a defined gateway of 192.168.103.1 and has DNS
+    settings configured.
+
+
     #>
 
 
@@ -6064,8 +6074,15 @@ function Get-NsxIpPool {
     address asignment for multiple NSX technologies including VTEP interfaces
     NSX Controllers.
 
+    .EXAMPLE
+    This example retrieves all NSX IP Pools
 
-    The Get-IpPool cmdlet retreives an NSX IP Pools
+    Get-NsxIpPool
+
+    .EXAMPLE
+    This example retrieves an NSX IP Pool by name
+
+    Get-NsxIpPool -name Controller_Pool
 
     #>
 
@@ -10087,7 +10104,7 @@ function Clear-NsxEdgeInterface {
 
         if ( $confirm ) {
 
-            $message  = "Interface ($Interface.Name) config will be cleared."
+            $message  = "Interface $($Interface.Name) config will be cleared."
             $question = "Proceed with interface reconfiguration for interface $($interface.index)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
@@ -20370,6 +20387,16 @@ function Get-NsxMacSet {
 
     This cmdlet returns MAC Set objects.
 
+    .EXAMPLE
+    Retrieves all NSX MAC Sets
+
+    Get-NsxMacSet
+
+    .EXAMPLE
+    Retrieves NSX MAC Set by name
+
+    Get-NsxMacSet TEST_MAC_SET
+
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
@@ -20461,6 +20488,11 @@ function New-NsxMacSet  {
     separated by commas
     Mac address: (eg, 00:00:00:00:00:00)
 
+    .EXAMPLE
+    Creates a MAC Set with the MAC address BEEF:CAFE:DEAD
+
+    PS /Users/Anthony> new-nsxmacset -name MAC_SET_TEST -Description "A sample MAC"
+     -MacAddresses "BE:EF:CA:FE:DE:AD"
 
     #>
 
@@ -20525,7 +20557,13 @@ function Remove-NsxMacSet {
     but be aware that the firewall rulebase will become invalid and will need
     to be corrected before publish operations will succeed again.
 
+    .EXAMPLE
 
+    This will remove a MAC Set by name.
+
+    Get-NsxMacSet MAC_SET_TEST | Remove-NsxMacSet
+
+    -confirm:$false can be used to avoid being prompted.
     #>
 
     param (
@@ -22638,7 +22676,142 @@ function Set-NsxFirewallThreshold {
 }
 
 
-########
+function Get-NsxFirewallThreshold {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Distributed Firewall thresholds for CPU, Memory 
+    and Connections per Second
+
+    .DESCRIPTION
+    The firewall module generates system events when the memory and CPU usage
+    crosses these thresholds.
+
+    This command will retrieve the threshold configuration for the 
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Get-NsxFirewallThreshold
+
+    CPU Memory ConnectionsPerSecond
+    --- ------ --------------------
+    80  80     100000
+
+
+    #>
+    param (
+
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process { 
+        
+        $URI = "/api/4.0/firewall/stats/eventthresholds"
+        
+        try {
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            [system.xml.xmldocument]$Content = $response.content
+            
+        }
+        
+        catch {
+            Throw "Unexpected API response $_"
+        }
+
+        if ( Invoke-XPathQuery -Node $content -QueryMethod SelectSingleNode -query "child::eventThresholds" ){
+            
+        $Content.eventThresholds
+
+        }
+    }
+
+    end{}
+}
+
+function Set-NsxFirewallThreshold {
+
+    <#
+    .SYNOPSIS
+    Sets the Distributed Firewall thresholds for CPU, Memory 
+    and Connections per Second
+
+    .DESCRIPTION
+    The firewall module generates system events when the memory and CPU usage
+    crosses these thresholds.
+
+    This command will set the threshold configuration for the 
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Set-NsxFirewallThreshold -Cpu 70 -Memory 70 -ConnectionsPerSecond 35000
+
+    CPU Memory ConnectionsPerSecond
+    --- ------ --------------------
+    70  70     35000
+
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,100)]
+            [int]$Memory,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,100)]
+            [int]$Cpu,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,500000)]
+            [int]$ConnectionsPerSecond,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+        #Capture existing thresholds
+        $currentthreshold =  Get-NsxFirewallThreshold
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Cpu') ) {
+             $currentthreshold.cpu.percentValue = $Cpu
+        } 
+       
+
+        if ( $PsBoundParameters.ContainsKey('Memory') ) {
+            $currentthreshold.memory.percentValue = $Memory
+        } 
+        
+
+        if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) { 
+            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond
+        } 
+      
+        $uri = "/api/4.0/firewall/stats/eventthresholds"
+        
+        $body = $currentthreshold.outerXml
+        Invoke-NsxWebRequest -method "PUT" -URI $uri -body $body | out-null
+
+        Get-NsxFirewallThreshold
+    }
+    end {}
+}
+
 ########
 # Load Balancing
 

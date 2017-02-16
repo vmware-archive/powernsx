@@ -52,6 +52,7 @@ Describe "Distributed Firewall" {
         $script:TestMacSetName2 = "pester_dfw_macset2"
         $script:TestMac1 = "00:50:56:00:00:00"
         $script:TestMac2 = "00:50:56:00:00:01"
+      
 
         #Logical Switch
         $script:testls = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testlsname
@@ -116,6 +117,8 @@ Describe "Distributed Firewall" {
         Get-NsxSecurityGroup $testSGName2 | Remove-NsxSecurityGroup -confirm:$false
         Get-NsxService $TestServiceName1 | Remove-NsxService -confirm:$false
         Get-NsxService $TestServiceName2 | Remove-NsxService -confirm:$false
+
+        Set-NsxFirewallThreshold -Cpu 100 -Memory 100 -ConnectionsPerSecond 100000 | out-null
 
         disconnect-nsxserver
         write-host -ForegroundColor Green "Completed cleanup tasks for DFW tests"
