@@ -4906,6 +4906,11 @@ function Set-NsxManager {
     such as syslog, vCenter registration and SSO configuration.
 
     .EXAMPLE
+    Set-NsxManager -NtpServer 0.pool.ntp.org -Timezone UTC
+
+    Configures NSX Manager NTP Server.
+
+    .EXAMPLE
     Set-NsxManager -SyslogServer syslog.corp.local -SyslogPort 514 -SyslogProtocol tcp
 
     Configures NSX Manager Syslog destination.
@@ -4924,6 +4929,14 @@ function Set-NsxManager {
 
     Param (
 
+        [Parameter (Mandatory=$True, ParameterSetName="Ntp")]
+            #NTP server for time synchronization..
+            [ValidateNotNullOrEmpty()]
+            [string]$NtpServer,
+        [Parameter (Mandatory=$False, ParameterSetName="Ntp")]
+            #Time Zone, default UTC.
+            [ValidateNotNullOrEmpty()]
+            [string]$TimeZone="UTC",
         [Parameter (Mandatory=$True, ParameterSetName="Syslog")]
             #Syslog server to which syslogs will be forwarded.
             [ValidateNotNullOrEmpty()]
@@ -4985,6 +4998,21 @@ function Set-NsxManager {
     [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
 
     switch ( $PsCmdlet.ParameterSetName ) {
+
+        "Ntp" {
+
+            [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement('timeSettings')
+            $xmlDoc.appendChild($xmlRoot) | out-null
+
+            [System.XML.XMLElement]$xmlNtpNode = $xmlDoc.CreateElement('ntpServer')
+            $xmlRoot.Appendchild($xmlNtpNode) | out-null
+
+            Add-XmlElement -xmlRoot $xmlNtpNode -xmlElementName "string" -xmlElementText $ntpServer.ToString()
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "timezone" -xmlElementText $timeZone.ToString()
+
+            $uri = "/api/1.0/appliance-management/system/timesettings"
+            $method = "put"
+        }
 
         "Syslog" {
 
