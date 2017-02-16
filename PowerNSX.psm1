@@ -4906,6 +4906,11 @@ function Set-NsxManager {
     such as syslog, vCenter registration and SSO configuration.
 
     .EXAMPLE
+    Set-NsxManager -NtpServer 0.pool.ntp.org -Timezone UTC
+
+    Configures NSX Manager NTP Server.
+
+    .EXAMPLE
     Set-NsxManager -SyslogServer syslog.corp.local -SyslogPort 514 -SyslogProtocol tcp
 
     Configures NSX Manager Syslog destination.
@@ -5228,6 +5233,128 @@ function Get-NsxManagerTimeSettings {
         Add-XmlElement -xmlRoot $xmlTimeSettings -xmlElementName "timezone" -xmlElementText $result.timezone
         $xmlTimeSettings
     }
+}
+
+function Set-NsxManagerTimeSettings {
+
+    <#
+    .SYNOPSIS
+    Configures -NtpServer and TimeZone settings for an existing NSX Manager appliance.
+
+    .DESCRIPTION
+    The NSX management plane is provided by NSX Manager, the centralized
+    network management component of NSX. It provides the single point of
+    configuration for NSX operations, and provides NSX's REST API.
+
+    The Set-NsxManagerTimeZone cmdlet allows configuration of the appliances
+    timezone related settings.
+
+    .EXAMPLE
+    Set-NsxManagerTimeSettings -NtpServer 0.pool.ntp.org -Timezone UTC
+
+    Configures NSX Manager NTP Server.
+
+    #>
+
+    Param (
+
+        [Parameter (Mandatory=$False)]
+            #NTP server for time synchronization..
+            [ValidateNotNullOrEmpty()]
+            [string[]]$NtpServer,
+        [Parameter (Mandatory=$False)]
+            #Time Zone, default UTC.
+            [ValidateNotNullOrEmpty()]
+            [string]$TimeZone="UTC",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $uri = "/api/1.0/appliance-management/system/timesettings"
+    [System.Xml.XmlDocument]$Existing = Invoke-NsxRestMethod -Method get -uri $uri -Connection $Connection
+    #Api barfs if we set the time with the value we get from it.  And in a non intuitive way... sigh again...
+
+    $null = $Existing.timeSettings.RemoveChild((invoke-xpathquery -node $Existing -QueryMethod SelectSingleNode -query "child::timeSettings/datetime") )
+
+    If ( Invoke-XpathQuery -Node $Existing -QueryMethod SelectSingleNode -query "child::timeSettings") {
+        if ( $PSBoundParameters.ContainsKey("ntpserver")) {
+            if ( Invoke-XpathQuery -Node $Existing -QueryMethod SelectSingleNode -query "child::timeSettings/ntpServer" ) {
+
+                write-warning "Existing NTP servers are configured and will be retained.  Use Clear-NsxManagerTimeSettings to remove them."
+                #Api doesnt allow 'updates', so we have to save existing, then remove, then readd the union of old and new.
+                Clear-NsxManagerTimeSettings
+
+                foreach ($Server in $ntpserver) {
+                    if ( $Existing.timeSettings.ntpServer.string -notcontains $server ) {
+                        Add-XmlElement -xmlRoot $Existing.timeSettings.ntpServer -xmlElementName "string" -xmlElementText $server.ToString()
+                    }
+                }
+            }
+            else {
+                [System.XML.XMLElement]$xmlNtpNode = $Existing.CreateElement('ntpServer')
+                $Existing.timeSettings.Appendchild($xmlNtpNode) | out-null
+                foreach ($Server in $ntpserver) {
+                    Add-XmlElement -xmlRoot $xmlNtpNode -xmlElementName "string" -xmlElementText $server.ToString()
+                }
+            }
+        }
+        if ($PSBoundParameters.ContainsKey("TimeZone")) {
+            $Existing.timeSettings.timezone = $timeZone.ToString()
+        }
+
+        $uri = "/api/1.0/appliance-management/system/timesettings"
+        $null = Invoke-NsxRestMethod -Method put -body $Existing.timeSettings.outerXml -uri $uri -Connection $Connection
+        Get-NsxManagerTimeSettings
+    }
+    else {
+        throw "Unexpected response from API when querying existing time settings."
+    }
+}
+
+function Clear-NsxManagerTimeSettings {
+
+    <#
+    .SYNOPSIS
+    Removes NtpServer and TimeZone settings for an existing NSX Manager
+    appliance.
+
+    .DESCRIPTION
+    The NSX management plane is provided by NSX Manager, the centralized
+    network management component of NSX. It provides the single point of
+    configuration for NSX operations, and provides NSX's REST API.
+
+    The Remove-NsxManagerTimeSettings cmdlet allows an appliances existing timezone
+    related settings to be cleared.
+
+    .EXAMPLE
+    Remove-NsxManagerTimeSettings
+
+    UnConfigures NSX Manager NTP Server and TimeZone.
+
+    #>
+
+    Param (
+        [switch]$ClearTimeZone=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    $Existing = Get-NsxManagerTimeSettings
+    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $Existing -query "child::ntpServer") {
+        #API errors if you clear when there arent any existing NTP servers configured... sigh...
+        $uri = "/api/1.0/appliance-management/system/timesettings/ntp"
+        $null = Invoke-NsxRestMethod -Method delete -uri $uri -Connection $Connection
+    }
+
+    if ($ClearTimeZone ) {
+        $null = Set-NsxManagerTimeSettings -TimeZone UTC
+    }
+
 }
 
 function Get-NsxManagerSyslogServer {
