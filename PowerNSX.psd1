@@ -295,6 +295,8 @@ FunctionsToExport = @(
     'Get-NsxManagerSsoConfig',
     'Get-NsxManagerVcenterConfig',
     'Get-NsxManagerTimeSettings',
+    'Set-NsxManagerTimeSettings',
+    'Clear-NsxManagerTimeSettings',
     'Get-NsxManagerSyslogServer',
     'Get-NsxManagerNetwork',
     'Get-NsxManagerBackup',
