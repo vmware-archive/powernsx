@@ -22516,6 +22516,127 @@ function Get-NsxFirewallSavedConfiguration {
     end {}
 }
 
+function Get-NsxFirewallThreshold {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Distributed Firewall thresholds for CPU, Memory 
+    and Connections per Second
+
+    .DESCRIPTION
+    The firewall module generates system events when the memory and CPU usage
+    crosses these thresholds.
+
+    This command will retrieve the threshold configuration for the 
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Get-NsxFirewallThreshold
+
+    CPU Memory ConnectionsPerSecond
+    --- ------ --------------------
+    cpu memory connectionsPerSecond
+    #>
+    
+    param (
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process { 
+        
+        $URI = "/api/4.0/firewall/stats/eventthresholds"
+        
+        try {
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            [system.xml.xmldocument]$Content = $response.content   
+        }
+        catch {
+            Throw "Unexpected API response $_"
+        }
+
+        if ( Invoke-XPathQuery -Node $content -QueryMethod SelectSingleNode -query "child::eventThresholds" ){    
+            $Content.eventThresholds
+        }
+    }
+
+    end{}
+}
+
+function Set-NsxFirewallThreshold {
+
+    <#
+    .SYNOPSIS
+    Sets the Distributed Firewall thresholds for CPU, Memory 
+    and Connections per Second
+
+    .DESCRIPTION
+    The firewall module generates system events when the memory and CPU usage
+    crosses these thresholds.
+
+    This command will set the threshold configuration for the 
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Set-NsxFirewallThreshold -Cpu 70 -Memory 70 -ConnectionsPerSecond 35000
+
+    CPU Memory ConnectionsPerSecond
+    --- ------ --------------------
+    cpu memory connectionsPerSecond
+    
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,100)]
+            [int]$Memory,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,100)]
+            [int]$Cpu,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,500000)]
+            [int]$ConnectionsPerSecond,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+
+        #Capture existing thresholds
+        $currentthreshold =  Get-NsxFirewallThreshold
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Cpu') ) {
+             $currentthreshold.cpu.percentValue = $Cpu
+        }
+        if ( $PsBoundParameters.ContainsKey('Memory') ) {
+            $currentthreshold.memory.percentValue = $Memory
+        } 
+        if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) { 
+            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond
+        } 
+      
+        $uri = "/api/4.0/firewall/stats/eventthresholds"
+        $body = $currentthreshold.outerXml
+        Invoke-NsxWebRequest -method "PUT" -URI $uri -body $body | out-null
+
+        Get-NsxFirewallThreshold
+    }
+    end {}
+}
+
 
 ########
 ########
