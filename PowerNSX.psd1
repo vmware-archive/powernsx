@@ -326,7 +326,9 @@ FunctionsToExport = @(
     'Get-NsxSecurityGroupEffectiveMacAddress',
     'Get-NsxSecurityGroupEffectiveVnic',
     'Set-NsxFirewallThreshold',
-    'Get-NsxFirewallThreshold'
+    'Get-NsxFirewallThreshold',
+    'Invoke-NsxEdgeHaFailover',
+    'Get-NsxEdgeStatus'
 )
 
 # Cmdlets to export from this module
@@ -378,4 +380,3 @@ PrivateData = @{
 # DefaultCommandPrefix = ''
 
 }
-
