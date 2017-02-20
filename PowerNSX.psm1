@@ -2614,6 +2614,23 @@ Function Validate-TagAssignment {
     }
 }
 
+Function Validate-FwSourceDestFilter {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( ($argument -as [ipaddress]) -or
+        ($argument -as [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]) ) {
+        $true
+    }
+    elseif ( ($argument -as [string]) -and ($argument -match "^vm-\d+$") ) {
+        $True
+    }
+    else {
+        throw "Source or Destination Filter must be an IPAddress, VM object, or vmmoid"
+    }
+}
+
 
 
 ##########
@@ -4822,6 +4839,11 @@ function Set-NsxManager {
     such as syslog, vCenter registration and SSO configuration.
 
     .EXAMPLE
+    Set-NsxManager -NtpServer 0.pool.ntp.org -Timezone UTC
+
+    Configures NSX Manager NTP Server.
+
+    .EXAMPLE
     Set-NsxManager -SyslogServer syslog.corp.local -SyslogPort 514 -SyslogProtocol tcp
 
     Configures NSX Manager Syslog destination.
@@ -5144,6 +5166,128 @@ function Get-NsxManagerTimeSettings {
         Add-XmlElement -xmlRoot $xmlTimeSettings -xmlElementName "timezone" -xmlElementText $result.timezone
         $xmlTimeSettings
     }
+}
+
+function Set-NsxManagerTimeSettings {
+
+    <#
+    .SYNOPSIS
+    Configures -NtpServer and TimeZone settings for an existing NSX Manager appliance.
+
+    .DESCRIPTION
+    The NSX management plane is provided by NSX Manager, the centralized
+    network management component of NSX. It provides the single point of
+    configuration for NSX operations, and provides NSX's REST API.
+
+    The Set-NsxManagerTimeZone cmdlet allows configuration of the appliances
+    timezone related settings.
+
+    .EXAMPLE
+    Set-NsxManagerTimeSettings -NtpServer 0.pool.ntp.org -Timezone UTC
+
+    Configures NSX Manager NTP Server.
+
+    #>
+
+    Param (
+
+        [Parameter (Mandatory=$False)]
+            #NTP server for time synchronization..
+            [ValidateNotNullOrEmpty()]
+            [string[]]$NtpServer,
+        [Parameter (Mandatory=$False)]
+            #Time Zone, default UTC.
+            [ValidateNotNullOrEmpty()]
+            [string]$TimeZone="UTC",
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $uri = "/api/1.0/appliance-management/system/timesettings"
+    [System.Xml.XmlDocument]$Existing = Invoke-NsxRestMethod -Method get -uri $uri -Connection $Connection
+    #Api barfs if we set the time with the value we get from it.  And in a non intuitive way... sigh again...
+
+    $null = $Existing.timeSettings.RemoveChild((invoke-xpathquery -node $Existing -QueryMethod SelectSingleNode -query "child::timeSettings/datetime") )
+
+    If ( Invoke-XpathQuery -Node $Existing -QueryMethod SelectSingleNode -query "child::timeSettings") {
+        if ( $PSBoundParameters.ContainsKey("ntpserver")) {
+            if ( Invoke-XpathQuery -Node $Existing -QueryMethod SelectSingleNode -query "child::timeSettings/ntpServer" ) {
+
+                write-warning "Existing NTP servers are configured and will be retained.  Use Clear-NsxManagerTimeSettings to remove them."
+                #Api doesnt allow 'updates', so we have to save existing, then remove, then readd the union of old and new.
+                Clear-NsxManagerTimeSettings
+
+                foreach ($Server in $ntpserver) {
+                    if ( $Existing.timeSettings.ntpServer.string -notcontains $server ) {
+                        Add-XmlElement -xmlRoot $Existing.timeSettings.ntpServer -xmlElementName "string" -xmlElementText $server.ToString()
+                    }
+                }
+            }
+            else {
+                [System.XML.XMLElement]$xmlNtpNode = $Existing.CreateElement('ntpServer')
+                $Existing.timeSettings.Appendchild($xmlNtpNode) | out-null
+                foreach ($Server in $ntpserver) {
+                    Add-XmlElement -xmlRoot $xmlNtpNode -xmlElementName "string" -xmlElementText $server.ToString()
+                }
+            }
+        }
+        if ($PSBoundParameters.ContainsKey("TimeZone")) {
+            $Existing.timeSettings.timezone = $timeZone.ToString()
+        }
+
+        $uri = "/api/1.0/appliance-management/system/timesettings"
+        $null = Invoke-NsxRestMethod -Method put -body $Existing.timeSettings.outerXml -uri $uri -Connection $Connection
+        Get-NsxManagerTimeSettings
+    }
+    else {
+        throw "Unexpected response from API when querying existing time settings."
+    }
+}
+
+function Clear-NsxManagerTimeSettings {
+
+    <#
+    .SYNOPSIS
+    Removes NtpServer and TimeZone settings for an existing NSX Manager
+    appliance.
+
+    .DESCRIPTION
+    The NSX management plane is provided by NSX Manager, the centralized
+    network management component of NSX. It provides the single point of
+    configuration for NSX operations, and provides NSX's REST API.
+
+    The Remove-NsxManagerTimeSettings cmdlet allows an appliances existing timezone
+    related settings to be cleared.
+
+    .EXAMPLE
+    Remove-NsxManagerTimeSettings
+
+    UnConfigures NSX Manager NTP Server and TimeZone.
+
+    #>
+
+    Param (
+        [switch]$ClearTimeZone=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    $Existing = Get-NsxManagerTimeSettings
+    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $Existing -query "child::ntpServer") {
+        #API errors if you clear when there arent any existing NTP servers configured... sigh...
+        $uri = "/api/1.0/appliance-management/system/timesettings/ntp"
+        $null = Invoke-NsxRestMethod -Method delete -uri $uri -Connection $Connection
+    }
+
+    if ($ClearTimeZone ) {
+        $null = Set-NsxManagerTimeSettings -TimeZone UTC
+    }
+
 }
 
 function Get-NsxManagerSyslogServer {
@@ -5748,6 +5892,16 @@ function New-NsxIpPool {
 
     The New-NsxIpPool cmdlet creates a new IP Pool on the connected NSX manager.
 
+    .EXAMPLE
+    New-NsxIpPool -name Controller_Pool -Gateway "192.168.103.1"
+    -SubnetPrefixLength "24" -DnsServer1 "192.168.100.4" -DnsSuffix "lab.local"
+    -StartAddress "192.168.103.101" -EndAddress "192.168.103.115"
+
+    This example creates a pool called Controller_Pool. It uses the IP range
+    192.168.103.101-115, has a defined gateway of 192.168.103.1 and has DNS
+    settings configured.
+
+
     #>
 
 
@@ -5853,8 +6007,15 @@ function Get-NsxIpPool {
     address asignment for multiple NSX technologies including VTEP interfaces
     NSX Controllers.
 
+    .EXAMPLE
+    This example retrieves all NSX IP Pools
 
-    The Get-IpPool cmdlet retreives an NSX IP Pools
+    Get-NsxIpPool
+
+    .EXAMPLE
+    This example retrieves an NSX IP Pool by name
+
+    Get-NsxIpPool -name Controller_Pool
 
     #>
 
@@ -9876,7 +10037,7 @@ function Clear-NsxEdgeInterface {
 
         if ( $confirm ) {
 
-            $message  = "Interface ($Interface.Name) config will be cleared."
+            $message  = "Interface $($Interface.Name) config will be cleared."
             $question = "Proceed with interface reconfiguration for interface $($interface.index)?"
 
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
@@ -19210,20 +19371,24 @@ function Add-NsxSecurityGroupMember {
 
 
     param (
-
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #SecurityGroup whose membership is to be modified.
             [ValidateNotNullOrEmpty()]
             [object]$SecurityGroup,
         [Parameter (Mandatory=$False)]
+            #Throw an error if the member already exists (by default will ignore)
             [switch]$FailIfExists=$false,
+        [Parameter (Mandatory=$False)]
+            #The specified members are to be added to the security group as exclusions
+            [switch]$MemberIsExcluded=$false,
         [Parameter (Mandatory=$true)]
+            #The member(s) to be added
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
     begin {
@@ -19236,7 +19401,6 @@ function Add-NsxSecurityGroupMember {
     }
 
     process {
-
         #Get our internal SG object and id.  The internal obejct is used to modify and put for bulk update.
         if ( $SecurityGroup -is [System.Xml.XmlElement] ) {
             $SecurityGroupId = $securityGroup.objectId
@@ -19288,7 +19452,12 @@ function Add-NsxSecurityGroupMember {
                 }
 
                 #Create a new member node
-                $null = $memberxml = $_SecurityGroup.OwnerDocument.CreateElement("member")
+                if ( $MemberIsExcluded ) {
+                    $null = $memberxml = $_SecurityGroup.OwnerDocument.CreateElement("excludeMember")
+                }
+                else {
+                    $null = $memberxml = $_SecurityGroup.OwnerDocument.CreateElement("member")
+                }
                 $null = $_SecurityGroup.AppendChild($memberxml)
                 Add-XmlElement -xmlRoot $memberxml -xmlElementName "objectId" -xmlElementText $MemberMoref
 
@@ -20156,62 +20325,49 @@ function Remove-NsxIpPool {
     address asignment for multiple NSX technologies including VTEP interfaces
     NSX Controllers.
 
-    This cmdlet removes the specified IP Pool. If the object 
-    has current IP Address allolcations the api will return an error.
-	Use -force to override.
+    This cmdlet removes the specified IP Pool. If the object has current IP
+    Address allocations the api will return an error.  Use -force to override.
 
     .EXAMPLE
     PS C:\> Get-NsxIPPool TestIPPool | Remove-NsxIPPool
 
     #>
- 
-    param (
 
+    param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #IPPool object to be removed.
             [ValidateScript({ Validate-IpPool $_ })]
             [System.Xml.XmlElement]$IPPool,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            #Force removal of the ippool, even if it has current allocations.
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
-
     )
-    
-    begin {
 
-    }
+    begin {}
 
     process {
-
         if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $IPPool -Query "descendant::usedAddressCount[. != 0]") -and ( -not $force)) {
-            write-warning "Not removing $($IPPool.Name) as it is set as read-only." 
+            write-warning "Not removing $($IPPool.Name) because it currently has allocated addresses.  Use -force to override."
         }
-        else { 
+        else {
             if ( $confirm ) {
                 $message  = "IP Pool removal is permanent."
                 $question = "Proceed with removal of IP Pool $($IPPool.Name)?"
-
                 $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
                 $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
                 $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
                 $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
             }
-            else { $decision = 0 } 
+            else { $decision = 0 }
             if ($decision -eq 0) {
-                if ( $force ) {
-					$URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=true"
-                }
-                else {
-					$URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=false"
-                }
-                
+				$URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=$($force.tostring().tolower())"
                 Write-Progress -activity "Remove IP Pool $($IPPool.Name)"
                 invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
                 write-progress -activity "Remove IP Pool $($IPPool.Name)" -completed
@@ -20236,6 +20392,16 @@ function Get-NsxMacSet {
     group.
 
     This cmdlet returns MAC Set objects.
+
+    .EXAMPLE
+    Retrieves all NSX MAC Sets
+
+    Get-NsxMacSet
+
+    .EXAMPLE
+    Retrieves NSX MAC Set by name
+
+    Get-NsxMacSet TEST_MAC_SET
 
     #>
 
@@ -20328,6 +20494,11 @@ function New-NsxMacSet  {
     separated by commas
     Mac address: (eg, 00:00:00:00:00:00)
 
+    .EXAMPLE
+    Creates a MAC Set with the MAC address BEEF:CAFE:DEAD
+
+    PS /Users/Anthony> new-nsxmacset -name MAC_SET_TEST -Description "A sample MAC"
+     -MacAddresses "BE:EF:CA:FE:DE:AD"
 
     #>
 
@@ -20392,7 +20563,13 @@ function Remove-NsxMacSet {
     but be aware that the firewall rulebase will become invalid and will need
     to be corrected before publish operations will succeed again.
 
+    .EXAMPLE
 
+    This will remove a MAC Set by name.
+
+    Get-NsxMacSet MAC_SET_TEST | Remove-NsxMacSet
+
+    -confirm:$false can be used to avoid being prompted.
     #>
 
     param (
@@ -21268,7 +21445,9 @@ function Get-NsxApplicableMember {
         if ( $response | get-member -membertype Property -Name Content ) {
             try {
                 [xml]$content = $response.Content
-                $content.list.basicInfo
+                if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $content -query "child::list/basicinfo") {
+                    $content.list.basicInfo
+                }
             }
             catch {
                 throw "Content returned from NSX API could not be parsed as applicable member XML."
@@ -21719,14 +21898,15 @@ function Get-NsxFirewallRule {
     #>
 
 
-    [CmdletBinding(DefaultParameterSetName="Section")]
+    [CmdletBinding(DefaultParameterSetName="Filter")]
 
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Section")]
-        [ValidateNotNull()]
+            [ValidateNotNull()]
             [System.Xml.XmlElement]$Section,
-        [Parameter (Mandatory=$false, Position=1)]
+        [Parameter (Mandatory=$false, Position=1, ParameterSetName="Filter")]
+        [Parameter (Mandatory=$false, Position=1, ParameterSetName="Section")]
             [ValidateNotNullorEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="RuleId")]
@@ -21734,9 +21914,16 @@ function Get-NsxFirewallRule {
             [string]$RuleId,
         [Parameter (Mandatory=$false)]
             [string]$ScopeId="globalroot-0",
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false,ParameterSetName="Section")]
+        [Parameter (Mandatory=$false,ParameterSetName="RuleId")]
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
+        [Parameter (Mandatory=$False,ParameterSetName="Filter")]
+            [ValidateScript({ Validate-FwSourceDestFilter $_ })]
+            [object]$Source,
+        [Parameter (Mandatory=$False,ParameterSetName="Filter")]
+            [ValidateScript({ Validate-FwSourceDestFilter $_ })]
+            [object]$Destination,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -21764,6 +21951,33 @@ function Get-NsxFirewallRule {
                         $response.section.rule
                     }
                 }
+            }
+        }
+        elseif ( $PSCmdlet.ParameterSetName -eq "Filter" )  {
+
+            Switch ( $Source ) {
+                { $_ -as [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]} {
+                    $SourceString = $_.id -replace "virtualmachine-"
+                }
+                default {
+                    #either a vmmoid or ipaddress.
+                    $SourceString = $Source
+                }
+            }
+            Switch ( $Destination ) {
+                { $_ -as [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]} {
+                    $DestinationString = $_.id -replace "virtualmachine-"
+                }
+                default {
+                    #either a vmmoid or ipaddress.
+                    $DestinationString = $Destination
+                }
+            }
+            $URI = "/api/4.0/firewall/$ScopeId/config?ruleType=LAYER3&source=$SourceString&destination=$DestinationString&name=$Name"
+
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "descendant::filteredfirewallConfiguration/layer3Sections/section/rule" -Node $response ){
+                $response.filteredfirewallConfiguration.layer3Sections.Section.rule
             }
         }
         else {
@@ -22344,6 +22558,127 @@ function Get-NsxFirewallSavedConfiguration {
                 $Response.firewallDraft
             }
         }
+    }
+    end {}
+}
+
+function Get-NsxFirewallThreshold {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Distributed Firewall thresholds for CPU, Memory
+    and Connections per Second
+
+    .DESCRIPTION
+    The firewall module generates system events when the memory and CPU usage
+    crosses these thresholds.
+
+    This command will retrieve the threshold configuration for the
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Get-NsxFirewallThreshold
+
+    CPU Memory ConnectionsPerSecond
+    --- ------ --------------------
+    cpu memory connectionsPerSecond
+    #>
+
+    param (
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process {
+
+        $URI = "/api/4.0/firewall/stats/eventthresholds"
+
+        try {
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            [system.xml.xmldocument]$Content = $response.content
+        }
+        catch {
+            Throw "Unexpected API response $_"
+        }
+
+        if ( Invoke-XPathQuery -Node $content -QueryMethod SelectSingleNode -query "child::eventThresholds" ){
+            $Content.eventThresholds
+        }
+    }
+
+    end{}
+}
+
+function Set-NsxFirewallThreshold {
+
+    <#
+    .SYNOPSIS
+    Sets the Distributed Firewall thresholds for CPU, Memory
+    and Connections per Second
+
+    .DESCRIPTION
+    The firewall module generates system events when the memory and CPU usage
+    crosses these thresholds.
+
+    This command will set the threshold configuration for the
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Set-NsxFirewallThreshold -Cpu 70 -Memory 70 -ConnectionsPerSecond 35000
+
+    CPU Memory ConnectionsPerSecond
+    --- ------ --------------------
+    cpu memory connectionsPerSecond
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,100)]
+            [int]$Memory,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,100)]
+            [int]$Cpu,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,500000)]
+            [int]$ConnectionsPerSecond,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+
+        #Capture existing thresholds
+        $currentthreshold =  Get-NsxFirewallThreshold
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Cpu') ) {
+             $currentthreshold.cpu.percentValue = $Cpu
+        }
+        if ( $PsBoundParameters.ContainsKey('Memory') ) {
+            $currentthreshold.memory.percentValue = $Memory
+        }
+        if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) {
+            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond
+        }
+
+        $uri = "/api/4.0/firewall/stats/eventthresholds"
+        $body = $currentthreshold.outerXml
+        Invoke-NsxWebRequest -method "PUT" -URI $uri -body $body | out-null
+
+        Get-NsxFirewallThreshold
     }
     end {}
 }
@@ -24426,31 +24761,86 @@ function Remove-NsxSecurityPolicy {
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
 
 
-function Get-NsxSecurityGroupEffectiveMembers {
+function Get-NsxSecurityGroupEffectiveMember {
 
     <#
     .SYNOPSIS
-    Determines the effective memebership of a security group including dynamic
-    members.
+    Determines the effective memebership of a security group.
 
     .DESCRIPTION
     An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
-    or interfaces) by virtue of static or dynamic inclusion.  This cmdlet determines
-    the static and dynamic membership of a given group.
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective Membership' of a given security group.  The membership output
+    by Get-NsxSecurityGroupEffectiveMember is determined by NSX itself.
+
+    Note:  In order for IPAddress membership to be accurate, IP Discovery
+    of virtual machines must be operational (as it must for the dataplane to
+    function as well.)
+
+    If IPAddress membership is not accurately represented here, verify that
+    an appropriate IP discovery mechanism is operational, and NSX 'detects'
+    the ip addresses you are expecting.  Using the Get-NsxSpoofguardNic cmdlet
+    will allow visibility of the detection state of a given nic or VM.
+
+    Note: Previous versions of this cmdlet included direct static inclusions
+    (only) which is not useful in the context of determining 'effective
+    membership' and has been removed.
+
+    If you wish to know how a given SG is configured with respect to
+    inclusions/exclusions, use the Get-NsxSecurityGroup cmdlet.
+
+    Return properties have also been renamed to make their function clearer, and
+    the cmdlet renamed to be consistent with PowerShell naming convention
+    (singular).
+
+    Note:  In addition to this cmdlet, four individual wrapper cmdlets exist
+    that allow a translation query for a specific object type (ie vms only)
+    to be executed, and whose output is easier to parse for intelligent monkeys.
+
+    Review Get-NsxSecurityGroupEffectiveVirtualMachine,
+    Get-NsxSecurityGroupEffectiveIpAddress,
+    Get-NsxSecurityGroupEffectiveMacAddress,
+    Get-NsxSecurityGroupEffectiveVnic for more information.
 
     .EXAMPLE
+    Get-NsxSecurityGroup TestSG | Get-NsxSecurityGroupEffectiveMembers
 
-    PS C:\>  Get-NsxSecurityGroup TestSG | Get-NsxSecurityGroupEffectiveMembers
+    Retrieve the effective membership of the securitygroup testsg by passing
+    the securitygroup object on the pipline.
+
+    .EXAMPLE
+    Get-NsxSecurityGroupEffectiveMembers -SecurityGroupId securitygroup-1234
+
+    Retrieve the effective membership of a securitygroup by passing
+    the securitygroup objectid.
+
+    .EXAMPLE
+    $testSG | Get-NsxSecurityGroupEffectiveMembers -ReturnTypes -ReturnTypes VirtualMachine, Vnic
+
+    Retrieve just the VM and VNIC effective membership of the SecurityGroup stored
+    in $testSG
 
     #>
 
-    [CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="object")]
 
     param (
 
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
             [ValidateNotNull()]
             [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("All", "VirtualMachine", "IpAddress", "MacAddress", "Vnic")]
+            [string[]]$ReturnTypes="All",
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -24458,50 +24848,346 @@ function Get-NsxSecurityGroupEffectiveMembers {
 
     )
 
-    begin {
-
-    }
+    begin {}
 
     process {
 
-        if ( $securityGroup| get-member -MemberType Properties -Name member ) { $StaticIncludes = $SecurityGroup.member } else { $StaticIncludes = $null }
+        $EffectiveVMNodes = $null
+        $EffectiveIPNodes = $null
+        $EffectiveMACNodes = $null
+        $EffectiveVNICNodes = $null
 
-        #Have to construct Dynamic Includes:
-        #GET https://<nsxmgr-ip>/api/2.0/services/securitygroup/ObjectID/translation/virtualmachines
-        #GET https://<nsxmgr-ip>/api/2.0/services/securitygroup/ObjectID/translation/ipaddresses
-        #GET https://<nsxmgr-ip>/api/2.0/services/securitygroup/ObjectID/translation/macaddresses
-        #GET https://<nsxmgr-ip>/api/2.0/services/securitygroup/ObjectID/translation/vnics
+        if ( $PSCmdlet.ParameterSetName -eq "object" ) {
+            $sgid = $SecurityGroup.ObjectId
+        }
+        else {
+            $sgid = $SecurityGroupId
+        }
 
-        write-debug "$($MyInvocation.MyCommand.Name) : Getting virtualmachine dynamic includes for SG $($SecurityGroup.Name)"
-        $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/virtualmachines"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        if ( $response.GetElementsByTagName("vmnodes").haschildnodes) { $dynamicVMNodes = $response.GetElementsByTagName("vmnodes")} else { $dynamicVMNodes = $null }
+        if ( ($ReturnTypes -eq "All") -or ($ReturnTypes -eq "VirtualMachine")) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting effective VM membership for Security Group $sgid"
+            $URI = "/api/2.0/services/securitygroup/$sgid/translation/virtualmachines"
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
 
-         write-debug "$($MyInvocation.MyCommand.Name) : Getting ipaddress dynamic includes for SG $($SecurityGroup.Name)"
-        $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/ipaddresses"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        if ( $response.GetElementsByTagName("ipNodes").haschildnodes) { $dynamicIPNodes = $response.GetElementsByTagName("ipNodes") } else { $dynamicIPNodes = $null}
+            if ( $response.content -as [system.xml.xmldocument] ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : got xml response from api"
+                [system.xml.xmldocument]$body = $response.content
+                if ( $body.GetElementsByTagName("vmnodes").haschildnodes) { $EffectiveVMNodes = $body.GetElementsByTagName("vmnodes")}
+            }
+        }
 
-         write-debug "$($MyInvocation.MyCommand.Name) : Getting macaddress dynamic includes for SG $($SecurityGroup.Name)"
-        $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/macaddresses"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        if ( $response.GetElementsByTagName("macNodes").haschildnodes) { $dynamicMACNodes = $response.GetElementsByTagName("macNodes")} else { $dynamicMACNodes = $null}
+        if ( ($ReturnTypes -eq "All") -or ($ReturnTypes -eq "IpAddress")) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting effective ipaddress membership for Security Group $sgid"
+            $URI = "/api/2.0/services/securitygroup/$sgid/translation/ipaddresses"
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            if ( $response.content -as [system.xml.xmldocument] ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : got xml response from api"
+                [system.xml.xmldocument]$body = $response.content
+                if ( $body.GetElementsByTagName("ipNodes").haschildnodes) { $EffectiveIPNodes = $body.GetElementsByTagName("ipNodes") }
+            }
+        }
 
-         write-debug "$($MyInvocation.MyCommand.Name) : Getting VNIC dynamic includes for SG $($SecurityGroup.Name)"
-        $URI = "/api/2.0/services/securitygroup/$($SecurityGroup.ObjectId)/translation/vnics"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        if ( $response.GetElementsByTagName("vnicNodes").haschildnodes) { $dynamicVNICNodes = $response.GetElementsByTagName("vnicNodes")} else { $dynamicVNICNodes = $null }
+        if ( ($ReturnTypes -eq "All") -or ($ReturnTypes -eq "MacAddress")) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting effective macaddress membership for Security Group $sgid"
+            $URI = "/api/2.0/services/securitygroup/$sgid/translation/macaddresses"
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            if ( $response.content -as [system.xml.xmldocument] ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : got xml response from api"
+                [system.xml.xmldocument]$body = $response.content
+                if ( $body.GetElementsByTagName("macNodes").haschildnodes) { $EffectiveMACNodes = $body.GetElementsByTagName("macNodes")}
+            }
+        }
 
-        $return = New-Object psobject
-        $return | add-member -memberType NoteProperty -Name "StaticInclude" -value $StaticIncludes
-        $return | add-member -memberType NoteProperty -Name "DynamicIncludeVM" -value $dynamicVMNodes
-        $return | add-member -memberType NoteProperty -Name "DynamicIncludeIP" -value $dynamicIPNodes
-        $return | add-member -memberType NoteProperty -Name "DynamicIncludeMAC" -value $dynamicMACNodes
-        $return | add-member -memberType NoteProperty -Name "DynamicIncludeVNIC" -value $dynamicVNICNodes
+        if ( ($ReturnTypes -eq "All") -or ($ReturnTypes -eq "Vnic")) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Getting effective vnic membership for Security Group $sgid"
+            $URI = "/api/2.0/services/securitygroup/$sgid/translation/vnics"
+            $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+            if ( $response.content -as [system.xml.xmldocument] ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : got xml response from api"
+                [system.xml.xmldocument]$body = $response.content
+                if ( $body.GetElementsByTagName("vnicNodes").haschildnodes) { $EffectiveVNICNodes = $body.GetElementsByTagName("vnicNodes")}
+            }
+        }
 
-        $return
+        [pscustomobject]@{
+            "VirtualMachine" = $EffectiveVMNodes
+            "IpAddress" = $EffectiveIPNodes
+            "MacAddress" = $EffectiveMACNodes
+            "Vnic" = $EffectiveVNICNodes
+        }
+    }
+
+    end {}
+
+}
+
+function Get-NsxSecurityGroupEffectiveVirtualMachine {
+
+    <#
+    .SYNOPSIS
+    Determines the effective VM membership of a security group.
+
+    .DESCRIPTION
+    An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective VM Membership' of a given security group.  The membership output
+    by this cmdlet is determined by NSX itself.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup testSG | Get-NsxSecurityGroupEffectiveVirtualMachine
+
+    VmName VmId
+    ------ ----
+    Web01  vm-1270
+
+    Determine the effective VM membership of testSG
+
+    .EXAMPLE
+    Get-NsxSecurityGroupEffectiveVirtualMachine -SecurityGroupId securitygroup-1234
+
+    VmName VmId
+    ------ ----
+    Web01  vm-1270
+
+    Determine the effective VM membership of a security group by object id.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
+            [ValidateNotNull()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes VirtualMachine | Select @{ "n" = "VmName"; "e" = { $_.virtualmachine.vmnode.vmname }}, @{ "n" = "VmId"; "e" = { $_.virtualmachine.vmnode.VmId }}
+    }
+
+    end {}
+
+}
+
+function Get-NsxSecurityGroupEffectiveIpAddress {
+
+    <#
+    .SYNOPSIS
+    Determines the effective VM membership of a security group.
+
+    .DESCRIPTION
+    An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective VM Membership' of a given security group.  The membership output
+    by this cmdlet is determined by NSX itself.
+
+    Note:  In order for IPAddress membership to be accurate, IP Discovery
+    of virtual machines must be operational (as it must for the dataplane to
+    function as well.)
+
+    If IPAddress membership is not accurately represented here, verify that
+    an appropriate IP discovery mechanism is operational, and NSX 'detects'
+    the ip addresses you are expecting.  Using the Get-NsxSpoofguardNic cmdlet
+    will allow visibility of the detection state of a given nic or VM.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup TestSG | Get-Get-NsxSecurityGroupEffectiveIpAddress
+
+    IpAddress
+    ---------
+    fe80::250:56ff:fe80:3e20
+
+    Determine the effective ipaddress membership of securitygroup
+
+    .EXAMPLE
+    Get-NsxSecurityGroup TestSG | Get-Get-NsxSecurityGroupEffectiveIpAddress
+
+    IpAddress
+    ---------
+    fe80::250:56ff:fe80:3e20
+
+    Determine the effective ipaddress membership of a security group by objectid
+
+    #>
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
+            [ValidateNotNull()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes IpAddress | Select @{ "n" = "IpAddress"; "e" = { $_.ipaddress.ipnode.ipaddresses.string }}
+    }
+
+    end {}
+
+}
+
+function Get-NsxSecurityGroupEffectiveMacAddress {
+
+    <#
+    .SYNOPSIS
+    Determines the effective Mac Address membership of a security group.
+
+    .DESCRIPTION
+    An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective MAC Address Membership' of a given security group.
+    The membership output by this cmdlet is determined by NSX itself.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup testSG | Get-NsxSecurityGroupEffectiveMacAddress
+
+    MacAddress
+    ----------
+    {00:50:56:80:3e:20, 00:50:56:80:5f:d0}
+
+    Determine the effective MAC Address membership of testSG.
+
+    .EXAMPLE
+    Get-NsxSecurityGroupEffectiveMacAddress -SecurityGroupId securitygroup-1234
+
+    MacAddress
+    ----------
+    {00:50:56:80:3e:20, 00:50:56:80:5f:d0}
+
+    Determine the effective Mac Address membership of a security group by object
+    id.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
+            [ValidateNotNull()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes MacAddress | Select @{ "n" = "MacAddress"; "e" = { $_.macaddress.macnode.macaddress }}
+    }
+
+    end {}
+
+}
+
+function Get-NsxSecurityGroupEffectiveVnic {
+
+    <#
+    .SYNOPSIS
+    Determines the effective VNIC Address membership of a security group.
+
+    .DESCRIPTION
+    An NSX SecurityGroup can contain members (VMs, IP Addresses, MAC Addresses
+    or interfaces) by virtue of direct, or indirect membership (nested security
+    groups), and either by static or dynamic inclusion.
+
+    In addition, direct or indirect exclusions can also
+    modify membership.
+
+    This cmdlet uses the NSX 'Translation APIs' to determine the
+    'Effective VNIC Address Membership' of a given security group.
+    The membership output by this cmdlet is determined by NSX itself.
+
+    Note:  The IPAddress listed against a vnic via the VNIC translation API may
+    NOT reflect true IPAddress membership of the group as exclusions are not
+    taken into account.
+
+    Use the Get-NsxSecurityGroupEffectiveIpAddress cmdlet for accurate IP
+    address determination.
 
 
+    .EXAMPLE
+    Get-NsxSecurityGroup testSG | Get-NsxSecurityGroupEffectiveVnic
+
+    Uuid                                                                                 IpAddresses                           MacAddress
+    ----                                                                                 -----------                           ----------
+    {50005aa9-a365-5d39-5e73-ab1239eb997e.000, 50004328-f0f5-1115-eb45-1de4261748a1.001} {fe80::250:56ff:fe80:3e20, 10.0.1.11} {00:50:56:80:3e:20, 00:50:56:80:5f:d0}
+
+    Determine the effective VNIC membership of testSG.
+
+    .EXAMPLE
+    Get-NsxSecurityGroupEffectiveVnic -SecurityGroupId securitygroup-1234
+
+    Uuid                                                                                 IpAddresses                           MacAddress
+    ----                                                                                 -----------                           ----------
+    {50005aa9-a365-5d39-5e73-ab1239eb997e.000, 50004328-f0f5-1115-eb45-1de4261748a1.001} {fe80::250:56ff:fe80:3e20, 10.0.1.11} {00:50:56:80:3e:20, 00:50:56:80:5f:d0}
+
+    Determine the effective VNIC membership of a security group by object id.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="object")]
+            [ValidateNotNull()]
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true, Position = 1, ParameterSetName="objectid" )]
+            [ValidateScript ( { if ( -not $_ -match 'securitygroup-\d+') { throw "Specify a valid SecurityGroup id"} else { $true }})]
+            [string]$SecurityGroupId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes Vnic | Select @{ "n" = "Uuid"; "e" = { $_.Vnic.vnicnode.uuid }}, @{ "n" = "IpAddresses"; "e" = { $_.Vnic.vnicnode.IpAddresses.string }}, @{ "n" = "MacAddress"; "e" = { $_.Vnic.vnicnode.MacAddress }}
     }
 
     end {}
@@ -24559,12 +25245,12 @@ function Find-NsxWhereVMUsed {
         $MatchedFWL2 = @()
         foreach ( $SecurityGroup in $securityGroups ) {
 
-            $Members = $securityGroup | Get-NsxSecurityGroupEffectiveMembers -connection $connection
+            $Members = $securityGroup | Get-NsxSecurityGroupEffectiveMember -connection $connection -ReturnTypes VirtualMachine
 
             write-debug "$($MyInvocation.MyCommand.Name) : Checking securitygroup $($securitygroup.name) for VM $($VM.name)"
 
-            If ( $members.DynamicIncludeVM ) {
-                foreach ( $member in $members.DynamicIncludeVM) {
+            If ( $members.VirtualMachine ) {
+                foreach ( $member in $members.VirtualMachine) {
                     if ( $member.vmnode.vmid -eq $VM.ExtensionData.MoRef.Value ) {
                         $MatchedSG += $SecurityGroup
                     }

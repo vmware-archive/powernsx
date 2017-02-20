@@ -292,6 +292,19 @@ Describe "SecurityGroups" {
 
         }
 
+         it "Can modify a SecurityGroup exclusion membership by object" {
+            #Specify SG to be modified and member by object
+            $SecGrp | Add-NsxSecurityGroupMember -Member $MemberSg1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            #Precludes multiple members, as they will be a collection
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $SecGrpMemberName1
+            $get.excludeMember.objectId | should be $MemberSG1.objectId
+        }
+
         it "Can modify a SecurityGroup membership by id" {
             #Specify SG to be modified and member by id
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberSg1.objectId

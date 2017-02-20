@@ -65,7 +65,7 @@ $steps = @(
     {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -FromConnected -Learner bgp -confirm:$false | out-null},
     {Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress 172.16.1.1 -RemoteAS 100 -ForwardingAddress 172.16.1.2 -ProtocolAddress 172.16.1.3 -confirm:$false | out-null}
     {Get-NsxEdge edge01 | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled | out-null},
-    {$monitor =  get-nsxedge | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name "default_http_monitor"},
+    {$monitor =  get-nsxedge edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name "default_http_monitor"},
     {$webpoolmember1 = New-NsxLoadBalancerMemberSpec -name Web01 -IpAddress 10.0.1.11 -Port 80},
     {$webpoolmember2 = New-NsxLoadBalancerMemberSpec -name Web02 -IpAddress 10.0.1.12 -Port 80},
     {$apppoolmember1 = New-NsxLoadBalancerMemberSpec -name App01 -IpAddress 10.0.2.11 -Port 80},

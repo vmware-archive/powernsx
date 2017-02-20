@@ -113,6 +113,7 @@ FunctionsToExport = @(
     'Get-NsxController',
     'New-NsxIpPool',
     'Get-NsxIpPool',
+    'Remove-NsxIpPool'
     'Get-NsxVdsContext',
     'New-NsxVdsContext',
     'Remove-NsxVdsContext',
@@ -284,7 +285,7 @@ FunctionsToExport = @(
     'Remove-NsxLoadBalancerVip',
     'Get-NsxSecurityPolicy',
     'Remove-NsxSecurityPolicy',
-    'Get-NsxSecurityGroupEffectiveMembers',
+    'Get-NsxSecurityGroupEffectiveMember',
     'Find-NsxWhereVMUsed',
     'Get-NsxBackingPortGroup',
     'Get-NsxBackingDVSwitch',
@@ -295,6 +296,8 @@ FunctionsToExport = @(
     'Get-NsxManagerSsoConfig',
     'Get-NsxManagerVcenterConfig',
     'Get-NsxManagerTimeSettings',
+    'Set-NsxManagerTimeSettings',
+    'Clear-NsxManagerTimeSettings',
     'Get-NsxManagerSyslogServer',
     'Get-NsxManagerNetwork',
     'Get-NsxManagerBackup',
@@ -318,7 +321,13 @@ FunctionsToExport = @(
     'Add-NsxLicense',
     'Get-NsxLicense',
     'Get-NsxApplicableMember',
-    'Get-NsxSecurityGroupMemberTypes'
+    'Get-NsxSecurityGroupMemberTypes',
+    'Get-NsxSecurityGroupEffectiveVirtualMachine',
+    'Get-NsxSecurityGroupEffectiveIpAddress',
+    'Get-NsxSecurityGroupEffectiveMacAddress',
+    'Get-NsxSecurityGroupEffectiveVnic',
+    'Set-NsxFirewallThreshold',
+    'Get-NsxFirewallThreshold'
 )
 
 # Cmdlets to export from this module

@@ -37,6 +37,8 @@ Describe "Environment" -Tags "Environment" {
 
     it "Has hosts connected it can deploy to"{}
 
+    it "Has a running controller"{}
+
     BeforeAll {
 
         #BeforeAll block runs _once_ at invocation regardless of number of tests/contexts/describes.
