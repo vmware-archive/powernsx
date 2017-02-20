@@ -113,6 +113,7 @@ FunctionsToExport = @(
     'Get-NsxController',
     'New-NsxIpPool',
     'Get-NsxIpPool',
+    'Remove-NsxIpPool'
     'Get-NsxVdsContext',
     'New-NsxVdsContext',
     'Remove-NsxVdsContext',
