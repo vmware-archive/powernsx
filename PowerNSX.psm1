@@ -21512,7 +21512,9 @@ function Get-NsxApplicableMember {
         if ( $response | get-member -membertype Property -Name Content ) {
             try {
                 [xml]$content = $response.Content
-                $content.list.basicInfo
+                if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $content -query "child::list/basicinfo") {
+                    $content.list.basicInfo
+                }
             }
             catch {
                 throw "Content returned from NSX API could not be parsed as applicable member XML."
