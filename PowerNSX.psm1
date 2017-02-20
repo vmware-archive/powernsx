@@ -19438,20 +19438,24 @@ function Add-NsxSecurityGroupMember {
 
 
     param (
-
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #SecurityGroup whose membership is to be modified.
             [ValidateNotNullOrEmpty()]
             [object]$SecurityGroup,
         [Parameter (Mandatory=$False)]
+            #Throw an error if the member already exists (by default will ignore)
             [switch]$FailIfExists=$false,
+        [Parameter (Mandatory=$False)]
+            #The specified members are to be added to the security group as exclusions
+            [switch]$MemberIsExcluded=$false,
         [Parameter (Mandatory=$true)]
+            #The member(s) to be added
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
     begin {
@@ -19464,7 +19468,6 @@ function Add-NsxSecurityGroupMember {
     }
 
     process {
-
         #Get our internal SG object and id.  The internal obejct is used to modify and put for bulk update.
         if ( $SecurityGroup -is [System.Xml.XmlElement] ) {
             $SecurityGroupId = $securityGroup.objectId
@@ -19516,7 +19519,12 @@ function Add-NsxSecurityGroupMember {
                 }
 
                 #Create a new member node
-                $null = $memberxml = $_SecurityGroup.OwnerDocument.CreateElement("member")
+                if ( $MemberIsExcluded ) {
+                    $null = $memberxml = $_SecurityGroup.OwnerDocument.CreateElement("excludeMember")
+                }
+                else {
+                    $null = $memberxml = $_SecurityGroup.OwnerDocument.CreateElement("member")
+                }
                 $null = $_SecurityGroup.AppendChild($memberxml)
                 Add-XmlElement -xmlRoot $memberxml -xmlElementName "objectId" -xmlElementText $MemberMoref
 
