@@ -5960,7 +5960,7 @@ function New-NsxIpPool {
     The New-NsxIpPool cmdlet creates a new IP Pool on the connected NSX manager.
 
     .EXAMPLE
-    New-NsxIpPool -name Controller_Pool -Gateway "192.168.103.1" 
+    New-NsxIpPool -name Controller_Pool -Gateway "192.168.103.1"
     -SubnetPrefixLength "24" -DnsServer1 "192.168.100.4" -DnsSuffix "lab.local"
     -StartAddress "192.168.103.101" -EndAddress "192.168.103.115"
 
@@ -20373,6 +20373,71 @@ function Remove-NsxIpSet {
 }
 
 
+function Remove-NsxIpPool {
+
+    <#
+    .SYNOPSIS
+    Removes the specified NSX IPPool.
+
+    .DESCRIPTION
+    An IP Pool is a simple IPAM construct in NSX that simplifies automated IP
+    address asignment for multiple NSX technologies including VTEP interfaces
+    NSX Controllers.
+
+    This cmdlet removes the specified IP Pool. If the object has current IP
+    Address allocations the api will return an error.  Use -force to override.
+
+    .EXAMPLE
+    PS C:\> Get-NsxIPPool TestIPPool | Remove-NsxIPPool
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #IPPool object to be removed.
+            [ValidateScript({ Validate-IpPool $_ })]
+            [System.Xml.XmlElement]$IPPool,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #Force removal of the ippool, even if it has current allocations.
+            [switch]$force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $IPPool -Query "descendant::usedAddressCount[. != 0]") -and ( -not $force)) {
+            write-warning "Not removing $($IPPool.Name) because it currently has allocated addresses.  Use -force to override."
+        }
+        else {
+            if ( $confirm ) {
+                $message  = "IP Pool removal is permanent."
+                $question = "Proceed with removal of IP Pool $($IPPool.Name)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+				$URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=$($force.tostring().tolower())"
+                Write-Progress -activity "Remove IP Pool $($IPPool.Name)"
+                invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
+                write-progress -activity "Remove IP Pool $($IPPool.Name)" -completed
+            }
+        }
+    }
+
+    end {}
+}
+
+
 function Get-NsxMacSet {
 
     <#
@@ -22558,14 +22623,14 @@ function Get-NsxFirewallThreshold {
 
     <#
     .SYNOPSIS
-    Retrieves the Distributed Firewall thresholds for CPU, Memory 
+    Retrieves the Distributed Firewall thresholds for CPU, Memory
     and Connections per Second
 
     .DESCRIPTION
     The firewall module generates system events when the memory and CPU usage
     crosses these thresholds.
 
-    This command will retrieve the threshold configuration for the 
+    This command will retrieve the threshold configuration for the
     distributed firewall
 
     .EXAMPLE
@@ -22576,7 +22641,7 @@ function Get-NsxFirewallThreshold {
     --- ------ --------------------
     cpu memory connectionsPerSecond
     #>
-    
+
     param (
         [Parameter (Mandatory=$false)]
             #PowerNSX Connection object.
@@ -22587,19 +22652,19 @@ function Get-NsxFirewallThreshold {
     begin {
     }
 
-    process { 
-        
+    process {
+
         $URI = "/api/4.0/firewall/stats/eventthresholds"
-        
+
         try {
             $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
-            [system.xml.xmldocument]$Content = $response.content   
+            [system.xml.xmldocument]$Content = $response.content
         }
         catch {
             Throw "Unexpected API response $_"
         }
 
-        if ( Invoke-XPathQuery -Node $content -QueryMethod SelectSingleNode -query "child::eventThresholds" ){    
+        if ( Invoke-XPathQuery -Node $content -QueryMethod SelectSingleNode -query "child::eventThresholds" ){
             $Content.eventThresholds
         }
     }
@@ -22611,14 +22676,14 @@ function Set-NsxFirewallThreshold {
 
     <#
     .SYNOPSIS
-    Sets the Distributed Firewall thresholds for CPU, Memory 
+    Sets the Distributed Firewall thresholds for CPU, Memory
     and Connections per Second
 
     .DESCRIPTION
     The firewall module generates system events when the memory and CPU usage
     crosses these thresholds.
 
-    This command will set the threshold configuration for the 
+    This command will set the threshold configuration for the
     distributed firewall
 
     .EXAMPLE
@@ -22628,7 +22693,7 @@ function Set-NsxFirewallThreshold {
     CPU Memory ConnectionsPerSecond
     --- ------ --------------------
     cpu memory connectionsPerSecond
-    
+
     #>
 
     param (
@@ -22661,11 +22726,11 @@ function Set-NsxFirewallThreshold {
         }
         if ( $PsBoundParameters.ContainsKey('Memory') ) {
             $currentthreshold.memory.percentValue = $Memory
-        } 
-        if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) { 
+        }
+        if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) {
             $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond
-        } 
-      
+        }
+
         $uri = "/api/4.0/firewall/stats/eventthresholds"
         $body = $currentthreshold.outerXml
         Invoke-NsxWebRequest -method "PUT" -URI $uri -body $body | out-null
