@@ -1,19 +1,19 @@
 
 #Do not remove this - we need to ensure connection setup and module deps preload have occured.
-If ( -not $PNSXTestNSXManager ) { 
+If ( -not $PNSXTestNSXManager ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
-} 
+}
 
-Describe "Distributed Firewall" { 
+Describe "Distributed Firewall" {
 
 
     $brokenSpecificAppliedTo = $true
 
-    BeforeAll { 
+    BeforeAll {
 
         #BeforeAll block runs _once_ at invocation regardless of number of tests/contexts/describes.
         #We load the mod and establish connection to NSX Manager here.
-       
+
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         write-host -ForegroundColor Green "Performing setup tasks for DFW tests"
         import-module $pnsxmodule
@@ -23,9 +23,9 @@ Describe "Distributed Firewall" {
         $script:ds = $cl | get-datastore | select -first 1
         write-warning "Using datastore $ds for edge appliance deployment"
 
-        #Put any script scope variables you need to reference in your tests.  
-        #For naming items that will be created in NSX, use a unique prefix 
-        #pester_<testabbreviation>_<objecttype><uid>.  example: 
+        #Put any script scope variables you need to reference in your tests.
+        #For naming items that will be created in NSX, use a unique prefix
+        #pester_<testabbreviation>_<objecttype><uid>.  example:
         $script:dfwedgename = "pester_dfw_edge1"
         $script:dfwedgeIp1 = "1.1.1.1"
         $script:Password = "VMware1!VMware1!"
@@ -56,30 +56,30 @@ Describe "Distributed Firewall" {
         #Create Edge
         $vnic0 = New-NsxEdgeInterfaceSpec -index 1 -Type uplink -Name "vNic1" -ConnectedTo $testls -PrimaryAddress $dfwedgeIp1 -SubnetPrefixLength 24
         $script:dfwEdge = New-NsxEdge -Name $dfwedgename -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -hostname "pester-dfw-edge1"
-        
+
         #VMs
-        $vmhost = $cl | get-vmhost | select -first 1 
+        $vmhost = $cl | get-vmhost | select -first 1
         $folder = get-folder -type VM -name vm
         $vmsplat = @{
             "VMHost" = $vmhost
             "Location" = $folder
-            "ResourcePool" = $cl 
-            "Datastore" = $ds 
-            "DiskGB" = 1 
-            "DiskStorageFormat" = "Thin" 
-            "NumCpu" = 1 
-            "Floppy" = $false 
-            "CD" = $false 
-            "GuestId" = "other26xLinuxGuest" 
+            "ResourcePool" = $cl
+            "Datastore" = $ds
+            "DiskGB" = 1
+            "DiskStorageFormat" = "Thin"
+            "NumCpu" = 1
+            "Floppy" = $false
+            "CD" = $false
+            "GuestId" = "other26xLinuxGuest"
             "MemoryMB" = 512
         }
         $script:testvm1 = new-vm -name $testVMName1 @vmsplat
         $script:testvm2 = new-vm -name $testVMName2 @vmsplat
 
         #Create Groupings
-        $script:TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Pester dfw Test IP Set" -IpAddresses $testIPs 
-        $script:TestMacSet1 = New-NsxMacSet -Name $testMacSetName1 -Description "Pester dfw Test MAC Set1" -MacAddresses "$TestMac1,$TestMac2" 
-        $script:TestMacSet2 = New-NsxMacSet -Name $testMacSetName2 -Description "Pester dfw Test MAC Set2" -MacAddresses "$TestMac1,$TestMac2" 
+        $script:TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Pester dfw Test IP Set" -IpAddresses $testIPs
+        $script:TestMacSet1 = New-NsxMacSet -Name $testMacSetName1 -Description "Pester dfw Test MAC Set1" -MacAddresses "$TestMac1,$TestMac2"
+        $script:TestMacSet2 = New-NsxMacSet -Name $testMacSetName2 -Description "Pester dfw Test MAC Set2" -MacAddresses "$TestMac1,$TestMac2"
         $script:TestSG1 = New-NsxSecurityGroup -Name $testSGName1 -Description "Pester dfw Test SG1" -IncludeMember $testVM1, $testVM2
         $script:TestSG2 = New-NsxSecurityGroup -Name $testSGName2 -Description "Pester dfw Test SG2" -IncludeMember $TestIpSet
         $script:TestService1 = New-NsxService -Name $TestServiceName1 -Protocol $TestServiceProto -port $testPort
@@ -89,7 +89,7 @@ Describe "Distributed Firewall" {
 
     }
 
-    AfterAll { 
+    AfterAll {
 
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #We kill the connection to NSX Manager here.
@@ -110,13 +110,13 @@ Describe "Distributed Firewall" {
         Get-NsxService $TestServiceName1 | Remove-NsxService -confirm:$false
         Get-NsxService $TestServiceName2 | Remove-NsxService -confirm:$false
 
-        disconnect-nsxserver 
+        disconnect-nsxserver
         write-host -ForegroundColor Green "Completed cleanup tasks for DFW tests"
-        
+
     }
 
-    Context "L3 Sections" { 
-        it "Can create an L3 section" { 
+    Context "L3 Sections" {
+        it "Can create an L3 section" {
             $section = New-NsxFirewallSection $l3sectionname
             $section | should not be $null
             $section = Get-NsxFirewallSection $l3sectionname
@@ -140,14 +140,12 @@ Describe "Distributed Firewall" {
             $section | Get-NsxFirewallRule | should not be $null
             { $section | Remove-NsxFirewallSection -Confirm:$false -force } | should not Throw
         }
-        
-        it "Can delete an L3 Section" -skip { 
+
+        it "Can delete an L3 Section" {
             $section = New-NsxFirewallSection $l3sectionname
             $section | should not be $null
-            #$section = Get-NsxFirewallSection $l3sectionname
             @($section).count | should be 1
             $section | Remove-NsxFirewallSection -confirm:$false
-
             $section = Get-NsxFirewallSection $l3sectionname
             $section | should be $null
         }
@@ -160,10 +158,10 @@ Describe "Distributed Firewall" {
             $section = Get-NsxFirewallSection -name $l2sectionname -sectionType layer2sections
             $section | should not be $null
             @($section).count | should be 1
-            $section.name | should be $l2sectionname    
+            $section.name | should be $l2sectionname
         }
 
-        it "Can delete an L2 Section" { 
+        it "Can delete an L2 Section" {
             $section = Get-NsxFirewallSection -name $l2sectionname -sectionType layer2sections
             $section | should not be $null
             @($section).count | should be 1
@@ -188,16 +186,16 @@ Describe "Distributed Firewall" {
             { $section | Remove-NsxFirewallSection -Confirm:$false -force } | should not Throw
         }
     }
-    
-    Context "L3 Rules" { 
-       
-        it "Can create an l3 allow any - any rule" { 
+
+    Context "L3 Rules" {
+
+        it "Can create an l3 allow any - any rule" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should be $null  
+            $rule.sources | should be $null
             $rule.destinations | should be $null
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
@@ -207,14 +205,14 @@ Describe "Distributed Firewall" {
             $rule.action | should be allow
         }
 
-        it "Can create an l3 deny any - any rule" { 
+        it "Can create an l3 deny any - any rule" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should be $null  
-            $rule.destinations | should be $null            
+            $rule.sources | should be $null
+            $rule.destinations | should be $null
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
@@ -223,100 +221,100 @@ Describe "Distributed Firewall" {
             $rule.action | should be deny
         }
 
-        it "Can create an l3 rule with an ip based source" { 
+        it "Can create an l3 rule with an ip based source" {
         }
 
-        it "Can create an l3 rule with an ipset based source" { 
+        it "Can create an l3 rule with an ipset based source" {
         }
 
-        it "Can create an l3 rule with a security group based source" { 
+        it "Can create an l3 rule with a security group based source" {
         }
 
         it "Can create an l3 rule with a cluster based source" {
         }
 
-        it "Can create an l3 rule with a vmhost based source" {  
+        it "Can create an l3 rule with a vmhost based source" {
         }
 
         it "Can create an l3 rule with a datacenter based source" {
         }
 
-        it "Can create an l3 rule with a dvportgroup based source" { 
+        it "Can create an l3 rule with a dvportgroup based source" {
         }
 
-        it "Can create an l3 rule with an lswitch based source" {  
+        it "Can create an l3 rule with an lswitch based source" {
         }
 
-        it "Can create an l3 rule with a resource pool based source" {   
+        it "Can create an l3 rule with a resource pool based source" {
         }
 
-        it "Can create an l3 rule with an vapp based source" {  
+        it "Can create an l3 rule with an vapp based source" {
         }
 
-        it "Can create an l3 rule with an vnic based source" { 
+        it "Can create an l3 rule with an vnic based source" {
         }
 
-        it "Can create an l3 rule with an ip based destination" {   
+        it "Can create an l3 rule with an ip based destination" {
         }
 
-        it "Can create an l3 rule with an ipset based destination" {  
+        it "Can create an l3 rule with an ipset based destination" {
         }
 
-        it "Can create an l3 rule with a security group based destination" { 
+        it "Can create an l3 rule with a security group based destination" {
         }
 
-        it "Can create an l3 rule with a cluster based destination" {   
+        it "Can create an l3 rule with a cluster based destination" {
         }
 
-        it "Can create an l3 rule with a vmhost based destination" {  
+        it "Can create an l3 rule with a vmhost based destination" {
         }
 
-        it "Can create an l3 rule with a datacenter based destination" {  
+        it "Can create an l3 rule with a datacenter based destination" {
         }
 
-        it "Can create an l3 rule with a dvportgroup based destination" {  
+        it "Can create an l3 rule with a dvportgroup based destination" {
         }
 
-        it "Can create an l3 rule with an lswitch based destination" {  
+        it "Can create an l3 rule with an lswitch based destination" {
         }
 
-        it "Can create an l3 rule with a resource pool based destination" {   
+        it "Can create an l3 rule with a resource pool based destination" {
         }
 
-        it "Can create an l3 rule with an vapp based destination" {   
+        it "Can create an l3 rule with an vapp based destination" {
         }
 
-        it "Can create an l3 rule with an vnic based destination" {   
+        it "Can create an l3 rule with an vnic based destination" {
         }
 
-        it "Can create an l3 rule with an ip based applied to" {  
+        it "Can create an l3 rule with an ip based applied to" {
         }
 
-        it "Can create an l3 rule with an ipset based applied to" {   
+        it "Can create an l3 rule with an ipset based applied to" {
         }
 
-        it "Can create an l3 rule with a security group based applied to" { 
+        it "Can create an l3 rule with a security group based applied to" {
         }
 
-        it "Can create an l3 rule with a cluster based applied to" { 
+        it "Can create an l3 rule with a cluster based applied to" {
         }
 
-        it "Can create an l3 rule with a vmhost based applied to" {   
+        it "Can create an l3 rule with a vmhost based applied to" {
         }
 
-        it "Can create an l3 rule with a datacenter based applied to" {  
+        it "Can create an l3 rule with a datacenter based applied to" {
         }
 
-        it "Can create an l3 rule with a dvportgroup based applied to" {  
+        it "Can create an l3 rule with a dvportgroup based applied to" {
         }
 
-        it "Can create an l3 rule with an lswitch based applied to" {  
+        it "Can create an l3 rule with an lswitch based applied to" {
         }
 
         it "Can create an l3 rule with a resource pool based applied to" {
         }
 
-        it "Can create an l3 rule with a vapp based applied to" { 
+        it "Can create an l3 rule with a vapp based applied to" {
         }
 
         it "Can create an l3 rule with a vnic based applied to" {
@@ -329,7 +327,7 @@ Describe "Distributed Firewall" {
         }
 
 
-        it "Can create an l3 rule with vm based source" { 
+        it "Can create an l3 rule with vm based source" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1 -action allow
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -345,7 +343,7 @@ Describe "Distributed Firewall" {
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l3 rule with vm based destination" { 
+        it "Can create an l3 rule with vm based destination" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -destination $testvm1 -action allow
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -359,10 +357,9 @@ Describe "Distributed Firewall" {
             @($rule.destinations.destination).count | should be 1
             $rule.destinations.destination.name | should be $testVmName1
             $rule.name | should be "pester_dfw_rule1"
-        }        
-        
-        #Currently skipped as applied to functionality is busted :(
-        it "Can create an l3 rule with vm based applied to" -skip { 
+        }
+
+        it "Can create an l3 rule with vm based applied to" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -appliedTo $testvm1
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -375,7 +372,7 @@ Describe "Distributed Firewall" {
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l3 rule with specific service" { 
+        it "Can create an l3 rule with specific service" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -service $testService1
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -392,8 +389,7 @@ Describe "Distributed Firewall" {
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        #Currently skipped as applied to functionality is busted :(
-        it "Can create an l3 rule with single source, destination, applied to and service" -skip { 
+        it "Can create an l3 rule with single source, destination, applied to and service" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1 -destination $testvm2 -action allow -appliedTo $testvm1 -service $testService1
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -406,46 +402,45 @@ Describe "Distributed Firewall" {
             $rule.sources.source.name | should be $testVmName1
             $rule.destinations.destination.name | should be $testVmName2
             $rule.appliedToList.appliedTo.name | should be $testVmName1
-            $rule.services.service.name | should be $testService.Name
+            $rule.services.service.name | should be $testService1.Name
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l3 rule with multiple vm based source" { 
+        it "Can create an l3 rule with multiple vm based source" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testvm2 -action allow
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should beoftype System.Xml.XmlElement 
+            $rule.sources | should beoftype System.Xml.XmlElement
             @($rule.sources.source).count | should be 2
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
-            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL" 
-            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)          
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.sources.source.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l3 rule with multiple vm based destination" { 
+        it "Can create an l3 rule with multiple vm based destination" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -destination $testvm1,$testvm2 -action allow
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.destinations | should beoftype System.Xml.XmlElement 
+            $rule.destinations | should beoftype System.Xml.XmlElement
             @($rule.destinations.destination).count | should be 2
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
-            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL" 
-            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)          
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        #Currently skipped as applied to functionality is busted :(
-        it "Can create an l3 rule with multiple vm based appliedto" -skip { 
+        it "Can create an l3 rule with multiple vm based appliedto" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -appliedTo $testvm1,$testvm2 -action allow
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -454,12 +449,12 @@ Describe "Distributed Firewall" {
             $rule.sources | should be $null
             $rule.destinations | should be $null
             @($rule.appliedToList.appliedTo).count | should be 2
-            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)          
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.appliedToList.appliedTo.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l3 rule with multiple services" { 
+        it "Can create an l3 rule with multiple services" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -service $testService1, $testService2 -action allow
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -471,14 +466,13 @@ Describe "Distributed Firewall" {
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
-            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL" 
-            $sortedNames = ( @($testService1.name, $testService2.name) | Sort-Object)          
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedNames = ( @($testService1.name, $testService2.name) | Sort-Object)
             $rule.services.service.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        #Currently skipped as applied to functionality is busted :(
-        it "Can create an l3 rule with multiple item based source, destination, applied to and service" -skip { 
+        it "Can create an l3 rule with multiple item based source, destination, applied to and service" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testvm2 -destination $testvm1,$testvm2 -action allow -appliedTo $testvm1,$testvm2 -Service $TestService1, $TestService2
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -489,9 +483,9 @@ Describe "Distributed Firewall" {
             $rule.appliedToList | should beoftype System.Xml.XmlElement
             @($rule.services.service).count | should be 2
             @($rule.appliedToList.appliedTo).count | should be 2
-            @($rule.destinations.destination).count | should be 2              
-            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object) 
-            $sortedServiceNames = ( @($TestService1.name, $TestService2.name) | Sort-Object )         
+            @($rule.destinations.destination).count | should be 2
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
+            $sortedServiceNames = ( @($TestService1.name, $TestService2.name) | Sort-Object )
             $rule.sources.source.name | sort-object | should be $sortedNames
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
@@ -499,8 +493,7 @@ Describe "Distributed Firewall" {
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        #Currently skipped as applied to functionality is busted :(
-        it "Can create an L3 rule with different element types in the source, destination and applied to fields" -skip {
+        it "Can create an L3 rule with different element types in the source, destination and applied to fields" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testsg1 -destination $testvm1,$testsg1 -action allow -appliedTo $TestSG1,$TestVM1 -tag "Test MultiType"
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -508,8 +501,8 @@ Describe "Distributed Firewall" {
             @($rule).count | should be 1
             $rule.sources | should beoftype System.Xml.XmlElement
             $rule.destinations | should beoftype System.Xml.XmlElement
-            $rule.appliedToList | should beoftype System.Xml.XmlElement  
-            $sortedNames = ( @($testvm1.name, $testsg1.name) | Sort-Object)                      
+            $rule.appliedToList | should beoftype System.Xml.XmlElement
+            $sortedNames = ( @($testvm1.name, $testsg1.name) | Sort-Object)
             $rule.sources.source.name | sort-object | should be $sortedNames
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
@@ -522,7 +515,7 @@ Describe "Distributed Firewall" {
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should be $null  
+            $rule.sources | should be $null
             $rule.destinations | should be $null
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
@@ -533,24 +526,31 @@ Describe "Distributed Firewall" {
         }
 
         #############
-        #Currently skipped as applied to functionality is busted :(
-        it "Can create a rule to apply to all edges" -skip {
+        it "Can create a rule to apply to all edges plus dfw" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -ApplyToAllEdges
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            @($rule.appliedToList.appliedTo).count | should be 1
-            $rule.appliedToList.appliedTo.Name | should be $dfwEdgeName
-            $rule.appliedToList.appliedTo.Value | should be $dfwEdge.id
-            $rule.appliedToList.appliedTo.Type | should be edge
+            @($rule.appliedToList.appliedTo).count | should not be 1
+            $rule.appliedToList.appliedTo.Name -contains "ALL_EDGES" | should be $true
+            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be $true
             $rule.name | should be "pester_dfw_rule1"
         }
 
+        it "Can create a rule to apply to all edges and not dfw" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -ApplyToAllEdges -ApplyToDfw:$false
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            @($rule.appliedToList.appliedTo).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "ALL_EDGES"
+            $rule.name | should be "pester_dfw_rule1"
+        }
 
-        #Currently skipped as applied to functionality is busted :(
-        it "Can create a rule to apply to a specific edge" -skip {
-            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -AppliedTo $dfwEdge
+        it "Can create a rule to apply to a specific edge" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -AppliedTo $dfwEdge -ApplyToDfw:$false
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
@@ -575,103 +575,103 @@ Describe "Distributed Firewall" {
         }
     }
 
-    Context "L2 Rules" { 
-       
+    Context "L2 Rules" {
 
-        it "Can create an l2 rule with an ip based source" { 
+
+        it "Can create an l2 rule with an ip based source" {
         }
 
-        it "Can create an l2 rule with an ipset based source" { 
+        it "Can create an l2 rule with an ipset based source" {
         }
 
-        it "Can create an l2 rule with a security group based source" { 
+        it "Can create an l2 rule with a security group based source" {
         }
 
         it "Can create an l2 rule with a cluster based source" {
         }
 
-        it "Can create an l2 rule with a vmhost based source" {  
+        it "Can create an l2 rule with a vmhost based source" {
         }
 
         it "Can create an l2 rule with a datacenter based source" {
         }
 
-        it "Can create an l2 rule with a dvportgroup based source" { 
+        it "Can create an l2 rule with a dvportgroup based source" {
         }
 
-        it "Can create an l2 rule with an lswitch based source" {  
+        it "Can create an l2 rule with an lswitch based source" {
         }
 
-        it "Can create an l2 rule with a resource pool based source" {   
+        it "Can create an l2 rule with a resource pool based source" {
         }
 
-        it "Can create an l2 rule with an vapp based source" {  
+        it "Can create an l2 rule with an vapp based source" {
         }
 
-        it "Can create an l2 rule with an vnic based source" { 
+        it "Can create an l2 rule with an vnic based source" {
         }
 
-        it "Can create an l2 rule with an ip based destination" {   
+        it "Can create an l2 rule with an ip based destination" {
         }
 
-        it "Can create an l2 rule with an ipset based destination" {  
+        it "Can create an l2 rule with an ipset based destination" {
         }
 
-        it "Can create an l2 rule with a security group based destination" { 
+        it "Can create an l2 rule with a security group based destination" {
         }
 
-        it "Can create an l2 rule with a cluster based destination" {   
+        it "Can create an l2 rule with a cluster based destination" {
         }
 
-        it "Can create an l2 rule with a vmhost based destination" {  
+        it "Can create an l2 rule with a vmhost based destination" {
         }
 
-        it "Can create an l2 rule with a datacenter based destination" {  
+        it "Can create an l2 rule with a datacenter based destination" {
         }
 
-        it "Can create an l2 rule with a dvportgroup based destination" {  
+        it "Can create an l2 rule with a dvportgroup based destination" {
         }
 
-        it "Can create an l2 rule with an lswitch based destination" {  
+        it "Can create an l2 rule with an lswitch based destination" {
         }
 
-        it "Can create an l2 rule with a resource pool based destination" {   
+        it "Can create an l2 rule with a resource pool based destination" {
         }
 
-        it "Can create an l2 rule with an vapp based destination" {   
+        it "Can create an l2 rule with an vapp based destination" {
         }
 
-        it "Can create an l2 rule with an vnic based destination" {   
+        it "Can create an l2 rule with an vnic based destination" {
         }
 
-        it "Can create an l2 rule with an ip based applied to" {  
+        it "Can create an l2 rule with an ip based applied to" {
         }
 
-        it "Can create an l2 rule with an ipset based applied to" {   
+        it "Can create an l2 rule with an ipset based applied to" {
         }
 
-        it "Can create an l2 rule with a security group based applied to" { 
+        it "Can create an l2 rule with a security group based applied to" {
         }
 
-        it "Can create an l2 rule with a cluster based applied to" { 
+        it "Can create an l2 rule with a cluster based applied to" {
         }
 
-        it "Can create an l2 rule with a vmhost based applied to" {   
+        it "Can create an l2 rule with a vmhost based applied to" {
         }
 
-        it "Can create an l2 rule with a datacenter based applied to" {  
+        it "Can create an l2 rule with a datacenter based applied to" {
         }
 
-        it "Can create an l2 rule with a dvportgroup based applied to" {  
+        it "Can create an l2 rule with a dvportgroup based applied to" {
         }
 
-        it "Can create an l2 rule with an lswitch based applied to" {  
+        it "Can create an l2 rule with an lswitch based applied to" {
         }
 
         it "Can create an l2 rule with a resource pool based applied to" {
         }
 
-        it "Can create an l2 rule with a vapp based applied to" { 
+        it "Can create an l2 rule with a vapp based applied to" {
         }
 
         it "Can create an l2 rule with a vnic based applied to" {
@@ -683,13 +683,13 @@ Describe "Distributed Firewall" {
         it "Can create an l2 rule with a negated destination" {
         }
 
-        it "Can create an l2 allow any - any rule" { 
+        it "Can create an l2 allow any - any rule" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should be $null  
+            $rule.sources | should be $null
             $rule.destinations | should be $null
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
@@ -699,13 +699,13 @@ Describe "Distributed Firewall" {
             $rule.action | should be allow
         }
 
-        it "Can create an l2 deny any - any rule" { 
+        it "Can create an l2 deny any - any rule" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should be $null  
+            $rule.sources | should be $null
             $rule.destinations | should be $null
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
@@ -715,7 +715,7 @@ Describe "Distributed Firewall" {
             $rule.action | should be deny
         }
 
-        it "Can create an l2 rule with macset based source" { 
+        it "Can create an l2 rule with macset based source" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testmacset1 -action allow -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
@@ -731,7 +731,7 @@ Describe "Distributed Firewall" {
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l2 rule with macset based destination" { 
+        it "Can create an l2 rule with macset based destination" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -destination $testmacset1 -action allow -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
@@ -745,10 +745,9 @@ Describe "Distributed Firewall" {
             @($rule.destinations.destination).count | should be 1
             $rule.destinations.destination.name | should be $TestMacSetName1
             $rule.name | should be "pester_dfw_rule1"
-        }        
-        
-        #Busted - applied to bug
-        it "Can create an l2 rule with vm based applied to" -skip { 
+        }
+
+        it "Can create an l2 rule with vm based applied to" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -appliedTo $TestVM1 -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
@@ -761,7 +760,7 @@ Describe "Distributed Firewall" {
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l2 rule with specific service" { 
+        it "Can create an l2 rule with specific service" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -service $testService1 -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
@@ -778,8 +777,7 @@ Describe "Distributed Firewall" {
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        #Busted - applied to bug
-        it "Can create an l2 rule with single source, destination, applied to and service" -skip { 
+        it "Can create an l2 rule with single source, destination, applied to and service" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $TestMacSet1 -destination $TestMacSet2 -action allow -appliedTo $testvm1 -service $testService1 -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
@@ -792,46 +790,45 @@ Describe "Distributed Firewall" {
             $rule.sources.source.name | should be $TestMacSetName1
             $rule.destinations.destination.name | should be $TestMacSetName2
             $rule.appliedToList.appliedTo.name | should be $testVmName1
-            $rule.services.service.name | should be $testService.Name
+            $rule.services.service.name | should be $testService1.Name
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l2 rule with multiple vm based source" { 
+        it "Can create an l2 rule with multiple vm based source" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testvm2 -action allow -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections| Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should beoftype System.Xml.XmlElement 
+            $rule.sources | should beoftype System.Xml.XmlElement
             @($rule.sources.source).count | should be 2
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
-            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL" 
-            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)          
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.sources.source.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l2 rule with multiple vm based destination" { 
+        it "Can create an l2 rule with multiple vm based destination" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -destination $testvm1,$testvm2 -action allow -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.destinations | should beoftype System.Xml.XmlElement 
+            $rule.destinations | should beoftype System.Xml.XmlElement
             @($rule.destinations.destination).count | should be 2
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
-            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL" 
-            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)          
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        #Busted - applied to bug
-        it "Can create an l2 rule with multiple vm based appliedto" -skip { 
+        it "Can create an l2 rule with multiple vm based appliedto" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -appliedTo $testvm1,$testvm2 -action allow -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
@@ -840,12 +837,12 @@ Describe "Distributed Firewall" {
             $rule.sources | should be $null
             $rule.destinations | should be $null
             @($rule.appliedToList.appliedTo).count | should be 2
-            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)          
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.appliedToList.appliedTo.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        it "Can create an l2 rule with multiple services" { 
+        it "Can create an l2 rule with multiple services" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -service $testService1, $testService2 -action allow -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
@@ -857,14 +854,13 @@ Describe "Distributed Firewall" {
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
-            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL" 
-            $sortedNames = ( @($testService1.name, $testService2.name) | Sort-Object)          
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedNames = ( @($testService1.name, $testService2.name) | Sort-Object)
             $rule.services.service.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
         }
 
-        #Busted - applied to bug
-        it "Can create an l2 rule with multiple item based source, destination, applied to and service" -skip { 
+        it "Can create an l2 rule with multiple item based source, destination, applied to and service" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testvm2 -destination $testvm1,$testvm2 -action allow -appliedTo $testvm1,$testvm2 -Service $TestService1, $TestService2 -RuleType layer2sections
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
@@ -875,9 +871,9 @@ Describe "Distributed Firewall" {
             $rule.appliedToList | should beoftype System.Xml.XmlElement
             @($rule.services.service).count | should be 2
             @($rule.appliedToList.appliedTo).count | should be 2
-            @($rule.destinations.destination).count | should be 2              
-            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object) 
-            $sortedServiceNames = ( @($TestService1.name, $TestService2.name) | Sort-Object )         
+            @($rule.destinations.destination).count | should be 2
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
+            $sortedServiceNames = ( @($TestService1.name, $TestService2.name) | Sort-Object )
             $rule.sources.source.name | sort-object | should be $sortedNames
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
@@ -892,11 +888,11 @@ Describe "Distributed Firewall" {
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
             $rule | should not be $null
             @($rule).count | should be 1
-            @($rule.appliedToList.appliedTo).count | should be 2            
+            @($rule.appliedToList.appliedTo).count | should be 2
             $rule.sources | should beoftype System.Xml.XmlElement
             $rule.destinations | should beoftype System.Xml.XmlElement
-            $rule.appliedToList | should beoftype System.Xml.XmlElement  
-            $sortedNames = ( @($testvm1.name, $testsg1.name) | Sort-Object)                      
+            $rule.appliedToList | should beoftype System.Xml.XmlElement
+            $sortedNames = ( @($testvm1.name, $testsg1.name) | Sort-Object)
             $rule.sources.source.name | sort-object | should be $sortedNames
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
@@ -909,7 +905,7 @@ Describe "Distributed Firewall" {
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should be $null  
+            $rule.sources | should be $null
             $rule.destinations | should be $null
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
