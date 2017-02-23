@@ -8920,6 +8920,85 @@ function Get-NsxLogicalRouter {
     }
 }
 
+function Set-NsxLogicalRouter {
+
+    <#
+    .SYNOPSIS
+    Configures an existing NSX Distributed Logical Router Raw configuration.
+
+    .DESCRIPTION
+    An NSX Distributed Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Use the Set-NsxLogicalRouter to perform updates to the Raw XML config for a DLR
+    to enable basic support for manipulating features that arent supported
+    by specific PowerNSX cmdlets.
+
+    .EXAMPLE
+    Disable the Firewall on the DLR Control VM DLR01
+
+    PS C:\> $dlr = Get-NsxLogicalRouter DLR01
+    PS C:\> $dlr.features.firewall.enabled = "false"
+    PS C:\> $dlr | Set-NsxLogicalRouter
+
+    #>
+
+    [CmdletBinding()]
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ Validate-LogicalRouter $_ })]
+            [System.Xml.XmlElement]$LogicalRouter,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+
+    }
+
+    process {
+
+
+        #Clone the Edge Element so we can modify without barfing up the source object.
+        $_Dlr = $LogicalRouter.CloneNode($true)
+
+        #Remove EdgeSummary...
+        $edgeSummary = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Dlr -Query 'descendant::edgeSummary')
+        if ( $edgeSummary ) {
+            $_Dlr.RemoveChild($edgeSummary) | out-null
+        }
+
+        $URI = "/api/4.0/edges/$($_Dlr.Id)"
+        $body = $_Dlr.OuterXml
+
+        if ( $confirm ) {
+            $message  = "Distributed Logical Router update will modify existing DLR configuration."
+            $question = "Proceed with Update of Distributed Logical Router $($Dlr.Name)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Distributed Logical Router $($Dlr.Name)" }
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Distributed Logical Router $($Dlr.Name)" -completed }
+            Get-NsxLogicalRouter -objectId $($Dlr.Id) -connection $connection
+        }
+    }
+
+    end {}
+}
+
 function New-NsxLogicalRouter {
 
     <#
