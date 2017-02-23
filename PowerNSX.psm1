@@ -8989,10 +8989,10 @@ function Set-NsxLogicalRouter {
         }
         else { $decision = 0 }
         if ($decision -eq 0) {
-            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Distributed Logical Router $($Dlr.Name)" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Distributed Logical Router $($LogicalRouter.Name)" }
             $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Distributed Logical Router $($Dlr.Name)" -completed }
-            Get-NsxLogicalRouter -objectId $($Dlr.Id) -connection $connection
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Distributed Logical Router $($LogicalRouter.Name)" -completed }
+            Get-NsxLogicalRouter -objectId $($LogicalRouter.Id) -connection $connection
         }
     }
 
