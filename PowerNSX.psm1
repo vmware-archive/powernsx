@@ -6289,17 +6289,20 @@ function Get-NsxVdsContext {
         $URI = "/api/2.0/vdn/switches"
         [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
         If ( $PsBoundParameters.ContainsKey("Name")) {
-
-            If ( $response | get-member -memberType properties vdsContexts ) {
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response.vdsContexts -Query "descendant::vdsContext")) {
-                    $response.vdsContexts.vdsContext | ? { $_.switch.name -eq $Name }
+            if ( $response.vdsContexts -as [system.xml.xmlelement]) {
+                If ( $response | get-member -memberType properties vdsContexts ) {
+                    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response.vdsContexts -Query "descendant::vdsContext")) {
+                        $response.vdsContexts.vdsContext | ? { $_.switch.name -eq $Name }
+                    }
                 }
             }
         }
         else {
-            If ( $response | get-member -memberType properties vdsContexts ) {
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response.vdsContexts -Query "descendant::vdsContext")) {
-                    $response.vdsContexts.vdsContext
+            if ( $response.vdsContexts -as [system.xml.xmlelement]) {
+                If ( $response | get-member -memberType properties vdsContexts ) {
+                    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response.vdsContexts -Query "descendant::vdsContext")) {
+                        $response.vdsContexts.vdsContext
+                    }
                 }
             }
         }
