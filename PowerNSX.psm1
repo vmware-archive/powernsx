@@ -5856,7 +5856,7 @@ function New-NsxController {
                 $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
             }
             catch {
-                throw "Controller deployment failed. $($response.content)"
+                throw "Controller deployment failed. $_"
             }
             if ( -not (($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
                 throw "Controller deployment failed. $($response.content)"
