@@ -5852,8 +5852,12 @@ function New-NsxController {
         else { $decision = 0 }
         if ($decision -eq 0) {
             if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Deploying NSX Controller" }
-            $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deploying NSX Controller" -completed }
+            try {
+                $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+            }
+            catch {
+                throw "Controller deployment failed. $($response.content)"
+            }
             if ( -not (($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
                 throw "Controller deployment failed. $($response.content)"
             }
@@ -5862,6 +5866,8 @@ function New-NsxController {
             if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
                 throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
             }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deploying NSX Controller" -completed }
+
             if ( $Wait ) {
 
                 #User wants to wait for Controller API to start.
