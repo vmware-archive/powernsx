@@ -5884,6 +5884,8 @@ function New-NsxController {
             if ( -not (($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
                 throw "Controller deployment failed. $($response.content)"
             }
+#Todo : probably need to use the job id to check for status rather than regetting on the object...
+
             $controllerid = $response.Headers["location"] -replace "/api/2.0/vdn/controller/"
             $Controller = Get-NsxController -connection $connection -objectid $controllerId
             if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
