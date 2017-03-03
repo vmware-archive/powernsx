@@ -2698,6 +2698,29 @@ Function Validate-FwSourceDestFilter {
     }
 }
 
+Function Validate-Controller {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectTypeName -Membertype Properties)) {
+            throw "Specify a valid Controller."
+        }
+        if ( -not ( $argument.objectTypeName -eq "Controller")) {
+            throw "Specify a valid Controller."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Controller."
+    }
+}
+
+
 
 
 ##########
@@ -5956,6 +5979,84 @@ function Get-NsxController {
             $response.controllers.controller
         }
     }
+}
+
+function Remove-NsxController {
+
+    <#
+    .SYNOPSIS
+    Removes a controller
+
+   .DESCRIPTION
+    An NSX Controller is a member of the NSX Controller Cluster, and forms the
+    highly available distributed control plane for NSX Logical Switching and NSX
+    Logical Routing.
+
+    The Renove-NsxController cmdlet removes an existing NSX Controller.
+
+    .EXAMPLE
+    Get-NsxController "Controller1" | Remove-NsxController
+
+    Removes the controller named Controller1
+
+    .EXAMPLE
+    Remove-NsxController -objectId controller-3
+
+    Removes the controller with id controller-3
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Object")]
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true,Position=1, ParameterSetName="Object")]
+            #PowerNSX Controller object obtained via Get-NsxController
+            [ValidateScript({ Validate-Controller $_ })]
+            [System.Xml.XmlElement]$Controller,
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+            #ObjectID of the controller to remove
+            [ValidateNotNullorEmpty()]
+            [string]$objectId,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$false)]
+            #Force the removal of the last controller.  WARNING THIS WILL IMPACT LOGICAL SWITCHING AND ROUTING FUNCTIONALITY
+            [switch]$Force=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        if ( $PSCmdlet.ParameterSetName -ne "objectId" ) {
+            $objectId = $Controller.id
+        }
+
+        if ( $confirm ) {
+            $message  = "Controller removal will impact the high availability of the NSX control plane."
+            $question = "Proceed with removal of Controller $($objectId)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            $URI = "/api/2.0/vdn/controller/$($objectId)?forceRemoval=$force"
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Controller $objectId" }
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Controller $objectId" -completed }
+
+        }
+    }
+
+    end {}
 }
 
 function New-NsxIpPool {
