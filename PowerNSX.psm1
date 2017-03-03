@@ -6052,7 +6052,6 @@ function Remove-NsxController {
             if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Controller $objectId" }
             $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Controller $objectId" -completed }
-
         }
     }
 
