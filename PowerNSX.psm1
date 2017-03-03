@@ -5854,8 +5854,14 @@ function New-NsxController {
             if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Deploying NSX Controller" }
             $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
             if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deploying NSX Controller" -completed }
-            $Controller = Get-NsxController -connection $connection | Sort-Object -Property id | Select-Object -last 1
-
+            if ( -not (($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
+                throw "Controller deployment failed. $($response.content)"
+            }
+            $controllerid = $response.Headers["location"] -replace "/api/2.0/vdn/controller/"
+            $Controller = Get-NsxController -connection $connection -objectid $controllerId
+            if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
+                throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
+            }
             if ( $Wait ) {
 
                 #User wants to wait for Controller API to start.
