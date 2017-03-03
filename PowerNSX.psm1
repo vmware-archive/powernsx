@@ -5922,6 +5922,9 @@ function New-NsxController {
                     }
 
                     $Controller = Get-Nsxcontroller -connection $connection -objectId ($controller.id)
+                    if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
+                        throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
+                    }
                 }
                 if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
             }
