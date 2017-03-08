@@ -23721,7 +23721,7 @@ function New-NsxLoadBalancerMemberSpec {
             [int]$Port,
         [Parameter (Mandatory=$false)]
             [ValidateRange(1,65535)]
-            [int]$MonitorPort=$port,
+            [int]$MonitorPort=$Port,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [int]$MinimumConnections=0,
@@ -23740,8 +23740,8 @@ function New-NsxLoadBalancerMemberSpec {
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight
-        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $port
-        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $port
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $Port
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $MonitorPort
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "minConn" -xmlElementText $MinimumConnections
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "maxConn" -xmlElementText $MaximumConnections
 
@@ -26682,4 +26682,3 @@ function Copy-NsxEdge{
 
 #Call Init function
 _init
-
