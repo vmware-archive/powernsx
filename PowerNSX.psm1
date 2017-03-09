@@ -19319,7 +19319,7 @@ function New-NsxSecurityGroup   {
         [PArameter (Mandatory=$false)]
             [switch]$helloworld,
         [PArameter (Mandatory=$false)]
-            [switch]$helloworld2,
+            [switch]$otherparamname,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
