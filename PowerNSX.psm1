@@ -19318,6 +19318,8 @@ function New-NsxSecurityGroup   {
             [switch]$ReturnObjectIdOnly=$false,
         [PArameter (Mandatory=$false)]
             [switch]$helloworld,
+        [PArameter (Mandatory=$false)]
+            [switch]$helloworld2,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
