@@ -19316,6 +19316,8 @@ function New-NsxSecurityGroup   {
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
             [switch]$ReturnObjectIdOnly=$false,
+        [PArameter (Mandatory=$false)]
+            [switch]$helloworld,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
