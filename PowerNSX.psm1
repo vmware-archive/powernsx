@@ -5111,6 +5111,52 @@ function Set-NsxManager {
     Invoke-NsxRestMethod -Method $method -body $xmlRoot.outerXml -uri $uri -Connection $Connection
 }
 
+function Get-NsxManagerCertificate {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Certificates.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    Details of the SSL Certificate installed on the NSX Manager are required by
+    certain workflows within NSX
+
+    The Get-NsxManagerCertificate cmdlet retrieves the configured certificates
+    configured on the NSX Manager against which the command is run.
+
+    .EXAMPLE
+    Get-NsxManagerCertificate
+
+    Retreives the SSL Certificates from the connected NSX Manager
+
+    Get-NsxManagerCertificate | where { $_.isCa -eq "false" } | select sha1Hash
+
+    Retrieves the SSL Certificates SHA1 hash from the connected NSX Manager
+    #>
+
+
+    param (
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    $URI = "/api/1.0/appliance-management/certificatemanager/certificates/nsx"
+
+    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+    if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::x509Certificates/x509certificate')) {
+        $certificates = $response.X509Certificates.x509certificate
+
+        $certificates
+
+    }
+}
+
 function Get-NsxManagerSsoConfig {
 
     <#
