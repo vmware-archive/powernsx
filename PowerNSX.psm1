@@ -5150,10 +5150,7 @@ function Get-NsxManagerCertificate {
     [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
     if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::x509Certificates/x509certificate')) {
-        $certificates = $response.X509Certificates.x509certificate
-
-        $certificates
-
+        $response.X509Certificates.x509certificate
     }
 }
 

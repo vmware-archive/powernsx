@@ -44,12 +44,6 @@ Describe "NSXManager" {
 
         }
 
-        it "Can get configured SSL Certificates" {
-            $certificates = Get-NsxManagerCertificate
-            $( $certificates | measure ).count | should BeGreaterThan 0 
-            $certificates | should not be $null
-        }
-
         it "Can clear existing NTP configuration" {
             $TimeConfig = Clear-NsxManagerTimeSettings
             $TimeConfig | should be $null
@@ -73,6 +67,17 @@ Describe "NSXManager" {
         }
     }
 
+    Context "Certificate" {
+
+        #Group related tests together.
+
+        it "Can get configured SSL Certificates" {
+            $certificates = Get-NsxManagerCertificate
+            $( $certificates | measure ).count | should BeGreaterThan 0 
+            $certificates | should not be $null
+        }
+
+    }
 
     AfterAll {
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
