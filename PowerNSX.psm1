@@ -24904,6 +24904,7 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
     param (
 
         [Parameter (Mandatory=$false)]
+        [ValidateSet("firewall","endpoint","traffic_steering")]
             [string]$Category="firewall",
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
@@ -24914,16 +24915,20 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
         [Parameter (Mandatory=$false)]
             [string]$Order,
         [Parameter (Mandatory=$false)]
+        [ValidateSet("true","false")]
             [string]$Enabled = "true",
         [Parameter (Mandatory=$false)]
             [object[]]$securityGroup,
         [Parameter (Mandatory=$false)]
             [object[]]$Service,
         [Parameter (Mandatory=$false)]
+        [ValidateSet("true","false")]
             [string]$Logging = "false",
         [Parameter (Mandatory=$false)]
+        [ValidateSet("allow","block", "reject")]
             [string]$Action = "allow",
         [Parameter (Mandatory=$false)]
+        [ValidateSet("inbound","outbound")]
             [string]$Direction
     )
 
@@ -25056,6 +25061,7 @@ function New-NsxSecurityPolicy   {
         [Parameter (Mandatory=$false)]
             [string]$Precedence,
         [Parameter (Mandatory=$false)]
+        [ValidateSet("firewall","endpoint","traffic_steering")]
             [string]$Category="firewall",
         [Parameter (Mandatory=$false)]
             [hashtable[]]$FirewallRule,
