@@ -24862,6 +24862,259 @@ function Get-NsxSecurityPolicy {
     end {}
 }
 
+function New-NsxSecurityPolicyFirewallRuleSpec {
+    <#
+    .SYNOPSIS
+    Creates Security Policy Firewall Rules in the appropriate XML format.
+
+    .DESCRIPTION
+    This cmdlet has serveral parameters that are required to successfully create a firewall rule in a Security Policy. 
+    The information passed into the function are then processed to generate a proper XML variable which
+    is then passed on to the New-NsxSecurityPolicy function 
+
+    .EXAMPLE
+    C:\> New-NsxSecurityPolicyFirewallRuleSpec -FWRuleName "Block Web to Demo VM" -FWRuleDescription "Block Inbound Web traffic" -Service (Get-NsxService | ?{($_.name -like "HTTP*")}) -securityGroup (Get-NsxSecurityGroup | ?{$_.name -eq "SG App Servers"}) -Direction inbound -Enabled true -Logging true -Action block | Format-XML
+    <actionsByCategory>
+        <category>firewall</category>
+        <action class="firewallSecurityAction">
+            <name>Block Inbound Web Traffic to Demo VM</name>
+            <description>Block Inbound Web Traffic to App SG</description>
+            <category>firewall</category>
+            <executionOrder></executionOrder>
+            <isEnabled>true</isEnabled>
+            <applications>
+              <application>
+                <objectId>application-77</objectId>
+              </application>
+              <application>
+                <objectId>application-67</objectId>
+              </application>
+              <application>
+                <objectId>application-212</objectId>
+              </application>
+            </applications>
+            <logged>true</logged>
+            <action>block</action>
+            <direction>inbound</direction>
+        </action>
+    </actionsByCategory>
+    #>
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$false)]
+            [string]$Category="firewall",
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$FWRuleName,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNull()]
+            [string]$FWRuleDescription,
+        [Parameter (Mandatory=$false)]
+            [string]$Order,
+        [Parameter (Mandatory=$false)]
+            [string]$Enabled = "true",
+        [Parameter (Mandatory=$false)]
+            [object[]]$securityGroup,
+        [Parameter (Mandatory=$false)]
+            [object[]]$Service,
+        [Parameter (Mandatory=$false)]
+            [string]$Logging = "false",
+        [Parameter (Mandatory=$false)]
+            [string]$Action = "allow",
+        [Parameter (Mandatory=$false)]
+            [string]$Direction
+    )
+
+    begin { 
+        function Invoke-XpathQuery {
+
+            # Required because of the differing XPath implementations on Desktop and Core editions.
+            # Intent is to have a consistent function that exported PowerNSX functions call to perform
+            # an XPATH query that will be performed in the correct way for the edition of PS being used.
+            param (
+                [Parameter (Mandatory=$true)]
+                    [ValidateSet("SelectSingleNode","SelectNodes")]
+                    [string]$QueryMethod,
+                [Parameter (Mandatory=$true)]
+                    $Node,
+                [Parameter (Mandatory=$true)]
+                    [string]$query
+
+            )
+
+            If ( $script:PNsxPSTarget -eq "Core") {
+                #Use the XPath extensions class to perform the query
+                switch ($QueryMethod) {
+                    "SelectSingleNode" {
+                        [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($node,$query)
+                    }
+                    "SelectNodes" {
+                        [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($node,$query)
+                    }
+                }
+            }
+            else {
+                #Perform the query with the native methods on the node
+                switch ($QueryMethod) {
+                    "SelectSingleNode" {
+                        $node.SelectSingleNode($query)
+                    }
+                    "SelectNodes" {
+                        $node.SelectNodes($query)
+                    }
+                }
+            }
+         }
+    }
+    process {    
+        [System.XML.XMLDocument]$xmlFWDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlFWRoot = $XMLFWDoc.CreateElement("actionsByCategory")
+         $xmlFWDoc.appendChild($xmlFWRoot) | out-null
+            Add-XmlElement -xmlRoot $xmlFWRoot -xmlElementName "category" -xmlElementText $Category
+            Add-XmlElement -xmlRoot $xmlFWRoot -xmlElementName "action"
+            (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//actionsByCategory/action").SetAttribute("class", "firewallSecurityAction")
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "name" -xmlElementText $FWRuleName
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "description" -xmlElementText $FWRuleDescription
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "category" -xmlElementText $Category
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "executionOrder" -xmlElementText $Order
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled
+                
+
+
+                if ( $securityGroup ) {
+                       $count = 1
+                       foreach ( $Member in $securityGroup) {
+
+                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "secondarySecurityGroup"
+                                   
+                            #This is probably not safe - need to review all possible input types to confirm.
+                            if ($Member -is [System.Xml.XmlElement] ) {
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                            } else {
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                      
+                            }
+                            $count++
+                        }
+                }
+    
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action")  -xmlElementName "applications"
+
+                if ( $service ) {
+                       $count = 1
+                       foreach ( $Member in $service) {
+
+                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/applications") -xmlElementName "application"
+                                   
+                            #This is probably not safe - need to review all possible input types to confirm.
+                            if ($Member -is [System.Xml.XmlElement] ) {
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                            } else {
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                      
+                            }
+                            $count++
+                        }
+                }
+               
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "logged" -xmlElementText $Logging
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "action" -xmlElementText $Action
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "direction" -xmlElementText $Direction
+
+            
+            $xmlFWDoc
+
+        }
+
+    end {}
+}
+
+function New-NsxSecurityPolicy   {
+
+    <#
+    .SYNOPSIS
+    Creates a new NSX Security Policy.
+
+    .DESCRIPTION
+
+    .EXAMPLE
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNull()]
+            [string]$Description = "",
+        [Parameter (Mandatory=$false)]
+            [string]$Precedence,
+        [Parameter (Mandatory=$false)]
+            [string]$Category="firewall",
+        [Parameter (Mandatory=$false)]
+            [hashtable[]]$FirewallRule,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {
+        #Check to see if a SP exists if not use default value of 4300 else use recent SP and add 1000
+        if ((Get-NsxSecurityPolicy) -eq $null){
+            [string]$Precedence = "4300"
+        }
+        elseif ((Get-NsxSecurityPolicy) -isnot [array]){
+            [string]$Precedence=([string](([int](Get-NsxSecurityPolicy).precedence) + 1000))
+        }
+        else {[string]$Precedence=([string](([int](Get-NsxSecurityPolicy)[0].precedence) + 1000))
+        }
+
+    }
+
+    process {
+
+        #Creating the XML Document for Security Policy
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("securityPolicy")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+        
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "precedence" -xmlElementText $Precedence
+
+        $SP = $xmldoc
+         
+        #Creating the XML Document for SP Firewall Rule
+        $RuleCollection = @{}
+        foreach ($rule in $FirewallRule){
+            $xmlRule = New-NSXSecurityPolicyFirewallRuleSpec @rule
+            $SP.securityPolicy.AppendChild($SP.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
+            
+        }
+
+        #Do the post
+        $body = $SP.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        #$body
+        
+        if ($ReturnObjectIdOnly) {
+            $response.content
+        }
+        else {
+            Get-NsxSecurityPolicy -objectId $response.content -connection $connection
+        }
+    }
+    end {} 
+}
 
 function Remove-NsxSecurityPolicy {
 
