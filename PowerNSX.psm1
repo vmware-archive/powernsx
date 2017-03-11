@@ -45,7 +45,7 @@ $Script:AllValidServices = @("AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
 
 $Script:AllServicesRequiringPort = @( "FTP", "L2_OTHERS", "L3_OTHERS",
  "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS",
-  "SUN_RPC_TCP", "SUN_RPC_UDP", "TCP", "UDP" )
+  "SUN_RPC_TCP", "SUN_RPC_UDP" )
 
 $script:AllServicesNotRequiringPort = $Script:AllValidServices | ? { $AllServicesRequiringPort -notcontains $_ }
 
@@ -21029,8 +21029,8 @@ function New-NsxService  {
                 elseif (($protocol -eq "L3_OTHERS") -and ( (1..255) -notcontains $_ )) {
                     throw "L3_OTHER protocoltype `'port`' must specify a valid IP protocol number in the range 1-255"
                 }
-                elseif ( ($protocol -ne "ICMP") -and ( $AllServicesNotRequiringPort -contains $Protocol )) {
-                    #Validation is only executed if user specified a value for port... ICMP is special in that you can, but dont have to specify a 'port'.
+                elseif ( (($protocol -ne "ICMP") -and ( $protocol -ne "TCP") -and ( $protocol -ne "UDP") ) -and ( $AllServicesNotRequiringPort -contains $Protocol )) {
+                    #Validation is only executed if user specified a value for port... ICMP, UDP and TCP are special in that you can, but dont have to specify a 'port'.
                     throw "Specified protocol does not allow a port value to be specified."
                 }
                 $true
