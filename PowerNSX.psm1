@@ -25118,11 +25118,6 @@ function New-NsxSecurityPolicyGISRuleSpec {
                 }
             }
          }
-
-        if ($ServiceName -and $ServiceType){
-        Write-Host "You can not use ServiceName and ServiceType together" -ForegroundColor Red
-        break
-        }
     }
     process {    
         [System.XML.XMLDocument]$xmlFWDoc = New-Object System.XML.XMLDocument
