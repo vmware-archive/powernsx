@@ -24974,17 +24974,17 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
          }
     }
     process {    
-        [System.XML.XMLDocument]$xmlFWDoc = New-Object System.XML.XMLDocument
-        [System.XML.XMLElement]$xmlFWRoot = $XMLFWDoc.CreateElement("actionsByCategory")
-         $xmlFWDoc.appendChild($xmlFWRoot) | out-null
-            Add-XmlElement -xmlRoot $xmlFWRoot -xmlElementName "category" -xmlElementText $Category
-            Add-XmlElement -xmlRoot $xmlFWRoot -xmlElementName "action"
-            (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//actionsByCategory/action").SetAttribute("class", "firewallSecurityAction")
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "name" -xmlElementText $FWRuleName
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "description" -xmlElementText $FWRuleDescription
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "category" -xmlElementText $Category
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "executionOrder" -xmlElementText $Order
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("actionsByCategory")
+         $xmlDoc.appendChild($xmlRoot) | out-null
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "category" -xmlElementText $Category
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "action"
+            (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//actionsByCategory/action").SetAttribute("class", "firewallSecurityAction")
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "name" -xmlElementText $FWRuleName
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "description" -xmlElementText $FWRuleDescription
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "category" -xmlElementText $Category
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "executionOrder" -xmlElementText $Order
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled
                 
 
 
@@ -24992,47 +24992,44 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
                        $count = 1
                        foreach ( $Member in $securityGroup) {
 
-                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "secondarySecurityGroup"
+                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "secondarySecurityGroup"
                                    
                             #This is probably not safe - need to review all possible input types to confirm.
                             if ($Member -is [System.Xml.XmlElement] ) {
-                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
                             } else {
-                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
                       
                             }
                             $count++
                         }
                 }
     
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action")  -xmlElementName "applications"
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action")  -xmlElementName "applications"
 
                 if ( $service ) {
                        $count = 1
                        foreach ( $Member in $service) {
 
-                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/applications") -xmlElementName "application"
+                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/applications") -xmlElementName "application"
                                    
                             #This is probably not safe - need to review all possible input types to confirm.
                             if ($Member -is [System.Xml.XmlElement] ) {
-                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
                             } else {
-                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action/applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
                       
                             }
                             $count++
                         }
                 }
                
-                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "logged" -xmlElementText $Logging
-                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "action" -xmlElementText $Action
-                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "direction" -xmlElementText $Direction
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "logged" -xmlElementText $Logging
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "action" -xmlElementText $Action
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "direction" -xmlElementText $Direction
 
-            
-            $xmlFWDoc
-
+            $xmlDoc
         }
-
     end {}
 }
 
@@ -25120,27 +25117,26 @@ function New-NsxSecurityPolicyGISRuleSpec {
          }
     }
     process {    
-        [System.XML.XMLDocument]$xmlFWDoc = New-Object System.XML.XMLDocument
-        [System.XML.XMLElement]$xmlFWRoot = $XMLFWDoc.CreateElement("actionsByCategory")
-         $xmlFWDoc.appendChild($xmlFWRoot) | out-null
-            Add-XmlElement -xmlRoot $xmlFWRoot -xmlElementName "category" -xmlElementText $Category
-            Add-XmlElement -xmlRoot $xmlFWRoot -xmlElementName "action"
-            (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//actionsByCategory/action").SetAttribute("class", "endpointSecurityAction")
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "name" -xmlElementText $Name
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "description" -xmlElementText $Description
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "category" -xmlElementText $Category
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "executionOrder" -xmlElementText $Order
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "actionType" -xmlElementText $actionType 
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled     
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlFWroot -query "//action") -xmlElementName "isActionEnforced" -xmlElementText $Enforced
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("actionsByCategory")
+         $xmlDoc.appendChild($xmlRoot) | out-null
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "category" -xmlElementText $Category
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "action"
+            (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//actionsByCategory/action").SetAttribute("class", "endpointSecurityAction")
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "name" -xmlElementText $Name
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "description" -xmlElementText $Description
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "category" -xmlElementText $Category
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "executionOrder" -xmlElementText $Order
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "actionType" -xmlElementText $actionType 
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled     
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "isActionEnforced" -xmlElementText $Enforced
 
-            $xmlFWDoc
+            $xmlDoc
 
         }
 
     end {}
 }
-
 
 function New-NsxSecurityPolicy   {
 
@@ -25171,6 +25167,8 @@ function New-NsxSecurityPolicy   {
             [string]$Category="firewall",
         [Parameter (Mandatory=$false)]
             [hashtable[]]$FirewallRule,
+        [Parameter (Mandatory=$false)]
+            [hashtable[]]$GISRule,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -25195,22 +25193,27 @@ function New-NsxSecurityPolicy   {
 
         #Creating the XML Document for Security Policy
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("securityPolicy")
+        [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("securityPolicy")
         $xmlDoc.appendChild($xmlRoot) | out-null
         
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "precedence" -xmlElementText $Precedence
 
-        $SP = $xmldoc
+        $SP = $xmlDoc
          
         #Creating the XML Document for SP Firewall Rule
         foreach ($rule in $FirewallRule){
             $xmlRule = New-NSXSecurityPolicyFirewallRuleSpec @rule
-            $SP.securityPolicy.AppendChild($SP.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
-            
+            $SP.securityPolicy.AppendChild($SP.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null   
         }
 
+        #Creating the XML Document for GIS Rule
+        foreach ($rule in $GISRule){
+            $xmlRule = New-NsxSecurityPolicyGISRuleSpec @rule
+            $SP.securityPolicy.AppendChild($SP.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
+        }
+             
         #Do the post
         $body = $SP.OuterXml
         $URI = "/api/2.0/services/policy/securitypolicy"
