@@ -21031,7 +21031,7 @@ function New-NsxService  {
             throw "Specified protocol requires a port value to be specified."
         }
 
-        if (( @("TCP", "UDP") -contains $protocol ) -and ( $port -notmatch "^[\d,-]+$" )) {
+        if (( @("TCP", "UDP") -contains $protocol ) -and ( ($PSBoundParameters.ContainsKey("Port")) -and ($port -notmatch "^[\d,-]+$" ))) {
             throw "TCP or UDP port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges."
         }
 
@@ -21039,7 +21039,7 @@ function New-NsxService  {
             throw "Valid port numbers must be an integer between 1-65535."
         }
 
-        if (( $protocol -eq "ICMP") -and ( $AllValidIcmpTypes -notcontains $port )) {
+        if (( $protocol -eq "ICMP") -and ( ($PSBoundParameters.ContainsKey("Port")) -and ($AllValidIcmpTypes -notcontains $port ))) {
             throw "Invalid ICMP protocol $port.  Specify one of $($AllValidIcmpTypes -join ", ")"
         }
 
