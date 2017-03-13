@@ -25163,12 +25163,16 @@ function New-NsxSecurityPolicy   {
         [Parameter (Mandatory=$false)]
             [string]$Precedence,
         [Parameter (Mandatory=$false)]
+            [object[]]$AppliedTo,
+        [Parameter (Mandatory=$false)]
         [ValidateSet("firewall","endpoint","traffic_steering")]
             [string]$Category="firewall",
         [Parameter (Mandatory=$false)]
             [hashtable[]]$FirewallRule,
         [Parameter (Mandatory=$false)]
             [hashtable[]]$GISRule,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -25200,6 +25204,19 @@ function New-NsxSecurityPolicy   {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "precedence" -xmlElementText $Precedence
 
+        if ($AppliedTo){
+            $count = 1
+            foreach ($Member in $AppliedTo){
+                Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "securityGroupBinding"
+
+                #This is probably not safe - need to review all possible input types to confirm.
+                if ($Member -is [System.Xml.XmlElement] -and $Member.objectTypeName -eq "SecurityGroup") {
+                    Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//securityGroupBinding[$count]") -xmlElementName "objectId" -xmlElementText $Member.objectId
+                $count++ 
+                }    
+            }
+        }
+
         $SP = $xmlDoc
          
         #Creating the XML Document for SP Firewall Rule
@@ -25220,11 +25237,14 @@ function New-NsxSecurityPolicy   {
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         #$body
         
-        if ($ReturnObjectIdOnly) {
-            $response.content
-        }
-        else {
-            Get-NsxSecurityPolicy -objectId $response.content -connection $connection
+        if ($response.StatusCode -eq "201"){
+              
+            if ($ReturnObjectIdOnly) {
+                $response.content
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.content -connection $connection
+            }
         }
     }
     end {} 
