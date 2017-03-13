@@ -21026,34 +21026,36 @@ function New-NsxService  {
 
     begin {
 
-        #Cant do this in Param validation due to fact that port must not be mandatory and issues with binding order when splatting...
+        #Cant do all this in Param validation due to fact that port must not be mandatory and issues with binding order when splatting...
         if (( $AllServicesRequiringPort -contains $protocol ) -and ( -not $PSBoundParameters.ContainsKey("Port")) ) {
             throw "Specified protocol requires a port value to be specified."
         }
 
-        if (( @("TCP", "UDP") -contains $protocol ) -and ( ($PSBoundParameters.ContainsKey("Port")) -and ($port -notmatch "^[\d,-]+$" ))) {
-            throw "TCP or UDP port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges."
-        }
+        if ( $PSBoundParameters.ContainsKey("Port")) {
+            if (( @("TCP", "UDP") -contains $protocol ) -and ( $port -notmatch "^[\d,-]+$" )) {
+                throw "TCP or UDP port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges."
+            }
 
-        if ( ( @("FTP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP")  -contains $Protocol ) -and (-not ( ($port -as [int]) -and ( (1..65535) -contains $port )))) {
-            throw "Valid port numbers must be an integer between 1-65535."
-        }
+            if ( ( @("FTP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP")  -contains $Protocol ) -and (-not ( ($port -as [int]) -and ( (1..65535) -contains $port )))) {
+                throw "Valid port numbers must be an integer between 1-65535."
+            }
 
-        if (( $protocol -eq "ICMP") -and ( ($PSBoundParameters.ContainsKey("Port")) -and ($AllValidIcmpTypes -notcontains $port ))) {
-            throw "Invalid ICMP protocol $port.  Specify one of $($AllValidIcmpTypes -join ", ")"
-        }
+            if (( $protocol -eq "ICMP") -and ( $AllValidIcmpTypes -notcontains $port )) {
+                throw "Invalid ICMP protocol $port.  Specify one of $($AllValidIcmpTypes -join ", ")"
+            }
 
-        if (($protocol -eq "L2_OTHERS") -and ( $port -notmatch "0x[0-9A-Fa-f]{4}" )) {
-            throw "L2_OTHER protocoltype `'port`' must specify a valid ethertype in hex (eg. 0x0800)"
-        }
+            if (($protocol -eq "L2_OTHERS") -and ( $port -notmatch "0x[0-9A-Fa-f]{4}" )) {
+                throw "L2_OTHER protocoltype `'port`' must specify a valid ethertype in hex (eg. 0x0800)"
+            }
 
-        if (($protocol -eq "L3_OTHERS") -and ( (1..255) -notcontains $port )) {
-            throw "L3_OTHER protocoltype `'port`' must specify a valid IP protocol number in the range 1-255"
-        }
+            if (($protocol -eq "L3_OTHERS") -and ( (1..255) -notcontains $port )) {
+                throw "L3_OTHER protocoltype `'port`' must specify a valid IP protocol number in the range 1-255"
+            }
 
-        if ($PSBoundParameters.ContainsKey("Port") -and  (($protocol -notmatch "ICMP|TCP|UDP")  -and ( $AllServicesNotRequiringPort -contains $Protocol ))) {
-            #Validation is only executed if user specified a value for port... ICMP, UDP and TCP are special in that you can, but dont have to specify a 'port'.
-            throw "Specified protocol does not allow a port value to be specified."
+            if ($PSBoundParameters.ContainsKey("Port") -and  (($protocol -notmatch "ICMP|TCP|UDP")  -and ( $AllServicesNotRequiringPort -contains $Protocol ))) {
+                #Validation is only executed if user specified a value for port... ICMP, UDP and TCP are special in that you can, but dont have to specify a 'port'.
+                throw "Specified protocol does not allow a port value to be specified."
+            }
         }
     }
     process {
