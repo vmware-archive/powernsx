@@ -3840,7 +3840,7 @@ function Connect-NsxServer {
     if ($SSOCredential){
         $Connection | add-member -memberType NoteProperty -name "Credential" -value $SSOCredential -force
     }
-    elseif (($Credential) -and (-not($PsBoundParameters.ContainsKey('APICredential')))){
+    elseif (($Credential) -and (-not($PsBoundParameters.ContainsKey('SSOCredential')))){
         $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
     }
         $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
