@@ -1017,6 +1017,8 @@ Describe "Distributed Firewall" {
             $rule.name | should be "pester_dfw_rule1"
         }
 
+        it "Can create a rule with a servicegroup specified as service"
+
         BeforeEach {
             #create new sections for each test.
 
