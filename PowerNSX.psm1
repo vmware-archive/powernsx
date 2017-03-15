@@ -3838,26 +3838,17 @@ function Connect-NsxServer {
         # Replace NSX Local Creditials with SSO Credentials
 
     if ($SSOCredential){
-        
         $Connection | add-member -memberType NoteProperty -name "Credential" -value $SSOCredential -force
-        $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
-        $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
-        $connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
-        $connection | add-member -memberType NoteProperty -name "ValidateCertificate" -value $ValidateCertificate -force
-        $connection | add-member -memberType NoteProperty -name "VIConnection" -force -Value ""
-        $connection | add-member -memberType NoteProperty -name "DebugLogging" -force -Value $DebugLogging
     }
     elseif (($Credential) -and (-not($PsBoundParameters.ContainsKey('APICredential')))){
-        
         $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
+    }
         $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
         $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
         $connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
         $connection | add-member -memberType NoteProperty -name "ValidateCertificate" -value $ValidateCertificate -force
         $connection | add-member -memberType NoteProperty -name "VIConnection" -force -Value ""
         $connection | add-member -memberType NoteProperty -name "DebugLogging" -force -Value $DebugLogging
-    }
-
     #Debug log will contain all rest calls, request and response bodies, and response headers.
     if ( -not $PsBoundParameters.ContainsKey('DebugLogFile' )) {
 
