@@ -103,7 +103,7 @@ Describe "Distributed Firewall" {
 
         # Create vapp
 
-        $script:testvapp = New-vApp -name $vAppName -location Cluster
+        $script:testvapp = New-vApp -name $vAppName -location $cl
 
         write-host -ForegroundColor Green "Completed setup tasks for DFW tests"
 
@@ -114,9 +114,9 @@ Describe "Distributed Firewall" {
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #We kill the connection to NSX Manager here.
         write-host -ForegroundColor Green "Performing cleanup tasks for DFW tests"
-        get-vm $testVMName1 | remove-vm -Confirm:$false
-        get-vm $testVMName2 | remove-vm -Confirm:$false
-        get-vm $testVMName3 | remove-vm -Confirm:$false
+        get-vm $testVMName1 -ErrorAction Ignore | remove-vm -Confirm:$false
+        get-vm $testVMName2 -ErrorAction Ignore | remove-vm -Confirm:$false
+        get-vm $testVMName3 -ErrorAction Ignore | remove-vm -Confirm:$false
         get-nsxedge $dfwedgename | remove-nsxedge -confirm:$false
         start-sleep 5
 
@@ -134,11 +134,11 @@ Describe "Distributed Firewall" {
 
         # Delete Port-Group
 
-        Get-VdPortGroup $Testdvportgroupname | Remove-VdPortGroup -confirm:$false
+        Get-VdPortGroup $Testdvportgroupname -ErrorAction Ignore| Remove-VdPortGroup -confirm:$false
         # Delete Resource-pool
-        Get-ResourcePool -name $testRpname | Remove-ResourcePool -confirm:$false
+        Get-ResourcePool -name $testRpname  -ErrorAction Ignore | Remove-ResourcePool -confirm:$false
         # Delete $vAppName
-        Get-vApp $vAppName | Remove-vApp -confirm:$false -DeletePermanently
+        Get-vApp $vAppName  -ErrorAction Ignore | Remove-vApp -confirm:$false -DeletePermanently
 
         disconnect-nsxserver
 
@@ -518,7 +518,7 @@ Describe "Distributed Firewall" {
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources.source.name | should be "$testvappname"
+            $rule.sources.source.name | should be "$vAppName"
             $rule.destinations | should be $null
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
@@ -703,7 +703,7 @@ Describe "Distributed Firewall" {
             $rule.sources | should be $null
             $rule.destination | should be $null
             $rule.appliedToList.appliedTo.Name | should be $($dc.name)
-            $dcid = $dc.id  -replace "Datacenter-",""
+            $dcid = $dc.id  -replace "^Datacenter-",""
             $rule.appliedToList.appliedTo.Value | should be $dcid
             $rule.appliedToList.appliedTo.Type | should be "Datacenter"
             #$rule.appliedToList.appliedTo.isValue | should not be $null
@@ -742,24 +742,6 @@ Describe "Distributed Firewall" {
             #$rule.appliedToList.appliedTo.isValue | should not be $null
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
-        }
-
-        it "Can create an l3 rule with a resource pool based applied to" {
-            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1"  -action allow -appliedTo $testresourcepool
-            $rule | should not be $null
-            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
-            $rule | should not be $null
-            @($rule).count | should be 1
-            $rule.sources | should be $null
-            $rule.destination | should be $null
-            $rule.appliedToList.appliedTo.Name | should be $testrpname
-            #$rule.appliedToList.appliedTo.Value | should not be $null
-            $
-            $rule.appliedToList.appliedTo.Type | should be "ResourcePool"
-            #$rule.appliedToList.appliedTo.isValue | should not be $null
-            $rule.name | should be "pester_dfw_rule1"
-            $rule.action | should be allow
-
         }
 
         it "Can create an l3 rule with a vapp based applied to" {
@@ -1011,14 +993,13 @@ Describe "Distributed Firewall" {
         }
 
 
-        #Currently skipped as applied to functionality is busted :(
         it "Can create a rule to apply to a specific edge" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -AppliedTo $dfwEdge
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            @($rule.appliedToList.appliedTo).count | should be 1
+            @($rule.appliedToList.appliedTo).count | should be 2
             $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
             $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be True
             $rule.name | should be "pester_dfw_rule1"
