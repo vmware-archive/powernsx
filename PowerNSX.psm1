@@ -24904,14 +24904,14 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
     param (
 
         [Parameter (Mandatory=$false)]
-        [ValidateSet("firewall","endpoint","traffic_steering")]
+        [ValidateSet("firewall")]
             [string]$Category="firewall",
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
-            [string]$FWRuleName,
+            [string]$Name,
         [Parameter (Mandatory=$false)]
             [ValidateNotNull()]
-            [string]$FWRuleDescription,
+            [string]$Description,
         [Parameter (Mandatory=$false)]
             [string]$Order,
         [Parameter (Mandatory=$false)]
@@ -24932,47 +24932,8 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
             [string]$Direction
     )
 
-    begin { 
-        function Invoke-XpathQuery {
-
-            # Required because of the differing XPath implementations on Desktop and Core editions.
-            # Intent is to have a consistent function that exported PowerNSX functions call to perform
-            # an XPATH query that will be performed in the correct way for the edition of PS being used.
-            param (
-                [Parameter (Mandatory=$true)]
-                    [ValidateSet("SelectSingleNode","SelectNodes")]
-                    [string]$QueryMethod,
-                [Parameter (Mandatory=$true)]
-                    $Node,
-                [Parameter (Mandatory=$true)]
-                    [string]$query
-
-            )
-
-            If ( $script:PNsxPSTarget -eq "Core") {
-                #Use the XPath extensions class to perform the query
-                switch ($QueryMethod) {
-                    "SelectSingleNode" {
-                        [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($node,$query)
-                    }
-                    "SelectNodes" {
-                        [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($node,$query)
-                    }
-                }
-            }
-            else {
-                #Perform the query with the native methods on the node
-                switch ($QueryMethod) {
-                    "SelectSingleNode" {
-                        $node.SelectSingleNode($query)
-                    }
-                    "SelectNodes" {
-                        $node.SelectNodes($query)
-                    }
-                }
-            }
-         }
-    }
+    begin {}
+    
     process {    
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
         [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("actionsByCategory")
@@ -24980,8 +24941,8 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "category" -xmlElementText $Category
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "action"
             (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//actionsByCategory/action").SetAttribute("class", "firewallSecurityAction")
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "name" -xmlElementText $FWRuleName
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "description" -xmlElementText $FWRuleDescription
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "name" -xmlElementText $Name
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "description" -xmlElementText $Description
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "category" -xmlElementText $Category
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "executionOrder" -xmlElementText $Order
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled
@@ -25033,7 +24994,7 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
     end {}
 }
 
-function New-NsxSecurityPolicyGISRuleSpec {
+function New-NsxSecurityPolicyGISSpec {
     <#
     .SYNOPSIS
     Creates Security Policy Guest Introspection Service Rules in the appropriate XML format.
@@ -25051,7 +25012,7 @@ function New-NsxSecurityPolicyGISRuleSpec {
     param (
 
         [Parameter (Mandatory=$false)]
-        [ValidateSet("firewall","endpoint","traffic_steering")]
+        [ValidateSet("endpoint")]
             [string]$Category="endpoint",
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
@@ -25075,47 +25036,8 @@ function New-NsxSecurityPolicyGISRuleSpec {
     begin {
     # If user inputed lower case convert to upper case.
     if ($actionType){$actionType = $actionType.ToUpper()}
-
-        function Invoke-XpathQuery {
-
-            # Required because of the differing XPath implementations on Desktop and Core editions.
-            # Intent is to have a consistent function that exported PowerNSX functions call to perform
-            # an XPATH query that will be performed in the correct way for the edition of PS being used.
-            param (
-                [Parameter (Mandatory=$true)]
-                    [ValidateSet("SelectSingleNode","SelectNodes")]
-                    [string]$QueryMethod,
-                [Parameter (Mandatory=$true)]
-                    $Node,
-                [Parameter (Mandatory=$true)]
-                    [string]$query
-
-            )
-
-            If ( $script:PNsxPSTarget -eq "Core") {
-                #Use the XPath extensions class to perform the query
-                switch ($QueryMethod) {
-                    "SelectSingleNode" {
-                        [System.Xml.XmlDocumentXPathExtensions]::SelectSingleNode($node,$query)
-                    }
-                    "SelectNodes" {
-                        [System.Xml.XmlDocumentXPathExtensions]::SelectNodes($node,$query)
-                    }
-                }
-            }
-            else {
-                #Perform the query with the native methods on the node
-                switch ($QueryMethod) {
-                    "SelectSingleNode" {
-                        $node.SelectSingleNode($query)
-                    }
-                    "SelectNodes" {
-                        $node.SelectNodes($query)
-                    }
-                }
-            }
-         }
     }
+
     process {    
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
         [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("actionsByCategory")
@@ -25165,12 +25087,9 @@ function New-NsxSecurityPolicy   {
         [Parameter (Mandatory=$false)]
             [object[]]$AppliedTo,
         [Parameter (Mandatory=$false)]
-        [ValidateSet("firewall","endpoint","traffic_steering")]
-            [string]$Category="firewall",
-        [Parameter (Mandatory=$false)]
             [hashtable[]]$FirewallRule,
         [Parameter (Mandatory=$false)]
-            [hashtable[]]$GISRule,
+            [hashtable[]]$GuestIntrospectionService,
         [Parameter (Mandatory=$false)]
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
@@ -25203,7 +25122,10 @@ function New-NsxSecurityPolicy   {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "precedence" -xmlElementText $Precedence
+        
+        $SP = $xmlDoc
 
+        #Applies the Security Policy to a Security Group
         if ($AppliedTo){
             $count = 1
             foreach ($Member in $AppliedTo){
@@ -25216,9 +25138,7 @@ function New-NsxSecurityPolicy   {
                 }    
             }
         }
-
-        $SP = $xmlDoc
-         
+                 
         #Creating the XML Document for SP Firewall Rule
         foreach ($rule in $FirewallRule){
             $xmlRule = New-NSXSecurityPolicyFirewallRuleSpec @rule
@@ -25226,8 +25146,8 @@ function New-NsxSecurityPolicy   {
         }
 
         #Creating the XML Document for GIS Rule
-        foreach ($rule in $GISRule){
-            $xmlRule = New-NsxSecurityPolicyGISRuleSpec @rule
+        foreach ($rule in $GuestIntrospectionService){
+            $xmlRule = New-NsxSecurityPolicyGISSpec @rule
             $SP.securityPolicy.AppendChild($SP.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
         }
              
