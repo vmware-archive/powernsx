@@ -303,6 +303,7 @@ FunctionsToExport = @(
     'Get-NsxManagerBackup',
     'Get-NsxManagerComponentSummary',
     'Get-NsxManagerSystemSummary',
+    'Get-NsxManagerCertificate',
     'New-NsxServiceGroup',
     'Add-NsxServiceGroupMember',
     'Get-NsxServiceGroup',
