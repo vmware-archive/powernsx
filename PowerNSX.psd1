@@ -303,7 +303,6 @@ FunctionsToExport = @(
     'Get-NsxManagerBackup',
     'Get-NsxManagerComponentSummary',
     'Get-NsxManagerSystemSummary',
-<<<<<<< Updated upstream
     'Get-NsxManagerCertificate',
 =======
     'Get-NsxManagerRole',
