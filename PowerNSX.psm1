@@ -20279,9 +20279,19 @@ function Get-NsxIpSet {
     Returns all Universal IP Sets.
 
     .EXAMPLE
-    PS C:\> Get-NSXIpSet TestIPSet -Universal
+    PS C:\> Get-NSXIpSet TestGlobalIPSet
+
+    Returns the IP Set called TestGlobalIPSet from the scope globalroot-0.
+
+    .EXAMPLE
+    PS C:\> Get-NSXIpSet TestUniversalIPSet -Universal
 
     Returns all Universal IP Sets with the name TestIPSet.
+
+    .EXAMPLE
+    PS C:\> Get-NSXIpSet TestEsgeIPSet -scopeId edge-1
+
+    Returns all locally configured IP Sets on the specified edge.
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
