@@ -318,6 +318,18 @@ Describe "Edge" {
         }
     }
 
+    Context "Grouping Objects" {
+
+        it "Can retrieve locally created IP Sets" {
+        }
+
+        it "Can add local IP Sets" {
+        }
+
+        it "Can remove local IP Sets" {
+        }
+
+
     it "Can remove an edge" {
         Get-NsxEdge $name | should not be $null
         Get-NsxEdge $name | remove-nsxEdge -confirm:$false
