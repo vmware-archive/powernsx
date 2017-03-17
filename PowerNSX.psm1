@@ -25111,7 +25111,7 @@ function New-NsxSecurityPolicy   {
 
     begin {
         #Check to see if a SP exists if not use default value of 4300 else use recent SP and add 1000
-        if ((Get-NsxSecurityPolicy) -eq $null){
+        if ((Get-NsxSecurityPolicy).count -eq 0){
             [string]$Precedence = "4300"
         }
         elseif ((Get-NsxSecurityPolicy) -isnot [array]){
