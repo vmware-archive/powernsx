@@ -20315,7 +20315,7 @@ function Get-NsxIpSet {
     }
 
     process {
-
+        if ( $universal ) { $scopeId = "universalroot-0"}
         if ( -not $objectID ) {
             #All IPSets
             $URI = "/api/2.0/services/ipset/scope/$scopeId"
