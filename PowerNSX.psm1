@@ -20295,7 +20295,6 @@ function Get-NsxIpSet {
             #Name of IPSet
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            [ValidateSet("globalroot-0", "universalroot-0", IgnoreCase=$true)]
             #ScopeId of IPSet - default is globalroot-0
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
