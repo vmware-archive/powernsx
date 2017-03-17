@@ -20383,7 +20383,6 @@ function New-NsxIpSet  {
         [Parameter (Mandatory=$false)]
             [string]$IPAddresses,
         [Parameter (Mandatory=$false)]
-            [ValidateSet("globalroot-0", "universalroot-0", IgnoreCase=$true)]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
             [switch]$Universal=$false,
