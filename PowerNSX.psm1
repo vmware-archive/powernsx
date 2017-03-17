@@ -20403,13 +20403,28 @@ function New-NsxIpSet  {
     separated by commas
     IP address: (eg, 1.2.3.4)
     IP Range: (eg, 1.2.3.4-1.2.3.10)
-    IP Subnet (eg, 1.2.3.0/24)
+    IP Subnet: (eg, 1.2.3.0/24)
 
 
     .EXAMPLE
     PS C:\> New-NsxIPSet -Name TestIPSet -Description "Testing IP Set Creation"
         -IPAddresses "1.2.3.4,1.2.3.0/24"
 
+    Creates a new IP Set in the scope globalroot-0.
+
+    .EXAMPLE
+
+    PS C:\> New-NsxIPSet -Name UniversalIPSet -Description "Testing Universal"
+        -IPAddresses "1.2.3.4,1.2.3.0/24" -Universal
+
+    Creates a new Universal IP Set.
+
+    .EXAMPLE
+
+    PS C:\> New-NsxIPSet -Name EdgeIPSet -Description "Testing Edge IP Sets"
+        -IPAddresses "1.2.3.4,1.2.3.0/24" -scopeId edge-1
+
+    Creates a new IP Set on the specified edge..
     #>
 
     [CmdletBinding()]
@@ -20424,7 +20439,16 @@ function New-NsxIpSet  {
         [Parameter (Mandatory=$false)]
             [string]$IPAddresses,
         [Parameter (Mandatory=$false)]
+            [ValidateScript({
+                if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
+                    $True
+                } else {
+                    Throw "$_ is not a valid scope. Valid options are: globalroot-0 | universalroot-0 | edge-id"
+                }
+            })]
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            [switch]$Universal=$false,
         [Parameter (Mandatory=$false)]
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
@@ -20448,8 +20472,9 @@ function New-NsxIpSet  {
         }
 
         #Do the post
+        if ( $universal ) { $scopeId = "universalroot-0"}
         $body = $xmlroot.OuterXml
-        $URI = "/api/2.0/services/ipset/$scopeId"
+        $URI = "/api/2.0/services/ipset/$($scopeId.ToLower())"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
         if ( $ReturnObjectIdOnly) {
