@@ -129,6 +129,5 @@ Describe "Universal Object Support" {
         #We kill the connection to NSX Manager here.
 
         disconnect-nsxserver
-        Remove-Variable -scope global -name "conn"
     }
 }
