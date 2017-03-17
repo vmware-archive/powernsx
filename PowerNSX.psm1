@@ -20367,6 +20367,8 @@ function New-NsxIpSet  {
     PS C:\> New-NsxIPSet -Name TestIPSet -Description "Testing IP Set Creation"
         -IPAddresses "1.2.3.4,1.2.3.0/24"
 
+    PS C:\> New-NsxIPSet -Name UniversalIPSet -Description "Testing Universal"
+        -IPAddresses "1.2.3.4,1.2.3.0/24" -Universal
     #>
 
     [CmdletBinding()]
