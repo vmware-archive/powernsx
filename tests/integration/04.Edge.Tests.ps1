@@ -328,7 +328,7 @@ Describe "Edge" {
 
         it "Can remove local IP Sets" {
         }
-
+    }
 
     it "Can remove an edge" {
         Get-NsxEdge $name | should not be $null
