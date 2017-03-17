@@ -20381,7 +20381,10 @@ function New-NsxIpSet  {
         [Parameter (Mandatory=$false)]
             [string]$IPAddresses,
         [Parameter (Mandatory=$false)]
+            [ValidateSet("globalroot-0", "universalroot-0", IgnoreCase=$true)]
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            [switch]$Universal=$false,
         [Parameter (Mandatory=$false)]
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
@@ -20405,6 +20408,7 @@ function New-NsxIpSet  {
         }
 
         #Do the post
+        if ( $universal ) { $scopeId = "universalroot-0"}
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/ipset/$scopeId"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
