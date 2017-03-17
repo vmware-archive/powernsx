@@ -5790,6 +5790,44 @@ function Get-NsxManagerSystemSummary {
     }
 }
 
+function Get-NsxManagerRole {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager Role Configuration.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Get-NsxManagerRole cmdlet retrieves the universal sync role of the
+    NSX Manager against which the command is run.
+
+    .EXAMPLE
+    Get-NsxManagerRole
+
+    Retreives the universal sync role from the connected NSX Manager
+    #>
+
+
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/universalsync/configuration/role"
+
+    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+    if ( $result -is [System.Xml.XmlDocument]) {
+        $result.universalSyncRole
+    }
+
+}
+
 function New-NsxController {
 
     <#
