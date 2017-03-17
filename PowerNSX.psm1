@@ -20305,6 +20305,15 @@ function Get-NsxIpSet {
             #Name of IPSet
             [string]$Name,
         [Parameter (Mandatory=$false)]
+            # [DC] Make sure the scope specified is a valid one. The API is case
+            # sensitive, but we handle that at the URI.
+            [ValidateScript({
+            if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
+                $True
+            } else {
+                Throw "$_ is not a valid scope. Valid options are: globalroot-0 | universalroot-0 | edge-id"
+            }
+            })]
             #ScopeId of IPSet - default is globalroot-0
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
