@@ -20336,7 +20336,7 @@ function Get-NsxIpSet {
         if ( $universal ) { $scopeId = "universalroot-0"}
         if ( -not $objectID ) {
             #All IPSets
-            $URI = "/api/2.0/services/ipset/scope/$scopeId"
+            $URI = "/api/2.0/services/ipset/scope/$($scopeId.ToLower())"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/ipset')) {
                 if ( $name ) {
