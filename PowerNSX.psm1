@@ -5808,7 +5808,6 @@ function Get-NsxManagerRole {
     Retreives the universal sync role from the connected NSX Manager
     #>
 
-
     param (
 
         [Parameter (Mandatory=$False)]
