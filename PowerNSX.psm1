@@ -5820,9 +5820,9 @@ function Get-NsxManagerRole {
 
     $URI = "/api/2.0/universalsync/configuration/role"
 
-    $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+    [System.Xml.XmlDocument]$result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
-    if ( $result -is [System.Xml.XmlDocument]) {
+    if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $result -Query 'child::universalSyncRole') {
         $result.universalSyncRole
     }
 
