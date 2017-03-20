@@ -24938,7 +24938,7 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
         [ValidateSet("allow","block", "reject")]
             [string]$Action = "allow",
         [Parameter (Mandatory=$false)]
-        [ValidateSet("inbound","outbound")]
+        [ValidateSet("inbound","outbound", "intra")]
             [string]$Direction
     )
 
