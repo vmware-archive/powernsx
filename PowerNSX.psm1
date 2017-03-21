@@ -3806,7 +3806,13 @@ function Connect-NsxServer {
     }
     catch {
 
-        Throw "Unable to connect to NSX Manager at $Server.  $_"
+        #supression excep in event of 403.  Valid non local account credentiasl are not able to query the appliance-management API
+        if ( $_ -match '403 : Forbidden') {
+            write-warning "A valid local admin account is required to access version information.  This error can be ignored if using SSO credentials to authenticate to NSX, however, appliance version information will not be available."
+        }
+        else {
+            Throw "Unable to connect to NSX Manager at $Server.  $_"
+        }
     }
     $connection = new-object PSCustomObject
     # NSX-v 6.2.3 changed the output of the following API from JSON to XML.
@@ -3818,14 +3824,16 @@ function Connect-NsxServer {
     #
     # So what we do is try for the new format, and if it fails, lets default to
     # the old JSON format.
+    $Connection | add-member -memberType NoteProperty -name "Version" -value $null
+    $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value $null
     try {
-        $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.globalInfo.versionInfo.majorVersion).$($response.globalInfo.versionInfo.minorVersion).$($response.globalInfo.versionInfo.patchVersion)" -force
-        $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.globalInfo.versionInfo.BuildNumber)"
+        $Connection.Version = "$($response.globalInfo.versionInfo.majorVersion).$($response.globalInfo.versionInfo.minorVersion).$($response.globalInfo.versionInfo.patchVersion)"
+        $Connection.BuildNumber = $($response.globalInfo.versionInfo.BuildNumber)
     }
     catch {
         try {
-            $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
-            $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
+            $Connection.Version = "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)"
+            $Connection.BuildNumber = $response.VersionInfo.BuildNumber
         }
         catch {
             write-warning "Unable to determine version information.  This may be due to a restriction in the rights the current user has to read the appliance-management API and may not represent an issue."
