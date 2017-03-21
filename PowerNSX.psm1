@@ -3806,8 +3806,8 @@ function Connect-NsxServer {
     }
     catch {
 
-        #supression excep in event of 403.  Valid non local account credentiasl are not able to query the appliance-management API
-        if ( $_ -match '403 : Forbidden') {
+        #supression excep in event of 403.  Valid non local account credentias are not able to query the appliance-management API
+        if ( $_ -match '403 : Forbidden|403 (Forbidden)') {
             write-warning "A valid local admin account is required to access version information.  This error can be ignored if using SSO credentials to authenticate to NSX, however, appliance version information will not be available."
         }
         else {
