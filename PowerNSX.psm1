@@ -19028,10 +19028,11 @@ function Remove-NsxLogicalRouterRedistributionRule {
         $xpathQuery = "child::$($RedistributionRule.learner)/redistribution/rules/rule[action=`"$($RedistributionRule.action)`""
         $xPathQuery += " and from/connected=`"$($RedistributionRule.from.connected)`" and from/static=`"$($RedistributionRule.from.static)`""
         $xPathQuery += " and from/ospf=`"$($RedistributionRule.from.ospf)`" and from/bgp=`"$($RedistributionRule.from.bgp)`""
-        $xPathQuery += " and from/isis=`"$($RedistributionRule.from.isis)`""
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $RedistributionRule -Query 'child::from/isis')) {
+            $xPathQuery += " and from/isis=`"$($RedistributionRule.from.isis)`""
+        }
 
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $RedistributionRule -Query 'child::prefixName')) {
-
             $xPathQuery += " and prefixName=`"$($RedistributionRule.prefixName)`""
         }
 
