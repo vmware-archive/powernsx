@@ -26,8 +26,11 @@ Describe "NSXManager" {
         $script:NTPServer2 = "2.2.2.2"
         $Script:TimeZone = "Australia/Melbourne"
 
+        #This can fail if non-admin account is used.
         #Try to preserve existing state...
-        $Script:PreExistingConfig = Get-NsxManagerTimeSettings
+        # $Script:PreExistingConfig = Get-NsxManagerTimeSettings
+
+        #Todo : Work out how to use account details to trigger a skip if non-admin used....
     }
 
     Context "Time" {
@@ -73,10 +76,9 @@ Describe "NSXManager" {
 
         it "Can get configured SSL Certificates" {
             $certificates = Get-NsxManagerCertificate
-            $( $certificates | measure ).count | should BeGreaterThan 0 
+            $( $certificates | measure ).count | should BeGreaterThan 0
             $certificates | should not be $null
         }
-
     }
 
     AfterAll {
@@ -84,12 +86,18 @@ Describe "NSXManager" {
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
         #We kill the connection to NSX Manager here.
 
-        if ($PreExistingConfig.ntpserver.string) {
-            Clear-NsxManagerTimeSettings
-            Set-NsxManagerTimeSettings -NtpServer $PreExistingConfig.ntpserver.string
-        }
-        Set-NsxManagerTimeSettings -TimeZone $PreExistingConfig.timezone
-
+        # This can fail if a non-admin account is used.
+        # if ($PreExistingConfig.ntpserver.string) {
+        #     Clear-NsxManagerTimeSettings
+        #     Set-NsxManagerTimeSettings -NtpServer $PreExistingConfig.ntpserver.string
+        # }
+        # try {
+        #     #this can fail depending on credentials
+        #     Set-NsxManagerTimeSettings -TimeZone $PreExistingConfig.timezone
+        # }
+        # catch {
+        #     #do nothing
+        # }
         disconnect-nsxserver
     }
 }
