@@ -3737,9 +3737,6 @@ function Connect-NsxServer {
         [Parameter (Mandatory=$true,ParameterSetName="cred")]
             #PSCredential object containing NSX API authentication credentials
             [PSCredential]$Credential,
-        [Parameter (Mandatory=$false,ParameterSetName="cred")]
-            #PSCredential object containing NSX API authentication credentials
-            [PSCredential]$SSOCredential,
         [Parameter (Mandatory=$true,ParameterSetName="userpass")]
             #Username used to authenticate to NSX API
             [ValidateNotNullOrEmpty()]
@@ -3834,15 +3831,7 @@ function Connect-NsxServer {
             write-warning "Unable to determine version information.  This may be due to a restriction in the rights the current user has to read the appliance-management API and may not represent an issue."
         }
     }
-
-        # Replace NSX Local Creditials with SSO Credentials
-
-    if ($SSOCredential){
-        $Connection | add-member -memberType NoteProperty -name "Credential" -value $SSOCredential -force
-    }
-    elseif (($Credential) -and (-not($PsBoundParameters.ContainsKey('SSOCredential')))){
         $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
-    }
         $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
         $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
         $connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
