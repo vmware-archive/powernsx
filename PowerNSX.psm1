@@ -3412,6 +3412,8 @@ function Invoke-NsxRestMethod {
 
     #Return
     $response
+ 
+   }
 }
 
 function Invoke-NsxWebRequest {
