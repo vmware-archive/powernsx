@@ -3277,7 +3277,7 @@ function Invoke-NsxRestMethod {
                 $connection = $DefaultNSXConnection
             }
         }
-    
+        #The below URI require Enterprise Role to connect to so will use the NSX Credentials, otherwise use the SSO Credentials for all other requests.
 		if (($URI -eq "/api/1.0/appliance-management/global/info") -or ($URI -eq "/api/2.0/services/vcconfig")){ 
 			$cred = $connection.credential
 			$server = $connection.Server
@@ -3503,7 +3503,7 @@ function Invoke-NsxWebRequest {
                 $connection = $DefaultNSXConnection
             }
         }
-		
+		#The below URI require Enterprise Role to connect to so will use the NSX Credentials, otherwise use the SSO Credentials for all other requests.
         if (($URI -eq "/api/1.0/appliance-management/global/info") -or ($URI -eq "/api/2.0/services/vcconfig")){ 
                 $cred = $connection.credential
                 $server = $connection.Server
