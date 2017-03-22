@@ -3277,11 +3277,18 @@ function Invoke-NsxRestMethod {
                 $connection = $DefaultNSXConnection
             }
         }
-
-        $cred = $connection.credential
-        $server = $connection.Server
-        $port = $connection.Port
-        $protocol = $connection.Protocol
+    
+		if (($URI -eq "/api/1.0/appliance-management/global/info") -or ($URI -eq "/api/2.0/services/vcconfig")){ 
+			$cred = $connection.credential
+			$server = $connection.Server
+			$port = $connection.Port
+			$protocol = $connection.Protocol
+			}
+		else {
+			$cred = $connection.ssocredential
+			$server = $connection.Server
+			$port = $connection.Port
+			$protocol = $connection.Protocol
 
     }
 
@@ -3496,11 +3503,19 @@ function Invoke-NsxWebRequest {
                 $connection = $DefaultNSXConnection
             }
         }
-
-        $cred = $connection.credential
-        $server = $connection.Server
-        $port = $connection.Port
-        $protocol = $connection.Protocol
+		
+        if (($URI -eq "/api/1.0/appliance-management/global/info") -or ($URI -eq "/api/2.0/services/vcconfig")){ 
+                $cred = $connection.credential
+                $server = $connection.Server
+                $port = $connection.Port
+                $protocol = $connection.Protocol
+                }
+		else {
+                $cred = $connection.ssocredential
+                $server = $connection.Server
+                $port = $connection.Port
+                $protocol = $connection.Protocol
+                }
     }
 
     $headerDictionary = @{}
@@ -3737,6 +3752,9 @@ function Connect-NsxServer {
         [Parameter (Mandatory=$true,ParameterSetName="cred")]
             #PSCredential object containing NSX API authentication credentials
             [PSCredential]$Credential,
+        [Parameter (Mandatory=$false)]
+            #PSCredential object containing NSX API authentication credentials
+            [PSCredential]$SSOCredential,									  
         [Parameter (Mandatory=$true,ParameterSetName="userpass")]
             #Username used to authenticate to NSX API
             [ValidateNotNullOrEmpty()]
@@ -3831,14 +3849,14 @@ function Connect-NsxServer {
             write-warning "Unable to determine version information.  This may be due to a restriction in the rights the current user has to read the appliance-management API and may not represent an issue."
         }
     }
-    $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
-    $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
-    $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
-    $connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
-    $connection | add-member -memberType NoteProperty -name "ValidateCertificate" -value $ValidateCertificate -force
-    $connection | add-member -memberType NoteProperty -name "VIConnection" -force -Value ""
-    $connection | add-member -memberType NoteProperty -name "DebugLogging" -force -Value $DebugLogging
-
+	$Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
+	$Connection | add-member -memberType NoteProperty -name "SSOCredential" -value $SSOCredential -force
+	$connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
+	$connection | add-member -memberType NoteProperty -name "Port" -value $port -force
+	$connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
+	$connection | add-member -memberType NoteProperty -name "ValidateCertificate" -value $ValidateCertificate -force
+	$connection | add-member -memberType NoteProperty -name "VIConnection" -force -Value ""
+	$connection | add-member -memberType NoteProperty -name "DebugLogging" -force -Value $DebugLogging
     #Debug log will contain all rest calls, request and response bodies, and response headers.
     if ( -not $PsBoundParameters.ContainsKey('DebugLogFile' )) {
 
