@@ -19848,9 +19848,9 @@ function New-NsxSecurityTag {
         [Parameter (Mandatory=$false)]
             [string]$Description,
         [Parameter (Mandatory=$false)]
-            [switch]$Universal=$true,
+            #This marks the tag as a universal object within the constructs of NSX
+            [switch]$Universal,
         [Parameter (Mandatory=$False)]
-
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
@@ -19874,13 +19874,13 @@ function New-NsxSecurityTag {
         Add-XmlElement -xmlRoot $xmlnodes -xmlElementName "typeName" -xmlElementText "SecurityTag"
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
 
-
         #Optional fields
         if ( $PsBoundParameters.ContainsKey('Description')) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText "$Description"
         }
 
-        if ( $PsBoundParameters.ContainsKey('Universal')) {
+        if ($Universal) {
+            #Create the XML to mark the object as universal
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "isUniversal" -xmlElementText $Universal
         }
 
@@ -22027,7 +22027,8 @@ function New-NsxFirewallSection  {
             })]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
-            [switch]$Universal=$true,
+            #Marks the firewall section to be universal or not
+            [switch]$Universal
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -22047,7 +22048,8 @@ function New-NsxFirewallSection  {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
 
         #Optional Fields
-        if ( $PsBoundParameters.ContainsKey('Universal')) {
+        if ($Universal) {
+          #Create XML for universal object
           Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "managedBy" -xmlElementText "universalroot-0"
         }
 
