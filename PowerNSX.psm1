@@ -3278,17 +3278,25 @@ function Invoke-NsxRestMethod {
             }
         }
         #The below URI require Enterprise Role to connect to so will use the NSX Credentials, otherwise use the SSO Credentials for all other requests.
-		if (($URI -eq "/api/1.0/appliance-management/global/info") -or ($URI -eq "/api/2.0/services/vcconfig")){ 
-			$cred = $connection.credential
-			$server = $connection.Server
-			$port = $connection.Port
-			$protocol = $connection.Protocol
-			}
-		else {
-			$cred = $connection.ssocredential
-			$server = $connection.Server
-			$port = $connection.Port
-			$protocol = $connection.Protocol
+        if (($URI -eq "/api/1.0/appliance-management/global/info") -or ($URI -eq "/api/2.0/services/vcconfig")){ 
+            $cred = $connection.credential
+            $server = $connection.Server
+            $port = $connection.Port
+            $protocol = $connection.Protocol
+            }
+        #This check is only the local NSX Manager credentials are used
+        elseif ($connection.credential -and [string]::IsNullOrWhiteSpace($connection.SSOCredential)) {
+            $cred = $connection.credential
+            $server = $connection.Server
+            $port = $connection.Port
+            $protocol = $connection.Protocol
+            }
+        else {
+            $cred = $connection.ssocredential
+            $server = $connection.Server
+            $port = $connection.Port
+            $protocol = $connection.Protocol
+            }
 
     }
 
@@ -3507,17 +3515,24 @@ function Invoke-NsxWebRequest {
         }
 		#The below URI require Enterprise Role to connect to so will use the NSX Credentials, otherwise use the SSO Credentials for all other requests.
         if (($URI -eq "/api/1.0/appliance-management/global/info") -or ($URI -eq "/api/2.0/services/vcconfig")){ 
-                $cred = $connection.credential
-                $server = $connection.Server
-                $port = $connection.Port
-                $protocol = $connection.Protocol
-                }
-		else {
-                $cred = $connection.ssocredential
-                $server = $connection.Server
-                $port = $connection.Port
-                $protocol = $connection.Protocol
-                }
+            $cred = $connection.credential
+            $server = $connection.Server
+            $port = $connection.Port
+            $protocol = $connection.Protocol
+            }
+        #This check is only the local NSX Manager credentials are used
+        elseif ($connection.credential -and [string]::IsNullOrWhiteSpace($connection.SSOCredential)) {
+            $cred = $connection.credential
+            $server = $connection.Server
+            $port = $connection.Port
+            $protocol = $connection.Protocol
+            }
+        else {
+            $cred = $connection.ssocredential
+            $server = $connection.Server
+            $port = $connection.Port
+            $protocol = $connection.Protocol
+            }
     }
 
     $headerDictionary = @{}
