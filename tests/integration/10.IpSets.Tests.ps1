@@ -169,4 +169,48 @@ Describe "IPSets" {
         }
 
     }
+
+    Context "IpSet Modification" {
+
+        BeforeEach {
+            $ipsetName = "$IpSetPrefix-modify"
+            $ipsetDesc = "PowerNSX Pester Test modify IpSet"
+            get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
+            $script:modify = New-nsxipset -Name $ipsetName -Description $ipsetDesc
+
+        }
+
+        AfterEach {
+            $ipsetName = "$IpSetPrefix-modify"
+            $ipsetDesc = "PowerNSX Pester Test modify IpSet"
+            get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
+
+        }
+
+        it "Can add a new address to an ip set" {
+            $IpAddress = "1.2.3.4"
+            $ipset = $modify | Add-NsxIpSetMember -IpAddress $IpAddress
+            $ipset.value | should be $IpAddress
+        }
+
+        it "Can add a new range to an ip set" {
+            $IpAddress = "1.2.3.4-2.3.4.5"
+            $ipset = $modify | Add-NsxIpSetMember -IpAddress $IpAddress
+            $ipset.value | should be $IpAddress
+        }
+
+        it "Can add a new cidr to an ip set" {
+            $IpAddress = "1.2.3.0/24"
+            $ipset = $modify | Add-NsxIpSetMember -IpAddress $IpAddress
+            $ipset.value | should be $IpAddress
+        }
+
+        it "Can add multiple values to an ip set" {
+            $IpAddress1 = "1.2.3.4"
+            $IpAddress2 = "4.3.2.1"
+            $ipset = $modify | Add-NsxIpSetMember -IpAddress $IpAddress1,$ipaddress2
+            $ipset.value -split "," -contains $ipAddress1 | should be $true
+            $ipset.value -split "," -contains $ipAddress2 | should be $true
+        }
+    }
 }

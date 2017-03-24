@@ -20584,6 +20584,93 @@ function Remove-NsxIpSet {
     end {}
 }
 
+function Add-NsxIpSetMember  {
+    <#
+    .SYNOPSIS
+    Adds a new member to an existing IP Set.
+
+    .DESCRIPTION
+    An NSX IPSet is a grouping construct that allows for grouping of
+    IP adresses, ranges and/or subnets in a sigle container that can
+    be used either in DFW Firewall Rules or as members of a security
+    group.
+
+    This cmdlet adds a new member to the specified IP Set.
+
+    IPAddress is a collection of strings, each of which can contain 1 only of
+    the following
+
+    IP address: (eg, 1.2.3.4)
+    IP Range: (eg, 1.2.3.4-1.2.3.10)
+    IP Subnet: (eg, 1.2.3.0/24)
+
+    .EXAMPLE
+    get-nsxipset test | Add-NsxIpSetMember -IPAddress 5.4.3.2
+
+    Adds the ip address 5.4.3.2 to the existing ipset test.
+
+    .EXAMPLE
+    get-nsxipset test | Add-NsxIpSetMember -IPAddress 5.4.3.0/24
+
+    Adds the cidr 5.4.3.0/24 to the existing ipset test
+
+    .EXAMPLE
+    get-nsxipset test | Add-NsxIpSetMember -IPAddress 5.4.3.2,1.2.3.0/24
+
+    Adds the ip address 5.4.3.2 and the cidr 1.2.3.0/24 to the existing ipset
+    test
+
+    #>
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #Existing IPSet PowerNSX object to be modified.
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$IPSet,
+        [Parameter (Mandatory=$false)]
+            #Collection of ip addresses/ranges and/or CIDR's to be added to the ipset.
+            [ValidateNotNullOrEmpty()]
+            [string[]]$IPAddress,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+
+        $_ipset = $ipset.clonenode($true)
+        if ( -not (invoke-xpathquery -QueryMethod SelectSingleNode -Node $_ipset -query "child::value")) {
+            Add-XmlElement -xmlRoot $_ipset -xmlElementName "value" -xmlElementText ""
+        }
+
+        foreach ( $value in $IPAddress ) {
+
+            if ( $_ipset.value -eq "" ) {
+                $_ipset.value = $value
+            }
+            else {
+                $_ipset.value += "," + $value
+            }
+        }
+
+        #Do the post
+        $body = $_ipset.OuterXml
+        $URI = "/api/2.0/services/ipset/$($_ipset.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        try {
+            [system.xml.xmldocument]$ipsetdoc = $response.content
+            $ipsetdoc.ipset
+        }
+        catch {
+            throw "Unable to interpret response content from NSX API as XML.  Response: $response"
+        }
+    }
+    end {}
+}
 
 function Remove-NsxIpPool {
 

@@ -328,7 +328,8 @@ FunctionsToExport = @(
     'Get-NsxSecurityGroupEffectiveMacAddress',
     'Get-NsxSecurityGroupEffectiveVnic',
     'Set-NsxFirewallThreshold',
-    'Get-NsxFirewallThreshold'
+    'Get-NsxFirewallThreshold',
+    'Add-NsxIpSetMember'
 )
 
 # Cmdlets to export from this module
