@@ -20661,16 +20661,16 @@ function Add-NsxIpSetMember  {
         $body = $_ipset.OuterXml
         $URI = "/api/2.0/services/ipset/$($_ipset.objectId)"
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-
-        if ( $response -as [system.xml.xmldocument]) {
-            [System.Xml.Xmlelement]$response = $response
-            $response.ipset
+        try {
+            [system.xml.xmldocument]$ipsetdoc = $response.content
+            $ipsetdoc.ipset
+        }
+        catch {
+            throw "Unable to interpret response content from NSX API as XML.  Response: $response"
         }
     }
     end {}
 }
-
-
 
 function Remove-NsxIpPool {
 
