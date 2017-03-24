@@ -20604,19 +20604,35 @@ function Add-NsxIpSetMember  {
     IP Range: (eg, 1.2.3.4-1.2.3.10)
     IP Subnet: (eg, 1.2.3.0/24)
 
+    .EXAMPLE
+    get-nsxipset test | Add-NsxIpSetMember -IPAddress 5.4.3.2
+
+    Adds the ip address 5.4.3.2 to the existing ipset test.
+
+    .EXAMPLE
+    get-nsxipset test | Add-NsxIpSetMember -IPAddress 5.4.3.0/24
+
+    Adds the cidr 5.4.3.0/24 to the existing ipset test
+
+    .EXAMPLE
+    get-nsxipset test | Add-NsxIpSetMember -IPAddress 5.4.3.2,1.2.3.0/24
+
+    Adds the ip address 5.4.3.2 and the cidr 1.2.3.0/24 to the existing ipset
+    test
+
     #>
 
     [CmdletBinding()]
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #Existing IPSet PowerNSX object to be modified.
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$IPSet,
         [Parameter (Mandatory=$false)]
+            #Collection of ip addresses/ranges and/or CIDR's to be added to the ipset.
             [ValidateNotNullOrEmpty()]
             [string[]]$IPAddress,
-        [Parameter (Mandatory=$false)]
-            [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -20630,22 +20646,9 @@ function Add-NsxIpSetMember  {
         if ( -not (invoke-xpathquery -QueryMethod SelectSingleNode -Node $_ipset -query "child::value")) {
             Add-XmlElement -xmlRoot $_ipset -xmlElementName "value" -xmlElementText ""
         }
-        # else {
-
-        #     #Why are we using invoke-xpathquery?  Because value is a text element, we need to get the xmlelement object back to compare its value to $null later.
-        #     $valuenode = invoke-xpathquery -QueryMethod SelectSingleNode -Node $_ipset -query "child::value"
-        # }
 
         foreach ( $value in $IPAddress ) {
 
-            #Just to confuse the crap out of everyone, the $node.value test on the
-            #next line is checking the system.xml.xmlelement value property (not the #text value of the element)
-            # if ( $valuenode.Value -eq $null ) {
-            #     $valuenode.value = $value
-            # }
-            # else {
-            #     $valuenode.value += "," + $value
-            # }
             if ( $_ipset.value -eq "" ) {
                 $_ipset.value = $value
             }
@@ -20659,12 +20662,7 @@ function Add-NsxIpSetMember  {
         $URI = "/api/2.0/services/ipset/$($_ipset.objectId)"
         [system.xml.xmldocument]$response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
 
-        if ( $ReturnObjectIdOnly) {
-            $response.ipset.objectid
-        }
-        else {
-            $response.ipset
-        }
+        $response.ipset
     }
     end {}
 }
