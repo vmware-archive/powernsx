@@ -3800,37 +3800,50 @@ function Connect-NsxServer {
 
     $URI = "/api/1.0/appliance-management/global/info"
 
+    #Setup the connection object
+    $connection = new-object PSCustomObject
+    $Connection | add-member -memberType NoteProperty -name "Version" -value $null
+    $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value $null
+
     #Test NSX connection
     try {
         $response = invoke-nsxrestmethod -cred $Credential -server $Server -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+
+        # try to populate version information
+
+        # NSX-v 6.2.3 changed the output of the following API from JSON to XML.
+        #
+        # /api/1.0/appliance-management/global/info"
+        #
+        # Along with the return JSON/XML change, the data structure also received a
+        # new base element named globalInfo.
+        #
+        # So what we do is try for the new format, and if it fails, lets default to
+        # the old JSON format.
+        if ( $response -as [System.Xml.XmlDocument] ) {
+            if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::globalInfo/versionInfo" ) {
+                $Connection.Version = $response.globalInfo.versionInfo.majorVersion + "." + $response.globalInfo.versionInfo.minorVersion + "." + $response.globalInfo.versionInfo.patchVersion
+                $Connection.BuildNumber = $response.globalInfo.versionInfo.BuildNumber
+            }
+        }
+        else {
+            if ( get-member -InputObject $response -MemberType NoteProperty -Name versionInfo ) {
+                $Connection.Version = $response.VersionInfo.majorVersion + "." + $response.VersionInfo.minorVersion + "." + $response.VersionInfo.patchVersion
+                $Connection.BuildNumber = $response.VersionInfo.BuildNumber
+            }
+        }
     }
     catch {
 
-        Throw "Unable to connect to NSX Manager at $Server.  $_"
-    }
-    $connection = new-object PSCustomObject
-    # NSX-v 6.2.3 changed the output of the following API from JSON to XML.
-    #
-    # /api/1.0/appliance-management/global/info"
-    #
-    # Along with the return JSON/XML change, the data structure also received a
-    # new base element named globalInfo.
-    #
-    # So what we do is try for the new format, and if it fails, lets default to
-    # the old JSON format.
-    try {
-        $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.globalInfo.versionInfo.majorVersion).$($response.globalInfo.versionInfo.minorVersion).$($response.globalInfo.versionInfo.patchVersion)" -force
-        $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.globalInfo.versionInfo.BuildNumber)"
-    }
-    catch {
-        try {
-            $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
-            $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
+        #supression excep in event of 403.  Valid non local account credentias are not able to query the appliance-management API
+        if ( $_ -match '403 : Forbidden|403 \(Forbidden\)') {
+            write-warning "A valid local admin account is required to access version information.  This warning can be ignored if using SSO credentials to authenticate to NSX, however, appliance version information will not be available in the connection object."
         }
-        catch {
-            write-warning "Unable to determine version information.  This may be due to a restriction in the rights the current user has to read the appliance-management API and may not represent an issue."
+        else {
+            Throw "Unable to connect to NSX Manager at $Server.  $_"
         }
     }
+
     $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
     $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
     $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
