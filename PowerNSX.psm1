@@ -22028,7 +22028,7 @@ function New-NsxFirewallSection  {
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
             #Marks the firewall section to be universal or not
-            [switch]$Universal
+            [switch]$Universal,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
