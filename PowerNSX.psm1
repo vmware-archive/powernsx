@@ -20660,9 +20660,12 @@ function Add-NsxIpSetMember  {
         #Do the post
         $body = $_ipset.OuterXml
         $URI = "/api/2.0/services/ipset/$($_ipset.objectId)"
-        [system.xml.xmldocument]$response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
 
-        $response.ipset
+        if ( $response -as [system.xml.xmldocument]) {
+            [System.Xml.Xmlelement]$response = $response
+            $response.ipset
+        }
     }
     end {}
 }
