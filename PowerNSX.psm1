@@ -20629,7 +20629,7 @@ function Add-NsxIpSetMember  {
             #Existing IPSet PowerNSX object to be modified.
             [ValidateNotNullOrEmpty()]
             [System.Xml.XmlElement]$IPSet,
-        [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$true)]
             #Collection of ip addresses/ranges and/or CIDR's to be added to the ipset.
             [ValidateNotNullOrEmpty()]
             [string[]]$IPAddress,
