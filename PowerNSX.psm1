@@ -16494,6 +16494,161 @@ function New-NsxEdgeRedistributionRule {
     end {}
 }
 
+function Invoke-NsxEdgeHaFailover {
+
+<#
+.SYNOPSIS
+Invokes a failover on a NSX Edge high availability pair.
+
+.DESCRIPTION
+NSX Edges can function with a HA option, which makes sure there is an active and standby NSX Edge,
+ready to take each others load if something happens to one.
+
+Starting NSX 6.2.3, there is a feature to manually fail over the NSX Edges.
+
+This cmdlet works with the Edge object returned by Get-NsxEdge.
+
+.EXAMPLE
+Invoke a failover of the NSX Edge named 'MyEdge':
+
+PS C:\> Get-NsxEdge -Name MyEdge | Invoke-NsxEdgeHaFailover
+
+Be specific in the Edge Node that will become the new primary Node:
+
+PS C:\> Get-NsxEdge -Name MyEdge | Invoke-NsxEdgeHaFailover -NewPrimaryNode 1
+
+#>
+
+  param (
+    [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+      [ValidateScript({ Validate-Edge $_ })]
+      [System.Xml.XmlElement]$Edge,
+    [Parameter (Mandatory=$false)]
+      [ValidateRange(0,1)]
+      [int]$NewPrimaryNode=-1,
+    [Parameter (Mandatory=$False)]
+      #PowerNSX Connection object
+      [ValidateNotNullOrEmpty()]
+      [PSCustomObject]$Connection=$defaultNSXConnection
+  )
+
+  begin {}
+
+  process
+  {
+    # first, determine which node we need to bring down. If the user does not provide a node id, determine it ourselves
+    if($NewPrimaryNode -eq -1)
+    {
+      # request the status of the edge to see which Edge Node is active
+      $BringDownNode = $($edge | Get-NsxEdgeStatus).edgeStatus.activeVseHaIndex
+    }
+    else
+    {
+      # the node we need to bring down is the opposite of the node that the user wants to be the new primary
+      if($NewPrimaryNode -eq 0) { $BringDownNode = 1 }
+      else { $BringDownNode = 0 }
+    }
+
+    # first, bring the haAdminState down if the current active node
+    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Making Edge Node $($BringDownNode) relinquish it's HA state by disabling HA." }
+    $edge.appliances.appliance[$BringDownNode].haAdminState = "down"
+    $body = $edge.appliances.appliance[$BringDownNode].OuterXml
+    $URI = "/api/4.0/edges/$($Edge.Id)/appliances/$($BringDownNode)"
+    try {
+      $response = invoke-nsxrestmethod -method "PUT" -uri $URI -body $body -connection $connection
+    }
+    catch {
+      throw "Failed to disable HA on Edge Node $($BringDownNode).  $_"
+    }
+
+    # wait dead time + 2 (buffer) seconds before restoring the haAdminStatus, so we're sure that the failover happens
+    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Waiting for Edge Node $($NewPrimaryNode) to gain active HA state." }
+    Start-Sleep ([int]($edge.features.highAvailability.declareDeadTime) + 2)
+
+    # bring the haAdminState back up after the failover has taken place
+    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Enabling HA on Edge Node $($BringDownNode) again." }
+    $edge.appliances.appliance[$BringDownNode].haAdminState = "up"
+    $body = $edge.appliances.appliance[$BringDownNode].OuterXml
+    $URI = "/api/4.0/edges/$($Edge.Id)/appliances/$($BringDownNode)"
+    try {
+      $response = invoke-nsxrestmethod -method "PUT" -uri $URI -body $body -connection $connection
+    }
+    catch {
+      throw "Failed to enable HA on Edge Node $($BringDownNode).  $_"
+    }
+
+    $return = $response
+    $return
+  }
+  end {}
+}
+
+function Get-NsxEdgeStatus {
+<#
+.SYNOPSIS
+Gets the status of a NSX Edge and all its services.
+
+.DESCRIPTION
+NSX Edges have several services and status indicators in which you can tell whether
+some services are configured and if they are operational.
+
+This cmdlet works with the Edge object returned by Get-NsxEdge.
+
+.EXAMPLE
+Get the status of the NSX Edge named 'MyEdge' and output the important bits:
+
+PS /> $status = (Get-NsxEdge -Name MyEdge | Get-NsxEdgeStatus)
+PS /> $status.edgeStatus
+
+timestamp        : 1487520648974
+systemStatus     : good
+activeVseHaIndex : 0
+edgeStatus       : GREEN
+publishStatus    : APPLIED
+version          : 43
+edgeVmStatus     :
+featureStatuses  : featureStatuses
+
+PS /> $status.edgeStatus.featureStatuses.featureStatus
+
+service          status
+-------          ------
+ipsec            not_configured
+highAvailability up
+loadBalancer     down
+nat              not_configured
+sslvpn           not_configured
+dhcp             up
+syslog           not_configured
+dns              not_configured
+l2vpn            not_configured
+firewall         Applied
+routing          Applied
+
+#>
+  param (
+    [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+      [ValidateScript({ Validate-Edge $_ })]
+      [System.Xml.XmlElement]$Edge,
+    [Parameter (Mandatory=$False)]
+      #PowerNSX Connection object
+      [ValidateNotNullOrEmpty()]
+      [PSCustomObject]$Connection=$defaultNSXConnection
+  )
+
+  begin {}
+
+  process
+  {
+    # request the Edge status and return it
+    $URI = "/api/4.0/edges/$($Edge.Id)/status"
+    $response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
+
+    $return = $response
+    $return
+  }
+  end {}
+}
 
 #########
 #########
