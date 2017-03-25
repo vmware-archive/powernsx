@@ -370,6 +370,23 @@ Describe "Distributed Firewall" {
 
     Context "L3 Rules" {
 
+        it "Can create an l3 disabled allow any - any rule" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -DisableRule
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations | should be $null
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be $true
+        }
+
         it "Can create an l3 allow any - any rule" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
             $rule | should not be $null
@@ -1034,6 +1051,8 @@ Describe "Distributed Firewall" {
 
     Context "L2 Rules" {
 
+        it "Can create an l2 disabled rule" {
+        }
 
         it "Can create an l2 rule with an ip based source" {
         }
