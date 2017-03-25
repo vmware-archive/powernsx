@@ -22446,6 +22446,8 @@ function New-NsxFirewallRule  {
         [Parameter (Mandatory=$false)]
             [string]$Comment="",
         [Parameter (Mandatory=$false)]
+            [switch]$DisableRule,
+        [Parameter (Mandatory=$false)]
             [switch]$EnableLogging,
         [Parameter (Mandatory=$false)]
             [ValidateScript({ Validate-FirewallAppliedTo $_ })]
@@ -22498,7 +22500,13 @@ function New-NsxFirewallRule  {
             $xmlAttrLog = $xmlDoc.createAttribute("logged")
             $xmlAttrLog.value = "true"
             $xmlRule.Attributes.Append($xmlAttrLog) | out-null
+        }
 
+        if ( $DisableRule ) {
+            #Disable (rule) attribute
+            $xmlAttrDisabled = $xmlDoc.createAttribute("disabled")
+            $xmlAttrDisabled.value = "true"
+            $xmlRule.Attributes.Append($xmlAttrDisabled) | out-null
         }
 
         #Build Sources Node
