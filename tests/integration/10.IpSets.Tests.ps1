@@ -192,6 +192,13 @@ Describe "IPSets" {
             $ipset.value | should be $IpAddress
         }
 
+        it "Fails to add a duplicate address to an ip set" {
+            $IpAddress = "1.2.3.4"
+            $ipset = $modify | Add-NsxIpSetMember -IpAddress $IpAddress
+            $ipset.value | should be $IpAddress
+            {$ipset | Add-NsxIpSetMember -IpAddress $IpAddress} | should throw
+        }
+
         it "Can add a new range to an ip set" {
             $IpAddress = "1.2.3.4-2.3.4.5"
             $ipset = $modify | Add-NsxIpSetMember -IpAddress $IpAddress
