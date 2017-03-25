@@ -170,7 +170,7 @@ Describe "IPSets" {
 
     }
 
-    Context "IpSet Modification" {
+    Context "IpSet Modification - Addition" {
 
         BeforeEach {
             $ipsetName = "$IpSetPrefix-modify"
@@ -182,7 +182,6 @@ Describe "IPSets" {
 
         AfterEach {
             $ipsetName = "$IpSetPrefix-modify"
-            $ipsetDesc = "PowerNSX Pester Test modify IpSet"
             get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
 
         }
@@ -212,5 +211,55 @@ Describe "IPSets" {
             $ipset.value -split "," -contains $ipAddress1 | should be $true
             $ipset.value -split "," -contains $ipAddress2 | should be $true
         }
+    }
+    Context "IpSet Modification - Removal" {
+
+        BeforeEach {
+            $ipsetName = "$IpSetPrefix-removal"
+            $ipsetDesc = "PowerNSX Pester Test removal IpSet"
+            $ipaddress = "1.2.3.4"
+            $iprange = "1.2.3.4-2.3.4.5"
+            $cidr = "1.2.3.0/24"
+            get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
+            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses "$ipaddress,$iprange,$cidr"
+
+        }
+
+        AfterEach {
+            $ipsetName = "$IpSetPrefix-removal"
+            get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
+
+        }
+
+        it "Can remove an address from an ip set" {
+            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $IpAddress
+            $ipset.value -split "," -contains $ipaddress | should be $false
+            $ipset.value -split "," -contains $iprange | should be $true
+            $ipset.value -split "," -contains $cidr | should be $true
+        }
+
+        it "Can remove a range from an ip set" {
+            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $iprange
+            $ipset.value -split "," -contains $iprange | should be $false
+            $ipset.value -split "," -contains $ipaddress | should be $true
+            $ipset.value -split "," -contains $cidr | should be $true
+        }
+
+        it "Can remove a cidr from an ip set" {
+            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $cidr
+            $ipset.value -split "," -contains $cidr | should be $false
+            $ipset.value -split "," -contains $ipaddress | should be $true
+            $ipset.value -split "," -contains $iprange | should be $true
+        }
+
+        it "Can remove multiple values from an ip set" {
+
+            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $ipaddress,$iprange
+            $ipset.value -split "," -contains $ipaddress | should be $false
+            $ipset.value -split "," -contains $iprange | should be $false
+            $ipset.value -split "," -contains $cidr | should be $true
+        }
+
+
     }
 }

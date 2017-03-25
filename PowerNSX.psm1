@@ -20672,6 +20672,87 @@ function Add-NsxIpSetMember  {
     end {}
 }
 
+function Remove-NsxIpSetMember  {
+    <#
+    .SYNOPSIS
+    Removes a member from an existing IP Set.
+
+    .DESCRIPTION
+    An NSX IPSet is a grouping construct that allows for grouping of
+    IP adresses, ranges and/or subnets in a sigle container that can
+    be used either in DFW Firewall Rules or as members of a security
+    group.
+
+    This cmdlet adds removes a member IPAddress from the specified IP Set.
+
+    IPAddress is a collection of strings, each of which can contain 1 only of
+    the following
+
+    IP address: (eg, 1.2.3.4)
+    IP Range: (eg, 1.2.3.4-1.2.3.10)
+    IP Subnet: (eg, 1.2.3.0/24)
+
+    #>
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #Existing IPSet PowerNSX object to be modified.
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$IPSet,
+        [Parameter (Mandatory=$true)]
+            #Collection of ip addresses/ranges and/or CIDR's to be removed from the ipset.
+            [ValidateNotNullOrEmpty()]
+            [string[]]$IPAddress,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+
+        $_ipset = $ipset.clonenode($true)
+        if ( -not (invoke-xpathquery -QueryMethod SelectSingleNode -Node $_ipset -query "child::value")) {
+            throw "IPSet $($ipset.name) has no members."
+        }
+
+        if ( $_ipset.value -eq "" ) {
+            throw "IPSet $($ipset.name) has no members."
+        }
+
+        [system.collections.arraylist]$ValCollection = $_ipset.value -split ","
+        $modified = $false
+        foreach ( $value in $IPAddress ) {
+            if ( -not ( $valcollection -contains $value )) {
+                write-warning "$Value $value not a member of IPSet $($ipset.name)"
+            }
+            else {
+                $modified = $true
+                $ValCollection.Remove($value)
+            }
+        }
+
+        if ( $modified ) {
+            $_ipset.value = $ValCollection -join ","
+            #Do the post
+            $body = $_ipset.OuterXml
+            $URI = "/api/2.0/services/ipset/$($_ipset.objectId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            try {
+                [system.xml.xmldocument]$ipsetdoc = $response.content
+                $ipsetdoc.ipset
+            }
+            catch {
+                throw "Unable to interpret response content from NSX API as XML.  Response: $response"
+            }
+        }
+    }
+    end {}
+}
+
 function Remove-NsxIpPool {
 
     <#
