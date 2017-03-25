@@ -22411,6 +22411,16 @@ function New-NsxFirewallRule  {
         -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
          "Testing Rule Creation"
 
+    .EXAMPLE
+    PS C:\> Get-NsxFirewallSection TestSection |
+        New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
+        -Action allow
+        -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
+         "Testing creating a disabled rule"
+        -DisableRule
+
+    Add a new disabled rule to the section called TestSection
+
     #>
 
     [CmdletBinding()]
