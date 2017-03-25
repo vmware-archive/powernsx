@@ -20653,6 +20653,9 @@ function Add-NsxIpSetMember  {
                 $_ipset.value = $value
             }
             else {
+                if ( $_ipset.value -split "," -contains $value ) {
+                    throw "Value $value is already a member of the IPSet $($ipset.name)"
+                }
                 $_ipset.value += "," + $value
             }
         }
