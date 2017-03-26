@@ -371,7 +371,7 @@ Describe "Distributed Firewall" {
     Context "L3 Rules" {
 
         it "Can create an l3 disabled allow any - any rule" {
-            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -DisableRule
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -Disabled
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
@@ -384,7 +384,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
-            $rule.disabled | should be $true
+            $rule.disabled | should be "true"
         }
 
         it "Can create an l3 allow any - any rule" {
@@ -401,6 +401,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 deny any - any rule" {
@@ -417,6 +418,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be deny
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an ip based source" {
