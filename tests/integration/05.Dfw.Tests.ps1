@@ -1216,7 +1216,7 @@ Describe "Distributed Firewall" {
         it "Can create an l2 rule with a negated destination" {
         }
 
-        it "Can create an disabled l2 allow any - any rule" {
+        it "Can create an l2 disabled allow any - any rule" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -RuleType layer2sections -Disabled
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
