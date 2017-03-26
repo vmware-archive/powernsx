@@ -59,7 +59,7 @@ Describe "Distributed Firewall" {
         $script:vAppName = "pester_dfw_vapp"
 
         #Logical Switch
-        $script:testls = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testlsname
+        $script:testls = Get-NsxTransportZone | ? {$_.isUniversal -eq "false"} | select -first 1 | New-NsxLogicalSwitch $testlsname
 
         #Create Edge
 
