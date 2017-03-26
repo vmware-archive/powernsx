@@ -59,7 +59,7 @@ Describe "Distributed Firewall" {
         $script:vAppName = "pester_dfw_vapp"
 
         #Logical Switch
-        $script:testls = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testlsname
+        $script:testls = Get-NsxTransportZone | ? {$_.isUniversal -eq "false"} | select -first 1 | New-NsxLogicalSwitch $testlsname
 
         #Create Edge
 
@@ -370,6 +370,23 @@ Describe "Distributed Firewall" {
 
     Context "L3 Rules" {
 
+        it "Can create an l3 disabled allow any - any rule" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -Disabled
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations | should be $null
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "true"
+        }
+
         it "Can create an l3 allow any - any rule" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
             $rule | should not be $null
@@ -384,6 +401,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 deny any - any rule" {
@@ -400,6 +418,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be deny
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an ip based source" {
@@ -419,6 +438,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a security group based source" {
@@ -434,6 +454,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a cluster based source" {
@@ -449,6 +470,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a datacenter based source" {
@@ -464,6 +486,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a dvportgroup based source" {
@@ -479,6 +502,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
 
         }
 
@@ -495,6 +519,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a resource pool based source" {
@@ -510,6 +535,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an vapp based source" {
@@ -525,6 +551,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an vnic based source" {
@@ -548,6 +575,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a security group based destination" {
@@ -563,6 +591,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a cluster based destination" {
@@ -578,6 +607,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a datacenter based destination" {
@@ -593,6 +623,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a dvportgroup based destination" {
@@ -608,6 +639,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an lswitch based destination" {
@@ -623,6 +655,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a resource pool based destination" {
@@ -638,6 +671,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an vapp based destination" {
@@ -653,6 +687,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an vnic based destination" {
@@ -675,6 +710,7 @@ Describe "Distributed Firewall" {
             #$rule.appliedToList.appliedTo.isValue | should not be $null
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a cluster based applied to" {
@@ -692,6 +728,7 @@ Describe "Distributed Firewall" {
             #$rule.appliedToList.appliedTo.isValue | should not be $null
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a datacenter based applied to" {
@@ -709,6 +746,7 @@ Describe "Distributed Firewall" {
             #$rule.appliedToList.appliedTo.isValue | should not be $null
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a dvportgroup based applied to" {
@@ -726,6 +764,7 @@ Describe "Distributed Firewall" {
             #$rule.appliedToList.appliedTo.isValue | should not be $null
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an lswitch based applied to" {
@@ -742,6 +781,7 @@ Describe "Distributed Firewall" {
             #$rule.appliedToList.appliedTo.isValue | should not be $null
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a vapp based applied to" {
@@ -771,6 +811,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.sources.source.name | should be $testVmName1
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with vm based destination" {
@@ -787,6 +829,8 @@ Describe "Distributed Firewall" {
             @($rule.destinations.destination).count | should be 1
             $rule.destinations.destination.name | should be $testVmName1
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with vm based applied to" {
@@ -800,6 +844,8 @@ Describe "Distributed Firewall" {
             @($rule.appliedToList.appliedTo).count | should be 1
             $rule.appliedToList.appliedTo.name | should be $testVmName1
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with specific service" {
@@ -817,6 +863,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with single source, destination, applied to and service" {
@@ -834,6 +882,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.name | should be $testVmName1
             $rule.services.service.name | should be $testService1.Name
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with multiple vm based source" {
@@ -851,6 +901,8 @@ Describe "Distributed Firewall" {
             $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.sources.source.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with multiple vm based destination" {
@@ -868,6 +920,8 @@ Describe "Distributed Firewall" {
             $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with multiple vm based appliedto" {
@@ -882,6 +936,8 @@ Describe "Distributed Firewall" {
             $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.appliedToList.appliedTo.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with multiple services" {
@@ -900,6 +956,8 @@ Describe "Distributed Firewall" {
             $sortedNames = ( @($testService1.name, $testService2.name) | Sort-Object)
             $rule.services.service.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with multiple item based source, destination, applied to and service" {
@@ -921,6 +979,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
             $rule.services.service.name  | sort-object | should be $sortedServiceNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an L3 rule with different element types in the source, destination and applied to fields" {
@@ -937,6 +997,8 @@ Describe "Distributed Firewall" {
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an L3 rule with a tag" {
@@ -953,6 +1015,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.tag | should beexactly "Test Tag"
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         #############
@@ -966,6 +1030,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Name -contains "ALL_EDGES" | should be $true
             $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be $true
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create a rule to apply to all edges and not dfw" {
@@ -977,6 +1043,8 @@ Describe "Distributed Firewall" {
             @($rule.appliedToList.appliedTo).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "ALL_EDGES"
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create a rule to apply to a specific edge" {
@@ -990,6 +1058,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Value | should be $dfwEdge.id
             $rule.appliedToList.appliedTo.Type | should be edge
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
 
@@ -1003,6 +1073,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
             $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be True
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
          it "Can create a rule to apply to a specific edge without DFW" {
@@ -1015,6 +1087,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
             $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be False
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create a rule with a servicegroup specified as service"{}
@@ -1034,6 +1108,8 @@ Describe "Distributed Firewall" {
 
     Context "L2 Rules" {
 
+        it "Can create an l2 disabled rule" {
+        }
 
         it "Can create an l2 rule with an ip based source" {
         }
@@ -1140,6 +1216,23 @@ Describe "Distributed Firewall" {
         it "Can create an l2 rule with a negated destination" {
         }
 
+        it "Can create an l2 disabled allow any - any rule" {
+            $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -RuleType layer2sections -Disabled
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1" -RuleType layer2sections
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations | should be $null
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "true"
+        }
+
         it "Can create an l2 allow any - any rule" {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -RuleType layer2sections
             $rule | should not be $null
@@ -1154,6 +1247,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 deny any - any rule" {
@@ -1170,6 +1264,7 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be deny
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with macset based source" {
@@ -1186,6 +1281,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.sources.source.name | should be $TestMacSetName1
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with macset based destination" {
@@ -1202,6 +1299,8 @@ Describe "Distributed Firewall" {
             @($rule.destinations.destination).count | should be 1
             $rule.destinations.destination.name | should be $TestMacSetName1
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with vm based applied to" {
@@ -1215,6 +1314,8 @@ Describe "Distributed Firewall" {
             @($rule.appliedToList.appliedTo).count | should be 1
             $rule.appliedToList.appliedTo.name | should be $testVmName1
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with specific service" {
@@ -1232,6 +1333,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with single source, destination, applied to and service" {
@@ -1249,6 +1352,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.name | should be $testVmName1
             $rule.services.service.name | should be $testService1.Name
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with multiple vm based source" {
@@ -1266,6 +1371,8 @@ Describe "Distributed Firewall" {
             $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.sources.source.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with multiple vm based destination" {
@@ -1283,6 +1390,8 @@ Describe "Distributed Firewall" {
             $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with multiple vm based appliedto" {
@@ -1297,6 +1406,8 @@ Describe "Distributed Firewall" {
             $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
             $rule.appliedToList.appliedTo.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with multiple services" {
@@ -1315,6 +1426,8 @@ Describe "Distributed Firewall" {
             $sortedNames = ( @($testService1.name, $testService2.name) | Sort-Object)
             $rule.services.service.name | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l2 rule with multiple item based source, destination, applied to and service" {
@@ -1336,6 +1449,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
             $rule.services.service.name  | sort-object | should be $sortedServiceNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         #Busted - applied to bug
@@ -1354,6 +1469,8 @@ Describe "Distributed Firewall" {
             $rule.destinations.destination.name | sort-object | should be $sortedNames
             $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an L2 rule with a tag" {
@@ -1370,6 +1487,8 @@ Describe "Distributed Firewall" {
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $rule.tag | should beexactly "Test Tag"
             $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         BeforeEach {

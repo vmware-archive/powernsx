@@ -22495,6 +22495,16 @@ function New-NsxFirewallRule  {
         -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
          "Testing Rule Creation"
 
+    .EXAMPLE
+    PS C:\> Get-NsxFirewallSection TestSection |
+        New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
+        -Action allow
+        -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
+         "Testing creating a disabled rule"
+        -DisableRule
+
+    Add a new disabled rule to the section called TestSection
+
     #>
 
     [CmdletBinding()]
@@ -22529,6 +22539,8 @@ function New-NsxFirewallRule  {
             [System.Xml.XmlElement[]]$Service,
         [Parameter (Mandatory=$false)]
             [string]$Comment="",
+        [Parameter (Mandatory=$false)]
+            [switch]$Disabled,
         [Parameter (Mandatory=$false)]
             [switch]$EnableLogging,
         [Parameter (Mandatory=$false)]
@@ -22582,7 +22594,13 @@ function New-NsxFirewallRule  {
             $xmlAttrLog = $xmlDoc.createAttribute("logged")
             $xmlAttrLog.value = "true"
             $xmlRule.Attributes.Append($xmlAttrLog) | out-null
+        }
 
+        if ( $Disabled ) {
+            #Disable (rule) attribute
+            $xmlAttrDisabled = $xmlDoc.createAttribute("disabled")
+            $xmlAttrDisabled.value = "true"
+            $xmlRule.Attributes.Append($xmlAttrDisabled) | out-null
         }
 
         #Build Sources Node
