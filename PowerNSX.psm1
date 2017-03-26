@@ -16327,7 +16327,7 @@ PS C:\> Get-NsxEdge -Name MyEdge | Invoke-NsxEdgeHaFailover -NewPrimaryNode 1
 
   param (
     [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-      #PowerNSX Edge Object as retrieved with Get-NsxEdge representing the source edge to duplicate.
+      #PowerNSX Edge Object as retrieved with Get-NsxEdge
       [ValidateScript({ Validate-Edge $_ })]
       [System.Xml.XmlElement]$Edge,
     [Parameter (Mandatory=$false)]
@@ -16436,7 +16436,7 @@ routing          Applied
 #>
   param (
     [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-      #PowerNSX Edge Object as retrieved with Get-NsxEdge representing the source edge to duplicate.
+      #PowerNSX Edge Object as retrieved with Get-NsxEdge
       [ValidateScript({ Validate-Edge $_ })]
       [System.Xml.XmlElement]$Edge,
     [Parameter (Mandatory=$False)]
