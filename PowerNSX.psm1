@@ -16306,8 +16306,9 @@ function Invoke-NsxEdgeHaFailover {
 Invokes a failover on a NSX Edge high availability pair.
 
 .DESCRIPTION
-NSX Edges can function with a HA option, which makes sure there is an active and standby NSX Edge,
-ready to take each others load if something happens to one.
+NSX Edges can function with a HA option, which makes sure there is an active
+and standby NSX Edge, ready to take each others load if something
+happens to one.
 
 Starting NSX 6.2.3, there is a feature to manually fail over the NSX Edges.
 
@@ -16345,7 +16346,7 @@ PS C:\> Get-NsxEdge -Name MyEdge | Invoke-NsxEdgeHaFailover -NewPrimaryNode 1
     if($NewPrimaryNode -eq -1)
     {
       # request the status of the edge to see which Edge Node is active
-      $BringDownNode = $($edge | Get-NsxEdgeStatus).edgeStatus.activeVseHaIndex
+      $BringDownNode = $($edge | Get-NsxEdgeStatus).activeVseHaIndex
     }
     else
     {
@@ -16394,8 +16395,8 @@ function Get-NsxEdgeStatus {
 Gets the status of a NSX Edge and all its services.
 
 .DESCRIPTION
-NSX Edges have several services and status indicators in which you can tell whether
-some services are configured and if they are operational.
+NSX Edges have several services and status indicators in which you can
+tell whether some services are configured and if they are operational.
 
 This cmdlet works with the Edge object returned by Get-NsxEdge.
 
@@ -16403,7 +16404,7 @@ This cmdlet works with the Edge object returned by Get-NsxEdge.
 Get the status of the NSX Edge named 'MyEdge' and output the important bits:
 
 PS /> $status = (Get-NsxEdge -Name MyEdge | Get-NsxEdgeStatus)
-PS /> $status.edgeStatus
+PS /> $status
 
 timestamp        : 1487520648974
 systemStatus     : good
@@ -16414,7 +16415,7 @@ version          : 43
 edgeVmStatus     :
 featureStatuses  : featureStatuses
 
-PS /> $status.edgeStatus.featureStatuses.featureStatus
+PS /> $status.featureStatuses.featureStatus
 
 service          status
 -------          ------
@@ -16449,7 +16450,7 @@ routing          Applied
     $URI = "/api/4.0/edges/$($Edge.Id)/status"
     $response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
 
-    $return = $response
+    $return = $response.edgeStatus
     $return
   }
   end {}
