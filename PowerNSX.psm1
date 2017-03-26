@@ -22456,7 +22456,7 @@ function New-NsxFirewallRule  {
         [Parameter (Mandatory=$false)]
             [string]$Comment="",
         [Parameter (Mandatory=$false)]
-            [switch]$DisableRule,
+            [switch]$Disabled,
         [Parameter (Mandatory=$false)]
             [switch]$EnableLogging,
         [Parameter (Mandatory=$false)]
@@ -22512,7 +22512,7 @@ function New-NsxFirewallRule  {
             $xmlRule.Attributes.Append($xmlAttrLog) | out-null
         }
 
-        if ( $DisableRule ) {
+        if ( $Disabled ) {
             #Disable (rule) attribute
             $xmlAttrDisabled = $xmlDoc.createAttribute("disabled")
             $xmlAttrDisabled.value = "true"
