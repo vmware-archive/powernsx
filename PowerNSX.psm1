@@ -4442,14 +4442,7 @@ function Invoke-NsxCli {
     Proper NSX connection [PSCustomObject]
     .PARAMETER RawOutput
     Switch parameter that will not try to parse the output
-    .NOTES
-    Version: 1.2
-    Updated: 7/29/16
-    Updated By: Kevin Kirkpatrick (vScripter)
-    Update Notes:
-    - Added '-RawOutput' parameter
-    - Added support for '-Verbose'
-    - Expanded support for '-Debug'
+
     #>
 
     param (
@@ -4502,7 +4495,7 @@ function Invoke-NsxCli {
         Write-Debug -Message "[$($MyInvocation.MyCommand.Name)] Invoking POST method. Entering 'try/catch' block"
         try {
 
-            $response = Invoke-NsxRestMethod -Connection $connection -Method post -Uri $uri -Body $Body
+            $response = Invoke-NsxRestMethod -Connection $connection -Method post -Uri $uri -Body $Body -extraheader @{"Accept"="text/plain"}
 
             if ($RawOutput) {
 
