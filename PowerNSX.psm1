@@ -19379,9 +19379,12 @@ function New-NsxSecurityGroup   {
         [Parameter (Mandatory=$false)]
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
+            [switch]$localMembersOnly=$false,
+        [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
+
     )
 
     begin {}
@@ -19410,6 +19413,7 @@ function New-NsxSecurityGroup   {
             }
         }
 
+
         if ( $excludeMember ) {
 
             foreach ( $Member in $ExcludeMember) {
@@ -19424,6 +19428,17 @@ function New-NsxSecurityGroup   {
                     Add-XmlElement -xmlRoot $xmlMember -xmlElementName "objectId" -xmlElementText $member.ExtensionData.MoRef.Value
                 }
             }
+        }
+
+        if (( $localMembersOnly ) -and ( $scopeid -eq "universalroot-0")) {
+            [System.XML.XMLElement]$xmlMember = $XMLDoc.CreateElement("extendedAttributes")
+            $xmlroot.appendChild($xmlMember) | out-null
+            [System.XML.XMLElement]$xmlsubMember = $XMLDoc.CreateElement("extendedAttribute")
+            Add-XmlElement -xmlRoot $xmlSubMember -xmlElementName "name" -xmlElementText "localMembersOnly"
+            Add-XmlElement -xmlRoot $xmlSubMember -xmlElementName "value" -xmlElementText "true"
+            $xmlmember.appendChild($xmlsubMember) | out-null
+
+  
         }
 
         #Do the post
@@ -19863,6 +19878,8 @@ function New-NsxSecurityTag {
             [string]$Name,
         [Parameter (Mandatory=$false)]
             [string]$Description,
+        [Parameter (Mandatory=$false)]
+            [switch]$isUniversal,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -19890,6 +19907,10 @@ function New-NsxSecurityTag {
         #Optional fields
         if ( $PsBoundParameters.ContainsKey('Description')) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText "$Description"
+        }
+
+        if ( $isUniversal) {
+            Add-xmlElement -xmlroot $xmlRoot -xmlElementName "isUniversal" -xmlElementText "true"
         }
 
         #Do the post
