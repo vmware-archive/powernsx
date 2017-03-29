@@ -4570,9 +4570,15 @@ function Get-NsxCliDfwFilter {
         $filters = Invoke-NsxCli $query -SupressWarning -connection $connection
 
         foreach ( $filter in $filters ) {
-            #Execute the appropriate CLI query against the VMs host for the current filter...
-            $query = "show vnic $($Filter."Vnic Id")"
-            Invoke-NsxCli $query -connection $connection
+            #only match slot 2 filters
+            if ( $filter -notmatch 'nic-\d+-eth\d-vmware-sfw.2' ) {
+                write-warning "Ignoring filter `'$($filter.Filters)`' on VM $($filter.VM)"
+            }
+            else {
+                #Execute the appropriate CLI query against the VMs host for the current filter...
+                $query = "show vnic $($Filter."Vnic Id")"
+                Invoke-NsxCli $query -connection $connection
+            }
         }
     }
 
@@ -4699,9 +4705,15 @@ function Get-NsxCliDfwAddrSet {
 
         #Potentially there are multiple filters (VM with more than one NIC).
         foreach ( $filter in $filters ) {
-            #Execute the appropriate CLI query against the VMs host for the current filter...
-            $query = "show dfw host $($VirtualMachine.VMHost.ExtensionData.MoRef.Value) filter $($Filter.Filters) addrset"
-            Invoke-NsxCli $query -SupressWarning -connection $connection
+            #only match slot 2 filters
+            if ( $filter -notmatch 'nic-\d+-eth\d-vmware-sfw.2' ) {
+                write-warning "Ignoring filter `'$($filter.Filters)`' on VM $($filter.VM)"
+            }
+            else {
+                #Execute the appropriate CLI query against the VMs host for the current filter...
+                $query = "show dfw host $($VirtualMachine.VMHost.ExtensionData.MoRef.Value) filter $($Filter.Filters) addrset"
+                Invoke-NsxCli $query -SupressWarning -connection $connection
+            }
         }
     }
     end{}
