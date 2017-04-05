@@ -3797,6 +3797,50 @@ function Connect-NsxServer {
             [string]$ViWarningAction="Continue"
     )
 
+
+    function _Test-vCenterConn {
+
+        #Internal function to test if registered vCenter has a current connection.
+        param (
+            $RegisteredvCenterIP
+        )
+
+        $ConnectedViServerConnection = $null
+
+        if ((test-path variable:global:DefaultVIServer )) {
+
+            #Already have a PowerCLI connection - is it to the right place?
+
+            #the 'ipaddress' in vcinfo from NSX api can be fqdn,
+            #Resolve to ip so we can compare to any existing connection.
+            #Resolution can result in more than one ip so we have to iterate over it.
+
+            $RegisteredvCenterIPs = ([System.Net.Dns]::GetHostAddressesAsync($RegisteredvCenterIP)).Result
+
+            #Remembering we can have multiple vCenter connections too :|
+            :outer foreach ( $VIServerConnection in $global:DefaultVIServer ) {
+                $ExistingVIConnectionIPs =  [System.Net.Dns]::GetHostAddressesAsync($VIServerConnection.Name).Result
+                foreach ( $ExistingVIConnectionIP in [IpAddress[]]$ExistingVIConnectionIPs ) {
+                    foreach ( $RegisteredvCenterIP in [IpAddress[]]$RegisteredvCenterIPs ) {
+                        if ( $ExistingVIConnectionIP -eq $RegisteredvCenterIP ) {
+                            if ( $VIServerConnection.IsConnected ) {
+                                $ConnectedViServerConnection = $ViServerConnection
+                                write-host -foregroundcolor Green "Using existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString)"
+                                break outer
+                            }
+                            else {
+                                write-host -foregroundcolor Yellow "Existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString) is not connected."
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        return $ConnectedViServerConnection
+    }
+
+
     #Legacy mode warning
     if ( $PSCmdlet.ParameterSetName -eq "Legacy") {
         write-warning "The -Server parameter in Connect-NsxServer is deprecated and will be made non-default in a future release."
@@ -3822,6 +3866,7 @@ function Connect-NsxServer {
         $Credential = new-object System.Management.Automation.PSCredential($Username, $(ConvertTo-SecureString $Password -AsPlainText -Force))
     }
     elseif ( -not $PSBoundParameters.ContainsKey("Credential")) {
+
         if ( $PSCmdlet.ParameterSetName -eq "vCenterServer") {
             $Message = "vCenter Server SSO Credentials"
         }
@@ -3915,42 +3960,13 @@ function Connect-NsxServer {
         }
         else {
             $RegisteredvCenterIP = $vcInfo.vcInfo.ipAddress
-            $ConnectedToRegisteredVC=$false
+            $VIServerConnection = _Test-vCenterConn -RegisteredvCenterIp $RegisteredvCenterIP
 
-            if ((test-path variable:global:DefaultVIServer )) {
-
-                #Already have a PowerCLI connection - is it to the right place?
-
-                #the 'ipaddress' in vcinfo from NSX api can be fqdn,
-                #Resolve to ip so we can compare to any existing connection.
-                #Resolution can result in more than one ip so we have to iterate over it.
-
-                #$RegisteredvCenterIPs = ([System.Net.Dns]::GetHostAddresses($RegisteredvCenterIP))
-                $RegisteredvCenterIPs = ([System.Net.Dns]::GetHostAddressesAsync($RegisteredvCenterIP)).Result
-
-                #Remembering we can have multiple vCenter connections too :|
-                :outer foreach ( $VIServerConnection in $global:DefaultVIServer ) {
-                    #$ExistingVIConnectionIPs =  [System.Net.Dns]::GetHostAddresses($VIServerConnection.Name)
-                    $ExistingVIConnectionIPs =  [System.Net.Dns]::GetHostAddressesAsync($VIServerConnection.Name).Result
-                    foreach ( $ExistingVIConnectionIP in [IpAddress[]]$ExistingVIConnectionIPs ) {
-                        foreach ( $RegisteredvCenterIP in [IpAddress[]]$RegisteredvCenterIPs ) {
-                            if ( $ExistingVIConnectionIP -eq $RegisteredvCenterIP ) {
-                                if ( $VIServerConnection.IsConnected ) {
-                                    $ConnectedToRegisteredVC = $true
-                                    write-host -foregroundcolor Green "Using existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString)"
-                                    $VIConnection = $VIServerConnection
-                                    break outer
-                                }
-                                else {
-                                    write-host -foregroundcolor Yellow "Existing PowerCLI connection to $($ExistingVIConnectionIP.IPAddresstoString) is not connected."
-                                }
-                            }
-                        }
-                    }
-                }
+            if ( $VIServerConnection ) {
+                $VIConnection = $VIServerConnection
             }
+            else {
 
-            if ( -not $ConnectedToRegisteredVC ) {
                 if ( -not (($VIUserName -and $VIPassword) -or ( $VICredential ) )) {
                     #We assume that if the user did not specify VI creds, then they may want a connection to VC, but we will ask.
                     $decision = 1
@@ -4003,9 +4019,11 @@ function Connect-NsxServer {
         try {
 
             #Connect to specified VC using 'default credentials...
-            $VIConnection = Connect-VIServer -Credential $Credential -server $vCenterServer -NotDefault:(-not $VIDefaultConnection) -WarningAction:$ViWarningAction -erroraction Stop
-
-            $ExtensionManager = Get-View ExtensionManager
+            $VIConnection = _Test-vCenterConn -RegisteredvCenterIp $vCenterServer
+            if ( -not $VIConnection ) {
+                $VIConnection = Connect-VIServer -Credential $Credential -server $vCenterServer -NotDefault:(-not $VIDefaultConnection) -WarningAction:$ViWarningAction -erroraction Stop
+            }
+            $ExtensionManager = Get-View ExtensionManager -Server $ViConnection
             $NSXExtension = $ExtensionManager.ExtensionList  |? { $_.key -eq 'com.vmware.vShieldManager' }
             if ( -not  $NSXExtension ) {
                 throw "The connected vCenter server does not have a registered NSX solution."
@@ -4049,7 +4067,7 @@ function Connect-NsxServer {
             throw "Unable to determine NSX server endpoint from vCenter. $_"
         }
 
-        #Now we simplky test the connection to NSX against a random unprivileged URI
+        #Now we simply test the connection to NSX against a random unprivileged URI
         $URI = "/api/2.0/nwfabric/features"
         try {
             $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
@@ -5155,6 +5173,11 @@ function Set-NsxManager {
 
         "Syslog" {
 
+            $role = Get-NsxUserRole $Connection.Credential.Username
+            if ( $role.role -ne 'super_user' ) {
+                throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+            }
+
             #Create the XMLRoot
 
             [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("syslogserver")
@@ -5283,6 +5306,11 @@ function Get-NsxManagerCertificate {
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
+
+    $role = Get-NsxUserRole $Connection.Credential.Username
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
 
     $URI = "/api/1.0/appliance-management/certificatemanager/certificates/nsx"
 
@@ -5415,6 +5443,11 @@ function Get-NsxManagerTimeSettings {
 
     )
 
+    $role = Get-NsxUserRole $Connection.Credential.Username
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
+
     $URI = "/api/1.0/appliance-management/system/timesettings"
 
     $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
@@ -5477,6 +5510,11 @@ function Set-NsxManagerTimeSettings {
             [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
+
+    $role = Get-NsxUserRole $Connection.Credential.Username
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
 
     $uri = "/api/1.0/appliance-management/system/timesettings"
     [System.Xml.XmlDocument]$Existing = Invoke-NsxRestMethod -Method get -uri $uri -Connection $Connection
@@ -5549,7 +5587,12 @@ function Clear-NsxManagerTimeSettings {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    $Existing = Get-NsxManagerTimeSettings
+    $role = Get-NsxUserRole $Connection.Credential.Username -Connection $connection
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
+
+    $Existing = Get-NsxManagerTimeSettings -Connection $connection
     if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $Existing -query "child::ntpServer") {
         #API errors if you clear when there arent any existing NTP servers configured... sigh...
         $uri = "/api/1.0/appliance-management/system/timesettings/ntp"
@@ -5557,9 +5600,8 @@ function Clear-NsxManagerTimeSettings {
     }
 
     if ($ClearTimeZone ) {
-        $null = Set-NsxManagerTimeSettings -TimeZone UTC
+        $null = Set-NsxManagerTimeSettings -TimeZone UTC -Connection $connection
     }
-
 }
 
 function Get-NsxManagerSyslogServer {
@@ -5588,6 +5630,12 @@ function Get-NsxManagerSyslogServer {
             [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
+
+
+    $role = Get-NsxUserRole $Connection.Credential.Username
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
 
     $URI = "/api/1.0/appliance-management/system/syslogserver"
 
@@ -5637,6 +5685,11 @@ function Get-NsxManagerNetwork {
             [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
+
+    $role = Get-NsxUserRole $Connection.Credential.Username
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
 
     $URI = "/api/1.0/appliance-management/system/network"
 
@@ -5728,6 +5781,11 @@ function Get-NsxManagerBackup {
 
     )
 
+    $role = Get-NsxUserRole $Connection.Credential.Username
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
+
     $URI = "/api/1.0/appliance-management/backuprestore/backupsettings"
 
     $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
@@ -5790,6 +5848,10 @@ function Get-NsxManagerComponentSummary {
 
     )
 
+    $role = Get-NsxUserRole $Connection.Credential.Username
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
     $URI = "/api/1.0/appliance-management/summary/components"
 
     $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
@@ -5892,6 +5954,11 @@ function Get-NsxManagerSystemSummary {
             [PSCustomObject]$Connection=$defaultNSXConnection
 
     )
+
+    $role = Get-NsxUserRole $Connection.Credential.Username
+    if ( $role.role -ne 'super_user' ) {
+        throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
+    }
 
     $URI = "/api/1.0/appliance-management/summary/system"
 
@@ -7650,6 +7717,56 @@ function Get-NsxLicense {
     }
     end {}
 
+}
+
+#########
+#########
+# User related functions
+function Get-NsxUserRole {
+
+    <#
+    .SYNOPSIS
+    Retrieves a Logical Switch object
+
+    .DESCRIPTION
+    An NSX Logical Switch provides L2 connectivity to VMs attached to it.
+    A Logical Switch is 'bound' to a Transport Zone, and only hosts that are
+    members of the Transport Zone are able to host VMs connected to a Logical
+    Switch that is bound to it.  All Logical Switch operations require a
+    Transport Zone.
+
+    .EXAMPLE
+
+    Example1: Get a named Logical Switch
+    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch -name LS1
+
+    Example2: Get all logical switches in a given transport zone.
+    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch
+
+    #>
+
+    param (
+        [Parameter(Mandatory=$true, Position=1)]
+            #Username to query role details.
+            [ValidateNotNullorEmpty()]
+            [string]$UserName,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+        try {
+            $result = Invoke-NsxRestMethod -method get -uri "/api/2.0/services/usermgmt/role/$UserName" -connection $connection
+        }
+        catch {
+            throw "Unable to retreive role details from NSX.  $_"
+        }
+        $result.accessControlEntry
+    }
+    end {}
 }
 
 #########
