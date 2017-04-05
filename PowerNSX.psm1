@@ -3674,14 +3674,75 @@ function Connect-NsxServer {
     Connects to the specified NSX server and constructs a connection object.
 
     .DESCRIPTION
-    The Connect-NsxServer cmdlet connects to the specified NSX server and
-    retrieves version details.  Because the underlying REST protocol is not
-    connection oriented, the 'Connection' concept relates to just validating
-    endpoint details and credentials and storing some basic information used
-    to reproduce the same outcome during subsequent NSX operations.
+    The Connect-NsxServer cmdlet returns a connection object that contains
+    the necessary information for PowerNSX cmdlets to locate and authenticate
+    to NSX server in order to perform REST API calls.
+
+    Because the underlying REST protocol is not connection oriented, the
+    'Connection' concept relates to just validating endpoint details and
+    credentials and storing details relevant to the NSX manager endpoint.
+
+    NOTE:
+
+    Previous releases of PowerNSX required the user to specify the NSX manager
+    endpoint directly and required the use of an NSX manager local account
+    with super_user privileges.
+
+    This behaviour as a default is now DEPRECATED and will be removed in a
+    future release (the ability to connect directly to NSX using the admin
+    account will not be removed, but will no longer be the default behaviour)
+
+    The preferred method for most PowerNSX use is now to use the -vCenterServer
+    parameter to specify the vCenter server that NSX is connected to, along with
+    appropriate SSO credentials to authenticate to NSX.  This will become the
+    default behaviour in a future version (ie. will not require a -vCenterServer
+    parameter name and will replace the current default behaviour of assuming
+    the first argument specified without a parameter to be the desired NSX
+    server endpoint.)
+
+    Full support for all NSX roles is now available in NSX. (cmdlets that
+    attempt API operations not supported by the users role will throw
+    appropriate not authorised errors from the API.)
+
+    Minimum required rights are vCenter Inventory ReadOnly and NSX Auditor role.
 
     .EXAMPLE
-    Connect-NsxServer -Server nsxserver -username admin -Password VMware1!
+    Connect-NsxServer -vCenterServer vcenter.corp.local
+
+    Connect to vCenter server vcenter.corp.local to determine the NSX server IP
+    and return an appropriate connection object. SSO Credentials will
+    be prompted for and will be used for both vCenter and NSX authentication.
+
+    .EXAMPLE
+    Connect-NsxServer -vCenterServer vcenter.corp.local -credential $cred
+
+    Connect to vCenter server vcenter.corp.local using the SSO credentials in $cred
+    to determine the NSX server IP and return an appropriate connection object.
+
+    The credentials specified in -credential are used for both vCenter connection
+    (if not already established) AND SSO authentication to NSX server.
+
+    .EXAMPLE
+    Connect-NsxServer -vCenterServer vcenter.corp.local -username me@vsphere.local -password secret
+
+    Connect to vCenter server vcenter.corp.local using the SSO credentials in
+    -username and -password to determine the NSX server IP and return an
+    appropriate connection object.
+
+    The credentials specified in -credential are used for both vCenter connection
+    (if not already established) AND SSO authentication to NSX server.
+
+    .EXAMPLE
+    Connect-NsxServer -vCenterServer vcenter.corp.local -credential $cred -VIDefaultConnection:$false
+
+    Connect to vCenter server vcenter.corp.local using the SSO credentials in
+    -username and -password to determine the NSX server IP and return an
+    appropriate connection object.  The PowerCLi connection stored in the returned
+    connection object is NOT stored in $DefaultViServer.
+
+
+    .EXAMPLE
+    Connect-NsxServer -NsxServer nsxserver -username admin -Password VMware1!
 
     Connects to the nsxserver 'nsxserver' with the specified credentials.  If a
     registered vCenter server is configured in NSX manager, you are prompted to
@@ -3689,21 +3750,21 @@ function Connect-NsxServer {
     authentication details.
 
     .EXAMPLE
-    Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -DisableViAutoConnect
+    Connect-NsxServer -NsxServer nsxserver -username admin -Password VMware1! -DisableViAutoConnect
 
     Connects to the nsxserver 'nsxserver' with the specified credentials and
     supresses the prompt to establish a PowerCLI connection with the registered
     vCenter.
 
     .EXAMPLE
-    Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -ViUserName administrator@vsphere.local -ViPassword VMware1!
+    Connect-NsxServer -NsxServer nsxserver -username admin -Password VMware1! -ViUserName administrator@vsphere.local -ViPassword VMware1!
 
     Connects to the nsxserver 'nsxserver' with the specified credentials and
     automatically establishes a PowerCLI connection with the registered
     vCenter using the credentials specified.
 
     .EXAMPLE
-    $MyConnection = Connect-NsxServer -Server nsxserver -username admin -Password VMware1! -DefaultConnection:$false
+    $MyConnection = Connect-NsxServer -NsxServer nsxserver -username admin -Password VMware1! -DefaultConnection:$false
     Get-NsxTransportZone 'TransportZone1' -connection $MyConnection
 
     Connects to the nsxserver 'nsxserver' with the specified credentials and
