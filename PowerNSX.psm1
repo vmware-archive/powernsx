@@ -4442,14 +4442,7 @@ function Invoke-NsxCli {
     Proper NSX connection [PSCustomObject]
     .PARAMETER RawOutput
     Switch parameter that will not try to parse the output
-    .NOTES
-    Version: 1.2
-    Updated: 7/29/16
-    Updated By: Kevin Kirkpatrick (vScripter)
-    Update Notes:
-    - Added '-RawOutput' parameter
-    - Added support for '-Verbose'
-    - Expanded support for '-Debug'
+
     #>
 
     param (
@@ -4502,7 +4495,7 @@ function Invoke-NsxCli {
         Write-Debug -Message "[$($MyInvocation.MyCommand.Name)] Invoking POST method. Entering 'try/catch' block"
         try {
 
-            $response = Invoke-NsxRestMethod -Connection $connection -Method post -Uri $uri -Body $Body
+            $response = Invoke-NsxRestMethod -Connection $connection -Method post -Uri $uri -Body $Body -extraheader @{"Accept"="text/plain"}
 
             if ($RawOutput) {
 
@@ -4577,9 +4570,15 @@ function Get-NsxCliDfwFilter {
         $filters = Invoke-NsxCli $query -SupressWarning -connection $connection
 
         foreach ( $filter in $filters ) {
-            #Execute the appropriate CLI query against the VMs host for the current filter...
-            $query = "show vnic $($Filter."Vnic Id")"
-            Invoke-NsxCli $query -connection $connection
+            #only match slot 2 filters
+            if ( $filter -notmatch 'nic-\d+-eth\d-vmware-sfw.2' ) {
+                write-warning "Ignoring filter `'$($filter.Filters)`' on VM $($filter.VM)"
+            }
+            else {
+                #Execute the appropriate CLI query against the VMs host for the current filter...
+                $query = "show vnic $($Filter."Vnic Id")"
+                Invoke-NsxCli $query -connection $connection
+            }
         }
     }
 
@@ -4706,9 +4705,15 @@ function Get-NsxCliDfwAddrSet {
 
         #Potentially there are multiple filters (VM with more than one NIC).
         foreach ( $filter in $filters ) {
-            #Execute the appropriate CLI query against the VMs host for the current filter...
-            $query = "show dfw host $($VirtualMachine.VMHost.ExtensionData.MoRef.Value) filter $($Filter.Filters) addrset"
-            Invoke-NsxCli $query -SupressWarning -connection $connection
+            #only match slot 2 filters
+            if ( $filter -notmatch 'nic-\d+-eth\d-vmware-sfw.2' ) {
+                write-warning "Ignoring filter `'$($filter.Filters)`' on VM $($filter.VM)"
+            }
+            else {
+                #Execute the appropriate CLI query against the VMs host for the current filter...
+                $query = "show dfw host $($VirtualMachine.VMHost.ExtensionData.MoRef.Value) filter $($Filter.Filters) addrset"
+                Invoke-NsxCli $query -SupressWarning -connection $connection
+            }
         }
     }
     end{}
