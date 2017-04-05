@@ -1,5 +1,5 @@
 #Do not remove this - we need to ensure connection setup and module deps preload have occured.
-If ( -not $PNSXTestNSXManager ) {
+If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
 }
 
@@ -12,7 +12,7 @@ Describe "Edge" {
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -Server $PNSXTestNSXManager -Credential $PNSXTestDefMgrCred -VICred $PNSXTestDefViCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | select -first 1
         write-warning "Using cluster $cl for edge appliance deployment"
         $script:ds = $cl | get-datastore | select -first 1

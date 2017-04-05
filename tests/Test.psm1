@@ -32,17 +32,18 @@ function Start-Test {
 
         #We allow the user to drop a connection details file with creds
         write-warning "No saved connection details found, prompting user."
-        $PNSXTestNSXManager = read-host "NSX Manager Ip/Name"
-        $PNSXTestDefMgrUsername = read-host "NSX Manager Username"
-        $PNSXTestDefMgrPassword = read-host "NSX Manager Password"
+        # $PNSXTestNSXManager = read-host "NSX Manager Ip/Name"
+        $PNSXTestVC = read-host "vCenter Server Ip/Name"
+        $PNSXTestDefMgrUsername = "admin"
+        $PNSXTestDefMgrPassword = read-host "NSX Manager admin password"
 
         ###
         #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
         #$PNSXTestDefMgrCred = Get-Credential -Message "NSX Manager Credentials" -UserName "admin"
         #$PNSXTestDefViCred = Get-Credential -message "vCenter Credentials" -UserName "administrator@vsphere.local"
 
-        $PNSXTestDefViUsername = read-host "vCenter Username"
-        $PNSXTestDefViPassword = read-host "vCenter Password"
+        $PNSXTestDefViUsername = read-host "SSO Ent_Admin username"
+        $PNSXTestDefViPassword = read-host "SSO Ent_Admin password"
         $PNSXTestDefMgrCred = New-Object System.Management.Automation.PSCredential $PNSXTestDefMgrUsername, ( $PNSXTestDefMgrPassword | ConvertTo-SecureString -AsPlainText -Force )
         $PNSXTestDefViCred = New-Object System.Management.Automation.PSCredential $PNSXTestDefViUsername, ( $PNSXTestDefViPassword | ConvertTo-SecureString -AsPlainText -Force )
 
@@ -54,7 +55,7 @@ function Start-Test {
         $decision = $Host.UI.PromptForChoice($message, $question, $ynchoices, 0)
         if ( $decision -eq 0 ) {
             [pscustomobject]$export = @{
-                "nsxm" = $PNSXTestNSXManager;
+                "vc" = $PNSXTestVC;
 
 
                 ###
@@ -86,11 +87,11 @@ function Start-Test {
             $_
         }
 
-        if ( -not ( $import.nsxm -and $import.nsxuser -and $import.nsxpwd -and $import.viuser -and $import.vipwd )) {
+        if ( -not ( $import.vc -and $import.nsxuser -and $import.nsxpwd -and $import.viuser -and $import.vipwd )) {
             throw "Import file does not contain required connection information.  Delete existing file and try again."
         }
 
-        $PNSXTestNSXManager = $import.nsxm
+        $PNSXTestVC = $import.vc
 
         ###
         #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
