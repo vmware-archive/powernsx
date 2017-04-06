@@ -331,7 +331,8 @@ FunctionsToExport = @(
     'Get-NsxFirewallThreshold',
     'Add-NsxIpSetMember',
     'Remove-NsxIpSetMember',
-    'Get-NsxUserRole'
+    'Get-NsxUserRole',
+    'Invoke-XpathQuery'
 )
 
 # Cmdlets to export from this module
