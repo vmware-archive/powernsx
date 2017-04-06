@@ -20669,6 +20669,27 @@ function Get-NsxIpSet {
     .EXAMPLE
     PS C:\> Get-NSXIpSet TestIPSet
 
+    Returns all IP Sets from the scope globalroot-0.
+
+    .EXAMPLE
+    PS C:\> Get-NSXIpSet -Universal
+
+    Returns all Universal IP Sets.
+
+    .EXAMPLE
+    PS C:\> Get-NSXIpSet TestGlobalIPSet
+
+    Returns the IP Set called TestGlobalIPSet from the scope globalroot-0.
+
+    .EXAMPLE
+    PS C:\> Get-NSXIpSet TestUniversalIPSet -Universal
+
+    Returns all Universal IP Sets with the name TestIPSet.
+
+    .EXAMPLE
+    PS C:\> Get-NSXIpSet TestEsgeIPSet -scopeId edge-1
+
+    Returns all locally configured IP Sets on the specified edge.
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
@@ -20682,8 +20703,19 @@ function Get-NsxIpSet {
             #Name of IPSet
             [string]$Name,
         [Parameter (Mandatory=$false)]
+            # [DC] Make sure the scope specified is a valid one. The API is case
+            # sensitive, but we handle that at the URI.
+            [ValidateScript({
+            if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
+                $True
+            } else {
+                Throw "$_ is not a valid scope. Valid options are: globalroot-0 | universalroot-0 | edge-id"
+            }
+            })]
             #ScopeId of IPSet - default is globalroot-0
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            [switch]$Universal=$false,
         [Parameter (Mandatory=$false)]
             #Return 'Readonly' (system) ipsets as well
             [switch]$IncludeReadOnly=$false,
@@ -20699,10 +20731,10 @@ function Get-NsxIpSet {
     }
 
     process {
-
+        if ( $universal ) { $scopeId = "universalroot-0"}
         if ( -not $objectID ) {
             #All IPSets
-            $URI = "/api/2.0/services/ipset/scope/$scopeId"
+            $URI = "/api/2.0/services/ipset/scope/$($scopeId.ToLower())"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/ipset')) {
                 if ( $name ) {
