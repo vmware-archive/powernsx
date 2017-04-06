@@ -307,16 +307,46 @@ namespace PKI {
 
 function Invoke-XpathQuery {
 
-    # Required because of the differing XPath implementations on Desktop and Core editions.
-    # Intent is to have a consistent function that exported PowerNSX functions call to perform
-    # an XPATH query that will be performed in the correct way for the edition of PS being used.
+    <#
+    .SYNOPSIS
+    Invoke-XpathQuery provides a consistent way of performing xpath queries on
+    XML element and document nodes on both Desktop and Core PowerShell editions.
+
+    .DESCRIPTION
+    Invoke-XpathQuery is required because of the differing XPath implementations
+    in the dotnet FullCRL on Desktop and the dotNet Core CLR on Core editions of
+    PowerShell.
+
+    The is typcially only utilised internally by PowerNSX cmdlets, but is
+    exported by the PowerNSX module to provide the same capability to anyone
+    who needs to manipulate XML in scripts that consume PowerNSX without having
+    to manually copy the function out of the PowerNSX code in order to leverage
+    it for cross platform support.
+
+    It is highly likely that if you dont know why you need this cmdlet, then you
+    dont need it :)
+    .EXAMPLE
+    $NodeToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlnode -Query "descendant::subInterface[index=0]")
+
+    returns a single XML node matching the specified XPATH query.
+
+    .EXAMPLE
+    $NodeToRemove = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $xmlnode -Query "descendant::subInterface")
+
+    returns a collection of XML nodes matching the specified XPATH query.
+
+    #>
+
     param (
         [Parameter (Mandatory=$true)]
+            #XPath query method.  Supports SelectSingleNode or SelectNodes.
             [ValidateSet("SelectSingleNode","SelectNodes")]
             [string]$QueryMethod,
         [Parameter (Mandatory=$true)]
+            #XmlDocument or XmlElement node to be queried.
             $Node,
         [Parameter (Mandatory=$true)]
+            #Xpath Query.
             [string]$query
 
     )
