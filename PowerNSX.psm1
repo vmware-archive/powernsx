@@ -20667,26 +20667,54 @@ function Get-NsxIpSet {
     This cmdlet returns IP Set objects.
 
     .EXAMPLE
-    PS C:\> Get-NSXIpSet TestIPSet
+    Get-NsxIpSet TestIPSet
+
+    Retrieves the IPSet named TestIPSet
+
+    .EXAMPLE
+    Get-NsxIpSet
+
+    Retrieves all ipsets.  Includes locally and universally scoped ipsets.
+
+    .EXAMPLE
+    Get-NsxIpSet -LocalOnly
+
+    Retrieves all locally scoped ipsets
+
+    .EXAMPLE
+    Get-NsxIpSet -UniversalOnly
+
+    Retrieves only Universally scoped IPSets.
+
+    .EXAMPLE
+    Get-NSXIpSet TestEsgeIPSet -scopeId edge-1
+
+    Returns all locally configured IP Sets on the specified edge.
 
     #>
 
-    [CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="Default")]
 
     param (
 
-        [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             #Objectid of IPSet
             [string]$objectId,
-        [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$true,ParameterSetName="Name",Position=1)]
             #Name of IPSet
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            #ScopeId of IPSet - default is globalroot-0
-            [string]$scopeId="globalroot-0",
+            #ScopeId of IPSet.  Can define multiple scopeIds in a list to iterate accross scopes.
+            [string[]]$scopeId,
         [Parameter (Mandatory=$false)]
             #Return 'Readonly' (system) ipsets as well
             [switch]$IncludeReadOnly=$false,
+        [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+            #Return only Universal objects
+            [switch]$UniversalOnly,
+        [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+            #Return only Locally scoped objects
+            [switch]$LocalOnly,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -20695,28 +20723,44 @@ function Get-NsxIpSet {
     )
 
     begin {
+        switch ( $PSCmdlet.ParameterSetName ) {
 
+            "UniversalOnly" {
+                $scopeid = "universalroot-0"
+            }
+
+            "LocalOnly" {
+                $scopeid = "globalroot-0"
+            }
+
+            Default {
+                $scopeId = "globalroot-0", "universalroot-0"
+            }
+        }
     }
 
     process {
 
         if ( -not $objectID ) {
-            #All IPSets
-            $URI = "/api/2.0/services/ipset/scope/$scopeId"
-            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/ipset')) {
-                if ( $name ) {
-                    $ipsets = $response.list.ipset | ? { $_.name -eq $name }
-                } else {
-                    $ipsets = $response.list.ipset
+            foreach ($scope in $scopeid ) {
+                $ipsets = $null
+                #All IPSets
+                $URI = "/api/2.0/services/ipset/scope/$scope"
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/ipset')) {
+                    if ( $name ) {
+                        $ipsets = $response.list.ipset | ? { $_.name -eq $name }
+                    } else {
+                        $ipsets = $response.list.ipset
+                    }
                 }
-            }
 
-            if ( -not $IncludeReadOnly ) {
-                $ipsets | ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
-            }
-            else {
-                $ipsets
+                if ( $ipsets -and ( -not $IncludeReadOnly )) {
+                    $ipsets | ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                }
+                elseif ( $ipsets ) {
+                    $ipsets
+                }
             }
         }
         else {

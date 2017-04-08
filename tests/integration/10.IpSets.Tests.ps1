@@ -57,11 +57,14 @@ Describe "IPSets" {
         BeforeAll {
             $script:ipsetName = "$IpSetPrefix-get"
             $ipSetDesc = "PowerNSX Pester Test get ipset"
+            $script:ipsetNameUniversal = "$IpSetPrefix-get-universal"
+            $ipSetDescUniversal = "PowerNSX Pester Test get universal ipset"
             $script:get = New-nsxipset -Name $ipsetName -Description $ipSetDesc
+            $script:getuniversal = New-nsxipset -Name $ipsetNameUniversal -Description $ipSetDescUniversal -Universal
 
         }
 
-        it "Can retreive an ipset by name" {
+        it "Can retrieve an ipset by name" {
             {Get-nsxipset -Name $ipsetName} | should not throw
             $ipset = Get-nsxipset -Name $ipsetName
             $ipset | should not be $null
@@ -69,11 +72,29 @@ Describe "IPSets" {
 
          }
 
-        it "Can retreive an ipset by id" {
+        it "Can retrieve an ipset by id" {
             {Get-nsxipset -objectId $get.objectId } | should not throw
             $ipset = Get-nsxipset -objectId $get.objectId
             $ipset | should not be $null
             $ipset.objectId | should be $get.objectId
+         }
+
+         It "Can retrieve both universal and global IpSets" {
+            $ipsets = Get-NsxIpSet
+            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+         }
+
+         It "Can retrieve universal only IpSets" {
+            $ipsets = Get-NsxIpSet -UniversalOnly
+            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+         }
+
+         It "Can retrieve local only IpSets" {
+            $ipsets = Get-NsxIpSet -LocalOnly
+            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
          }
     }
 

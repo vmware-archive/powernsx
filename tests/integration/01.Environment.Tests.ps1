@@ -40,6 +40,17 @@ Describe "Environment" -Tags "Environment" {
 
     }
 
+    It "Has a single local TransportZone" {
+        $Tz = Get-NsxTransportZone | ? { $_.isUniversal -eq 'false'}
+        $tz | should not be $null
+        ($tz | measure).count | should be 1
+    }
+
+    It "Has a single global TransportZone" {
+        $Tz = Get-NsxTransportZone | ? { $_.isUniversal -eq 'true'}
+        $tz | should not be $null
+        ($tz | measure).count | should be 1
+    }
     it "Destroys default NSX connection" {
         disconnect-nsxserver
         $DefaultNsxServer | should be $null
