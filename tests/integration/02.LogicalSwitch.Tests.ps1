@@ -20,7 +20,7 @@ Describe "Logical Switching" {
     }
 
     it "Can create a logical switch" {
-        Get-NsxTransportZone | select -first 1 | new-nsxlogicalswitch $ls1_name
+        Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
         get-nsxlogicalswitch $ls1_name | should not be $null
     }
 

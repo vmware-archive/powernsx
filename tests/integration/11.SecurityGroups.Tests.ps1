@@ -210,8 +210,8 @@ Describe "SecurityGroups" {
             $script:MemberSG1 = New-NsxSecurityGroup -Name $SecGrpMemberName1 -Description $SecGrpMemberDesc1
             $script:MemberSG2 = New-NsxSecurityGroup -Name $SecGrpMemberName2 -Description $SecGrpMemberDesc2
 
-            $script:MemberLS1 = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $MemberLSName1
-            $script:MemberLS2 = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $MemberLSName2
+            $script:MemberLS1 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $MemberLSName1
+            $script:MemberLS2 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $MemberLSName2
 
             $script:MemberVM1 = new-vm -name $MemberVMName1 @vmsplat
             $script:MemberVM2 = new-vm -name $MemberVMName2 @vmsplat

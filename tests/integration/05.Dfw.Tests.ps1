@@ -4,7 +4,7 @@ If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
 }
 
-Describe "Distributed Firewall" {
+Describe "DFW" {
 
 
     $brokenSpecificAppliedTo = $true
@@ -59,7 +59,7 @@ Describe "Distributed Firewall" {
         $script:vAppName = "pester_dfw_vapp"
 
         #Logical Switch
-        $script:testls = Get-NsxTransportZone | ? {$_.isUniversal -eq "false"} | select -first 1 | New-NsxLogicalSwitch $testlsname
+        $script:testls = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testlsname
 
         #Create Edge
 
@@ -422,7 +422,22 @@ Describe "Distributed Firewall" {
         }
 
         it "Can create an l3 rule with an ip based source" {
-            # Supported source / dest type needs to be created. Currently 1.1.1.1 doesn't work.
+            $ipaddress = "1.1.1.1"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -source $ipaddress
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources.source.type | should be "Ipv4Address"
+            $rule.sources.source.value | should be $ipaddress
+            $rule.destinations | should be $null
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be deny
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an ipset based source" {
@@ -559,6 +574,22 @@ Describe "Distributed Firewall" {
         }
 
         it "Can create an l3 rule with an ip based destination" {
+            $ipaddress = "1.1.1.1"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -destination $ipaddress
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations.destination.type | should be "Ipv4Address"
+            $rule.destinations.destination.value | should be $ipaddress
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be deny
+            $rule.disabled | should be "false"
 
         }
 
@@ -691,9 +722,6 @@ Describe "Distributed Firewall" {
         }
 
         it "Can create an l3 rule with an vnic based destination" {
-        }
-
-        it "Can create an l3 rule with an ip based applied to" {
         }
 
         it "Can create an l3 rule with a security group based applied to" {
@@ -1070,8 +1098,8 @@ Describe "Distributed Firewall" {
             $rule | should not be $null
             @($rule).count | should be 1
             @($rule.appliedToList.appliedTo).count | should be 2
-            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
-            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be True
+            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be $True
+            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be $True
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
@@ -1084,8 +1112,8 @@ Describe "Distributed Firewall" {
             $rule | should not be $null
             @($rule).count | should be 1
             @($rule.appliedToList.appliedTo).count | should be 1
-            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
-            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be False
+            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be $True
+            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be $False
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
