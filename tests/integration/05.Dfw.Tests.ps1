@@ -4,7 +4,7 @@ If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
 }
 
-Describe "Distributed Firewall" {
+Describe "DFW" {
 
 
     $brokenSpecificAppliedTo = $true
@@ -693,9 +693,6 @@ Describe "Distributed Firewall" {
         it "Can create an l3 rule with an vnic based destination" {
         }
 
-        it "Can create an l3 rule with an ip based applied to" {
-        }
-
         it "Can create an l3 rule with a security group based applied to" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1"  -action allow -appliedTo $testSg1
             $rule | should not be $null
@@ -1070,8 +1067,8 @@ Describe "Distributed Firewall" {
             $rule | should not be $null
             @($rule).count | should be 1
             @($rule.appliedToList.appliedTo).count | should be 2
-            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
-            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be True
+            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be $True
+            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be $True
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
@@ -1084,8 +1081,8 @@ Describe "Distributed Firewall" {
             $rule | should not be $null
             @($rule).count | should be 1
             @($rule.appliedToList.appliedTo).count | should be 1
-            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be True
-            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be False
+            $rule.appliedToList.appliedTo.Name -contains "$dfwedgename" | should be $True
+            $rule.appliedToList.appliedTo.Name -contains "DISTRIBUTED_FIREWALL" | should be $False
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
