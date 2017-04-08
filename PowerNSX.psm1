@@ -20830,12 +20830,15 @@ function New-NsxIpSet  {
     param (
 
         [Parameter (Mandatory=$true)]
+            #Name of the IpSet.
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
+            #Descript of the IPSet.
             [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
+            #Single string of comma separated ipaddresses.
             [string]$IPAddresses,
         [Parameter (Mandatory=$false)]
             [ValidateScript({
@@ -20847,8 +20850,10 @@ function New-NsxIpSet  {
             })]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
+            #Create the IPSet as Universal object.
             [switch]$Universal=$false,
         [Parameter (Mandatory=$false)]
+            #Return the objectid as a string rather than the whole XML object.
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -21230,7 +21235,7 @@ function Get-NsxMacSet {
 
     #>
 
-    [CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="Default")]
 
     param (
 
@@ -21241,8 +21246,14 @@ function Get-NsxMacSet {
             #Get mac sets by name
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            #ScopeId - defaults to globalroot-0
-            [string]$scopeId="globalroot-0",
+            #ScopeId of MacSet.  Can define multiple scopeIds in a list to iterate accross scopes.
+            [string[]]$scopeId,
+        [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+            #Return only Universal objects
+            [switch]$UniversalOnly,
+        [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+            #Return only Locally scoped objects
+            [switch]$LocalOnly,
         [Parameter (Mandatory=$false)]
             #Include mac sets with readonly attribute
             [switch]$IncludeReadOnly=$false,
@@ -21254,28 +21265,44 @@ function Get-NsxMacSet {
     )
 
     begin {
+        switch ( $PSCmdlet.ParameterSetName ) {
 
+            "UniversalOnly" {
+                $scopeid = "universalroot-0"
+            }
+
+            "LocalOnly" {
+                $scopeid = "globalroot-0"
+            }
+
+            Default {
+                $scopeId = "globalroot-0", "universalroot-0"
+            }
+        }
     }
 
     process {
 
         if ( -not $objectID ) {
-            #All IPSets
-            $URI = "/api/2.0/services/macset/scope/$scopeId"
-            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/macset')) {
-                if ( $name ) {
-                    $macsets = $response.list.macset | ? { $_.name -eq $name }
-                } else {
-                    $macsets = $response.list.macset
-                }
+            foreach ($scope in $scopeid ) {
+                $MacSets = $null
+                #All IPSets
+                $URI = "/api/2.0/services/macset/scope/$scope"
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/macset')) {
+                    if ( $name ) {
+                        $macsets = $response.list.macset | ? { $_.name -eq $name }
+                    } else {
+                        $macsets = $response.list.macset
+                    }
 
-                #Filter readonly if switch not set
-                if ( -not $IncludeReadOnly ) {
-                    $macsets| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
-                }
-                else {
-                    $macsets
+                    #Filter readonly if switch not set
+                    if ( $macsets -and (-not $IncludeReadOnly )) {
+                        $macsets| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                    }
+                    else {
+                        $macsets
+                    }
                 }
             }
         }
@@ -21320,10 +21347,14 @@ function New-NsxMacSet  {
     Mac address: (eg, 00:00:00:00:00:00)
 
     .EXAMPLE
+    new-nsxmacset -name MAC_SET_TEST -Description "A sample MAC" -MacAddresses "BE:EF:CA:FE:DE:AD"
+
     Creates a MAC Set with the MAC address BEEF:CAFE:DEAD
 
-    PS /Users/Anthony> new-nsxmacset -name MAC_SET_TEST -Description "A sample MAC"
-     -MacAddresses "BE:EF:CA:FE:DE:AD"
+    .EXAMPLE
+    new-nsxmacset -name MAC_SET_TEST -Description "A sample MAC" -MacAddresses "BE:EF:CA:FE:DE:AD" -Universal
+
+    Creates a MAC Set in the universal scope
 
     #>
 
@@ -21331,15 +21362,32 @@ function New-NsxMacSet  {
     param (
 
         [Parameter (Mandatory=$true)]
+            #Name of the MacSet
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
+            #Description of the MacSet
             [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
+            #Single string accepting comma separated Mac Addresses
             [string]$MacAddresses,
         [Parameter (Mandatory=$false)]
+            #Scope of object.  For universal object creation, use the -Universal switch.
+            [ValidateScript({
+                if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
+                    $True
+                } else {
+                    Throw "$_ is not a valid scope. Valid options are: globalroot-0 | universalroot-0 | edge-id"
+                }
+            })]
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Create the IPSet as Universal object.
+            [switch]$Universal=$false,
+        [Parameter (Mandatory=$false)]
+            #Return the objectid as a string rather than the whole XML object.
+            [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -21362,10 +21410,16 @@ function New-NsxMacSet  {
 
         #Do the post
         $body = $xmlroot.OuterXml
-        $URI = "/api/2.0/services/macset/$scopeId"
+        if ( $universal ) { $scopeId = "universalroot-0"}
+        $URI = "/api/2.0/services/macset/$($scopeId.tolower())"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
-        Get-NsxMacSet -objectid $response.content -connection $connection
+        if ( $ReturnObjectIdOnly) {
+            $response.content
+        }
+        else {
+            Get-NsxMacSet -objectid $response.content -connection $connection
+        }
     }
     end {}
 }
