@@ -48,7 +48,7 @@ Describe "Edge" {
         $script:PrefixNetwork = "1.2.3.0/24"
         $script:Password = "VMware1!VMware1!"
         $script:tenant = "pester_e_tenant1"
-        $tz = get-nsxtransportzone | select -first 1
+        $tz = get-nsxtransportzone -LocalOnly | select -first 1
         $script:lswitches = @()
         $script:lswitches += $tz | new-nsxlogicalswitch $ls1_name
         $script:lswitches += $tz | new-nsxlogicalswitch $ls2_name

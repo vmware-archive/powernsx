@@ -34,7 +34,7 @@ Describe "Logical Routing" {
         $script:RemoteAS = "2345"
         $script:PrefixName = "pester_lr_prefix"
         $script:PrefixNetwork = "1.2.3.0/24"
-        $tz = get-nsxtransportzone | select -first 1
+        $tz = get-nsxtransportzone -LocalOnly | select -first 1
         $script:lswitches = @()
         $script:lswitches += $tz | new-nsxlogicalswitch $ls1_name
         $script:lswitches += $tz | new-nsxlogicalswitch $ls2_name

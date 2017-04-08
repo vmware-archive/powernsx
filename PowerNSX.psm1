@@ -2194,8 +2194,13 @@ Function Validate-FirewallRuleSourceDest {
         [object]$argument
     )
 
-    #Same requirements for SG membership.
-    Validate-SecurityGroupMember $argument
+    #Same requirements for SG membership except for bare IPAddress.
+    if ( $argument -as [ipaddress] ) {
+        $true
+    }
+    else {
+        Validate-SecurityGroupMember $argument
+     }
 }
 
 Function Validate-ServiceGroup {
@@ -7525,15 +7530,23 @@ function Get-NsxTransportZone {
     #>
 
 
- [CmdLetBinding(DefaultParameterSetName="Name")]
+ [CmdLetBinding(DefaultParameterSetName="Default")]
 
     param (
 
-        [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+        [Parameter (Mandatory=$true,Position=1,ParameterSetName = "Name")]
+            #TransportZoneName
             [string]$name,
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+            #NSX ObjectId
             [ValidateNotNullOrEmpty()]
             [string]$objectId,
+        [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+            #Return only Universal objects
+            [switch]$UniversalOnly,
+        [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+            #Return only Locally scoped objects
+            [switch]$LocalOnly,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -7557,7 +7570,14 @@ function Get-NsxTransportZone {
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::vdnScopes/vdnScope")) {
             if ( $PsBoundParameters.containsKey('name') ) {
                 $response.vdnscopes.vdnscope | ? { $_.name -eq $name }
-            } else {
+            }
+            elseif ( $UniversalOnly ) {
+                $response.vdnscopes.vdnscope | ? { $_.isUniversal -eq 'True' }
+            }
+            elseif ( $LocalOnly ) {
+                $response.vdnscopes.vdnscope | ? { $_.isUniversal -eq 'False' }
+            }
+            else {
                 $response.vdnscopes.vdnscope
             }
         }
@@ -22380,11 +22400,22 @@ function New-NsxSourceDestNode {
     $xmlReturn.Attributes.Append($xmlAttrNegated) | out-null
 
     foreach ($item in $itemlist) {
-        write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $($item.name)"
+        if ( $item -as [ipaddress] ) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $item"
+        }
+        else {
+            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $($item.name)"
+        }
         #Build the return XML element
         [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement($itemType)
 
-        if ( $item -is [system.xml.xmlelement] ) {
+        if ( $item -as [ipaddress]) {
+            #Item is v4 or 6 address
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $item is an ipaddress"
+            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item
+            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Ipv4Address"
+        }
+        elseif ( $item -is [system.xml.xmlelement] ) {
 
             write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as xml element"
             #XML representation of NSX object passed - ipset, sec group or logical switch

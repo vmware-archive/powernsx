@@ -49,8 +49,8 @@ Describe "Edge NAT" {
         $script:testls2name = "pester_nat_ls2"
 
         #Logical Switch
-        $script:testls1 = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testls1name
-        $script:testls2 = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testls2name
+        $script:testls1 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testls1name
+        $script:testls2 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testls2name
 
         #Create Edge
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $testls1 -PrimaryAddress $natedgeIp1 -SubnetPrefixLength 24
