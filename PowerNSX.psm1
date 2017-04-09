@@ -3893,7 +3893,6 @@ function Connect-NsxServer {
             [string]$ViWarningAction="Continue"
     )
 
-
     function _Test-vCenterConn {
 
         #Internal function to test if registered vCenter has a current connection.
@@ -3936,7 +3935,6 @@ function Connect-NsxServer {
         return $ConnectedViServerConnection
     }
 
-
     #Legacy mode warning
     if ( $PSCmdlet.ParameterSetName -eq "Legacy") {
         write-warning "The -Server parameter in Connect-NsxServer is deprecated and will be made non-default in a future release."
@@ -3972,10 +3970,21 @@ function Connect-NsxServer {
         $Credential = Get-Credential -Message $Message
     }
 
+    #Debug log will contain all rest calls, request and response bodies, and response headers.
+    if ( -not $PsBoundParameters.ContainsKey('DebugLogFile' )) {
+
+        #Generating logfile name regardless of initial user pref on debug.  They can just flip the prop on the connection object at a later date to start logging...
+        $dtstring = get-date -format "yyyy_MM_dd_HH_mm_ss"
+        $DebugLogFile = "$($env:TEMP)\PowerNSXLog-$($Credential.UserName)@$NSXServer-$dtstring.log"
+    }
+
+    #If debug is on, need to test we can create the debug file first and throw if not...
+    if ( $DebugLogging -and (-not ( new-item -path $DebugLogFile -Type file ))) { Throw "Unable to create logfile $DebugLogFile.  Disable debugging or specify a valid DebugLogFile name."}
     #Defaults for vars we may not be able to set on the resulting connection object...
     $version = $null
     $buildnumber = $null
     $ViConnection = $null
+
 
     if ( ($pscmdlet.Parametersetname -eq "Legacy") -or ($pscmdlet.ParameterSetName -eq "NsxServer") ) {
 
@@ -4184,24 +4193,8 @@ function Connect-NsxServer {
         "ValidateCertificate" = $ValidateCertificate
         "VIConnection" = $ViConnection
         "DebugLogging" = $DebugLogging
+        "DebugLogfile" = $DebugLogFile
     }
-
-    #Debug log will contain all rest calls, request and response bodies, and response headers.
-    if ( -not $PsBoundParameters.ContainsKey('DebugLogFile' )) {
-
-        #Generating logfile name regardless of initial user pref on debug.  They can just flip the prop on the connection object at a later date to start logging...
-        $dtstring = get-date -format "yyyy_MM_dd_HH_mm_ss"
-        $DebugLogFile = "$($env:TEMP)\PowerNSXLog-$($Credential.UserName)@$NSXServer-$dtstring.log"
-
-    }
-
-    #If debug is on, need to test we can create the debug file first and throw if not...
-    if ( $DebugLogging -and (-not ( new-item -path $DebugLogFile -Type file ))) { Throw "Unable to create logfile $DebugLogFile.  Disable debugging or specify a valid DebugLogFile name."}
-
-    $connection | add-member -memberType NoteProperty -name "DebugLogFile" -force -Value $DebugLogFile
-
-
-
 
     #Set the default connection is required.
     if ( $DefaultConnection) { set-variable -name DefaultNSXConnection -value $connection -scope Global }
