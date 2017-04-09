@@ -4035,7 +4035,7 @@ function Connect-NsxServer {
 
             #supression excep in event of 403.  Valid non local account credentias are not able to query the appliance-management API
             if ( $_ -match '403 : Forbidden|403 \(Forbidden\)') {
-                write-warning "A valid local admin account is required to access version information.  This warning can be ignored if using SSO credentials to authenticate to NSX, however, appliance version information will not be available in the connection object.  Use Connect-NsxServer -ViServer to avoid this warning."
+                write-warning "A valid local admin account is required to access version information.  This warning can be ignored if using SSO credentials to authenticate to NSX, however, appliance version information will not be available in the connection object.  Use Connect-NsxServer -VCServer to avoid this warning."
                 # write-warning "A valid local admin account is required to access version information.  This warning can be ignored if using SSO credentials to authenticate to NSX, however, appliance version information will not be available in the connection object."
             }
             else {
@@ -4052,7 +4052,7 @@ function Connect-NsxServer {
         catch {
             #Catch a forbidden as we may not be using an admin account - in which case, we cant query NSX for the registered vC...
             if ( $_ -match '403 : Forbidden|403 \(Forbidden\)') {
-                write-warning "The credentials used are not sufficiently privileged to be able to query NSX for the registered vCenter Server. Use Connect-NsxServer -ViServer to avoid this warning."
+                write-warning "The credentials used are not sufficiently privileged to be able to query NSX for the registered vCenter Server. Use Connect-NsxServer -VCServer to avoid this warning."
             }
             else {
                 $_
