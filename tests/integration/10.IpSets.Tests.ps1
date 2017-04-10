@@ -149,7 +149,7 @@ Describe "IPSets" {
 
         it "Can create an ipset with inheritance enabled" {
 
-            $ipsetName = "$IpSetPrefix-ipset-create1"
+            $ipsetName = "$IpSetPrefix-ipset-create4"
             $ipsetDesc = "PowerNSX Pester Test create ipset"
             $ipaddresses = "1.2.3.4"
             $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses
