@@ -152,7 +152,7 @@ Describe "IPSets" {
             $ipsetName = "$IpSetPrefix-ipset-create4"
             $ipsetDesc = "PowerNSX Pester Test create ipset"
             $ipaddresses = "1.2.3.4"
-            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses
+            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses -EnableInheritance
             $ipset.Name | Should be $ipsetName
             $ipset.Description | should be $ipsetDesc
             $get = Get-nsxipset -Name $ipsetName
