@@ -1383,12 +1383,6 @@ Describe "DFW" {
         it "Can create an l2 disabled rule" {
         }
 
-        it "Can create an l2 rule with an ip based source" {
-        }
-
-        it "Can create an l2 rule with an ipset based source" {
-        }
-
         it "Can create an l2 rule with a security group based source" {
         }
 
@@ -1416,12 +1410,6 @@ Describe "DFW" {
         it "Can create an l2 rule with an vnic based source" {
         }
 
-        it "Can create an l2 rule with an ip based destination" {
-        }
-
-        it "Can create an l2 rule with an ipset based destination" {
-        }
-
         it "Can create an l2 rule with a security group based destination" {
         }
 
@@ -1447,12 +1435,6 @@ Describe "DFW" {
         }
 
         it "Can create an l2 rule with an vnic based destination" {
-        }
-
-        it "Can create an l2 rule with an ip based applied to" {
-        }
-
-        it "Can create an l2 rule with an ipset based applied to" {
         }
 
         it "Can create an l2 rule with a security group based applied to" {
