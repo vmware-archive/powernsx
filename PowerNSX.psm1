@@ -2187,6 +2187,28 @@ Function Validate-SecurityGroupMember {
     }
 }
 
+Function Validate-IPRange {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( ($argument -as [string]) -and ($argument -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\-\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}$") ) {
+        $true
+    }
+}
+
+Function Validate-IPPrefix {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( ($argument -as [string]) -and ($argument -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\/([0-9]|[1-2][0-9]|3[0-2])?$") ) {
+        $true
+    }
+}
+
 Function Validate-FirewallRuleSourceDest {
 
     Param (
@@ -2196,6 +2218,12 @@ Function Validate-FirewallRuleSourceDest {
 
     #Same requirements for SG membership except for bare IPAddress.
     if ( $argument -as [ipaddress] ) {
+        $true
+    }
+    elseif ( Validate-IPRange -argument $argument ) {
+        $true
+    }
+    elseif ( Validate-IPPrefix -argument $argument ) {
         $true
     }
     else {
@@ -22393,7 +22421,7 @@ function New-NsxSourceDestNode {
     $xmlReturn.Attributes.Append($xmlAttrNegated) | out-null
 
     foreach ($item in $itemlist) {
-        if ( $item -as [ipaddress] ) {
+        if ( ( $item -as [ipaddress]) -or ( Validate-IPRange -argument $item ) -or ( Validate-IPPrefix -argument $item ) ) {
             write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $item"
         }
         else {
@@ -22402,7 +22430,7 @@ function New-NsxSourceDestNode {
         #Build the return XML element
         [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement($itemType)
 
-        if ( $item -as [ipaddress]) {
+        if ( ( $item -as [ipaddress]) -or ( Validate-IPRange -argument $item ) -or ( Validate-IPPrefix -argument $item ) ) {
             #Item is v4 or 6 address
             write-debug "$($MyInvocation.MyCommand.Name) : Object $item is an ipaddress"
             Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item
