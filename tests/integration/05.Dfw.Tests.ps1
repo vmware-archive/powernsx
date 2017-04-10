@@ -1062,7 +1062,7 @@ Describe "DFW" {
             $rule | should not be $null
             @($rule).count | should be 1
             $rule.sources | should beoftype System.Xml.XmlElement
-            @($rule.sources.source).count | should be 2
+            @($rule.sources.source).count | should be 3
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
@@ -1082,14 +1082,14 @@ Describe "DFW" {
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should beoftype System.Xml.XmlElement
-            @($rule.sources.source).count | should be 2
+            $rule.destinations | should beoftype System.Xml.XmlElement
+            @($rule.destinations.destination).count | should be 2
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
-            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.destinations.destination.value | sort-object | should be $sortedAddresses
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
@@ -1103,14 +1103,14 @@ Describe "DFW" {
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should beoftype System.Xml.XmlElement
-            @($rule.sources.source).count | should be 2
+            $rule.destinations | should beoftype System.Xml.XmlElement
+            @($rule.destinations.destination).count | should be 2
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
-            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.destinations.destination.value | sort-object | should be $sortedAddresses
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
@@ -1124,14 +1124,14 @@ Describe "DFW" {
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should beoftype System.Xml.XmlElement
-            @($rule.sources.source).count | should be 2
+            $rule.destinations | should beoftype System.Xml.XmlElement
+            @($rule.destinations.destination).count | should be 2
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
-            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.destinations.destination.value | sort-object | should be $sortedAddresses
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
@@ -1146,14 +1146,14 @@ Describe "DFW" {
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
             $rule | should not be $null
             @($rule).count | should be 1
-            $rule.sources | should beoftype System.Xml.XmlElement
-            @($rule.sources.source).count | should be 2
+            $rule.destinations | should beoftype System.Xml.XmlElement
+            @($rule.destinations.destination).count | should be 3
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
             $sortedAddresses = ( @($ipaddress1, $ipaddress2, $ipaddress3) | Sort-Object)
-            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.destinations.destination.value | sort-object | should be $sortedAddresses
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
