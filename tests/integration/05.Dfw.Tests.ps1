@@ -421,8 +421,46 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
-        it "Can create an l3 rule with an ip based source" {
+        it "Can create an l3 rule with an ip host based source" {
             $ipaddress = "1.1.1.1"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -source $ipaddress
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources.source.type | should be "Ipv4Address"
+            $rule.sources.source.value | should be $ipaddress
+            $rule.destinations | should be $null
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be deny
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with an ip range based source" {
+            $ipaddress = "1.1.1.1-1.1.1.254"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -source $ipaddress
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources.source.type | should be "Ipv4Address"
+            $rule.sources.source.value | should be $ipaddress
+            $rule.destinations | should be $null
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be deny
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with an ip network based source" {
+            $ipaddress = "1.1.1.1/24"
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -source $ipaddress
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -573,7 +611,7 @@ Describe "DFW" {
             # Update PowerNSX to get nics fix to arrays
         }
 
-        it "Can create an l3 rule with an ip based destination" {
+        it "Can create an l3 rule with an ip host based destination" {
             $ipaddress = "1.1.1.1"
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -destination $ipaddress
             $rule | should not be $null
@@ -590,7 +628,44 @@ Describe "DFW" {
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be deny
             $rule.disabled | should be "false"
+        }
 
+        it "Can create an l3 rule with an ip range based destination" {
+            $ipaddress = "1.1.1.1-1.1.1.254"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -destination $ipaddress
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations.destination.type | should be "Ipv4Address"
+            $rule.destinations.destination.value | should be $ipaddress
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be deny
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with an ip network based destination" {
+            $ipaddress = "1.1.1.1/24"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -destination $ipaddress
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations.destination.type | should be "Ipv4Address"
+            $rule.destinations.destination.value | should be $ipaddress
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be deny
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an ipset based destination" {
