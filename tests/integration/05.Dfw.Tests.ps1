@@ -989,6 +989,175 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
+        it "Can create an l3 rule with multiple ip host based source" {
+            $ipaddress1 = "1.1.1.1"
+            $ipaddress2 = "2.2.2.2"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $ipaddress1,$ipaddress2 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            @($rule.sources.source).count | should be 2
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
+            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with multiple ip range based source" {
+            $ipaddress1 = "1.1.1.1-1.1.1.254"
+            $ipaddress2 = "2.2.2.2-2.2.2.254"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $ipaddress1,$ipaddress2 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            @($rule.sources.source).count | should be 2
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
+            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with multiple ip network based source" {
+            $ipaddress1 = "1.1.1.0/24"
+            $ipaddress2 = "2.2.0.0/16"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $ipaddress1,$ipaddress2 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            @($rule.sources.source).count | should be 2
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
+            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with multiple ip host,range,network based source" {
+            $ipaddress1 = "1.1.1.1"
+            $ipaddress2 = "2.2.0.0/16"
+            $ipaddress3 = "3.3.3.1-3.3.3.254"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $ipaddress1,$ipaddress2,$ipaddress3 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            @($rule.sources.source).count | should be 2
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedAddresses = ( @($ipaddress1, $ipaddress2, $ipaddress3) | Sort-Object)
+            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with multiple ip host based destination" {
+            $ipaddress1 = "1.1.1.1"
+            $ipaddress2 = "2.2.2.2"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Destination $ipaddress1,$ipaddress2 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            @($rule.sources.source).count | should be 2
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
+            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with multiple ip range based destination" {
+            $ipaddress1 = "1.1.1.1-1.1.1.254"
+            $ipaddress2 = "2.2.2.2-2.2.2.254"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Destination $ipaddress1,$ipaddress2 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            @($rule.sources.source).count | should be 2
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
+            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with multiple ip network based destination" {
+            $ipaddress1 = "1.1.1.0/24"
+            $ipaddress2 = "2.2.0.0/16"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Destination $ipaddress1,$ipaddress2 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            @($rule.sources.source).count | should be 2
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedAddresses = ( @($ipaddress1, $ipaddress2) | Sort-Object)
+            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with multiple ip host,range,network based destination" {
+            $ipaddress1 = "1.1.1.1"
+            $ipaddress2 = "2.2.0.0/16"
+            $ipaddress3 = "3.3.3.1-3.3.3.254"
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Destination $ipaddress1,$ipaddress2,$ipaddress3 -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            @($rule.sources.source).count | should be 2
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $sortedAddresses = ( @($ipaddress1, $ipaddress2, $ipaddress3) | Sort-Object)
+            $rule.sources.source.value | sort-object | should be $sortedAddresses
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
         it "Can create an l3 rule with multiple vm based source" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testvm2 -action allow
             $rule | should not be $null
