@@ -128,7 +128,6 @@ https://github.com/vmware/powernsx/issues
             if ( -not $CurrentModules.Contains($Module)) {
                 try {
                     #Attempt to load the module automatically
-                    write-host "In Desktop Version"
                     Import-Module $module -global -erroraction stop
                 }
                 catch {
