@@ -22935,16 +22935,17 @@ function Get-NsxFirewallRule {
             #'filteredfirewallConfiguration'.  Why? :|
 
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ($response.firewallConfiguration) {
+
+            if ( $response | get-member -name firewallConfiguration -MemberType Properties ){
                 if ( $PsBoundParameters.ContainsKey("Name") ) {
                     $response.firewallConfiguration.layer3Sections.Section.rule | ? { $_.name -eq $Name }
                 }
                 else {
                     $response.firewallConfiguration.layer3Sections.Section.rule
                 }
-
             }
-            elseif ( $response.filteredfirewallConfiguration ) {
+
+            elseif ( $response | get-member -name filteredfirewallConfiguration -MemberType Properties ){
                 if ( $PsBoundParameters.ContainsKey("Name") ) {
                     $response.filteredfirewallConfiguration.layer3Sections.Section.rule | ? { $_.name -eq $Name }
                 }
@@ -22952,6 +22953,7 @@ function Get-NsxFirewallRule {
                     $response.filteredfirewallConfiguration.layer3Sections.Section.rule
                 }
             }
+
             else { throw "Invalid response from NSX API. $response"}
         }
     }
