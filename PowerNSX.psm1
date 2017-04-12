@@ -67,7 +67,7 @@ Function _init {
     #PSEdition property does not exist pre v5.  We need to do a few things in
     #exported functions to workaround some limitations of core edition, so we export
     #the global PNSXPSTarget var to reference if required.
-    if ( ($PSVersionTable.PSVersion.Major -ge 5) -and ($PSVersionTable.PSVersion.Minor -ge 1)) {
+    if ( ( $PSVersionTable.PSVersion.Major -ge 6 ) -or ( ( $PSVersionTable.PSVersion.Major -eq 5 ) -and ( $PSVersionTable.PSVersion.Minor -ge 1 ) ) ) {
         $script:PNsxPSTarget = $PSVersionTable.PSEdition
     }
     else {
