@@ -20894,6 +20894,9 @@ function New-NsxIpSet  {
             #Create the IPSet as Universal object.
             [switch]$Universal=$false,
         [Parameter (Mandatory=$false)]
+            #Create the IPSet with the inheritance set. Allows the IP Set to be used at a lower scope.
+            [switch]$EnableInheritance=$false,
+        [Parameter (Mandatory=$false)]
             #Return the objectid as a string rather than the whole XML object.
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
@@ -20914,6 +20917,9 @@ function New-NsxIpSet  {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         if ( $IPAddresses ) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText $IPaddresses
+        }
+        if ( ( $EnableInheritance ) -and ( -not ( $universal ) ) ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "inheritanceAllowed" -xmlElementText "True"
         }
 
         #Do the post

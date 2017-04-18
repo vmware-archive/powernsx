@@ -61,7 +61,6 @@ Describe "IPSets" {
             $ipSetDescUniversal = "PowerNSX Pester Test get universal ipset"
             $script:get = New-nsxipset -Name $ipsetName -Description $ipSetDesc
             $script:getuniversal = New-nsxipset -Name $ipsetNameUniversal -Description $ipSetDescUniversal -Universal
-
         }
 
         it "Can retrieve an ipset by name" {
@@ -69,7 +68,6 @@ Describe "IPSets" {
             $ipset = Get-nsxipset -Name $ipsetName
             $ipset | should not be $null
             $ipset.name | should be $ipsetName
-
          }
 
         it "Can retrieve an ipset by id" {
@@ -116,7 +114,7 @@ Describe "IPSets" {
             $get.name | should be $ipset.name
             $get.description | should be $ipset.description
             $get.value | should be $ipset.value
-
+            $get.inheritanceAllowed | should be "false"
         }
 
         it "Can create an ipset with range" {
@@ -131,7 +129,7 @@ Describe "IPSets" {
             $get.name | should be $ipset.name
             $get.description | should be $ipset.description
             $get.value | should be $ipset.value
-
+            $get.inheritanceAllowed | should be "false"
         }
 
         it "Can create an ipset with CIDR" {
@@ -146,9 +144,23 @@ Describe "IPSets" {
             $get.name | should be $ipset.name
             $get.description | should be $ipset.description
             $get.value | should be $ipset.value
-
+            $get.inheritanceAllowed | should be "false"
         }
 
+        it "Can create an ipset with inheritance enabled" {
+
+            $ipsetName = "$IpSetPrefix-ipset-create4"
+            $ipsetDesc = "PowerNSX Pester Test create ipset"
+            $ipaddresses = "1.2.3.4"
+            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses -EnableInheritance
+            $ipset.Name | Should be $ipsetName
+            $ipset.Description | should be $ipsetDesc
+            $get = Get-nsxipset -Name $ipsetName
+            $get.name | should be $ipset.name
+            $get.description | should be $ipset.description
+            $get.value | should be $ipset.value
+            $get.inheritanceAllowed | should be "true"
+        }
 
         it "Can create an ipset and return an objectId only" {
             $ipsetName = "$IpSetPrefix-objonly-1234"
@@ -157,7 +169,6 @@ Describe "IPSets" {
             $id = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses -ReturnObjectIdOnly
             $id | should BeOfType System.String
             $id | should match "^ipset-\d*$"
-
          }
     }
 
