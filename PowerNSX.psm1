@@ -22312,6 +22312,149 @@ function Add-NsxServiceGroupMember {
     end {}
 }
 
+function Get-NsxApplicableAction {
+
+    <#
+    .SYNOPSIS
+    Retrieves Security Policy firewall Rules associated with a NSX Security Group, Security Policy, or Virtual Machine
+
+    .DESCRIPTION
+    SecurityGroup - 
+    You can fetch all security actions applicable on a security group for all ExecutionOrderCategories. The list is
+    sorted based on the weight of security actions in descending order. The isActive tag indicates if a securityaction
+    will be applied (by the enforcement engine) on the security group.
+
+    SecurityPolicy -
+    You can retrieve all security actions applicable on a security policy. This list includes security actions from
+    associated parent security policies, if any. Security actions per Execution Order Category are sorted based on
+    the weight of security actions in descending order.
+
+    Virtual Machine - 
+    You can fetch the security actions applicable on a virtual machine for all ExecutionOrderCategories. The list of
+    SecurityActions per ExecutionOrderCategory is sorted based on the weight of security actions in descending
+    order. The isActive tag indicates whether a security action will be applied (by the enforcement engine) on the
+    virtual machine.
+
+    .EXAMPLE
+    PS C:\> Get-NsxApplicableAction -SecurityGroup (Get-NsxSecurityGroup -name "SG_Test").objectId
+    
+    PS C:\> Get-NsxApplicableAction -VirtualMachine (Get-VM -name "VM_Test").ExtensionData.MoRef.Value 
+    
+    PS C:\> Get-NsxApplicableAction -SecurityPolicy (Get-NsxSecurityPolicy -name "SP_Test").objectId 
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
+
+    param (
+
+        [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
+            #Query SecurityGroup by objectId
+            [string]$SecurityGroup,
+        [Parameter (Mandatory=$true,ParameterSetName="securitypolicy",Position=1)]
+            #Query SecurityPolicy by objectId
+            [string]$SecurityPolicy,
+        [Parameter (Mandatory=$true,ParameterSetName="virtualmachine",Position=1)]
+            #Query Virtual Machine by MoRef Value
+            [string]$VirtualMachine,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+    
+        # Code for securitygroup actions
+             
+        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
+         
+            $URI = "/api/2.0/services/policy/securitygroup/$SecurityGroup/securityactions"
+        
+            try {
+                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+            }
+            catch {
+                throw "Failed retreiving applicable actions.  $_"
+            }
+            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
+                try {
+                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
+                        $response.securityActionsByCategoryMap.actionsByCategory.action
+                    }
+                }
+                catch {
+                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
+                }
+            }
+            else {
+                throw "No Content returned from NSX API call."
+            }
+        }
+
+        # Code for securitypolicy actions
+
+        if ( $PSCmdlet.ParameterSetName -eq "securitypolicy") {
+            
+            $URI = "/api/2.0/services/policy/securitypolicy/$SecurityPolicy/securityactions"
+        
+            try {
+                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+            }
+            catch {
+                throw "Failed retreiving applicable actions.  $_"
+            }
+            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
+                try {
+                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
+                        $response.securityActionsByCategoryMap.actionsByCategory.action
+                    }
+                }
+                catch {
+                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
+                }
+            }
+            else {
+                throw "No Content returned from NSX API call."
+            }
+        }
+
+        # Code for virtual machine actions
+
+        if ( $PSCmdlet.ParameterSetName -eq "virtualmachine") {
+            
+            $URI = "/api/2.0/services/policy/virtualmachine/$VirtualMachine/securityactions"
+        
+            try {
+                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+            }
+            catch {
+                throw "Failed retreiving applicable actions.  $_"
+            }
+            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
+                try {
+                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
+                        $response.securityActionsByCategoryMap.actionsByCategory.action
+                    }
+                }
+                catch {
+                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
+                }
+            }
+            else {
+                throw "No Content returned from NSX API call."
+            }
+        }
+
+    }
+
+    end {}
+}
+						  
 function Get-NsxApplicableMember {
 
     <#
