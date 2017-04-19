@@ -24912,17 +24912,17 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
             [ValidateNotNull()]
             [string]$Description,
         [Parameter (Mandatory=$false)]
-            [string]$Order,
+            [int]$Order,
         [Parameter (Mandatory=$false)]
         [ValidateSet("true","false")]
-            [string]$Enabled = "true",
+            [boolean]$Enabled = "true",
         [Parameter (Mandatory=$false)]
             [object[]]$securityGroup,
         [Parameter (Mandatory=$false)]
             [object[]]$Service,
         [Parameter (Mandatory=$false)]
         [ValidateSet("true","false")]
-            [string]$Logging = "false",
+            [boolean]$Logging = "false",
         [Parameter (Mandatory=$false)]
         [ValidateSet("allow","block", "reject")]
             [string]$Action = "allow",
@@ -25023,7 +25023,7 @@ function New-NsxSecurityPolicyGISSpec {
             [string]$Order,
         [Parameter (Mandatory=$false)]
         [ValidateSet("true","false")]
-            [string]$Enabled = "true",
+            [boolean]$Enabled = "true",
         [Parameter (Mandatory=$false)]
         [ValidateSet("true","false")]
             [string]$Enforced,
