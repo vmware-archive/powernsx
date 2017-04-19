@@ -303,6 +303,7 @@ FunctionsToExport = @(
     'Get-NsxManagerBackup',
     'Get-NsxManagerComponentSummary',
     'Get-NsxManagerSystemSummary',
+    'Get-NsxManagerCertificate',
     'New-NsxServiceGroup',
     'Add-NsxServiceGroupMember',
     'Get-NsxServiceGroup',
@@ -327,7 +328,11 @@ FunctionsToExport = @(
     'Get-NsxSecurityGroupEffectiveMacAddress',
     'Get-NsxSecurityGroupEffectiveVnic',
     'Set-NsxFirewallThreshold',
-    'Get-NsxFirewallThreshold'
+    'Get-NsxFirewallThreshold',
+    'Add-NsxIpSetMember',
+    'Remove-NsxIpSetMember',
+    'Get-NsxUserRole',
+    'Invoke-XpathQuery'
 )
 
 # Cmdlets to export from this module

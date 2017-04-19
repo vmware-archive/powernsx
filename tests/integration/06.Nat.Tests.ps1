@@ -18,7 +18,7 @@
 
 #########################
 #Do not remove this - we need to ensure connection setup and module deps preload have occured.
-If ( -not $PNSXTestNSXManager ) {
+If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
 }
 
@@ -31,7 +31,7 @@ Describe "Edge NAT" {
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -Server $PNSXTestNSXManager -Credential $PNSXTestDefMgrCred -VICred $PNSXTestDefViCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | select -first 1
         write-warning "Using cluster $cl for nat edge deployment"
         $script:ds = $cl | get-datastore | select -first 1
@@ -49,8 +49,8 @@ Describe "Edge NAT" {
         $script:testls2name = "pester_nat_ls2"
 
         #Logical Switch
-        $script:testls1 = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testls1name
-        $script:testls2 = Get-NsxTransportZone | select -first 1 | New-NsxLogicalSwitch $testls2name
+        $script:testls1 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testls1name
+        $script:testls2 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testls2name
 
         #Create Edge
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $testls1 -PrimaryAddress $natedgeIp1 -SubnetPrefixLength 24

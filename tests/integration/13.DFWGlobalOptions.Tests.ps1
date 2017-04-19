@@ -1,10 +1,10 @@
 #PowerNSX Test template.
 #Nick Bradford : nbradford@vmware.com
 
-#Because PowerNSX is an API consumption tool, its test framework is limited to 
+#Because PowerNSX is an API consumption tool, its test framework is limited to
 #exercising cmdlet functionality against a functional NSX and vSphere API
 #If you disagree with this approach - feel free to start writing mocks for all
-#potential API reponses... :) 
+#potential API reponses... :)
 
 #In the meantime, the test format is not as elegant as normal TDD, but Ive made some effort to get close to this.
 #Each functional area in NSX should have a separate test file.
@@ -18,26 +18,25 @@
 
 #########################
 #Do not remove this - we need to ensure connection setup and module deps preload have occured.
-If ( -not $PNSXTestNSXManager ) { 
+If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
-} 
+}
 
-Describe "DFW Global Properties" { 
+Describe "DFW Global Properties" {
 
-    BeforeAll { 
+    BeforeAll {
 
         #BeforeAll block runs _once_ at invocation regardless of number of tests/contexts/describes.
         #We load the mod and establish connection to NSX Manager here.
-       
+
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -Server $PNSXTestNSXManager -Credential $PNSXTestDefMgrCred -VICred $PNSXTestDefViCred -ViWarningAction "Ignore"
-        $script:Conn = Connect-NsxServer -Server $PNSXTestNSXManager -Credential $PNSXTestDefMgrCred -VICred $PNSXTestDefViCred -ViWarningAction "Ignore" -DefaultConnection:$false -VIDefaultConnection:$false
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         # Threshold Variables
         $script:cpuThreshold = "75"
         $script:cpuThreshold1 = "85"
         $script:memoryThreshold = "75"
-        $script:memoryThreshold1 = "85" 
+        $script:memoryThreshold1 = "85"
         $script:cpsThreshold = "125000"
         $script:cpsThreshold1 = "200000"
         $script:cpsDefault = "100000"
@@ -46,14 +45,14 @@ Describe "DFW Global Properties" {
 
     }
 
-    AfterAll { 
+    AfterAll {
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
         #We kill the connection to NSX Manager here.
-        
+
         #TODO: This should take existing and honour it on finish
         Set-NsxFirewallThreshold -Cpu 100 -Memory 100 -ConnectionsPerSecond 100000 | out-null
-        disconnect-nsxserver 
+        disconnect-nsxserver
     }
 
     BeforeEach {
@@ -83,7 +82,7 @@ Describe "DFW Global Properties" {
         it "Can adjust Memory DFW event threshold" {
             $threshold = Set-NsxFirewallThreshold  -Memory $memorythreshold1
             $threshold | should not be $null
-            
+
             $threshold.Memory.percentValue | should be $memorythreshold1
         }
         it "Can adjust CPU DFW event threshold" {
@@ -104,5 +103,5 @@ Describe "DFW Global Properties" {
         it "Can adjust TCP Optimisation"{
 
         }
-    }  
+    }
 }

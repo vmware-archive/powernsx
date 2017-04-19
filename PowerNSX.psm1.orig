@@ -67,7 +67,11 @@ Function _init {
     #PSEdition property does not exist pre v5.  We need to do a few things in
     #exported functions to workaround some limitations of core edition, so we export
     #the global PNSXPSTarget var to reference if required.
+<<<<<<< HEAD
+    if ( ($PSVersionTable.PSVersion.Major -ge 5) -and ($PSVersionTable.PSVersion.Minor -ge 1)) {
+=======
     if ( ( $PSVersionTable.PSVersion.Major -ge 6 ) -or ( ( $PSVersionTable.PSVersion.Major -eq 5 ) -and ( $PSVersionTable.PSVersion.Minor -ge 1 ) ) ) {
+>>>>>>> upstream/master
         $script:PNsxPSTarget = $PSVersionTable.PSEdition
     }
     else {
@@ -3921,8 +3925,67 @@ function Connect-NsxServer {
             [string]$ViWarningAction="Continue"
     )
 
+<<<<<<< HEAD
+    if ($PSCmdlet.ParameterSetName -eq "userpass") {
+        $Credential = new-object System.Management.Automation.PSCredential($Username, $(ConvertTo-SecureString $Password -AsPlainText -Force))
+    }
 
+    $URI = "/api/1.0/appliance-management/global/info"
+
+    #Test NSX connection
+    try {
+        $response = invoke-nsxrestmethod -cred $Credential -server $Server -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+    }
+    catch {
+
+        Throw "Unable to connect to NSX Manager at $Server.  $_"
+    }
+    $connection = new-object PSCustomObject
+    # NSX-v 6.2.3 changed the output of the following API from JSON to XML.
+    #
+    # /api/1.0/appliance-management/global/info"
+    #
+    # Along with the return JSON/XML change, the data structure also received a
+    # new base element named globalInfo.
+    #
+    # So what we do is try for the new format, and if it fails, lets default to
+    # the old JSON format.
+    try {
+        $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.globalInfo.versionInfo.majorVersion).$($response.globalInfo.versionInfo.minorVersion).$($response.globalInfo.versionInfo.patchVersion)" -force
+        $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.globalInfo.versionInfo.BuildNumber)"
+    }
+    catch {
+        try {
+            $Connection | add-member -memberType NoteProperty -name "Version" -value "$($response.VersionInfo.majorVersion).$($response.VersionInfo.minorVersion).$($response.VersionInfo.patchVersion)" -force
+            $Connection | add-member -memberType NoteProperty -name "BuildNumber" -value "$($response.VersionInfo.BuildNumber)"
+        }
+        catch {
+            write-warning "Unable to determine version information.  This may be due to a restriction in the rights the current user has to read the appliance-management API and may not represent an issue."
+        }
+    }
+        $Connection | add-member -memberType NoteProperty -name "Credential" -value $Credential -force
+        $connection | add-member -memberType NoteProperty -name "Server" -value $Server -force
+        $connection | add-member -memberType NoteProperty -name "Port" -value $port -force
+        $connection | add-member -memberType NoteProperty -name "Protocol" -value $Protocol -force
+        $connection | add-member -memberType NoteProperty -name "ValidateCertificate" -value $ValidateCertificate -force
+        $connection | add-member -memberType NoteProperty -name "VIConnection" -force -Value ""
+        $connection | add-member -memberType NoteProperty -name "DebugLogging" -force -Value $DebugLogging
+    #Debug log will contain all rest calls, request and response bodies, and response headers.
+    if ( -not $PsBoundParameters.ContainsKey('DebugLogFile' )) {
+
+        #Generating logfile name regardless of initial user pref on debug.  They can just flip the prop on the connection object at a later date to start logging...
+        $dtstring = get-date -format "yyyy_MM_dd_HH_mm_ss"
+        $DebugLogFile = "$($env:TEMP)\PowerNSXLog-$($Credential.UserName)@$Server-$dtstring.log"
+
+    }
+
+    #If debug is on, need to test we can create the debug file first and throw if not...
+    if ( $DebugLogging -and (-not ( new-item -path $DebugLogFile -Type file ))) { Throw "Unable to create logfile $DebugLogFile.  Disable debugging or specify a valid DebugLogFile name."}
+
+    $connection | add-member -memberType NoteProperty -name "DebugLogFile" -force -Value $DebugLogFile
+=======
     function _Test-vCenterConn {
+>>>>>>> upstream/master
 
         #Internal function to test if registered vCenter has a current connection.
         param (

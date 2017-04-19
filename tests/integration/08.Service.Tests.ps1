@@ -18,7 +18,7 @@
 
 #########################
 #Do not remove this - we need to ensure connection setup and module deps preload have occured.
-If ( -not $PNSXTestNSXManager ) {
+If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
 }
 
@@ -31,7 +31,7 @@ Describe "Services" {
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -Server $PNSXTestNSXManager -Credential $PNSXTestDefMgrCred -DisableVIAutoConnect
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred
 
         #Put any script scope variables you need to reference in your tests.
         #For naming items that will be created in NSX, use a unique prefix
@@ -52,9 +52,9 @@ Describe "Services" {
                     "PPP_SES", "RARP", "RAW_FR", "RSVP", "SCA", "SCTP", "SUN_RPC_TCP",
                     "SUN_RPC_UDP", "TCP", "UDP", "X25")
 
-        $Script:AllServicesRequiringPort = @( "FTP", "ICMP", "L2_OTHERS", "L3_OTHERS",
+        $Script:AllServicesRequiringPort = @( "FTP", "L2_OTHERS", "L3_OTHERS",
         "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS",
-        "SUN_RPC_TCP", "SUN_RPC_UDP", "TCP", "UDP" )
+        "SUN_RPC_TCP", "SUN_RPC_UDP" )
 
         $script:AllServicesNotRequiringPort = $Script:AllValidServices | ? { $AllServicesRequiringPort -notcontains $_ }
 
@@ -201,7 +201,7 @@ Describe "Services" {
             {New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto} | should throw
         }
 
-        foreach ( $svc in ($AllServicesRequiringPort | ? { $_ -ne "ICMP"})) {
+        foreach ( $svc in ($AllServicesRequiringPort)) {
             it "Fails to create $svc service with no port number" {
 
                 $svcName = "$svcPrefix-invalid"
@@ -221,8 +221,7 @@ Describe "Services" {
             }
         }
 
-
-        foreach ( $svc in $AllServicesNotRequiringPort ) {
+        foreach ( $svc in $AllServicesNotRequiringPort | ? { $_ -notmatch "ICMP|TCP|UDP" }) {
             it "Fails to create a non port defined service - $svc - when specifying a port number" {
                 $svcName = "$svcPrefix-invalid"
                 $svcDesc = "PowerNSX Pester Test Invalid service"

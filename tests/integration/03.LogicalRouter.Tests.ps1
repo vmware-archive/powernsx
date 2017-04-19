@@ -1,5 +1,5 @@
 #Do not remove this - we need to ensure connection setup and module deps preload have occured.
-If ( -not $PNSXTestNSXManager ) {
+If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
 }
 
@@ -11,7 +11,7 @@ Describe "Logical Routing" {
         #We load the mod, establish connection to NSX Manager and do any local variable definitions here
 
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -Server $PNSXTestNSXManager -Credential $PNSXTestDefMgrCred -VICred $PNSXTestDefViCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | select -first 1
         write-warning "Using cluster $cl for logical router appliance deployment"
 
@@ -34,7 +34,7 @@ Describe "Logical Routing" {
         $script:RemoteAS = "2345"
         $script:PrefixName = "pester_lr_prefix"
         $script:PrefixNetwork = "1.2.3.0/24"
-        $tz = get-nsxtransportzone | select -first 1
+        $tz = get-nsxtransportzone -LocalOnly | select -first 1
         $script:lswitches = @()
         $script:lswitches += $tz | new-nsxlogicalswitch $ls1_name
         $script:lswitches += $tz | new-nsxlogicalswitch $ls2_name
