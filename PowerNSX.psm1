@@ -19662,7 +19662,7 @@ function Get-NsxSecurityGroup {
     process {
 
         if ( -not $objectId ) {
-            #All Security GRoups
+            #All Security Groups
             $URI = "/api/2.0/services/securitygroup/scope/$scopeId"
             [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/securitygroup')) {
@@ -20243,6 +20243,9 @@ function New-NsxSecurityTag {
             [string]$Name,
         [Parameter (Mandatory=$false)]
             [string]$Description,
+        [Parameter (Mandatory=$false)]
+            #This marks the tag as a universal object within the constructs of NSX
+            [switch]$Universal,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -20270,6 +20273,11 @@ function New-NsxSecurityTag {
         #Optional fields
         if ( $PsBoundParameters.ContainsKey('Description')) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText "$Description"
+        }
+
+        if ($Universal) {
+            #Create the XML to mark the object as universal
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "isUniversal" -xmlElementText $Universal
         }
 
         #Do the post
@@ -22692,7 +22700,17 @@ function New-NsxFirewallSection  {
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$sectionType="layer3sections",
         [Parameter (Mandatory=$false)]
+            [ValidateScript({
+                if ($_ -match "^globalroot-0$|^edge-\d+$") {
+                    $True
+                } else {
+                    Throw "$_ is not a valid scope. Valid options are: globalroot-0 | edge-id"
+                }
+            })]
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Marks the firewall section to be universal or not
+            [switch]$Universal,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -22708,12 +22726,19 @@ function New-NsxFirewallSection  {
         [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("section")
         $xmlDoc.appendChild($xmlRoot) | out-null
 
+        #Mandatory Fields
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+
+        #Optional Fields
+        if ($Universal) {
+          #Create XML for universal object
+          Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "managedBy" -xmlElementText "universalroot-0"
+        }
 
         #Do the post
         $body = $xmlroot.OuterXml
 
-        $URI = "/api/4.0/firewall/$scopeId/config/$sectionType"
+        $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType"
 
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
@@ -23380,7 +23405,7 @@ function Add-NsxFirewallExclusionListMember {
         }
     }
 
-end {}
+  end {}
 }
 
 
@@ -25430,7 +25455,7 @@ function Get-NsxLoadBalancerApplicationRule {
 
     #>
 
-[CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="Name")]
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -25497,7 +25522,7 @@ function New-NsxLoadBalancerApplicationRule {
 
     #>
 
-[CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="Name")]
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
