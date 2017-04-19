@@ -3914,7 +3914,7 @@ function Connect-NsxServer {
             [switch]$DebugLogging=$false,
         [Parameter (Mandatory=$false)]
             #If DebugLogging is enabled, specifies the file to which output is written.  Defaults to $Env:temp\PowerNSXLog-<user>@<server>-<datetime>.log
-            [string]$DebugLogFile,        
+            [string]$DebugLogFile,
         [Parameter (Mandatory=$false)]
             #Supresses warning output from PowerCLI connection attempts (typically invalid Certificate warnings)
             [ValidateSet("Continue","Ignore")]
