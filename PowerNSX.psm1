@@ -22333,7 +22333,6 @@ function Get-NsxApplicablePolicy {
     param (
 
         [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
-        [ValidateScript( { Validate-SecurityTag $_ })]   
             #Query SecurityGroup by objectId
             [string]$SecurityGroup,
         [Parameter (Mandatory=$False)]
