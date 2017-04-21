@@ -132,8 +132,8 @@ Describe "MacSets" {
 
         it "Can create a macset with inheritance enabled" {
 
-            $macsetName = "$macsetPrefix-macset-create1"
-            $macsetDesc = "PowerNSX Pester Test create macset"
+            $macsetName = "$macsetPrefix-macset-create2"
+            $macsetDesc = "PowerNSX Pester Test create macset with inheritance"
             $macaddresses = "00:00:00:00:00:00"
             $macset = New-nsxmacset -Name $macsetName -Description $macsetDesc -MacAddresses $macaddresses
             $macset.Name | Should be $macsetName
