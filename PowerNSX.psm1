@@ -21441,7 +21441,7 @@ function New-NsxMacSet  {
             #Create the MacSet as Universal object.
             [switch]$Universal=$false,
         [Parameter (Mandatory=$false)]
-            #Create the MacSet with the inheritance set. Allows the IP Set to be used at a lower scope.
+            #Create the MacSet with the inheritance set. Allows the MacSet to be used at a lower scope.
             [switch]$EnableInheritance=$false,
         [Parameter (Mandatory=$false)]
             #Return the objectid as a string rather than the whole XML object.
