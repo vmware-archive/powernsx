@@ -21438,8 +21438,11 @@ function New-NsxMacSet  {
             })]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
-            #Create the IPSet as Universal object.
+            #Create the MacSet as Universal object.
             [switch]$Universal=$false,
+        [Parameter (Mandatory=$false)]
+            #Create the MacSet with the inheritance set. Allows the IP Set to be used at a lower scope.
+            [switch]$EnableInheritance=$false,
         [Parameter (Mandatory=$false)]
             #Return the objectid as a string rather than the whole XML object.
             [switch]$ReturnObjectIdOnly=$false,
@@ -21461,6 +21464,9 @@ function New-NsxMacSet  {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         if ( $MacAddresses ) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText $MacAddresses
+        }
+        if ( ( $EnableInheritance ) -and ( -not ( $universal ) ) ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "inheritanceAllowed" -xmlElementText "True"
         }
 
         #Do the post
