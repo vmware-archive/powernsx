@@ -116,6 +116,7 @@ Describe "MacSets" {
             $get.name | should be $macset.name
             $get.description | should be $macset.description
             $get.value | should be $macset.value
+            $get.inheritanceAllowed | should be "false"
 
         }
 
@@ -128,6 +129,22 @@ Describe "MacSets" {
             $id | should match "^macset-\d*$"
 
          }
+
+        it "Can create a macset with inheritance enabled" {
+
+            $macsetName = "$macsetPrefix-macset-create1"
+            $macsetDesc = "PowerNSX Pester Test create macset"
+            $macaddresses = "00:00:00:00:00:00"
+            $macset = New-nsxmacset -Name $macsetName -Description $macsetDesc -MacAddresses $macaddresses
+            $macset.Name | Should be $macsetName
+            $macset.Description | should be $macsetDesc
+            $get = Get-nsxmacset -Name $macsetName
+            $get.name | should be $macset.name
+            $get.description | should be $macset.description
+            $get.value | should be $macset.value
+            $get.inheritanceAllowed | should be "true"
+
+        }
     }
 
     Context "Unsuccessful macset Creation" {
