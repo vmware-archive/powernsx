@@ -135,7 +135,7 @@ Describe "MacSets" {
             $macsetName = "$macsetPrefix-macset-create2"
             $macsetDesc = "PowerNSX Pester Test create macset with inheritance"
             $macaddresses = "00:00:00:00:00:00"
-            $macset = New-nsxmacset -Name $macsetName -Description $macsetDesc -MacAddresses $macaddresses
+            $macset = New-nsxmacset -Name $macsetName -Description $macsetDesc -MacAddresses $macaddresses -EnableInheritance
             $macset.Name | Should be $macsetName
             $macset.Description | should be $macsetDesc
             $get = Get-nsxmacset -Name $macsetName
