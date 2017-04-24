@@ -19632,7 +19632,7 @@ function Get-NsxSecurityGroup {
 
     #>
 
-    [CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="Default")]
 
     param (
 
@@ -19643,8 +19643,14 @@ function Get-NsxSecurityGroup {
             #Get SecurityGroups by name
             [string]$name,
         [Parameter (Mandatory=$false)]
-            #Scopeid - default globalroot-0
-            [string]$scopeId="globalroot-0",
+            #ScopeId of IPSet.  Can define multiple scopeIds in a list to iterate accross scopes.
+            [string[]]$scopeId,
+        [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+            #Return only Universal objects
+            [switch]$UniversalOnly,
+        [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+            #Return only Locally scoped objects
+            [switch]$LocalOnly,
         [Parameter (Mandatory=$false)]
             #Include default system security group
             [switch]$IncludeSystem=$false,
@@ -19656,27 +19662,42 @@ function Get-NsxSecurityGroup {
     )
 
     begin {
+        switch ( $PSCmdlet.ParameterSetName ) {
 
+            "UniversalOnly" {
+                $scopeid = "universalroot-0"
+            }
+
+            "LocalOnly" {
+                $scopeid = "globalroot-0"
+            }
+
+            Default {
+                $scopeId = "globalroot-0", "universalroot-0"
+            }
+        }
     }
 
     process {
 
         if ( -not $objectId ) {
-            #All Security Groups
-            $URI = "/api/2.0/services/securitygroup/scope/$scopeId"
-            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/securitygroup')) {
-                if  ( $Name  ) {
-                    $sg = $response.list.securitygroup | ? { $_.name -eq $name }
-                } else {
-                    $sg = $response.list.securitygroup
-                }
-                #Filter default if switch not set
-                if ( -not $IncludeSystem ) {
-                    $sg| ? { ( $_.objectId -ne 'securitygroup-1') }
-                }
-                else {
-                    $sg
+            foreach ($scope in $scopeid ) {
+                #All Security Groups
+                $URI = "/api/2.0/services/securitygroup/scope/$scope"
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/securitygroup')) {
+                    if  ( $Name  ) {
+                        $sg = $response.list.securitygroup | ? { $_.name -eq $name }
+                    } else {
+                        $sg = $response.list.securitygroup
+                    }
+                    #Filter default if switch not set
+                    if ( -not $IncludeSystem ) {
+                        $sg| ? { ( $_.objectId -ne 'securitygroup-1') }
+                    }
+                    else {
+                        $sg
+                    }
                 }
             }
         }
@@ -19743,28 +19764,51 @@ function New-NsxSecurityGroup   {
     param (
 
         [Parameter (Mandatory=$true)]
+            #Name of the Security Group
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$false)]
+            #Optional description for the new Security Group
             [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
+            #Static include membership
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$IncludeMember,
-            [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false)]
+            #Static exclude membership
             [ValidateScript({ Validate-SecurityGroupMember $_ })]
             [object[]]$ExcludeMember,
         [Parameter (Mandatory=$false)]
+            #Scope of object.  For universal object creation, use the -Universal switch.
+            [ValidateScript({
+                if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
+                    $True
+                } else {
+                    Throw "$_ is not a valid scope. Valid options are: globalroot-0 | universalroot-0 | edge-id"
+                }
+            })]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
+            #Create the IPSet as Universal object.
+            [switch]$Universal=$false,
+        [Parameter (Mandatory=$false)]
+            #Return only an object ID, not the full object.
             [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #Flag to allow static membership of Universal Security Tags and dynamic membership via VM Name.  See  https://blogs.vmware.com/networkvirtualization/2017/02/nsx-6-3-cross-vc-nsx-security-enhancements.html/
+            [switch]$ActiveStandbyDeployment=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    begin {}
+    begin {
+        if ( (-not $Universal) -and ( $ActiveStandbyDeployment) ) {
+            throw "SecurityGroup must be of universal scope for Active Standby flag to be specified."
+        }
+    }
     process {
 
         #Create the XMLRoot
@@ -19791,9 +19835,7 @@ function New-NsxSecurityGroup   {
         }
 
         if ( $excludeMember ) {
-
             foreach ( $Member in $ExcludeMember) {
-
                 [System.XML.XMLElement]$xmlMember = $XMLDoc.CreateElement("excludeMember")
                 $xmlroot.appendChild($xmlMember) | out-null
 
@@ -19806,9 +19848,19 @@ function New-NsxSecurityGroup   {
             }
         }
 
+        if (( $ActiveStandbyDeployment ) -and ( $Universal )) {
+            [System.XML.XMLElement]$xmlMember = $XMLDoc.CreateElement("extendedAttributes")
+            $xmlroot.appendChild($xmlMember) | out-null
+            [System.XML.XMLElement]$xmlsubMember = $XMLDoc.CreateElement("extendedAttribute")
+            Add-XmlElement -xmlRoot $xmlSubMember -xmlElementName "name" -xmlElementText "localMembersOnly"
+            Add-XmlElement -xmlRoot $xmlSubMember -xmlElementName "value" -xmlElementText "true"
+            $xmlmember.appendChild($xmlsubMember) | out-null
+        }
+
         #Do the post
         $body = $xmlroot.OuterXml
-        $URI = "/api/2.0/services/securitygroup/bulk/$scopeId"
+        if ( $universal ) { $scopeId = "universalroot-0"}
+        $URI = "/api/2.0/services/securitygroup/bulk/$($scopeId.ToLower())"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
         if ( $ReturnObjectIdOnly) {
@@ -20276,8 +20328,10 @@ function New-NsxSecurityTag {
         }
 
         if ($Universal) {
+            #todo: Confert version to double and compare - throw warning on < 6.3 about no support for universal tags.
+            # if ( ($Connection.version -eq $null) -or ( $connection.version -lt 6.2.3)
             #Create the XML to mark the object as universal
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "isUniversal" -xmlElementText $Universal
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "isUniversal" -xmlElementText $Universal.toString().ToLower()
         }
 
         #Do the post
@@ -20890,6 +20944,7 @@ function New-NsxIpSet  {
             #Single string of comma separated ipaddresses.
             [string]$IPAddresses,
         [Parameter (Mandatory=$false)]
+            #Scope of object.  For universal object creation, use the -Universal switch.
             [ValidateScript({
                 if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
                     $True
