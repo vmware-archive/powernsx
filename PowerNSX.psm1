@@ -21271,6 +21271,33 @@ function Remove-NsxIpSetMember  {
     IP Range: (eg, 1.2.3.4-1.2.3.10)
     IP Subnet: (eg, 1.2.3.0/24)
 
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember -IPAddress 3.3.3.3
+
+    Removes the address 3.3.3.3 and 3.3.3.3/32 from the given NSX IPSet
+
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember -IPAddress 3.3.3.3/32
+
+    Removes the address 3.3.3.3 and 3.3.3.3/32 from the given NSX IPSet
+
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember -IPAddress 10.0.0.0/8
+
+    Removes the network 10.0.0.0/8 from the given NSX IPSet
+
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember
+    -IPAddress 192.168.1.1-192.168.1.254
+
+    Removes the range 192.168.1.1-192.168.1.254 from the given NSX IPSet
+
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember
+    -IPAddress 3.3.3.3,10.0.0.0/8,192.168.1.1-192.168.1.254
+
+    Removes the given IP Addresses, Networks and Ranges from the NSX IPSet
+
     #>
 
     [CmdletBinding()]
@@ -21305,12 +21332,27 @@ function Remove-NsxIpSetMember  {
         [system.collections.arraylist]$ValCollection = $_ipset.value -split ","
         $modified = $false
         foreach ( $value in $IPAddress ) {
-            if ( -not ( $valcollection -contains $value )) {
-                write-warning "$Value $value not a member of IPSet $($ipset.name)"
+            # An IPSET allows the users to enter a host as either 1.1.1.1 or
+            # 1.1.1.1/32. So if the users specifies that they want to remove
+            # 1.1.1.1 we need to look for both 1.1.1.1 AND 1.1.1.1/32 to remove..
+            if ($value -match "/|-") {
+                if ( -not ( $valcollection -contains $value )) {
+                    write-warning "$Value not a member of IPSet $($ipset.name)"
+                }
+                else {
+                    $modified = $true
+                    $ValCollection.Remove($value)
+                }
             }
             else {
-                $modified = $true
-                $ValCollection.Remove($value)
+                if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$($value)/32" ) ) ) {
+                    write-warning "$Value not a member of IPSet $($ipset.name)"
+                }
+                else {
+                    $modified = $true
+                    $ValCollection.Remove($value)
+                    $ValCollection.Remove("$($value)/32")
+                }
             }
         }
 
