@@ -5245,7 +5245,7 @@ function New-NsxManager{
                     # use splatting to keep the line width in-check/make it easier to read parameters
                     $connectParams = $null
                     $connectParams = @{
-                        Server               = $ipAddress
+                        NsxServer            = $ipAddress
                         UserName             = 'admin'
                         Password             = $cliPassword
                         DisableViAutoConnect = $true
