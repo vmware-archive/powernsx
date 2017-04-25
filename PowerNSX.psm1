@@ -2392,7 +2392,6 @@ Function Validate-FirewallRuleService {
         # it through validation to stop doing stupid stuff like trying to pass
         # about logical switch or IP Set through to here.
         { $argument -is [System.Xml.XmlElement]} {
-            write-host "Found an xml document"
             try {
                 Validate-Service -argument $argument
             }
