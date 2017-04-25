@@ -970,6 +970,65 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
+        it "Can create an l3 rule with raw protocol as the service (No Port Defined)" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -service $TestServiceProto
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations | should be $null
+            @($rule.services.service).count | should be 1
+            $rule.services.service.protocolName | should be $TestServiceProto
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with raw protocol and port as the service" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -service "$TestServiceProto/$testPort"
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations | should be $null
+            @($rule.services.service).count | should be 1
+            $rule.services.service.protocolName | should be $TestServiceProto
+            $rule.services.service.destinationPort | should be $testPort
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with raw protocol and port-range as the service" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -service "$TestServiceProto/$testPortRange"
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations | should be $null
+            @($rule.services.service).count | should be 1
+            $rule.services.service.protocolName | should be $TestServiceProto
+            $rule.services.service.destinationPort | should be $testPortRange
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
         it "Can create an l3 rule with single source, destination, applied to and service" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1 -destination $testvm2 -action allow -appliedTo $testvm1 -service $testService1
             $rule | should not be $null
