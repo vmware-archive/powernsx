@@ -57,6 +57,12 @@ Describe "DFW" {
         $script:TestMac2 = "00:50:56:00:00:01"
         $script:Testdvportgroupname = "pester_dfw_pg1"
         $script:vAppName = "pester_dfw_vapp"
+        $script:rawService1 = "ICMP"
+        $script:rawService2 = "tcp/80"
+        $script:rawService3 = "udp/49152-65535"
+        $script:rawService4 = "udp/53"
+        $script:rawService5 = "TCP"
+        $script:rawService6 = "UDP"
 
         #Logical Switch
         $script:testls = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testlsname
@@ -1029,7 +1035,31 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
-        it "Can create an l3 rule with single source, destination, applied to and service" {
+        it "Can create an l3 rule with multiple raw port/protocol combinations as the service" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -service $rawService1,$rawService2,$rawService3,$rawService4,$rawService5,$rawService6
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should be $null
+            $rule.destinations | should be $null
+            @($rule.services.service).count | should be 6
+            $rule.services.service | Where-Object { $_.protocolName -eq $rawService1 } | should be 1
+            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice2 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice2 -split "/")[1] ) } | should be 1
+            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) } | should be 1
+            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice4 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice4 -split "/")[1] ) } | should be 1
+            $rule.services.service | Where-Object { ( $_.protocolName -eq $rawService5) -and ( !($_ | get-member -name destinationport -Membertype Properties ) ) } | should be 1
+            $rule.services.service | Where-Object { ( $_.protocolName -eq $rawService6) -and ( !($_ | get-member -name destinationport -Membertype Properties ) ) } | should be 1
+            @($rule.appliedToList.appliedto).count | should be 1
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with single source, destination, applied to and service (object)" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1 -destination $testvm2 -action allow -appliedTo $testvm1 -service $testService1
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -1039,6 +1069,26 @@ Describe "DFW" {
             @($rule.destinations.destination).count | should be 1
             @($rule.appliedToList.appliedTo).count | should be 1
             @($rule.services.service).count | should be 1
+            $rule.sources.source.name | should be $testVmName1
+            $rule.destinations.destination.name | should be $testVmName2
+            $rule.appliedToList.appliedTo.name | should be $testVmName1
+            $rule.services.service.name | should be $testService1.Name
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with single source, destination, applied to and service (raw)" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1 -destination $testvm2 -action allow -appliedTo $testvm1 -service $rawservice3
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            @($rule.sources.source).count | should be 1
+            @($rule.destinations.destination).count | should be 1
+            @($rule.appliedToList.appliedTo).count | should be 1
+            @($rule.services.service).count | should be 1
+            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) } | should be 1
             $rule.sources.source.name | should be $testVmName1
             $rule.destinations.destination.name | should be $testVmName2
             $rule.appliedToList.appliedTo.name | should be $testVmName1
@@ -1301,6 +1351,31 @@ Describe "DFW" {
             $rule.destinations | should beoftype System.Xml.XmlElement
             $rule.appliedToList | should beoftype System.Xml.XmlElement
             @($rule.services.service).count | should be 2
+            @($rule.appliedToList.appliedTo).count | should be 2
+            @($rule.destinations.destination).count | should be 2
+            $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
+            $sortedServiceNames = ( @($TestService1.name, $TestService2.name) | Sort-Object )
+            $rule.sources.source.name | sort-object | should be $sortedNames
+            $rule.destinations.destination.name | sort-object | should be $sortedNames
+            $rule.appliedToList.appliedTo.name  | sort-object | should be $sortedNames
+            $rule.services.service.name  | sort-object | should be $sortedServiceNames
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
+        }
+
+        it "Can create an l3 rule with multiple item based source, destination, applied to and service (objects/raw)" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testvm2 -destination $testvm1,$testvm2 -action allow -appliedTo $testvm1,$testvm2 -Service $TestService1, $rawService1, $TestService2, $rawservice3
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            @($rule).count | should be 1
+            $rule.sources | should beoftype System.Xml.XmlElement
+            $rule.destinations | should beoftype System.Xml.XmlElement
+            $rule.appliedToList | should beoftype System.Xml.XmlElement
+            @($rule.services.service).count | should be 4
+            $rule.services.service | Where-Object { $_.protocolName -eq $rawService1 } | should be 1
+            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) } | should be 1
             @($rule.appliedToList.appliedTo).count | should be 2
             @($rule.destinations.destination).count | should be 2
             $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
