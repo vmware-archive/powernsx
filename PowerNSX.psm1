@@ -23253,20 +23253,6 @@ function New-NsxFirewallRule  {
         }
 
         #Services
-        # if ( $service) {
-        #     [System.XML.XMLElement]$xmlServices = $XMLDoc.CreateElement("services")
-        #     #Iterate the services passed and build service nodes.
-        #     $xmlRule.appendChild($xmlServices) | out-null
-        #     foreach ( $serviceitem in $service ) {
-
-        #         #Services
-        #         [System.XML.XMLElement]$xmlService = $XMLDoc.CreateElement("service")
-        #         $xmlServices.appendChild($xmlService) | out-null
-        #         Add-XmlElement -xmlRoot $xmlService -xmlElementName "value" -xmlElementText $serviceItem.objectId
-
-        #     }
-        # }
-
         if ( $service ) {
             $xmlservices = New-NsxServiceNode -itemType "service" -itemlist $service -xmlDoc $xmlDoc
             $xmlRule.appendChild($xmlservices) | out-null
