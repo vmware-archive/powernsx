@@ -1341,7 +1341,7 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
-        it "Can create an l3 rule with multiple item based source, destination, applied to and service" {
+        it "Can create an l3 rule with multiple item based source, destination, applied to and service (objects)" {
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testvm2 -destination $testvm1,$testvm2 -action allow -appliedTo $testvm1,$testvm2 -Service $TestService1, $TestService2
             $rule | should not be $null
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1"
@@ -1374,6 +1374,8 @@ Describe "DFW" {
             $rule.destinations | should beoftype System.Xml.XmlElement
             $rule.appliedToList | should beoftype System.Xml.XmlElement
             @($rule.services.service).count | should be 4
+            $rule.services.service | Where-Object { $_.Name -eq $TestServiceName1 } | should be 1
+            $rule.services.service | Where-Object { $_.Name -eq $TestServiceName2 } | should be 1
             $rule.services.service | Where-Object { $_.protocolName -eq $rawService1 } | should be 1
             $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) } | should be 1
             @($rule.appliedToList.appliedTo).count | should be 2
