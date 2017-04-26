@@ -1044,12 +1044,12 @@ Describe "DFW" {
             $rule.sources | should be $null
             $rule.destinations | should be $null
             @($rule.services.service).count | should be 6
-            $rule.services.service | Where-Object { $_.protocolName -eq $rawService1 } | should be 1
-            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice2 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice2 -split "/")[1] ) } | should be 1
-            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) } | should be 1
-            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice4 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice4 -split "/")[1] ) } | should be 1
-            $rule.services.service | Where-Object { ( $_.protocolName -eq $rawService5) -and ( !($_ | get-member -name destinationport -Membertype Properties ) ) } | should be 1
-            $rule.services.service | Where-Object { ( $_.protocolName -eq $rawService6) -and ( !($_ | get-member -name destinationport -Membertype Properties ) ) } | should be 1
+            (($rule.services.service | Where-Object { $_.protocolName -eq $rawService1 }) | measure).count | should Be 1
+            (($rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice2 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice2 -split "/")[1] ) }) | measure).count | should be 1
+            (($rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) }) | measure).count | should be 1
+            (($rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice4 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice4 -split "/")[1] ) }) | measure).count | should be 1
+            (($rule.services.service | Where-Object { ( $_.protocolName -eq $rawService5) -and ( !($_ | get-member -name destinationport -Membertype Properties ) ) }) | measure).count | should be 1
+            (($rule.services.service | Where-Object { ( $_.protocolName -eq $rawService6) -and ( !($_ | get-member -name destinationport -Membertype Properties ) ) }) | measure).count | should be 1
             @($rule.appliedToList.appliedto).count | should be 1
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
@@ -1088,7 +1088,7 @@ Describe "DFW" {
             @($rule.destinations.destination).count | should be 1
             @($rule.appliedToList.appliedTo).count | should be 1
             @($rule.services.service).count | should be 1
-            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) } | should be 1
+            (($rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) }) | measure).count | should be 1
             $rule.sources.source.name | should be $testVmName1
             $rule.destinations.destination.name | should be $testVmName2
             $rule.appliedToList.appliedTo.name | should be $testVmName1
@@ -1376,8 +1376,8 @@ Describe "DFW" {
             @($rule.services.service).count | should be 4
             $rule.services.service | Where-Object { $_.Name -eq $TestServiceName1 } | should be 1
             $rule.services.service | Where-Object { $_.Name -eq $TestServiceName2 } | should be 1
-            $rule.services.service | Where-Object { $_.protocolName -eq $rawService1 } | should be 1
-            $rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) } | should be 1
+            (($rule.services.service | Where-Object { $_.protocolName -eq $rawService1 }) | measure).count | should be 1
+            (($rule.services.service | Where-Object { ( $_.protocolName -eq ($rawservice3 -split "/")[0] ) -and  ( $_.destinationPort -eq ($rawservice3 -split "/")[1] ) }) | measure).count | should be 1
             @($rule.appliedToList.appliedTo).count | should be 2
             @($rule.destinations.destination).count | should be 2
             $sortedNames = ( @($testvm1.name, $testvm2.name) | Sort-Object)
