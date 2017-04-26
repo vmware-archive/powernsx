@@ -258,9 +258,8 @@ Describe "IPSets" {
             $ipaddress = "1.2.3.4"
             $iprange = "1.2.3.4-2.3.4.5"
             $cidr = "1.2.3.0/24"
-            $hostCidr = "1.2.3.4/32"
             get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
-            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses "$ipaddress,$iprange,$cidr,$hostCidr"
+            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses "$ipaddress,$iprange,$cidr"
 
         }
 
@@ -275,7 +274,6 @@ Describe "IPSets" {
             $ipset.value -split "," -contains $ipaddress | should be $false
             $ipset.value -split "," -contains $iprange | should be $true
             $ipset.value -split "," -contains $cidr | should be $true
-            $ipset.value -split "," -contains $hostCidr | should be $false
         }
 
         it "Can remove a range from an ip set" {
@@ -283,7 +281,6 @@ Describe "IPSets" {
             $ipset.value -split "," -contains $iprange | should be $false
             $ipset.value -split "," -contains $ipaddress | should be $true
             $ipset.value -split "," -contains $cidr | should be $true
-            $ipset.value -split "," -contains $hostCidr | should be $true
         }
 
         it "Can remove a cidr from an ip set" {
@@ -291,7 +288,6 @@ Describe "IPSets" {
             $ipset.value -split "," -contains $cidr | should be $false
             $ipset.value -split "," -contains $ipaddress | should be $true
             $ipset.value -split "," -contains $iprange | should be $true
-            $ipset.value -split "," -contains $hostCidr | should be $true
         }
 
         it "Can remove multiple values from an ip set" {
@@ -300,23 +296,6 @@ Describe "IPSets" {
             $ipset.value -split "," -contains $ipaddress | should be $false
             $ipset.value -split "," -contains $iprange | should be $false
             $ipset.value -split "," -contains $cidr | should be $true
-            $ipset.value -split "," -contains $hostCidr | should be $false
-        }
-
-        it "Can remove a host cidr when a matching non cidr address is specified" {
-            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $ipaddress
-            $ipset.value -split "," -contains $ipaddress | should be $false
-            $ipset.value -split "," -contains $hostCidr | should be $false
-            $ipset.value -split "," -contains $cidr | should be $true
-            $ipset.value -split "," -contains $iprange | should be $true
-        }
-
-        it "Can remove a non cidr host address when a matching host cidr address is specified" {
-            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $hostCidr
-            $ipset.value -split "," -contains $ipaddress | should be $false
-            $ipset.value -split "," -contains $hostCidr | should be $false
-            $ipset.value -split "," -contains $cidr | should be $true
-            $ipset.value -split "," -contains $iprange | should be $true
         }
 
     }
