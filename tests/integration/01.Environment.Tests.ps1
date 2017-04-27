@@ -46,7 +46,7 @@ Describe "Environment" -Tags "Environment" {
         ($tz | measure).count | should be 1
     }
 
-    It "Has a single global TransportZone" {
+    It "Has a single universal TransportZone" {
         $Tz = Get-NsxTransportZone | ? { $_.isUniversal -eq 'true'}
         $tz | should not be $null
         ($tz | measure).count | should be 1

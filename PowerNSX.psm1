@@ -5027,7 +5027,11 @@ function New-NsxManager{
             [int]$WaitTimeout = 600,
         [Parameter ( Mandatory=$False )]
             #Enable SSH on the deployed NSX Manager.
-            [switch]$EnableSsh=$false
+            [switch]$EnableSsh=$false,
+        [Parameter (Mandatory = $false)]
+            #Disk format on the deployed NSX Manager
+            [ValidateSet ("Thin2GB", "Thick", "Thick2GB", "Thin", "EagerZeroedThick")]
+            [string]$DiskStorageFormat="Thick"
     )
 
     Begin {
