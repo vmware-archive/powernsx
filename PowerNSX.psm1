@@ -21768,7 +21768,21 @@ function New-NsxService  {
         [Parameter (Mandatory=$false)]
             [string]$port,
         [Parameter (Mandatory=$false)]
+            #Scope of object.  For universal object creation, use the -Universal switch.
+            [ValidateScript({
+                if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
+                    $True
+                } else {
+                    Throw "$_ is not a valid scope. Valid options are: globalroot-0 | universalroot-0 | edge-id"
+                }
+            })]
             [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Create the Service as Universal object.
+            [switch]$Universal=$false,
+        [Parameter (Mandatory=$false)]
+            #Create the Service with the inheritance set. Allows the Service to be used at a lower scope.
+            [switch]$EnableInheritance=$false,
         [Parameter (Mandatory=$false)]
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
@@ -21829,9 +21843,14 @@ function New-NsxService  {
         if ( $PSBoundParameters.ContainsKey("Port")) {
             Add-XmlElement -xmlRoot $xmlElement -xmlElementName "value" -xmlElementText $Port
         }
+        if ( ( $EnableInheritance ) -and ( -not ( $universal ) ) ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "inheritanceAllowed" -xmlElementText "True"
+        }
+
         #Do the post
         $body = $xmlroot.OuterXml
-        $URI = "/api/2.0/services/application/$scopeId"
+        if ( $universal ) { $scopeId = "universalroot-0"}
+        $URI = "/api/2.0/services/application/$($scopeId.tolower())"
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
         if ( $ReturnObjectIdOnly) {

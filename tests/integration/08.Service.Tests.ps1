@@ -40,6 +40,7 @@ Describe "Services" {
 
         #Clean up any existing services from previous runs...
         get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+        get-nsxservice -scopeId universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
 
         #Define valid services to align with PowerNSX
         $Script:AllValidServices = @("AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
@@ -72,6 +73,7 @@ Describe "Services" {
         #We kill the connection to NSX Manager here.
 
         get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+        get-nsxservice -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
 
         disconnect-nsxserver
     }
@@ -80,9 +82,12 @@ Describe "Services" {
         BeforeAll {
             $script:svcName = "$svcPrefix-get"
             $svcDesc = "PowerNSX Pester Test get service"
+            $script:svcNameUniversal = "$svcPrefix-get-universal"
+            $svcDescUniversal = "PowerNSX Pester Test get universal service"
             $svcPort = 1234
             $svcProto = "TCP"
             $script:get = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort
+            $script:getuniversal = New-NsxService -Name $svcNameUniversal -Description $svcDescUniversal -Universal -Protocol $svcProto -port $svcPort
 
         }
 
@@ -91,7 +96,6 @@ Describe "Services" {
             $svc = Get-NsxService -Name $svcName
             $svc | should not be $null
             $svc.name | should be $svcName
-
          }
 
         it "Can retreive a service by id" {
@@ -101,6 +105,14 @@ Describe "Services" {
             $svc.objectId | should be $get.objectId
          }
 
+         It "Can retrieve both universal and global Services" {
+         }
+
+         It "Can retrieve universal only Services" {
+         }
+
+         It "Can retrieve local only Services" {
+         }
 
     }
 
@@ -108,6 +120,7 @@ Describe "Services" {
 
         AfterAll {
             get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+            get-nsxservice -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
         }
 
         foreach ( $svc in ($AllServicesRequiringPort | ? {"ICMP", "L2_OTHERS", "L3_OTHERS" -notcontains $_ } ) ) {
@@ -185,12 +198,57 @@ Describe "Services" {
             $id | should match "^application-\d*$"
 
          }
+
+        it "Can create a service with inheritance set" {
+            $svcName = "$svcPrefix-inheritance-1234"
+            $svcDesc = "PowerNSX Pester Test inheritance service"
+            $svcPort = 1234
+            $svcProto = "TCP"
+            $svc = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -EnableInheritance
+            $svc.Name | Should be $svcName
+            $svc.Description | should be $svcDesc
+            $svc.element.value | should be $svcPort
+            $svc.element.applicationProtocol | should be $svcProto
+            $svc.inheritanceAllowed | should be "true"
+            $svc.isUniversal | should be "false"
+            $get = Get-NsxService -Name $svcName
+            $get.name | should be $svc.name
+            $get.description | should be $svc.description
+            $get.element.value | should be $svc.element.value
+            $get.element.protocol | should be $svc.element.protocol
+            $get.inheritanceAllowed | should be "true"
+            $get.isUniversal | should be "false"
+         }
+
+
+        it "Can create a service as universal" {
+            $svcName = "$svcPrefix-universal-1234"
+            $svcDesc = "PowerNSX Pester Test universal service"
+            $svcPort = 1234
+            $svcProto = "TCP"
+            $svc = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -EnableInheritance -universal
+            $svc.Name | Should be $svcName
+            $svc.Description | should be $svcDesc
+            $svc.element.value | should be $svcPort
+            $svc.element.applicationProtocol | should be $svcProto
+            $svc.inheritanceAllowed | should be "false"
+            $svc.isUniversal | should be "true"
+            $get = Get-NsxService -scopeid universalroot-0 -Name $svcName
+            $get.name | should be $svc.name
+            $get.description | should be $svc.description
+            $get.element.value | should be $svc.element.value
+            $get.element.protocol | should be $svc.element.protocol
+            $get.inheritanceAllowed | should be "false"
+            $get.isUniversal | should be "true"
+         }
+
     }
 
     Context "Unsuccessful Service Creation" {
 
         BeforeAll {
             get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+            get-nsxservice -scopeId universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
         }
 
         it "Fails to create a service with an invalid protocol" {
@@ -244,10 +302,13 @@ Describe "Services" {
 
         BeforeEach {
             $svcName = "$svcPrefix-delete"
+            $svcNameUniversal = "$svcPrefix-delete-Universal"
             $svcDesc = "PowerNSX Pester Test delete service"
+            $svcDescUniversal = "PowerNSX Pester Test delete universal service"
             $svcPort = 1234
             $svcProto = "TCP"
             $script:delete = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort
+            $script:deleteUniversal = New-NsxService -scopeId universalroot-0 -Name $svcNameUniversal -Description $svcDescUniversal -Protocol $svcProto -port $svcPort -Universal
 
         }
 
@@ -255,6 +316,12 @@ Describe "Services" {
 
             $delete | Remove-NsxService -confirm:$false
             {Get-NsxService -objectId $delete.objectId} | should throw
+        }
+
+        it "Can delete a universal service by object" {
+
+            $deleteUniversal | Remove-NsxService -confirm:$false
+            {Get-NsxService -objectId $deleteUniversal.objectId} | should throw
         }
 
     }
