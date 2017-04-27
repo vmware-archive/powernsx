@@ -85,7 +85,7 @@ Describe "Services" {
             $svcPort = 1234
             $svcProto = "TCP"
             $script:get = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort
-            $script:getuniversal = New-NsxService -Name $svcNameUniversal -Description $svcDescUniversal -Universal
+            $script:getuniversal = New-NsxService -Name $svcNameUniversal -Description $svcDescUniversal -Universal -Protocol $svcProto -port $svcPort
 
         }
 
@@ -230,7 +230,7 @@ Describe "Services" {
             $svc.element.applicationProtocol | should be $svcProto
             $svc.inheritanceAllowed | should be "false"
             $svc.isUniversal | should be "true"
-            $get = Get-NsxService -Name $svcName
+            $get = Get-NsxService -scopeid universalroot-0 -Name $svcName
             $get.name | should be $svc.name
             $get.description | should be $svc.description
             $get.element.value | should be $svc.element.value
