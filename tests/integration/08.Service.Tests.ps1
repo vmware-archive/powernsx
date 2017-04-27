@@ -40,6 +40,7 @@ Describe "Services" {
 
         #Clean up any existing services from previous runs...
         get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+        get-nsxservice -scopeId universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
 
         #Define valid services to align with PowerNSX
         $Script:AllValidServices = @("AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
@@ -72,6 +73,7 @@ Describe "Services" {
         #We kill the connection to NSX Manager here.
 
         get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+        get-nsxservice -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
 
         disconnect-nsxserver
     }
@@ -118,6 +120,7 @@ Describe "Services" {
 
         AfterAll {
             get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+            get-nsxservice -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
         }
 
         foreach ( $svc in ($AllServicesRequiringPort | ? {"ICMP", "L2_OTHERS", "L3_OTHERS" -notcontains $_ } ) ) {
@@ -245,6 +248,7 @@ Describe "Services" {
 
         BeforeAll {
             get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+            get-nsxservice -scopeId universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
         }
 
         it "Fails to create a service with an invalid protocol" {
@@ -298,10 +302,13 @@ Describe "Services" {
 
         BeforeEach {
             $svcName = "$svcPrefix-delete"
+            $svcNameUniversal = "$svcPrefix-delete-Universal"
             $svcDesc = "PowerNSX Pester Test delete service"
+            $svcDescUniversal = "PowerNSX Pester Test delete universal service"
             $svcPort = 1234
             $svcProto = "TCP"
             $script:delete = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort
+            $script:deleteUniversal = New-NsxService -scopeId universalroot-0 -Name $svcNameUniversal -Description $svcDescUniversal -Protocol $svcProto -port $svcPort -Universal
 
         }
 
@@ -309,6 +316,12 @@ Describe "Services" {
 
             $delete | Remove-NsxService -confirm:$false
             {Get-NsxService -objectId $delete.objectId} | should throw
+        }
+
+        it "Can delete a universal service by object" {
+
+            $deleteUniversal | Remove-NsxService -confirm:$false
+            {Get-NsxService -objectId $deleteUniversal.objectId} | should throw
         }
 
     }
