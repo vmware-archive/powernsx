@@ -5091,7 +5091,7 @@ function New-NsxManager{
 
         # Deploy the OVA.
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Deploying NSX Manager OVA" }
-        $VM = Import-vApp -Source $NsxManagerOvf -OvfConfiguration $OvfConfiguration -Name $Name -Location $ClusterName -VMHost $TargetVMHost -Datastore $DatastoreName
+        $VM = Import-vApp -Source $NsxManagerOvf -OvfConfiguration $OvfConfiguration -Name $Name -Location $ClusterName -VMHost $TargetVMHost -Datastore $DatastoreName -DiskStorageFormat $DiskStorageFormat
 
         If ( $PSBoundParameters.ContainsKey('FolderName')) {
 
