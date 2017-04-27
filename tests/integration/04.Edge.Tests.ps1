@@ -241,6 +241,24 @@ Describe "Edge" {
             $rule | should be $null
         }
 
+        it "Can disable Graceful Restart" {
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg | should not be $null
+            $rtg.gracefuleRestart | should be true
+            $rtg | Set-NsxEdgeOspf -GracefulRestart:$false
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg.gracefuleRestart | should be false
+        }
+
+        it "Can enable Default Originate" {
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg | should not be $null
+            $rtg.defaultOriginate | should be false
+            $rtg | Set-NsxEdgeOspf -DefaultOriginate
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg.defaultOriginate | should be false
+        }
+
         it "Can disable OSPF" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null

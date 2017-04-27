@@ -15885,7 +15885,13 @@ function Set-NsxEdgeOspf {
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
-        if ( $PsBoundParameters.ContainsKey('EnableOSPF') ) {
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf')
+
+        if ( -not ( (Invoke-XpathQuery -Node $ospf -QueryMethod selecSingleNode -query "child::ospf[enabled=`'true`']" ) -or $PsBoundParameters.ContainsKey('EnableOSPF') )) {
+            throw "OSPF mnust be enabled in order to configure it."
+        }
+        else {
+
             $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
             $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'descendant::routerId')
             if ( $EnableOSPF ) {
@@ -15893,19 +15899,17 @@ function Set-NsxEdgeOspf {
                     #Existing config missing and no new value set...
                     throw "RouterId must be configured to enable dynamic routing"
                 }
-
-                if ($PsBoundParameters.ContainsKey("RouterId")) {
-                    #Set Routerid...
-                    if ($xmlRouterId) {
-                        $xmlRouterId = $RouterId.IPAddresstoString
-                    }
-                    else{
-                        Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
-                    }
-                }
             }
 
-            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf')
+            if ($PsBoundParameters.ContainsKey("RouterId")) {
+                #Set Routerid...
+                if ($xmlRouterId) {
+                    $xmlRouterId = $RouterId.IPAddresstoString
+                }
+                else{
+                    Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                }
+            }
 
             if ( -not $ospf ) {
                 #ospf node does not exist.
@@ -15943,27 +15947,27 @@ function Set-NsxEdgeOspf {
                     Add-XmlElement -xmlRoot $ospf -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
                 }
             }
-        }
 
-        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
-        $body = $_EdgeRouting.OuterXml
+            $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+            $body = $_EdgeRouting.OuterXml
 
 
-        if ( $confirm ) {
-            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
-            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
-            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            if ( $confirm ) {
+                $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+                $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
-            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-        }
-        else { $decision = 0 }
-        if ($decision -eq 0) {
-            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
-            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" }
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed }
+                Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+            }
         }
     }
 
