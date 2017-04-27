@@ -80,9 +80,12 @@ Describe "Services" {
         BeforeAll {
             $script:svcName = "$svcPrefix-get"
             $svcDesc = "PowerNSX Pester Test get service"
+            $script:svcNameUniversal = "$svcPrefix-get-universal"
+            $svcDescUniversal = "PowerNSX Pester Test get universal service"
             $svcPort = 1234
             $svcProto = "TCP"
             $script:get = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort
+            $script:getuniversal = New-NsxService -Name $svcNameUniversal -Description $svcDescUniversal -Universal
 
         }
 
@@ -91,7 +94,6 @@ Describe "Services" {
             $svc = Get-NsxService -Name $svcName
             $svc | should not be $null
             $svc.name | should be $svcName
-
          }
 
         it "Can retreive a service by id" {
@@ -101,6 +103,14 @@ Describe "Services" {
             $svc.objectId | should be $get.objectId
          }
 
+         It "Can retrieve both universal and global Services" {
+         }
+
+         It "Can retrieve universal only Services" {
+         }
+
+         It "Can retrieve local only Services" {
+         }
 
     }
 
@@ -185,6 +195,50 @@ Describe "Services" {
             $id | should match "^application-\d*$"
 
          }
+
+        it "Can create a service with inheritance set" {
+            $svcName = "$svcPrefix-inheritance-1234"
+            $svcDesc = "PowerNSX Pester Test inheritance service"
+            $svcPort = 1234
+            $svcProto = "TCP"
+            $svc = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -EnableInheritance
+            $svc.Name | Should be $svcName
+            $svc.Description | should be $svcDesc
+            $svc.element.value | should be $svcPort
+            $svc.element.applicationProtocol | should be $svcProto
+            $svc.inheritanceAllowed | should be "true"
+            $svc.isUniversal | should be "false"
+            $get = Get-NsxService -Name $svcName
+            $get.name | should be $svc.name
+            $get.description | should be $svc.description
+            $get.element.value | should be $svc.element.value
+            $get.element.protocol | should be $svc.element.protocol
+            $get.inheritanceAllowed | should be "true"
+            $get.isUniversal | should be "false"
+         }
+
+
+        it "Can create a service as universal" {
+            $svcName = "$svcPrefix-universal-1234"
+            $svcDesc = "PowerNSX Pester Test universal service"
+            $svcPort = 1234
+            $svcProto = "TCP"
+            $svc = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -EnableInheritance -universal
+            $svc.Name | Should be $svcName
+            $svc.Description | should be $svcDesc
+            $svc.element.value | should be $svcPort
+            $svc.element.applicationProtocol | should be $svcProto
+            $svc.inheritanceAllowed | should be "false"
+            $svc.isUniversal | should be "true"
+            $get = Get-NsxService -Name $svcName
+            $get.name | should be $svc.name
+            $get.description | should be $svc.description
+            $get.element.value | should be $svc.element.value
+            $get.element.protocol | should be $svc.element.protocol
+            $get.inheritanceAllowed | should be "false"
+            $get.isUniversal | should be "true"
+         }
+
     }
 
     Context "Unsuccessful Service Creation" {
