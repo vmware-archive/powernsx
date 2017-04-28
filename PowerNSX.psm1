@@ -2387,30 +2387,10 @@ Function Validate-FirewallRuleService {
             $true
             break
         }
-        # If an single xml element object has been provide, like from the output
-        # of Get-NsxService HTTP, or Get-NsxServiceGroup Heartbeat then we run
-        # it through validation to stop doing stupid stuff like trying to pass
-        # about logical switch or IP Set through to here.
-        { $argument -is [System.Xml.XmlElement]} {
-            try {
-                Validate-Service -argument $argument
-            }
-            catch {
-                try {
-                    Validate-ServiceGroup -argument $argument
-                }
-                catch {
-                    throw "Invalid Service or Service Group specific"
-                }
-            }
-            $true
-            break
-        }
-        # Alternatively if a collection of objects is return, like that is
-        # returned from Get-NsxService -match "HTTP", this will evaluate each
-        # item in the collection of objects and make sure each one is a valid
-        # service or service group to stop doing stupid stuff (read above)
-        { $argument -is [System.Object]} {
+        # If an single xml element object or a collection of objects have been provide,
+        # then we run it through validation to stop doing stupid stuff like trying to pass
+        # a logical switch or IP Set through to here.
+        { ($argument -is [System.Xml.XmlElement]) -or ($argument -is [System.Object])} {
             foreach ( $item in $argument ) {
                 try {
                     Validate-Service -argument $item
@@ -2420,7 +2400,7 @@ Function Validate-FirewallRuleService {
                         Validate-ServiceGroup -argument $item
                     }
                     catch {
-                        throw "Invalid Service or Service Group specific"
+                        throw "Invalid Service or Service Group specified"
                     }
                 }
             }
