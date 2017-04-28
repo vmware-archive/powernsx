@@ -2365,6 +2365,51 @@ Function Validate-ServiceOrServiceGroup {
     $true
 }
 
+Function Validate-FirewallRuleService {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    switch ($argument) {
+        # Testing to see if a raw protocol/port has been provided.
+        { $argument -is [string]} {
+            # Now we check to see that the protocol provided is valid.
+            if ($argument -match "/") {
+                $exploded = $argument -split "/"
+                if ( -not ($Script:AllValidServices -contains $exploded[0] ) ) {
+                    throw "Invalid protocol specified"
+                }
+            } elseif ( $Script:AllValidServices -notcontains $argument ) {
+                throw "Invalid protocol specified"
+            }
+            $true
+            break
+        }
+        # If an single xml element object or a collection of objects have been provide,
+        # then we run it through validation to stop doing stupid stuff like trying to pass
+        # a logical switch or IP Set through to here.
+        { ($argument -is [System.Xml.XmlElement]) -or ($argument -is [System.Object])} {
+            foreach ( $item in $argument ) {
+                try {
+                    Validate-Service -argument $item
+                }
+                catch {
+                    try {
+                        Validate-ServiceGroup -argument $item
+                    }
+                    catch {
+                        throw "Invalid Service or Service Group specified"
+                    }
+                }
+            }
+            $true
+            break
+        }
+    }
+}
+
 Function Validate-FirewallAppliedTo {
 
     Param (
@@ -22603,6 +22648,50 @@ function New-NsxSourceDestNode {
     $xmlReturn
 }
 
+function New-NsxServiceNode {
+
+    #Internal function - Handles building the apliedto xml node for a given object.
+
+    param (
+
+        [object[]]$itemlist,
+        [System.XML.XMLDocument]$xmlDoc
+
+    )
+
+    [System.XML.XMLElement]$xmlReturn = $XMLDoc.CreateElement("services")
+
+    foreach ($item in $itemlist) {
+        # Check to see if a protocol AND port are specified
+        if ( ($item -is [string]) -and ($item -match "/") ) {
+            $itemSplit = $item -split "/"
+            [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement("service")
+            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "protocolName" -xmlElementText $itemSplit[0].ToUpper()
+            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "destinationPort" -xmlElementText $itemSplit[1]
+            write-debug "$($MyInvocation.MyCommand.Name) : Building service node for $($item)"
+        }
+        # Otherwise we assume its just a Protocol with no port specified
+        elseif ($item -is [string])  {
+            [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement("service")
+            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "protocolName" -xmlElementText $item.ToUpper()
+            write-debug "$($MyInvocation.MyCommand.Name) : Building service node for $($item)"
+        }
+        # or its either an XML object, or a collection of objects (already verified as XML objects through validation script)
+        elseif ( ( $item -is [System.Xml.XmlElement] ) -or ( $item -is [System.Object] ) ) {
+            foreach ( $serviceitem in $item ) {
+                [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement("service")
+                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $serviceItem.objectId
+                $xmlReturn.appendChild($xmlItem) | out-null
+                write-debug "$($MyInvocation.MyCommand.Name) : Building service node for $($item.name)"
+            }
+        }
+
+        $xmlReturn.appendChild($xmlItem) | out-null
+    }
+
+    $xmlReturn
+}
+
 function New-NsxAppliedToListNode {
 
     #Internal function - Handles building the apliedto xml node for a given object.
@@ -23170,8 +23259,8 @@ function New-NsxFirewallRule  {
             [ValidateNotNullOrEmpty()]
             [switch]$NegateDestination,
         [Parameter (Mandatory=$false)]
-            [ValidateScript ({ Validate-ServiceOrServiceGroup $_ })]
-            [System.Xml.XmlElement[]]$Service,
+            [ValidateScript ({ Validate-FirewallRuleService $_ })]
+            [object[]]$Service,
         [Parameter (Mandatory=$false)]
             [string]$Comment="",
         [Parameter (Mandatory=$false)]
@@ -23251,18 +23340,9 @@ function New-NsxFirewallRule  {
         }
 
         #Services
-        if ( $service) {
-            [System.XML.XMLElement]$xmlServices = $XMLDoc.CreateElement("services")
-            #Iterate the services passed and build service nodes.
-            $xmlRule.appendChild($xmlServices) | out-null
-            foreach ( $serviceitem in $service ) {
-
-                #Services
-                [System.XML.XMLElement]$xmlService = $XMLDoc.CreateElement("service")
-                $xmlServices.appendChild($xmlService) | out-null
-                Add-XmlElement -xmlRoot $xmlService -xmlElementName "value" -xmlElementText $serviceItem.objectId
-
-            }
+        if ( $service ) {
+            $xmlservices = New-NsxServiceNode -itemType "service" -itemlist $service -xmlDoc $xmlDoc
+            $xmlRule.appendChild($xmlservices) | out-null
         }
 
         #Applied To
