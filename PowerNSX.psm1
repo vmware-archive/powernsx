@@ -2382,7 +2382,7 @@ Function Validate-FirewallRuleService {
                     throw "Invalid protocol specified"
                 }
             } elseif ( $Script:AllValidServices -notcontains $argument ) {
-                throw "blah blah Invalid protocol specified"
+                throw "Invalid protocol specified"
             }
             $true
             break
