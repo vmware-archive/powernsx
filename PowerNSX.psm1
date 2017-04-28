@@ -20305,7 +20305,15 @@ function New-NsxSecurityTag {
     )
 
     begin {
+        if ( $universal ) {
 
+            if ( -not $connection.version ) {
+                write-warning "Universal security tags are not supported on NSX versions less than 6.3.0 and current NSX version could not be determined."
+            }
+            elseif ( [version]$connection.version -lt [version]"6.3.0") {
+                throw "Universal security tags are not supported on NSX versions less than 6.3.0"
+            }
+        }
     }
     process {
 
@@ -20315,7 +20323,6 @@ function New-NsxSecurityTag {
         [System.XML.XMLElement]$XmlNodes = $Xmldoc.CreateElement("type")
         $xmlDoc.appendChild($xmlRoot) | out-null
         $xmlRoot.appendChild($xmlnodes) | out-null
-
 
         #Mandatory fields
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "objectTypeName" -xmlElementText "SecurityTag"
@@ -20328,9 +20335,6 @@ function New-NsxSecurityTag {
         }
 
         if ($Universal) {
-            #todo: Confert version to double and compare - throw warning on < 6.3 about no support for universal tags.
-            # if ( ($Connection.version -eq $null) -or ( $connection.version -lt 6.2.3)
-            #Create the XML to mark the object as universal
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "isUniversal" -xmlElementText $Universal.toString().ToLower()
         }
 
