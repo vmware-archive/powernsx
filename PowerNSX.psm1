@@ -21398,7 +21398,7 @@ function Remove-NsxIpSetMember  {
         # try to remove the last IP Address from an IP Set resulting in a blank
         # value. But it will allow you to create one with no value set... go figure.
         if ( $ValCollection.count -eq 0 ) {
-            throw "Operation will result in an empty IP Set and the API will throw a wobbly"
+            throw "Operation will result in an empty IP Set and the API will throw a 400 error."
         }
 
         if ( $modified ) {
