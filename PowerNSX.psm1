@@ -21352,7 +21352,6 @@ function Remove-NsxIpSetMember  {
                         write-warning "$Value not a member of IPSet $($ipset.name)"
                     }
                     else {
-                        write-host "valcollection contains $value"
                         $modified = $true
                         $ValCollection.Remove($value)
                         $ValCollection.Remove("$($value)/32")
@@ -21363,7 +21362,6 @@ function Remove-NsxIpSetMember  {
                         write-warning "$Value not a member of IPSet $($ipset.name)"
                     }
                     else {
-                        write-host "valcollection contains $value"
                         $modified = $true
                         $ValCollection.Remove($value)
                         $ValCollection.Remove("$(($value -split "/")[0])")
@@ -21372,24 +21370,11 @@ function Remove-NsxIpSetMember  {
             }
             else {
                 if ( ( -not ( $valcollection -contains $value ) ) ) {
-            # 1.1.1.1 we need to look for both 1.1.1.1 AND 1.1.1.1/32 to remove..
-            if ($value -match "/|-") {
-                if ( -not ( $valcollection -contains $value )) {
                     write-warning "$Value not a member of IPSet $($ipset.name)"
                 }
                 else {
                     $modified = $true
                     $ValCollection.Remove($value)
-                }
-            }
-            else {
-                if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$($value)/32" ) ) ) {
-                    write-warning "$Value not a member of IPSet $($ipset.name)"
-                }
-                else {
-                    $modified = $true
-                    $ValCollection.Remove($value)
-                    $ValCollection.Remove("$($value)/32")
                 }
             }
         }
@@ -21416,7 +21401,6 @@ function Remove-NsxIpSetMember  {
             }
         }
     }
-    end {}
 }
 
 function Remove-NsxIpPool {
