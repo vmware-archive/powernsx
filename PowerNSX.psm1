@@ -21345,7 +21345,6 @@ function Remove-NsxIpSetMember  {
         foreach ( $value in $IPAddress ) {
             # An IPSET allows the users to enter a host as either 1.1.1.1 or
             # 1.1.1.1/32. So if the users specifies that they want to remove
-<<<<<<< HEAD
             # 1.1.1.1 we need to look for both 1.1.1.1 AND 1.1.1.1/32 to remove.
             if ( Validate-IPHost $value ) {
                 if ( $value -as [ipaddress] ) {
@@ -21373,7 +21372,6 @@ function Remove-NsxIpSetMember  {
             }
             else {
                 if ( ( -not ( $valcollection -contains $value ) ) ) {
-=======
             # 1.1.1.1 we need to look for both 1.1.1.1 AND 1.1.1.1/32 to remove..
             if ($value -match "/|-") {
                 if ( -not ( $valcollection -contains $value )) {
@@ -21386,16 +21384,12 @@ function Remove-NsxIpSetMember  {
             }
             else {
                 if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$($value)/32" ) ) ) {
->>>>>>> 89fe6086e995491b669924b93164ba7fe09ac349
                     write-warning "$Value not a member of IPSet $($ipset.name)"
                 }
                 else {
                     $modified = $true
                     $ValCollection.Remove($value)
-<<<<<<< HEAD
-=======
                     $ValCollection.Remove("$($value)/32")
->>>>>>> 89fe6086e995491b669924b93164ba7fe09ac349
                 }
             }
         }
