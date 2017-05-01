@@ -3159,7 +3159,7 @@ function Invoke-InternalWebRequest {
             write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient SendAsync"
 
             $request = new-object System.Net.Http.HttpRequestMessage
-            $request.Method = $method
+            $request.Method = $method.ToUpper()
             $request.RequestUri = $Uri
             $content = $null
             if ( $PSBoundParameters.ContainsKey("Body")) {
@@ -4392,7 +4392,6 @@ function Get-NsxJobStatus {
         [Parameter (Mandatory=$true)]
             [string]$jobId,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
