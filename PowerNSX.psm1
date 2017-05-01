@@ -3121,19 +3121,16 @@ function Invoke-InternalWebRequest {
 
     write-debug "$($MyInvocation.MyCommand.Name) : Method : $method, Content-Type : $ContentType, SkipCertificateCheck : $SkipcertificateCheck"
 
+    ###################
+    # Below removed to fix Issue #215, Remove-NsxCluster (DELETE /2.0/nwfabric/configure) sends a body with a delete.
+    # Unknown at this point if any other NSX APIs require it, but it seems prudent to make the fix generic case for get and delete to support body
+    # and refactor the PowerShell core specific code below that relied on this assumption.
 
-    #Validate method and body
-    if ((($method -eq "get") -or ($method -eq "delete")) -and $PsBoundParameters.ContainsKey('body')) {
-        throw "Cannot specify a body with a $method request."
-    }
-
-    #At least one PowerNSX function (New-NsxSecurityTagAssignment) posts with no body.
-    #This check therefore is of course stupid - there is no need for body to be specified for a put/post.  The above (Get/Delete) though
-    #do not have overloads in the httpclient class that allows a body to be specced, hence the test remains for them...
-
-    # if ((($method -eq "put") -or ($method -eq "post")) -and (-not $PsBoundParameters.ContainsKey('body'))) {
-    #     throw "Cannot specify $method request without a body."
+    # #Validate method and body
+    # if ((($method -eq "get") -or ($method -eq "delete")) -and $PsBoundParameters.ContainsKey('body')) {
+    #     throw "Cannot specify a body with a $method request."
     # }
+    ###################
 
     #For Core, we use the httpclient dotNet classes directly.
     if ( $script:PNsxPSTarget -eq "Core" ) {
@@ -3159,52 +3156,23 @@ function Invoke-InternalWebRequest {
         $UTF8 = new-object System.Text.UTF8Encoding
         try
         {
-            switch ($method) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient SendAsync"
 
-                "get" {
-                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient GetAsync"
-                    $task = $httpClient.GetAsync($Uri)
-                    if (!$task.result) {
-                        throw $task.Exception
-                    }
-                    $response = $task.Result
-                }
-                "put" {
-                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PutAsync"
-                    $content = $null
-                    if ( $PSBoundParameters.ContainsKey("Body")) {
-                        $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
-                        write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
-                    }
-
-                    $task = $httpClient.PutAsync($Uri,$content)
-                    if (!$task.result) {
-                        throw $task.Exception
-                    }
-                    $response = $task.Result
-                }
-                "post" {
-                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient PostAsync"
-                    $content = $null
-                    if ( $PSBoundParameters.ContainsKey("Body")) {
-                        $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
-                        write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
-                    }
-                    $task = $httpClient.PostAsync($Uri,$content)
-                    if (!$task.result) {
-                        throw $task.Exception
-                    }
-                    $response = $task.Result
-                }
-                "delete" {
-                    write-debug "$($MyInvocation.MyCommand.Name) : Calling HTTPClient DeleteAsync"
-                    $task = $httpClient.DeleteAsync($Uri)
-                    if (!$task.result) {
-                        throw $task.Exception
-                    }
-                    $response = $task.Result
-                }
+            $request = new-object System.Net.Http.HttpRequestMessage
+            $request.Method = $method
+            $request.RequestUri = $Uri
+            $content = $null
+            if ( $PSBoundParameters.ContainsKey("Body")) {
+                $content = New-Object System.Net.Http.StringContent($body, $UTF8, $contentType)
+                write-debug "$($MyInvocation.MyCommand.Name) : Content Header $($content.Headers | out-string -stream)"
             }
+            $request.Content = $content
+            $task = $httpClient.SendAsync($request);
+
+            if (!$task.result) {
+                throw $task.Exception
+            }
+            $response = $task.Result
 
             #Generate lookalike webresponseobject - caller is me, so it doesnt need to pass too close an inspection!
             $WebResponse = new-object InternalWebResponse
