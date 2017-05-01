@@ -45,7 +45,13 @@ Describe "SecurityGroups" {
         #Clean up any existing SGs from previous runs...
         get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
 
-
+        #Set flag used in tests we have to tag out for 6.3.0 and above only...
+        if ( [version]$DefaultNsxConnection.Version -ge [version]"6.3.0" )  {
+            $ver_gt_630 = $true
+        }
+        else {
+            $ver_gt_630 = $false
+        }
     }
 
     AfterAll {
@@ -417,7 +423,7 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an ResourcePool member by object" {
+        it "Can add a ResourcePool member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberResPool1
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -441,7 +447,7 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an DVPortGRoup member by object" {
+        it "Can add a DVPortGRoup member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -453,7 +459,7 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an DVPortGRoup member by id" {
+        it "Can add a DVPortGRoup member by id" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1.ExtensionData.MoRef.Value
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -465,7 +471,7 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an Datacenter member by object" {
+        it "Can add a Datacenter member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -477,7 +483,7 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an Datacenter member by id" {
+        it "Can add a Datacenter member by id" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1.ExtensionData.MoRef.Value
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -529,7 +535,7 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an SecurityTag member by id" {
+        it "Can add a SecurityTag member by id" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1.objectId
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -541,7 +547,7 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an MACSet member by object" {
+        it "Can add a MACSet member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -553,7 +559,7 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add an MACSet member by object" {
+        it "Can add a MACSet member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1.objectId
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -566,7 +572,6 @@ Describe "SecurityGroups" {
         }
 
     }
-
 
     Context "SecurityGroup Deletion" {
 
@@ -583,5 +588,52 @@ Describe "SecurityGroups" {
             {Get-nsxsecuritygroup -objectId $delete.objectId} | should throw
         }
 
+    }
+
+    Context "Universal SecurityGroups" {
+
+        BeforeAll {
+            if ( $ver_gt_630 ) {
+                $script:UST = New-NsxSecurityTag -Universal -Name $sgPrefix-sectag-universal -Description "PowerNSX Pester Test Universal SecurityTag"
+            }
+        }
+
+        AfterAll {
+            get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
+            get-nsxsecuritytag | ? { $_.name -match $sgPrefix } | Remove-NsxSecurityTag -Confirm:$false
+        }
+
+        it "Can create a universal SecurityGroup" {
+            $secGrpName = "$sgPrefix-sg-universal"
+            $SecGrpDesc = "PowerNSX Pester Test Universal SecurityGroup"
+            $secGrp = New-nsxsecuritygroup -Name $secGrpName -Description $SecGrpDesc -Universal
+            $secGrp.Name | Should be $secGrpName
+            $secGrp.Description | should be $SecGrpDesc
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+        }
+
+        #6.3.0 and above only...
+        it "Can create a universal SecurityGroup with static universal Security Tag membership (Active-Standby deployment flag)" -skip:(-not $ver_gt_630 ) {
+            $secGrpName = "$sgPrefix-sg-universal-active_standby"
+            $SecGrpDesc = "PowerNSX Pester Test Universal SecurityGroup with Active-Standby flag"
+            $secGrp = New-nsxsecuritygroup -Name $secGrpName -Description $SecGrpDesc -Universal -ActiveStandbyDeployment -IncludeMember $UST
+            $secGrp.Name | Should be $secGrpName
+            $secGrp.Description | should be $SecGrpDesc
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+            $localMembersOnly = $get.extendedAttributes.extendedAttribute | ? { $_.name -eq "localMembersOnly" }
+            $localMembersOnly.value | should be "true"
+            $get.member.name | should be $UST.name
+        }
+
+        #6.3.0 and above only
+        it "Fails to create a universal SecurityGroup with static universal Security Tag membership when Active-Standby deployment flag is not enabled"  -skip:(-not $ver_gt_630 ) {
+            $secGrpName = "$sgPrefix-sg-universal-no-active_standby"
+            $SecGrpDesc = "PowerNSX Pester Test Universal SecurityGroup without Active-Standby flag"
+            {New-nsxsecuritygroup -Name $secGrpName -Description $SecGrpDesc -Universal -IncludeMember $UST} | should throw
+        }
     }
 }
