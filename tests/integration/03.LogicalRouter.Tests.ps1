@@ -287,8 +287,8 @@ Describe "Logical Routing" {
         }
 
         write-warning "Cleaning up universal distributed logical router 2"
-        if ( get-nsxlogicalrouter $uname1 ) {
-            get-nsxlogicalrouter $uname1 | remove-nsxlogicalrouter -confirm:$false
+        if ( get-nsxlogicalrouter $uname2 ) {
+            get-nsxlogicalrouter $uname2 | remove-nsxlogicalrouter -confirm:$false
         }
         start-sleep 5
 
