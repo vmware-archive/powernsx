@@ -22416,6 +22416,22 @@ function New-NsxServiceGroup {
             [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
+            #Scope of object.  For universal object creation, use the -Universal switch.
+            [ValidateScript({
+                if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
+                    $True
+                } else {
+                    Throw "$_ is not a valid scope. Valid options are: globalroot-0 | universalroot-0 | edge-id"
+                }
+            })]
+            [string]$scopeId="globalroot-0",
+        [Parameter (Mandatory=$false)]
+            #Create the Service Group as Universal object.
+            [switch]$Universal=$false,
+        [Parameter (Mandatory=$false)]
+            #Create the Service Group with the inheritance set. Allows the Service Group to be used at a lower scope.
+            [switch]$EnableInheritance=$false,
+        [Parameter (Mandatory=$false)]
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -22437,11 +22453,15 @@ function New-NsxServiceGroup {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
 
+        if ( ( $EnableInheritance ) -and ( -not ( $universal ) ) ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "inheritanceAllowed" -xmlElementText "True"
+        }
+
+        if ( $universal ) { $scopeId = "universalroot-0"}
         $body = $xmlroot.OuterXml
 
-        $method = "POST"
-        $uri = "/api/2.0/services/applicationgroup/globalroot-0"
-        $response = invoke-nsxwebrequest -uri $uri -method $method -body $body -connection $connection
+        $uri = "/api/2.0/services/applicationgroup/$($scopeId.ToLower())"
+        $response = invoke-nsxwebrequest -uri $uri -method "post" -body $body -connection $connection
 
         if ( $ReturnObjectIdOnly) {
             $response.content

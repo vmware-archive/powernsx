@@ -40,6 +40,7 @@ Describe "ServiceGroups" {
 
         #Clean up any existing services from previous runs...
         get-nsxservicegroup | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
+        get-nsxservicegroup -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
 
 
     }
@@ -50,11 +51,12 @@ Describe "ServiceGroups" {
         #We kill the connection to NSX Manager here.
 
         get-nsxservicegroup | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
+        get-nsxservicegroup -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
 
         disconnect-nsxserver
     }
 
-    Context "ServiceGroup retrieval" {
+    Context "Local ServiceGroup retrieval" {
         BeforeAll {
             $script:svcGrpName = "$svcPrefix-get"
             $svcGrpDesc = "PowerNSX Pester Test get serviceGroup"
@@ -80,7 +82,33 @@ Describe "ServiceGroups" {
 
     }
 
-    Context "Successful Service Group Creation" {
+    Context "Universal ServiceGroup retrieval" {
+        BeforeAll {
+            $script:svcGrpName = "$svcPrefix-universal-get"
+            $svcGrpDesc = "PowerNSX Pester Test get universal serviceGroup"
+            $script:get = New-NsxServiceGroup -Name $svcGrpName -Description $svcGrpDesc -universal
+
+        }
+
+        it "Can retreive a universal service group by name" {
+            {Get-NsxServiceGroup -scopeid universalroot-0 -Name $svcGrpName} | should not throw
+            $sg = Get-NsxServiceGroup -scopeid universalroot-0 -Name $svcGrpName
+            $sg | should not be $null
+            $sg.name | should be $svcGrpName
+
+         }
+
+        it "Can retreive a universal service group by id" {
+            {Get-NsxServiceGroup -objectId $get.objectId } | should not throw
+            $sg = Get-NsxServiceGroup -objectId $get.objectId
+            $sg | should not be $null
+            $sg.objectId | should be $get.objectId
+         }
+
+
+    }
+
+    Context "Successful Local Service Group Creation" {
 
         AfterAll {
             get-nsxserviceGroup | ? { $_.name -match $svcPrefix } | remove-nsxserviceGroup -confirm:$false
@@ -88,7 +116,7 @@ Describe "ServiceGroups" {
 
         it "Can create a service group" {
 
-            $svcGrpName = "$svcPrefix-sg"
+            $svcGrpName = "$svcPrefix-sg1"
             $svcDesc = "PowerNSX Pester Test service group"
             $svcgrp = New-NsxServiceGroup -Name $svcGrpName -Description $svcDesc
             $svcgrp.Name | Should be $svcGrpName
@@ -96,7 +124,21 @@ Describe "ServiceGroups" {
             $get = Get-NsxServiceGroup -Name $svcGrpName
             $get.name | should be $svcgrp.name
             $get.description | should be $svcgrp.description
-            $get.element.protocol | should be $svcgrp.element.protocol
+            $get.inheritanceAllowed | should be "false"
+
+        }
+
+        it "Can create a service group with inheritance" {
+
+            $svcGrpName = "$svcPrefix-sg2"
+            $svcDesc = "PowerNSX Pester Test service group with inheritance"
+            $svcgrp = New-NsxServiceGroup -Name $svcGrpName -Description $svcDesc -EnableInheritance
+            $svcgrp.Name | Should be $svcGrpName
+            $svcgrp.Description | should be $svcDesc
+            $get = Get-NsxServiceGroup -Name $svcGrpName
+            $get.name | should be $svcgrp.name
+            $get.description | should be $svcgrp.description
+            $get.inheritanceAllowed | should be "true"
 
         }
 
@@ -109,6 +151,28 @@ Describe "ServiceGroups" {
             $id | should match "^applicationgroup-\d*$"
 
          }
+
+    }
+
+    Context "Successful Universal Service Group Creation" {
+
+        AfterAll {
+            get-nsxserviceGroup -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxserviceGroup -confirm:$false
+        }
+
+        it "Can create a universal service group" {
+
+            $svcGrpName = "$svcPrefix-universal-sg"
+            $svcDesc = "PowerNSX Pester Test universal service group"
+            $svcgrp = New-NsxServiceGroup -Name $svcGrpName -Description $svcDesc -universal
+            $svcgrp.Name | Should be $svcGrpName
+            $svcgrp.Description | should be $svcDesc
+            $get = Get-NsxServiceGroup -scopeid universalroot-0 -Name $svcGrpName
+            $get.name | should be $svcgrp.name
+            $get.description | should be $svcgrp.description
+            $get.inheritanceAllowed | should be "false"
+
+        }
 
     }
 
