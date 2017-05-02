@@ -48,11 +48,11 @@ Describe "Logical Routing" {
         $script:vnics += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic2 -ConnectedTo $lswitches[2] -PrimaryAddress 3.3.3.1 -SubnetPrefixLength 24
 
         $script:uname = "pester_ulr_lr1"
-        $script:ls1_name = "pester_ulr_uls1"
-        $script:ls2_name = "pester_ulr_uls2"
-        $script:ls3_name = "pester_ulr_uls3"
-        $script:ls4_name = "pester_ulr_uls4"
-        $script:ls5_name = "pester_ulr_uls5"
+        $script:uls1_name = "pester_ulr_uls1"
+        $script:uls2_name = "pester_ulr_uls2"
+        $script:uls3_name = "pester_ulr_uls3"
+        $script:uls4_name = "pester_ulr_uls4"
+        $script:uls5_name = "pester_ulr_uls5"
         $utz = get-nsxtransportzone -UniversalOnly | select -first 1
         $script:ulswitches = @()
         $script:ulswitches += $utz | new-nsxlogicalswitch $uls1_name
