@@ -9719,6 +9719,12 @@ function New-NsxLogicalRouter {
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore=$datastore,
+        [Parameter (Mandatory=$false)]
+            #Set to deploy as a universal distributed logical router.
+            [switch]$Universal=$false,
+        [Parameter (Mandatory=$false)]
+            #Create the universal logical router with Local Egress enabled.
+            [switch]$EnableLocalEgress=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -9781,9 +9787,13 @@ function New-NsxLogicalRouter {
 
         }
 
+        if ( ( $EnableLocalEgress ) -and ( $universal ) ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "localEgressEnabled" -xmlElementText "True"
+        }
+
         #Do the post
         $body = $xmlroot.OuterXml
-        $URI = "/api/4.0/edges"
+        $URI = "/api/4.0/edges?isUniversal=$universal"
 
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Logical Router $Name" }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
