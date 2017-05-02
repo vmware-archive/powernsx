@@ -46,11 +46,62 @@ Describe "Logical Routing" {
         $script:vnics += New-NsxLogicalRouterInterfaceSpec -Type uplink -Name vNic0 -ConnectedTo $lswitches[0] -PrimaryAddress 1.1.1.1 -SubnetPrefixLength 24
         $script:vnics += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic1 -ConnectedTo $lswitches[1] -PrimaryAddress 2.2.2.1 -SubnetPrefixLength 24
         $script:vnics += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic2 -ConnectedTo $lswitches[2] -PrimaryAddress 3.3.3.1 -SubnetPrefixLength 24
+
+        $script:uname1 = "pester_ulr1_lr1"
+        $script:uls1_name1 = "pester_ulr1_uls1"
+        $script:uls2_name1 = "pester_ulr1_uls2"
+        $script:uls3_name1 = "pester_ulr1_uls3"
+        $script:uls4_name1 = "pester_ulr1_uls4"
+        $script:uls5_name1 = "pester_ulr1_uls5"
+        $utz = get-nsxtransportzone -UniversalOnly | select -first 1
+        $script:ulswitches1 = @()
+        $script:ulswitches1 += $utz | new-nsxlogicalswitch $uls1_name1
+        $script:ulswitches1 += $utz | new-nsxlogicalswitch $uls2_name1
+        $script:ulswitches1 += $utz | new-nsxlogicalswitch $uls3_name1
+        $script:ulswitches1 += $utz | new-nsxlogicalswitch $uls4_name1
+        $script:ulswitches1 += $utz | new-nsxlogicalswitch $uls5_name1
+        $script:uvnics1 = @()
+        $script:uvnics1 += New-NsxLogicalRouterInterfaceSpec -Type uplink -Name vNic0 -ConnectedTo $ulswitches1[0] -PrimaryAddress 1.1.1.1 -SubnetPrefixLength 24
+        $script:uvnics1 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic1 -ConnectedTo $ulswitches1[1] -PrimaryAddress 2.2.2.1 -SubnetPrefixLength 24
+        $script:uvnics1 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic2 -ConnectedTo $ulswitches1[2] -PrimaryAddress 3.3.3.1 -SubnetPrefixLength 24
+
+        $script:uname2 = "pester_ulr2_lr1"
+        $script:uls1_name2 = "pester_ulr2_uls1"
+        $script:uls2_name2 = "pester_ulr2_uls2"
+        $script:uls3_name2 = "pester_ulr2_uls3"
+        $script:uls4_name2 = "pester_ulr2_uls4"
+        $script:uls5_name2 = "pester_ulr2_uls5"
+        $utz = get-nsxtransportzone -UniversalOnly | select -first 1
+        $script:ulswitches2 = @()
+        $script:ulswitches2 += $utz | new-nsxlogicalswitch $uls1_name2
+        $script:ulswitches2 += $utz | new-nsxlogicalswitch $uls2_name2
+        $script:ulswitches2 += $utz | new-nsxlogicalswitch $uls3_name2
+        $script:ulswitches2 += $utz | new-nsxlogicalswitch $uls4_name2
+        $script:ulswitches2 += $utz | new-nsxlogicalswitch $uls5_name2
+        $script:uvnics2 = @()
+        $script:uvnics2 += New-NsxLogicalRouterInterfaceSpec -Type uplink -Name vNic0 -ConnectedTo $ulswitches2[0] -PrimaryAddress 1.1.1.1 -SubnetPrefixLength 24
+        $script:uvnics2 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic1 -ConnectedTo $ulswitches2[1] -PrimaryAddress 2.2.2.1 -SubnetPrefixLength 24
+        $script:uvnics2 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic2 -ConnectedTo $ulswitches2[2] -PrimaryAddress 3.3.3.1 -SubnetPrefixLength 24
+
     }
 
     it "Can create a logical router" {
         New-NsxLogicalRouter -Name $name -ManagementPortGroup $lswitches[4] -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds
         Get-NsxLogicalRouter $name | should not be $null
+    }
+
+    it "Can create a universal logical router with Local Egress enabled" {
+        $udlr1 = New-NsxLogicalRouter -Name $uname1 -ManagementPortGroup $ulswitches1[4] -Interface $uvnics1[0],$uvnics1[1],$uvnics1[2] -Cluster $cl -Datastore $ds -Universal -EnableLocalEgress
+        $udlr1 | should not be $null
+        $udlr1.isUniversal | should be "true"
+        $udlr1.localEgressEnabled | should be "true"
+    }
+
+    it "Can create a universal logical router with Local Egress disabled" {
+        $udlr2 = New-NsxLogicalRouter -Name $uname2 -ManagementPortGroup $ulswitches2[4] -Interface $uvnics2[0],$uvnics2[1],$uvnics2[2] -Cluster $cl -Datastore $ds -Universal
+        $udlr2 | should not be $null
+        $udlr2.isUniversal | should be "true"
+        $udlr2.localEgressEnabled | should be "false"
     }
 
     Context "Interfaces" {
@@ -215,7 +266,7 @@ Describe "Logical Routing" {
 
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #We kill the connection to NSX Manager here.
-        write-warning "Cleaning up"
+        write-warning "Cleaning up distributed logical router"
         if ( get-nsxlogicalrouter $name ) {
             get-nsxlogicalrouter $name | remove-nsxlogicalrouter -confirm:$false
         }
@@ -224,6 +275,27 @@ Describe "Logical Routing" {
         foreach ( $lswitch in $lswitches) {
             $lswitch | remove-nsxlogicalswitch -confirm:$false
         }
+
+        write-warning "Cleaning up universal distributed logical router 1"
+        if ( get-nsxlogicalrouter $uname1 ) {
+            get-nsxlogicalrouter $uname1 | remove-nsxlogicalrouter -confirm:$false
+        }
+        start-sleep 5
+
+        foreach ( $ulswitch1 in $ulswitches1) {
+            $ulswitch1 | remove-nsxlogicalswitch -confirm:$false
+        }
+
+        write-warning "Cleaning up universal distributed logical router 2"
+        if ( get-nsxlogicalrouter $uname2 ) {
+            get-nsxlogicalrouter $uname2 | remove-nsxlogicalrouter -confirm:$false
+        }
+        start-sleep 5
+
+        foreach ( $ulswitch2 in $ulswitches2) {
+            $ulswitch2 | remove-nsxlogicalswitch -confirm:$false
+        }
+
         disconnect-nsxserver
     }
 }
