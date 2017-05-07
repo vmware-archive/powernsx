@@ -1840,7 +1840,6 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
-        #Busted - applied to bug
         it "Can create an L2 rule with different element types in the source, destination and applied to fields"  {
             $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -Source $testvm1,$testsg1 -destination $testvm1,$testsg1 -action allow -appliedTo $TestSG1,$TestVM1 -tag "Test MultiType" -RuleType layer2sections
             $rule | should not be $null
