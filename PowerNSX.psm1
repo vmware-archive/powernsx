@@ -7467,6 +7467,20 @@ function New-NsxSegmentIdRange {
     The New-NsxSegmentIdRange cmdlet creates a new Segment range on the
     connected NSX manager.
 
+    .EXAMPLE
+    PS C:\> New-NsxSegmentIdRange -Name LocalSegmentRange
+        -Description "VNI Range for local logical switches"
+        -Begin 1000 -End 1999
+
+    Creates a Segment Id Range which is used for logical switches
+
+    .EXAMPLE
+    PS C:\> New-NsxSegmentIdRange -Name LocalSegmentRange
+        -Description "VNI Range for local logical switches"
+        -Begin 77000 -End 77999 -universal
+
+    Creates a Universal Segment Id Range which is used for universal logical switches
+
     #>
 
 
@@ -7484,6 +7498,8 @@ function New-NsxSegmentIdRange {
         [Parameter (Mandatory=$true)]
             [ValidateRange(5000,16777215)]
             [int]$End,
+        [Parameter (Mandatory=$false)]
+            [switch]$Universal=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -7512,7 +7528,7 @@ function New-NsxSegmentIdRange {
 
         # #Do the post
         $body = $xmlRange.OuterXml
-        $URI = "/api/2.0/vdn/config/segments"
+        $URI = "/api/2.0/vdn/config/segments?isUniversal=$($Universal.ToString().ToLower())"
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Creating Segment Id Range" }
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Creating Segment Id Range" -completed }
