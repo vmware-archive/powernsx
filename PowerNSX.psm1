@@ -2231,6 +2231,52 @@ Function Validate-FirewallRuleSourceDest {
      }
 }
 
+Function Validate-FirewallRule {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like a DFW rule
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name id -MemberType Properties )) {
+            throw "Specified firewall rule XML element does not contain an id property."
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) {
+            throw "Specified firewall rule XML element does not contain a name property."
+        }
+        if ( -not ( $argument | get-member -name tag -Membertype Properties)) {
+            throw "Specified firewall rule XML element does not contain a tag property."
+        }
+        if ( -not ( $argument | get-member -name appliedToList -Membertype Properties)) {
+            throw "Specified firewall rule XML element does not contain an appliedToList property."
+        }
+
+        $true
+    }
+    else {
+        throw "Argument must be a firewall rule XML element as returned by Get-NsxFirewallRule"
+    }
+}
+
+Function Validate-FirewallRuleMember {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Same requirements for Firewall Rule SourceDest except for string match on name as well.
+    If ( $argument -is [string] ) {
+        $True
+    }
+    else {
+        Validate-FirewallRuleSourceDest -argument $argument
+    }
+}
+
 Function Validate-ServiceGroup {
 
     Param (
@@ -23916,6 +23962,141 @@ function Set-NsxFirewallThreshold {
 
         Get-NsxFirewallThreshold
     }
+    end {}
+}
+
+function Get-NsxFirewallRuleMember {
+
+    <#
+    .SYNOPSIS
+    Retrieves the specified members from specified NSX Distributed Firewall
+    Rule.
+
+    .DESCRIPTION
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
+
+    This cmdlet accepts a firewall rule object returned from Get-NsxFirewallRule
+    and returns the the specified source and/or destination members of the rule.
+
+    Its primary use is to provide a source object for the
+    Remove-NsxFirewallRuleMember cmdlet.
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # DFW rule as returned by Get-NsxFirewallRule / New-NsxFirewallRule
+            [ValidateScript({ Validate-FirewallRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$false, Position=1)]
+            # Member(s) to return.  Can specify as a string or VI / NSX Object (VM, Logical Switch etc)).  String match is processed as regex (eg: web\d{2} is supported)
+            [ValidateScript({ Validate-FirewallRuleMember $_ })]
+            [object[]]$Member=".*",
+        [Parameter (Mandatory=$false)]
+            # MemberType to return.  Source, Destination or All (Default)
+            [ValidateSet("Source","Destination", "All")]
+            [string]$MemberType="All"
+    )
+
+    begin {}
+
+    process {
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Rule $($FirewallRule.id)"
+        foreach ( $_Member in $Member ) {
+            if ( $_Member -is [string] ) {
+                if ( $Membertype -match "Source|All" ) {
+                    foreach ($source in $FirewallRule.Sources.Source ) {
+                        #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.  Sigh... why is our API so f*@#$&n inconsistent...
+                        if ( $source.type -match "ipv4Address|ipv6Address"  ) {
+                            if ( $source.value -match $_Member ) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $null; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                            }
+                        }
+                        elseif ( $source.name -match $_Member ) {
+                            [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                        }
+                    }
+                }
+                if ( $Membertype -match "Destination|All" ) {
+                    foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                        #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.
+                        if ( $destination.type -match "ipv4Address|ipv6Address"  ) {
+                            if ( $destination.value -match $_Member ) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $null; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                            }
+                        }
+                        elseif ( $Destination.name -match $_Member ) {
+                            [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                        }
+                    }
+                }
+            }
+            elseif ( $_Member -is [system.xml.xmlelement] ) {
+                #XML representation of NSX object passed - ipset, sec group or logical switch.  match on value (objectId)
+                if ( $Membertype -match "Source|All" ) {
+                    foreach ($source in $FirewallRule.Sources.Source ) {
+                        #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
+                        if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.objectId )) {
+                            [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                        }
+                    }
+                }
+                if ( $Membertype -match "Destination|All" ) {
+                    foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                        #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
+                        if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.objectId )) {
+                            [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                        }
+                    }
+                }
+            }
+            else {
+                #Proper PowerCLI Object passed
+                if (  $_Member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+                    #If passed object is a NIC, its easiest to match on name.
+                    $NicName = "$($_Member.parent.name) - $($Member.name)"
+                    if ( $Membertype -match "Source|All" ) {
+                        foreach ($source in $FirewallRule.Sources.Source ) {
+                            if (( $source.type -match "Vnic"  ) -and ( $source.name -match $NicName )) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                            }
+                        }
+                    }
+                    if ( $Membertype -match "Destination|All" ) {
+                        foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                            if (( $destination.type -match "Vnic"  ) -and ( $destination.name -match $NicName )) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                            }
+                        }
+                    }
+                }
+                else {
+                    #any other accepted PowerCLI object, we just need to grab details from the moref.
+                    if ( $Membertype -match "Source|All" ) {
+                        foreach ($source in $FirewallRule.Sources.Source ) {
+                           if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.extensiondata.moref.value )) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                            }
+                        }
+                    }
+                    if ( $Membertype -match "Destination|All" ) {
+                        foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                           if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.extensiondata.moref.value )) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     end {}
 }
 
