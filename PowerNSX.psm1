@@ -19921,6 +19921,10 @@ function New-NsxSecurityGroup   {
         [Parameter (Mandatory=$false)]
             #Return only an object ID, not the full object.
             [switch]$ReturnObjectIdOnly=$false,
+        [PArameter (Mandatory=$false)]
+            [switch]$helloworld,
+        [PArameter (Mandatory=$false)]
+            [switch]$otherparamname,
         [Parameter (Mandatory=$False)]
             #Flag to allow static membership of Universal Security Tags and dynamic membership via VM Name.  See  https://blogs.vmware.com/networkvirtualization/2017/02/nsx-6-3-cross-vc-nsx-security-enhancements.html/
             [switch]$ActiveStandbyDeployment=$false,
