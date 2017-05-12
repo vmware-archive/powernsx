@@ -341,7 +341,7 @@ if ( $deploy3ta -and ( -not $buildnsx)) {
 }
 
 
-#PowerCLI 6 is requried due to OvfConfiguration commands.
+#PowerCLI 6 is required due to OvfConfiguration commands.
 [int]$PowerCliMajorVersion = (Get-PowerCliVersion).major
 if ( -not ($PowerCliMajorVersion -ge 6 ) ) { throw "OVF deployment tools requires PowerCLI version 6 or above" }
 
@@ -591,7 +591,7 @@ if ( $deploy3ta ) {
     #####################################
     # Load LoadBalancer
 
-    # Enanble Loadbalancing on $edgeName
+    # Enable Loadbalancing on $edgeName
     write-host -foregroundcolor "Green" "Enabling LoadBalancing on $EdgeName"
     Get-NsxEdge $EdgeName | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled | out-null
 
