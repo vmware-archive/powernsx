@@ -1,4 +1,4 @@
-e########################################
+########################################
 # Simple NSX environment standup script.
 # Nick Bradford
 # Nbradford@vmware.com
