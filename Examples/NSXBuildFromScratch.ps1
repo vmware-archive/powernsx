@@ -585,8 +585,8 @@ if ( $deploy3ta ) {
     write-host -foregroundcolor "Green" "Creating Edge"
     $Edge1 = New-NsxEdge -name $EdgeName -cluster $EdgeCluster -datastore $EdgeDataStore -Interface $edgevnic0, $edgevnic1 -Password $AppliancePassword -FwDefaultPolicyAllow
 
-	##Configure Edge DGW
-	Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
+    ##Configure Edge DGW
+    Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
 
     #####################################
     # Load LoadBalancer
