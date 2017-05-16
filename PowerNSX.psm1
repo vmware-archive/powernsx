@@ -21279,6 +21279,7 @@ function Add-NsxIpSetMember  {
         foreach ( $value in $IPAddress ) {
 
             if ( $_ipset.value -eq "" ) {
+                $modified = $true
                 $_ipset.value = $value
             }
             else {
