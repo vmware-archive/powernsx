@@ -21275,29 +21275,36 @@ function Add-NsxIpSetMember  {
             Add-XmlElement -xmlRoot $_ipset -xmlElementName "value" -xmlElementText ""
         }
 
+        $modified = $false
         foreach ( $value in $IPAddress ) {
 
             if ( $_ipset.value -eq "" ) {
+                $modified = $true
                 $_ipset.value = $value
             }
             else {
                 if ( $_ipset.value -split "," -contains $value ) {
-                    throw "Value $value is already a member of the IPSet $($ipset.name)"
+                    write-warning "Value $value is already a member of the IPSet $($ipset.name)"
                 }
-                $_ipset.value += "," + $value
+                else {
+                    $modified = $true
+                    $_ipset.value += "," + $value
+                }
             }
         }
 
-        #Do the post
-        $body = $_ipset.OuterXml
-        $URI = "/api/2.0/services/ipset/$($_ipset.objectId)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        try {
-            [system.xml.xmldocument]$ipsetdoc = $response.content
-            $ipsetdoc.ipset
-        }
-        catch {
-            throw "Unable to interpret response content from NSX API as XML.  Response: $response"
+        if ( $modified ) {
+            #Do the post
+            $body = $_ipset.OuterXml
+            $URI = "/api/2.0/services/ipset/$($_ipset.objectId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            try {
+                [system.xml.xmldocument]$ipsetdoc = $response.content
+                $ipsetdoc.ipset
+            }
+            catch {
+                throw "Unable to interpret response content from NSX API as XML.  Response: $response"
+            }
         }
     }
     end {}

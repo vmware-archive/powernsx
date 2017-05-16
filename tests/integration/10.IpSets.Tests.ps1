@@ -227,7 +227,7 @@ Describe "IPSets" {
             $IpAddress = "1.2.3.4"
             $ipset = $modify | Add-NsxIpSetMember -IpAddress $IpAddress
             $ipset.value | should be $IpAddress
-            {$ipset | Add-NsxIpSetMember -IpAddress $IpAddress} | should throw
+            {$ipset | Add-NsxIpSetMember -IpAddress $IpAddress} | should not throw
         }
 
         it "Can add a new range to an ip set" {
@@ -249,6 +249,20 @@ Describe "IPSets" {
             $ipset.value -split "," -contains $ipAddress1 | should be $true
             $ipset.value -split "," -contains $ipAddress2 | should be $true
         }
+
+       it "Can detect adding a value to an ip set that already exists" {
+            $IpAddress1 = "1.2.3.4"
+            $IpAddress2 = "4.3.2.1"
+            $IpAddress3 = "5.6.7.8"
+            $IpAddress4 = "9.8.7.6"
+            $ipset = $modify | Add-NsxIpSetMember -IpAddress $IpAddress1,$ipaddress2
+            $ipset1 = $ipset | Add-NsxIpSetMember -IpAddress $IpAddress3,$ipaddress2,$IpAddress4
+            $ipset1.value -split "," -contains $ipAddress1 | should be $true
+            $ipset1.value -split "," -contains $ipAddress2 | should be $true
+            $ipset1.value -split "," -contains $IpAddress3 | should be $true
+            $ipset1.value -split "," -contains $IpAddress4 | should be $true
+        }
+
     }
     Context "IpSet Modification - Removal" {
 
