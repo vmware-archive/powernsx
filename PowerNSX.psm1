@@ -2244,11 +2244,9 @@ Function Validate-FirewallRule {
         if ( -not ( $argument | get-member -name id -MemberType Properties )) {
             throw "Specified firewall rule XML element does not contain an id property."
         }
-        if ( -not ( $argument | get-member -name name -Membertype Properties)) {
-            throw "Specified firewall rule XML element does not contain a name property."
-        }
-        if ( -not ( $argument | get-member -name tag -Membertype Properties)) {
-            throw "Specified firewall rule XML element does not contain a tag property."
+
+        if ( -not ( $argument | get-member -name action -Membertype Properties)) {
+            throw "Specified firewall rule XML element does not contain an action property."
         }
         if ( -not ( $argument | get-member -name appliedToList -Membertype Properties)) {
             throw "Specified firewall rule XML element does not contain an appliedToList property."
@@ -23506,7 +23504,6 @@ function New-NsxFirewallRule  {
 }
 
 
-
 function Remove-NsxFirewallRule {
 
     <#
@@ -23978,7 +23975,7 @@ function Get-NsxFirewallRuleMember {
     portgroup or logical switch.
 
     This cmdlet accepts a firewall rule object returned from Get-NsxFirewallRule
-    and returns the the specified source and/or destination members of the rule.
+    and returns the specified source and/or destination members of the rule.
 
     Its primary use is to provide a source object for the
     Remove-NsxFirewallRuleMember cmdlet.
@@ -24011,28 +24008,32 @@ function Get-NsxFirewallRuleMember {
         foreach ( $_Member in $Member ) {
             if ( $_Member -is [string] ) {
                 if ( $Membertype -match "Source|All" ) {
-                    foreach ($source in $FirewallRule.Sources.Source ) {
-                        #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.  Sigh... why is our API so f*@#$&n inconsistent...
-                        if ( $source.type -match "ipv4Address|ipv6Address"  ) {
-                            if ( $source.value -match $_Member ) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $null; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                    if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
+                        foreach ($source in $FirewallRule.Sources.Source ) {
+                            #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.  Sigh... why is our API so f*@#$&n inconsistent...
+                            if ( $source.type -match "ipv4Address|ipv6Address"  ) {
+                                if ( $source.value -match $_Member ) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $null; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                }
                             }
-                        }
-                        elseif ( $source.name -match $_Member ) {
-                            [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                            elseif ( $source.name -match $_Member ) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                            }
                         }
                     }
                 }
                 if ( $Membertype -match "Destination|All" ) {
-                    foreach ($destination in $FirewallRule.Destinations.Destination ) {
-                        #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.
-                        if ( $destination.type -match "ipv4Address|ipv6Address"  ) {
-                            if ( $destination.value -match $_Member ) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $null; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                    if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
+                        foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                            #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.
+                            if ( $destination.type -match "ipv4Address|ipv6Address"  ) {
+                                if ( $destination.value -match $_Member ) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $null; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                                }
                             }
-                        }
-                        elseif ( $Destination.name -match $_Member ) {
-                            [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                            elseif ( $Destination.name -match $_Member ) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                            }
                         }
                     }
                 }
@@ -24040,18 +24041,22 @@ function Get-NsxFirewallRuleMember {
             elseif ( $_Member -is [system.xml.xmlelement] ) {
                 #XML representation of NSX object passed - ipset, sec group or logical switch.  match on value (objectId)
                 if ( $Membertype -match "Source|All" ) {
-                    foreach ($source in $FirewallRule.Sources.Source ) {
-                        #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
-                        if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.objectId )) {
-                            [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                    if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
+                        foreach ($source in $FirewallRule.Sources.Source ) {
+                            #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
+                            if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.objectId )) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                            }
                         }
                     }
                 }
                 if ( $Membertype -match "Destination|All" ) {
-                    foreach ($destination in $FirewallRule.Destinations.Destination ) {
-                        #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
-                        if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.objectId )) {
-                            [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                    if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
+                        foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                            #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
+                            if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.objectId )) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                            }
                         }
                     }
                 }
@@ -24062,16 +24067,20 @@ function Get-NsxFirewallRuleMember {
                     #If passed object is a NIC, its easiest to match on name.
                     $NicName = "$($_Member.parent.name) - $($Member.name)"
                     if ( $Membertype -match "Source|All" ) {
-                        foreach ($source in $FirewallRule.Sources.Source ) {
-                            if (( $source.type -match "Vnic"  ) -and ( $source.name -match $NicName )) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                        if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
+                            foreach ($source in $FirewallRule.Sources.Source ) {
+                                if (( $source.type -match "Vnic"  ) -and ( $source.name -match $NicName )) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                }
                             }
                         }
                     }
                     if ( $Membertype -match "Destination|All" ) {
-                        foreach ($destination in $FirewallRule.Destinations.Destination ) {
-                            if (( $destination.type -match "Vnic"  ) -and ( $destination.name -match $NicName )) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                        if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
+                            foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                                if (( $destination.type -match "Vnic"  ) -and ( $destination.name -match $NicName )) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                                }
                             }
                         }
                     }
@@ -24079,16 +24088,20 @@ function Get-NsxFirewallRuleMember {
                 else {
                     #any other accepted PowerCLI object, we just need to grab details from the moref.
                     if ( $Membertype -match "Source|All" ) {
-                        foreach ($source in $FirewallRule.Sources.Source ) {
-                           if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.extensiondata.moref.value )) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                        if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
+                            foreach ($source in $FirewallRule.Sources.Source ) {
+                            if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.extensiondata.moref.value )) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                }
                             }
                         }
                     }
                     if ( $Membertype -match "Destination|All" ) {
-                        foreach ($destination in $FirewallRule.Destinations.Destination ) {
-                           if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.extensiondata.moref.value )) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                        if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
+                            foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                            if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.extensiondata.moref.value )) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                                }
                             }
                         }
                     }
@@ -24099,6 +24112,8 @@ function Get-NsxFirewallRuleMember {
 
     end {}
 }
+
+
 
 
 ########
