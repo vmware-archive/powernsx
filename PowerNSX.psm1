@@ -23335,67 +23335,86 @@ function New-NsxFirewallRule  {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Section")]
+            # Section in which the new rule should be created
             [ValidateNotNull()]
             [System.Xml.XmlElement]$Section,
         [Parameter (Mandatory=$true)]
+            # Name of the new rule
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true)]
+            # Action of the rule - allow, deny or reject.
             [ValidateSet("allow","deny","reject")]
             [string]$Action,
         [Parameter (Mandatory=$false)]
+            # Direction of traffic to hit the rule - in, out or inout (Default inout)
             [ValidateSet("inout","in","out")]
             [string]$Direction="inout",
         [Parameter (Mandatory=$false)]
+            # Source(s) of traffic to hit the rule.  IP4/6 members are specified as string, any other member as the appropriate VI or PowerNSX object.
             [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
             [object[]]$Source,
         [Parameter (Mandatory=$false)]
+            # Negate the list of sources hit by the rule
             [ValidateNotNullOrEmpty()]
             [switch]$NegateSource,
         [Parameter (Mandatory=$false)]
+            # Destination(s) of traffic to hit the rule.  IP4/6 members are specified as string, any other member as the appropriate VI or PowerNSX object.
             [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
             [object[]]$Destination,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [switch]$NegateDestination,
         [Parameter (Mandatory=$false)]
+            # Negate the list of destinations hit by the rule
             [ValidateScript ({ Validate-FirewallRuleService $_ })]
             [object[]]$Service,
         [Parameter (Mandatory=$false)]
+            # Comment string for the new rule
             [string]$Comment="",
         [Parameter (Mandatory=$false)]
+            # Rule is created as disabled
             [switch]$Disabled,
         [Parameter (Mandatory=$false)]
+            # Rule logging is enabled
             [switch]$EnableLogging,
         [Parameter (Mandatory=$false)]
+            # Specific Object(s) to which the rule will be applied.
             [ValidateScript({ Validate-FirewallAppliedTo $_ })]
             [object[]]$AppliedTo,
         [Parameter (Mandatory=$false)]
+            # Enable application of the rule to 'DISTRIBUTED_FIREWALL' (ie, to all VNICs present on NSX prepared hypervisors.  This does NOT include NSX Edges)
             [switch]$ApplyToDfw=$true,
         [Parameter (Mandatory=$false)]
+            # Enable application of the rule to all NSX edges
             [switch]$ApplyToAllEdges=$false,
         [Parameter (Mandatory=$false)]
+            # Rule type
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$false)]
+            # Create the new rule at the specified position of the section (Top or Bottom, Default - Top)
             [ValidateSet("Top","Bottom")]
             [string]$Position="Top",
         [Parameter (Mandatory=$false)]
+            # Tag to be configured on the new rule.  Tag is an arbitrary string attached to the rule that does not affect application of the rule, but is included in logged output of rule hits if logging is enabled for the rule.
             [ValidateNotNullorEmpty()]
             [string]$Tag,
         [Parameter (Mandatory=$false)]
+            # Scope of the created rule.
             [string]$ScopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
-            #Specifies that New-NsxFirewall rule will return the actual rule that was created rather than the deprecated behaviour of returning the complete containing section
-            #This option exists to allow existing scripts that use this function to be easily updated to set it to $false and continue working (For now!).
-            #This option is deprecated and will be removed in a future version.
+            # Specifies that New-NsxFirewall rule will return the actual rule that was created rather than the deprecated behaviour of returning the complete containing section
+            # This option exists to allow existing scripts that use this function to be easily updated to set it to $false and continue working (For now!).
+            # This option is deprecated and will be removed in a future version.
             [switch]$ReturnRule=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
+            # PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
+    # Todo: Review need to specify rule type in param - should be able to determine from section type that is mandatory...?
     begin {}
     process {
 
@@ -24113,7 +24132,50 @@ function Get-NsxFirewallRuleMember {
     end {}
 }
 
+function Add-NsxFirewallRuleMember {
 
+    <#
+    .SYNOPSIS
+    Adds a new source or destination member to the specified NSX Distributed
+    Firewall Rule.
+
+    .DESCRIPTION
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
+
+    This cmdlet accepts a firewall rule object returned from Get-NsxFirewallRule
+    and adds the specified source and/or destination members to the rule.
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # DFW rule as returned by Get-NsxFirewallRule / New-NsxFirewallRule
+            [ValidateScript({ Validate-FirewallRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$True, Position=1)]
+            # Member(s) to add.  specify ipv4/6 addresses as a string or other member types as VI / NSX Object (VM, Logical Switch etc)).
+            [ValidateScript({ Validate-FirewallRuleMember $_ })]
+            [object[]]$Member,
+        [Parameter (Mandatory=$true)]
+            # MemberType to add.  Source, Destination or Both
+            [ValidateSet("Source","Destination", "Both")]
+            [string]$MemberType
+    )
+
+    begin {}
+
+    process {
+
+
+    }
+
+    end {}
+}
 
 
 ########
