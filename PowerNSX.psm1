@@ -22664,88 +22664,97 @@ function Get-NsxApplicableMember {
 
 ###Private functions
 
-function New-NsxSourceDestNode {
+function Add-NsxSourceDestMember {
 
     #Internal function - Handles building the source/dest xml node for a given object.
-
+    # Updates NB 05/17 -> Modified for Add-NSxFirewallRuleMember cmdlet use.
+    #   - Accepts rule (rather than doc) object now
+    #   - Returns modified rule, rather than just the source/dest node.
+    #   - Renamed to reflect 'member' terminology
+    #   - Removed negation logic (moved back to new-rule due to logic not being applicable to individual member instances, function to be duplicated in set-rule cmdlet to allow flipping of negation (and other functions))
     param (
 
         [Parameter (Mandatory=$true)]
-        [ValidateSet ("source","destination")]
-        [string]$itemType,
-        [object[]]$itemlist,
-        [System.XML.XMLDocument]$xmlDoc,
-        [switch]$negateItem
-
+        [ValidateSet ("source","destination",IgnoreCase=$false)]
+        [string]$membertype,
+        [object[]]$memberlist,
+        [System.Xml.XmlElement]$rule
     )
 
-    #The excluded attribute indicates source/dest negation
-    $xmlAttrNegated = $xmlDoc.createAttribute("excluded")
-    if ( $negateItem ) {
-        $xmlAttrNegated.value = "true"
-    } else {
-        $xmlAttrNegated.value = "false"
-    }
+    # Get Doc object from passed rule
+    $xmlDoc = $rule.OwnerDocument
 
-    #Create return element and append negation attribute.
-    if ( $itemType -eq "Source" ) { [System.XML.XMLElement]$xmlReturn = $XMLDoc.CreateElement("sources") }
-    if ( $itemType -eq "Destination" ) { [System.XML.XMLElement]$xmlReturn = $XMLDoc.CreateElement("destinations") }
-    $xmlReturn.Attributes.Append($xmlAttrNegated) | out-null
-
-    foreach ($item in $itemlist) {
-        if ( ( $item -as [ipaddress]) -or ( Validate-IPRange -argument $item ) -or ( Validate-IPPrefix -argument $item ) ) {
-            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $item"
+    #Create/Get SrcDestNode parent element.
+    if ( $membertype -eq "Source" ) {
+        if ( Invoke-XPathQuery -Query "child::sources" -QueryMethod SelectSingleNode -Node $rule ) {
+            [System.Xml.XmlElement]$xmlSrcDestNode = $rule.sources
         }
         else {
-            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $($item.name)"
+            [System.XML.XMLElement]$xmlSrcDestNode = $XMLDoc.CreateElement("sources")
+            $rule.AppendChild($xmlSrcDestNode) | out-null
         }
-        #Build the return XML element
-        [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement($itemType)
+    }
+    if ( $membertype -eq "Destination" ) {
+        if ( Invoke-XPathQuery -Query "child::destinations" -QueryMethod SelectSingleNode -Node $rule ) {
+            [System.Xml.XmlElement]$xmlSrcDestNode = $rule.destinations
+        }
+        else {
+            [System.XML.XMLElement]$xmlSrcDestNode = $XMLDoc.CreateElement("destinations")
+            $rule.AppendChild($xmlSrcDestNode) | out-null
+        }
+    }
 
-        if ( ( $item -as [ipaddress]) -or ( Validate-IPRange -argument $item ) -or ( Validate-IPPrefix -argument $item ) ) {
+    #Loop the memberlist and create appropriate element in the srcdest node.
+    foreach ($member in $memberlist) {
+        if ( ( $member -as [ipaddress]) -or ( Validate-IPRange -argument $member ) -or ( Validate-IPPrefix -argument $member ) ) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $member"
+        }
+        else {
+            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $($member.name)"
+        }
+        #Build the return XML element and append to our srcdestnode
+        [System.XML.XMLElement]$xmlMember = $XMLDoc.CreateElement($memberType)
+        $xmlSrcDestNode.appendChild($xmlMember) | out-null
+
+        if ( ( $member -as [ipaddress]) -or ( Validate-IPRange -argument $member ) -or ( Validate-IPPrefix -argument $member ) ) {
             #Item is v4 or 6 address
-            write-debug "$($MyInvocation.MyCommand.Name) : Object $item is an ipaddress"
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Ipv4Address"
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $member is an ipaddress"
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $member
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "type" -xmlElementText "Ipv4Address"
         }
-        elseif ( $item -is [system.xml.xmlelement] ) {
+        elseif ( $member -is [system.xml.xmlelement] ) {
 
-            write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as xml element"
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $($member.name) is specified as xml element"
             #XML representation of NSX object passed - ipset, sec group or logical switch
             #get appropritate name, value.
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.objectTypeName
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $member.objectId
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $member.name
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "type" -xmlElementText $member.objectTypeName
 
         } else {
 
-            write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $($member.name) is specified as supported powercli object"
             #Proper PowerCLI Object passed
             #If passed object is a NIC, we have to do some more digging
-            if (  $item -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+            if (  $member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
 
-                write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
+                write-debug "$($MyInvocation.MyCommand.Name) : Object $($member.name) is vNic"
                 #Naming based on DFW UI standard
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText "$($member.parent.name) - $($member.name)"
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "type" -xmlElementText "Vnic"
 
-                $vmUuid = ($item.parent | get-view).config.instanceuuid
-                $MemberMoref = "$vmUuid.$($item.id.substring($item.id.length-3))"
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $MemberMoref
+                $vmUuid = ($member.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($member.id.substring($member.id.length-3))"
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $MemberMoref
             }
             else {
                 #any other accepted PowerCLI object, we just need to grab details from the moref.
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.extensiondata.moref.type
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.extensiondata.moref.value
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $member.name
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "type" -xmlElementText $member.extensiondata.moref.type
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $member.extensiondata.moref.value
             }
         }
-
-
-        $xmlReturn.appendChild($xmlItem) | out-null
     }
-
-    $xmlReturn
 }
 
 function New-NsxServiceNode {
@@ -23448,14 +23457,20 @@ function New-NsxFirewallRule  {
 
         #Build Sources Node
         if ( $source ) {
-            $xmlSources = New-NsxSourceDestNode -itemType "source" -itemlist $source -xmlDoc $xmlDoc -negateItem:$negateSource
-            $xmlRule.appendChild($xmlSources) | out-null
+            Add-NsxSourceDestMember -membertype "source" -memberlist $source -rule $xmlRule
+            #The excluded attribute indicates negation
+            $xmlSrcNegated = $xmlDoc.createAttribute("excluded")
+            $xmlSrcNegated.value = $NegateSource.ToString().ToLower()
+            $xmlRule.Sources.Attributes.Append($xmlSrcNegated) | out-null
         }
 
         #Destinations Node
         if ( $destination ) {
-            $xmlDestinations = New-NsxSourceDestNode -itemType "destination" -itemlist $destination -xmlDoc $xmlDoc -negateItem:$negateDestination
-            $xmlRule.appendChild($xmlDestinations) | out-null
+            Add-NsxSourceDestMember -membertype "destination" -memberlist $destination -rule $xmlRule -negateItem:$negateDestination
+            #The excluded attribute indicates negation
+            $xmlDestNegated = $xmlDoc.createAttribute("excluded")
+            $xmlDestNegated.value = $NegateDestination.ToString().ToLower()
+            $xmlRule.Destiantions.Attributes.Append($xmlDestNegated) | out-null
         }
 
         #Services
