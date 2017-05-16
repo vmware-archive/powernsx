@@ -23470,7 +23470,7 @@ function New-NsxFirewallRule  {
             #The excluded attribute indicates negation
             $xmlDestNegated = $xmlDoc.createAttribute("excluded")
             $xmlDestNegated.value = $NegateDestination.ToString().ToLower()
-            $xmlRule.Destiantions.Attributes.Append($xmlDestNegated) | out-null
+            $xmlRule.Destinations.Attributes.Append($xmlDestNegated) | out-null
         }
 
         #Services
@@ -23494,7 +23494,6 @@ function New-NsxFirewallRule  {
             Add-XmlElement -xmlRoot $xmlRule -xmlElementName "tag" -xmlElementText $tag
         }
 
-
         #GetThe existing rule Ids and store them - we check for a rule that isnt contained here in the response so we can presnet back to user with rule id
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Section -Query "child::rule") )  {
             $ExistingIds = @($Section.rule.id)
@@ -23503,20 +23502,17 @@ function New-NsxFirewallRule  {
             $ExistingIds = @()
         }
 
-
         #Append the new rule to the section
         $xmlrule = $Section.ownerDocument.ImportNode($xmlRule, $true)
         switch ($Position) {
             "Top" { $Section.prependchild($xmlRule) | Out-Null }
             "Bottom" { $Section.appendchild($xmlRule) | Out-Null }
-
         }
         #Do the post
         $body = $Section.OuterXml
         $URI = "/api/4.0/firewall/$scopeId/config/$ruletype/$($section.Id)"
 
         #Need the IfMatch header to specify the current section generation id
-
         $IfMatchHeader = @{"If-Match"=$generationNumber}
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -extraheader $IfMatchHeader -connection $connection
 
