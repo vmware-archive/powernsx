@@ -2252,6 +2252,16 @@ Function Validate-FirewallRule {
             throw "Specified firewall rule XML element does not contain an appliedToList property."
         }
 
+        #Validate that the rule has a parent node that we can use to update it if required.
+        try {
+            $ParentSection = invoke-xpathquery -query "parent::section" -QueryMethod SelectSingleNode -Node $argument
+            $sectionId = $Parentsection.HasAttribute("id") -as [int]
+            $RuleId = $argument.HasAttribute("id")
+        }
+        catch {
+            Throw "Unable to retrieve rule and section details from the specified Firewall Rule.  Specify a valid rule and try again."
+        }
+
         $true
     }
     else {
@@ -22664,6 +22674,26 @@ function Get-NsxApplicableMember {
 
 ###Private functions
 
+function Add-NsxSourceDestNode {
+
+    param (
+        [system.xml.xmlelement]$Rule,
+        [ValidateSet ("sources","destinations",IgnoreCase=$false)]
+        [string]$NodeType,
+        [switch]$negated
+    )
+
+    #Create the parent sources element
+    $XmlDoc = $Rule.OwnerDocument
+    [System.XML.XMLElement]$xmlNode = $XMLDoc.CreateElement($NodeType)
+    $Rule.AppendChild($xmlNode) | out-null
+
+    #The excluded attribute indicates negation
+    $xmlNegated = $xmlDoc.createAttribute("excluded")
+    $xmlNode.Attributes.Append($xmlNegated) | out-null
+    $xmlNegated.value = $Negated.ToString().ToLower()
+}
+
 function Add-NsxSourceDestMember {
 
     #Internal function - Handles building the source/dest xml node for a given object.
@@ -22684,24 +22714,12 @@ function Add-NsxSourceDestMember {
     # Get Doc object from passed rule
     $xmlDoc = $rule.OwnerDocument
 
-    #Create/Get SrcDestNode parent element.
+    # Get SrcDestNode parent element.  Have to use xpath here as the elem may be empty and powershell unhelpfully turns that into a string for us :|
     if ( $membertype -eq "Source" ) {
-        if ( Invoke-XPathQuery -Query "child::sources" -QueryMethod SelectSingleNode -Node $rule ) {
-            [System.Xml.XmlElement]$xmlSrcDestNode = $rule.sources
-        }
-        else {
-            [System.XML.XMLElement]$xmlSrcDestNode = $XMLDoc.CreateElement("sources")
-            $rule.AppendChild($xmlSrcDestNode) | out-null
-        }
+        [System.Xml.XmlElement]$xmlSrcDestNode = invoke-xpathquery -query "child::sources" -QueryMethod SelectSingleNode -node $rule
     }
-    if ( $membertype -eq "Destination" ) {
-        if ( Invoke-XPathQuery -Query "child::destinations" -QueryMethod SelectSingleNode -Node $rule ) {
-            [System.Xml.XmlElement]$xmlSrcDestNode = $rule.destinations
-        }
-        else {
-            [System.XML.XMLElement]$xmlSrcDestNode = $XMLDoc.CreateElement("destinations")
-            $rule.AppendChild($xmlSrcDestNode) | out-null
-        }
+    else {
+        [System.Xml.XmlElement]$xmlSrcDestNode = invoke-xpathquery -query "child::destinations" -QueryMethod SelectSingleNode -node $rule
     }
 
     #Loop the memberlist and create appropriate element in the srcdest node.
@@ -23427,7 +23445,6 @@ function New-NsxFirewallRule  {
     begin {}
     process {
 
-
         $generationNumber = $section.generationNumber
 
         write-debug "$($MyInvocation.MyCommand.Name) : Preparing rule for section $($section.Name) with generationId $generationNumber"
@@ -23457,20 +23474,20 @@ function New-NsxFirewallRule  {
 
         #Build Sources Node
         if ( $source ) {
+
+            Add-NsxSourceDestNode -Rule $xmlRule -Nodetype "sources" -negated:$NegateSource
+
+            #Add the source members
             Add-NsxSourceDestMember -membertype "source" -memberlist $source -rule $xmlRule
-            #The excluded attribute indicates negation
-            $xmlSrcNegated = $xmlDoc.createAttribute("excluded")
-            $xmlSrcNegated.value = $NegateSource.ToString().ToLower()
-            $xmlRule.Sources.Attributes.Append($xmlSrcNegated) | out-null
         }
 
         #Destinations Node
         if ( $destination ) {
-            Add-NsxSourceDestMember -membertype "destination" -memberlist $destination -rule $xmlRule -negateItem:$negateDestination
-            #The excluded attribute indicates negation
-            $xmlDestNegated = $xmlDoc.createAttribute("excluded")
-            $xmlDestNegated.value = $NegateDestination.ToString().ToLower()
-            $xmlRule.Destinations.Attributes.Append($xmlDestNegated) | out-null
+
+            Add-NsxSourceDestNode -Rule $xmlRule -Nodetype "destinations" -negated:$NegateDestination
+
+            #Add the destination members
+            Add-NsxSourceDestMember -membertype "destination" -memberlist $destination -rule $xmlRule
         }
 
         #Services
@@ -23490,7 +23507,6 @@ function New-NsxFirewallRule  {
 
         #Tag
         if ( $tag ) {
-
             Add-XmlElement -xmlRoot $xmlRule -xmlElementName "tag" -xmlElementText $tag
         }
 
@@ -24170,19 +24186,60 @@ function Add-NsxFirewallRuleMember {
             [System.Xml.XmlElement]$FirewallRule,
         [Parameter (Mandatory=$True, Position=1)]
             # Member(s) to add.  specify ipv4/6 addresses as a string or other member types as VI / NSX Object (VM, Logical Switch etc)).
-            [ValidateScript({ Validate-FirewallRuleMember $_ })]
+            [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$true)]
             # MemberType to add.  Source, Destination or Both
             [ValidateSet("Source","Destination", "Both")]
-            [string]$MemberType
+            [string]$MemberType,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
 
     process {
 
+        $sectionId = $FirewallRule.ParentNode.Id
+        $RuleId = $FirewallRule.id
+        $generationNumber = $FirewallRule.ParentNode.generationnumber
 
+        #Clone the xml so we dont modify source...
+        $_FirewallRule = $FirewallRule.CloneNode($true)
+        if ( $MemberType -eq "Both" ) {
+
+            # We are defaulting negation to false here as negation applied to ALL members.  If we allow user to specify in this cmdlet, then we have to catch the scenario where the rule has existing sources (and we shouldnt override the existing negation setting).  Prefer to require user to explicitly use separate set-nsxfirewallrule -negatesource / -negatedestination?
+            if ( -not ( invoke-xpathquery -QueryMethod SelectSingleNode -query "child::sources" -node $_FirewallRule)) {
+                Add-NsxSourceDestNode -Rule $_FirewallRule -Nodetype "sources" -negated:$false
+            }
+
+            if ( -not ( invoke-xpathquery -QueryMethod SelectSingleNode -query "child::destinations" -node $_FirewallRule)) {
+                Add-NsxSourceDestNode -Rule $_FirewallRule -Nodetype "destinations" -negated:$false
+            }
+
+            Add-NsxSourceDestMember -membertype "source" -memberlist $member -rule $_FirewallRule
+            Add-NsxSourceDestMember -membertype "destination" -memberlist $member -rule $_FirewallRule
+        }
+        else {
+            if ( -not ( invoke-xpathquery -QueryMethod SelectSingleNode -query "child::$($Membertype.ToLower())s" -node $_FirewallRule)) {
+                Add-NsxSourceDestNode -Rule $_FirewallRule -Nodetype "$($Membertype.ToLower())s" -negated:$false
+            }
+            Add-NsxSourceDestMember -membertype $MemberType.ToLower() -memberlist $member -rule $_FirewallRule
+        }
+
+        $uri = "/api/4.0/firewall/globalroot-0/config/layer3sections/$sectionId/rules/$Ruleid"
+        #Need the IfMatch header to specify the current section generation id
+        $IfMatchHeader = @{"If-Match"=$generationNumber}
+        try {
+            $response = Invoke-NsxWebRequest -method put -Uri $uri -body $_FirewallRule.OuterXml -extraheader $IfMatchHeader -connection $connection
+            [xml]$ruleElem = $response.Content
+            Get-NsxFirewallRule -RuleId $ruleElem.rule.id | Get-NsxFirewallRuleMember
+        }
+        catch {
+            throw "Failed to add member to specified rule.  $_"
+        }
     }
 
     end {}
