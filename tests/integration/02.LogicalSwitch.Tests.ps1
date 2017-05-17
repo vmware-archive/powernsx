@@ -43,7 +43,7 @@ Describe "Logical Switching" {
 
     it "Can retrive logical switches from a specific transport zone via pipeline" {
         $ls1 = Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
-        $ls2 = Get-NsxTransportZone $tz2 | New-NsxLogicalSwitch $ls2_name
+        $ls2 = Get-NsxTransportZone $tz2_name | New-NsxLogicalSwitch $ls2_name
         $ls = Get-NsxTransportZone $tz2_name | Get-NsxLogicalSwitch
         $ls | should not be $null
         @($ls).count | should be 1
@@ -52,7 +52,7 @@ Describe "Logical Switching" {
 
     it "Can retrive logical switches from a specific transport zone via vdnscope parameter" {
         $ls1 = Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
-        $ls2 = Get-NsxTransportZone $tz2 | New-NsxLogicalSwitch $ls2_name
+        $ls2 = Get-NsxTransportZone $tz2_name | New-NsxLogicalSwitch $ls2_name
         $ls = Get-NsxLogicalSwitch -vdnscope $tz2
         $ls | should not be $null
         @($ls).count | should be 1
