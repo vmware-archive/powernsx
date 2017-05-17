@@ -24037,13 +24037,13 @@ function Set-NsxFirewallGlobalConfiguration {
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('EnableTcpStrict') ) {
-             $_GlobalConfiguration.tcpStrictOption = $EnableTcpStrict
+             $_GlobalConfiguration.tcpStrictOption = [string]$EnableTcpStrict
         }
 
         if ( $PsBoundParameters.ContainsKey('DisableAutoDraft') ) {
             # Check to see if the element already exists
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_GlobalConfiguration -Query 'descendant::autoDraftDisabled')) {
-                $_GlobalConfiguration.autoDraftDisabled = $DisableAutoDraft
+                $_GlobalConfiguration.autoDraftDisabled = [string]$DisableAutoDraft
             }
             else {
                 Add-XmlElement -xmlRoot $_GlobalConfiguration -xmlElementName "autoDraftDisabled" -xmlElementText $DisableAutoDraft
