@@ -23942,6 +23942,124 @@ function Set-NsxFirewallThreshold {
     end {}
 }
 
+function Get-NsxFirewallGlobalConfiguration {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Distributed Firewall global configuration options.
+
+    .DESCRIPTION
+    The global firewalll configuration options can be used to modify
+    firewall performance.
+
+    This command will retrieve the current configuration options for the
+    distributed firewall
+
+    .EXAMPLE
+
+    PS /> Get-NsxFirewallGlobalConfiguration
+
+    layer3RuleOptimize layer2RuleOptimize tcpStrictOption
+    ------------------ ------------------ ---------------
+    false              true               false
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process {
+
+        $URI = "/api/4.0/firewall/config/globalconfiguration"
+        $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+
+        try {
+            [system.xml.xmldocument]$globalConfigurationDoc = $response.content
+            $globalConfigurationDoc.globalConfiguration
+            }
+        catch {
+            Throw "Unexpected API response $_"
+        }
+
+    }
+
+    end{}
+}
+
+function Set-NsxFirewallGlobalConfiguration {
+
+    <#
+    .SYNOPSIS
+    Sets the Distributed Firewall global configuration options.
+
+    .DESCRIPTION
+    The global firewalll configuration options can be used to modify
+    the distributed firewall.
+
+    .EXAMPLE
+
+    PS /> Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -EnableTcpStrict -DisableAutoDraft
+
+    layer3RuleOptimize layer2RuleOptimize tcpStrictOption autoDraftDisabled
+    ------------------ ------------------ --------------- -----------------
+    false              true               true            true
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$GlobalConfiguration,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableTcpStrict,
+        [Parameter (Mandatory=$False)]
+            [switch]$DisableAutoDraft,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process{
+        #Capture existing options
+        $_GlobalConfiguration = $GlobalConfiguration.CloneNode($True)
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('EnableTcpStrict') ) {
+             $_GlobalConfiguration.tcpStrictOption = $EnableTcpStrict
+        }
+
+        if ( $PsBoundParameters.ContainsKey('DisableAutoDraft') ) {
+            # Check to see if the element already exists
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_GlobalConfiguration -Query 'descendant::autoDraftDisabled')) {
+                $_GlobalConfiguration.autoDraftDisabled = $DisableAutoDraft
+            }
+            else {
+                Add-XmlElement -xmlRoot $_GlobalConfiguration -xmlElementName "autoDraftDisabled" -xmlElementText $DisableAutoDraft
+            }
+        }
+
+        $uri = "/api/4.0/firewall/config/globalconfiguration"
+        $body = $_GlobalConfiguration.outerXml
+        Invoke-NsxWebRequest -method "PUT" -URI $uri -body $body | out-null
+
+        Get-NsxFirewallGlobalConfiguration
+
+    }
+
+    end {}
+}
 
 ########
 ########
