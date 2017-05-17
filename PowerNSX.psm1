@@ -8057,7 +8057,8 @@ function Get-NsxLogicalSwitch {
     param (
 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
-            [ValidateNotNullOrEmpty()]
+            [ValidateScript({ Validate-TransportZone $_ })]
+            # [ValidateNotNullOrEmpty()]
             [alias("vdnScope")]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$false,Position=1)]
@@ -8091,7 +8092,7 @@ function Get-NsxLogicalSwitch {
 
             #Getting all LS in a given VDNScope
             $lspagesize = 10
-            if ( $PSBoundParameters.ContainsKey('vndScope')) {
+            if ( $PSBoundParameters.ContainsKey('TransportZone')) {
                 $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
             }
             else {
