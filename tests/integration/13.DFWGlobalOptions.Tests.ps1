@@ -119,27 +119,27 @@ Describe "DFW Global Properties" {
         }
 
         it "Can Enable TCP Strict Option"{
-            $globalOptions = Get-NsxFirewallGlobalConfiguration
-            $set = $globalOptions | Set-NsxFirewallGlobalConfiguration -EnableTcpStrict | out-null
-            $set.tcpStrictOption | Should be "true"
+            Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -EnableTcpStrict | out-null
+            $get = Get-NsxFirewallGlobalConfiguration
+            $get.tcpStrictOption | Should be "true"
         }
 
         it "Can Disable TCP Strict Option"{
-            $globalOptions = Get-NsxFirewallGlobalConfiguration
-            $set = $globalOptions | Set-NsxFirewallGlobalConfiguration -EnableTcpStrict:$False | out-null
-            $set.tcpStrictOption | Should be "false"
+            Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -EnableTcpStrict:$False | out-null
+            $get = Get-NsxFirewallGlobalConfiguration
+            $get.tcpStrictOption | Should be "false"
         }
 
         it "Can Disable Auto Drafts"  -skip:(-not $ver_gt_623 ) {
-            $globalOptions = Get-NsxFirewallGlobalConfiguration
-            $set = $globalOptions | Set-NsxFirewallGlobalConfiguration -DisableAutoDraft | out-null
-            $set.tcpStrictOption | Should be "true"
+            Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -DisableAutoDraft | out-null
+            $get = Get-NsxFirewallGlobalConfiguration
+            $get.tcpStrictOption | Should be "true"
         }
 
         it "Can Disable TCP Strict Option"  -skip:(-not $ver_gt_623 ) {
-            $globalOptions = Get-NsxFirewallGlobalConfiguration
-            $set = $globalOptions | Set-NsxFirewallGlobalConfiguration -DisableAutoDraft:$False | out-null
-            $set.tcpStrictOption | Should be "false"
+            Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -DisableAutoDraft:$False | out-null
+            $get = Get-NsxFirewallGlobalConfiguration
+            $get.tcpStrictOption | Should be "false"
         }
 
     }
