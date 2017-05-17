@@ -330,6 +330,8 @@ FunctionsToExport = @(
     'Get-NsxSecurityGroupEffectiveVnic',
     'Set-NsxFirewallThreshold',
     'Get-NsxFirewallThreshold',
+    'Get-NsxFirewallGlobalConfiguration',
+    'Set-NsxFirewallGlobalConfiguration',
     'Add-NsxIpSetMember',
     'Remove-NsxIpSetMember',
     'Get-NsxUserRole',
