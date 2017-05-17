@@ -44,7 +44,7 @@ Describe "DFW Global Properties" {
         $script:cpudefault = "100"
         $script:existingFwGlobalOptions = Get-NsxFirewallGlobalConfiguration
 
-        #Set flag used in tests we have to tag out for 6.3.0 and above only...
+        #Set flag used in tests we have to tag out for 6.2.3 and above only...
         if ( [version]$DefaultNsxConnection.Version -ge [version]"6.2.3" )  {
             $ver_gt_623 = $true
         }
