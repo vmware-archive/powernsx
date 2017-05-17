@@ -21,7 +21,7 @@ Describe "Logical Switching" {
         $script:ls1_name = "$lsPrefix-ls1"
         $script:ls2_name = "$lsPrefix-ls2"
 
-        $script:tz2 = New-NsxTransportZone -Name $tz2_name -cluster (get-cluster | select -first 1)
+        $script:tz2 = New-NsxTransportZone -Name $tz2_name -cluster (get-cluster | select -first 1) -ControlPlaneMode UNICAST_MODE
 
     }
 
