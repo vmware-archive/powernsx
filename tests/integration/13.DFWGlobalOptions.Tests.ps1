@@ -133,13 +133,13 @@ Describe "DFW Global Properties" {
         it "Can Disable Auto Drafts"  -skip:(-not $ver_gt_623 ) {
             Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -DisableAutoDraft | out-null
             $get = Get-NsxFirewallGlobalConfiguration
-            $get.tcpStrictOption | Should be "true"
+            $get.autoDraftDisabled | Should be "true"
         }
 
-        it "Can Disable TCP Strict Option"  -skip:(-not $ver_gt_623 ) {
+        it "Can Enable Auto Drafts"  -skip:(-not $ver_gt_623 ) {
             Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -DisableAutoDraft:$False | out-null
             $get = Get-NsxFirewallGlobalConfiguration
-            $get.tcpStrictOption | Should be "false"
+            $get.autoDraftDisabled | Should be "false"
         }
 
     }
