@@ -8058,7 +8058,6 @@ function Get-NsxLogicalSwitch {
 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
             [ValidateScript({ Validate-TransportZone $_ })]
-            # [ValidateNotNullOrEmpty()]
             [alias("vdnScope")]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$false,Position=1)]
