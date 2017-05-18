@@ -15691,6 +15691,24 @@ function Set-NsxEdgeOspf {
     The Set-NsxEdgeOspf cmdlet allows manipulation of the OSPF specific
     configuration of a given ESG.
 
+    .EXAMPLE
+    Enable OSPF with a RouterID
+
+    Get-NsxEdge Edge01 | Get-NsxEdgerouting | Set-NsxEdgeRouting -EnableOspf 
+    -RouterId 172.16.23.1 -confirm:$false 
+
+    .EXAMPLE
+    Enable OSPF with Graceful Restart
+
+    Get-NsxEdge Edge01 | Get-NsxEdgerouting | Set-NsxEdgeRouting -EnableOspf 
+    -RouterId 172.16.23.1 -gracefulRestart:$true -confirm:$false 
+
+    .EXAMPLE
+    Enable OSPF with Default Originiate
+
+    Get-NsxEdge Edge01 | Get-NsxEdgerouting | Set-NsxEdgeRouting -EnableOspf 
+    -RouterId 172.16.23.1 -DefaultOriginate:$true -confirm:$false
+
 
     #>
 
