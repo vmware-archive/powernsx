@@ -2163,7 +2163,7 @@ Function Validate-SecurityGroupMember {
         #Argument is a NIC object.
         $true
     }
-    elseif ( $argument -s [VMware.VimAutomation.ViCore.Impl.V1.Inventory.VAppImpl] ) {
+    elseif ( $argument -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop] ) {
         #Argument is a vApp object ID
         $true
     }
