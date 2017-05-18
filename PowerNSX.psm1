@@ -6105,6 +6105,9 @@ function New-NsxController {
 
     The New-NsxController cmdlet deploys a new NSX Controller.
 
+    Note that a password is still required as a parameter for controller 2 and 3.
+    This is different to deploying them via the Web Client.
+
     .EXAMPLE
     $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.0.1 -SubnetPrefixLength 24 -StartAddress 192.168.0.10 -endaddress 192.168.0.20
     $ControllerCluster = Get-Cluster vSphereCluster
