@@ -24063,6 +24063,89 @@ function Get-NsxFirewallRuleMember {
     Its primary use is to provide a source object for the
     Remove-NsxFirewallRuleMember cmdlet.
 
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember | format-table
+
+        RuleId SectionId MemberType  Name  Value     Type           isValid
+        ------ --------- ----------  ----  -----     ----           -------
+        5441   3717      Source            1.2.3.4   Ipv4Address    true
+        5441   3717      Destination test  ipset-309 IPSet          true
+        5441   3717      Destination Web02 vm-1266   VirtualMachine true
+        5441   3717      Destination       1.2.3.4   Ipv4Address    true
+
+    Get all members from rule id 5441 and format output as table.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source -Member 1.2.3.4
+
+
+        RuleId     : 5441
+        SectionId  : 3717
+        MemberType : Source
+        Name       :
+        Value      : 1.2.3.4
+        Type       : Ipv4Address
+        isValid    : true
+
+    Get just the source member 1.2.3.4 from rule id 5441
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -Member 1.2.3.4 | Format-Table
+
+        RuleId SectionId MemberType  Name Value   Type        isValid
+        ------ --------- ----------  ---- -----   ----        -------
+        5441   3717      Source           1.2.3.4 Ipv4Address true
+        5441   3717      Destination      1.2.3.4 Ipv4Address true
+
+    Get member 1.2.3.4 in either source or destination of rule 5441.  Matching by string
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -Member web\d+ | Format-Table
+
+        RuleId SectionId MemberType  Name  Value   Type           isValid
+        ------ --------- ----------  ----  -----   ----           -------
+        5441   3717      Source      Web01 vm-1270 VirtualMachine true
+        5441   3717      Destination Web02 vm-1266 VirtualMachine true
+
+    Get any member of rule 5441 with a name matching the regular expression web\d+ (the string web followed by 1 or more digit)
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -Member (get-vm web01) | Format-Table
+
+        RuleId SectionId MemberType Name  Value   Type           isValid
+        ------ --------- ---------- ----  -----   ----           -------
+        5441   3717      Source     Web01 vm-1270 VirtualMachine true
+
+    Get any member of rule 5441 that is the VM web01. Matching by PowerCLI object
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -Member (get-nsxipset test) | Format-Table
+
+        RuleId SectionId MemberType  Name Value     Type  isValid
+        ------ --------- ----------  ---- -----     ----  -------
+        5441   3717      Destination test ipset-309 IPSet true
+
+    Get any member of the rule 5441 that is the NSX IPSet called test. Matching by PowerNSX object
+
+    .EXAMPLE
+    get-nsxfirewallrule | Get-NsxFirewallRuleMember -Member (get-nsxipset test) | Format-Table
+
+        RuleId SectionId MemberType  Name Value     Type  isValid
+        ------ --------- ----------  ---- -----     ----  -------
+        5441   3717      Destination test ipset-309 IPSet true
+
+    Get any member of the rule 5441 that is the NSX IPSet called test. Matching by PowerNSX object
+
+    .EXAMPLE
+    get-nsxfirewallrule | Get-NsxFirewallRuleMember -Member (get-vm web01) | Format-Table
+
+        RuleId SectionId MemberType Name  Value   Type           isValid
+        ------ --------- ---------- ----  -----   ----           -------
+        5441   3717      Source     Web01 vm-1270 VirtualMachine true
+        4332   3717      Source     Web01 vm-1270 VirtualMachine true
+
+    Get any member of any rule that is the VM object web01.  Matching accross all rules by PowerCLI object
+
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
@@ -24211,6 +24294,44 @@ function Add-NsxFirewallRuleMember {
     This cmdlet accepts a firewall rule object returned from Get-NsxFirewallRule
     and adds the specified source and/or destination members to the rule.
 
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | add-NsxFirewallRuleMember -MemberType Source -Member (get-vm web01) | Format-Table
+
+        RuleId SectionId MemberType  Name  Value     Type           isValid
+        ------ --------- ----------  ----  -----     ----           -------
+        5441   3717      Source      Web01 vm-1270   VirtualMachine true
+        5441   3717      Source            1.2.3.4   Ipv4Address    true
+        5441   3717      Destination test  ipset-309 IPSet          true
+        5441   3717      Destination Web02 vm-1266   VirtualMachine true
+
+    Add the vm web01 as a source member of rule 5441 - output as table.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | add-NsxFirewallRuleMember -MemberType Destination -Member "1.2.3.4" | Format-Table
+
+        RuleId SectionId MemberType  Name  Value     Type           isValid
+        ------ --------- ----------  ----  -----     ----           -------
+        5441   3717      Source      Web01 vm-1270   VirtualMachine true
+        5441   3717      Source            1.2.3.4   Ipv4Address    true
+        5441   3717      Destination test  ipset-309 IPSet          true
+        5441   3717      Destination Web02 vm-1266   VirtualMachine true
+        5441   3717      Destination       1.2.3.4   Ipv4Address    true
+
+    Add the ip 1.2.3.4 to the destinations of rule 5441 - output as table.
+
+    .EXAMPLE
+    get-nsxfirewallrule  -RuleId 5441 | Add-NsxFirewallRuleMember -MemberType Destination -Member (get-vm web02),"1.2.3.4",$IPSetTest | Format-Table
+
+        RuleId SectionId MemberType  Name  Value     Type           isValid
+        ------ --------- ----------  ----  -----     ----           -------
+        5441   3717      Source      Web01 vm-1270   VirtualMachine true
+        5441   3717      Source            1.2.3.4   Ipv4Address    true
+        5441   3717      Destination test  ipset-309 IPSet          true
+        5441   3717      Destination Web02 vm-1266   VirtualMachine true
+        5441   3717      Destination       1.2.3.4   Ipv4Address    true
+
+    Add 1.2.3.4, the vm web02 and the nsx ipset stored in $ipsettest to the rule 5441 - output as table.
+
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
@@ -24297,6 +24418,56 @@ function Remove-NsxFirewallRuleMember {
     This cmdlet accepts a firewall rule member object returned from
     Get-NsxFirewallRuleMember and removes it from its parent rule.
 
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source -Member 1.2.3.4 | Remove-NsxFirewallRuleMember
+
+        Removal of a firewall rule member is permanent and will modify your security posture.
+        Proceed with removal of member 1.2.3.4 from the Source list of firewallrule 5441 in section 3717?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+    Remove the source 1.2.3.4 from firewall rule 5441
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source -Member 1.2.3.4 | Remove-NsxFirewallRuleMember
+
+        Removal of a firewall rule member is permanent and will modify your security posture.
+        Proceed with removal of member 1.2.3.4 from the Source list of firewallrule 5441 in section 3717?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+    Remove the source 1.2.3.4 from firewall rule 5441
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source -Member 1.2.3.4 | Remove-NsxFirewallRuleMember -confirm:$false
+
+    Remove the source 1.2.3.4 from firewall rule 5441 with no confirmation.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source | Remove-NsxFirewallRuleMember
+
+        Removal of a firewall rule member is permanent and will modify your security posture.
+        Proceed with removal of member 1.2.3.4 from the Source list of firewallrule 5441 in section 3717?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+        Removal of a firewall rule member is permanent and will modify your security posture.
+        Proceed with removal of member vm-1270 from the Source list of firewallrule 5441 in section 3717?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+        The source member vm-1270 of rule 5441 in section 3717 is the last source member in this rule.  Its removal will cause this rule to match ANY Source
+        Confirm rule 5441 to match Source ANY?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+        WARNING: The source member vm-1270 of rule 5441 in section 3717 was the last member in this rule.  Its removal has caused this rule to now match ANY Source.
+
+    Remove ALL sources from the firewall rule 5441.  Note the extra prompt AND warning that you are about to make this rule match on ANY source.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source | Remove-NsxFirewallRuleMember -Confirm:$false
+
+        The source member vm-1270 of rule 5441 in section 3717 is the last source member in this rule.  Its removal will cause this rule to match ANY Source
+        Confirm rule 5441 to match Source ANY?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+    Remove ALL sources from the firewall rule 5441 with no confirmation prompt.  Note the remaining prompt AND warning that you are about to make this rule match on ANY source.
+
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
@@ -24364,9 +24535,9 @@ function Remove-NsxFirewallRuleMember {
             $AllChildNodes = Invoke-XpathQuery -Node $ParentNode -QueryMethod SelectNodes -query "child::$($FirewallRuleMember.MemberType.ToString().ToLower())"
 
             if ( @($AllChildNodes).count -eq 1 )  {
-                # We have about to remove the last member from the sources or destinations element.  API will reject this, so we need to remove it.
+                # We have about to remove the last member from the sources or destinations element.  API will reject and empty sources elem, so we need to remove it.
                 # We also should warn the user that this just became an any rule!
-                # Also - when Im doing this 'get my parent and call its removechild method to remove myself' kinda circular operation, it always reminds me of the Lorax lifting himself by the seat of his pants and disapearing...
+                # Also - when Im doing this 'get my parent and call its removechild method to remove myself' kinda circular operation, it always reminds me of the Lorax lifting himself by the seat of his pants and disappearing...
 
                 if ( -not $SayHello2Heaven ) {
                     $message  = "The $($FirewallRuleMember.MemberType.ToLower()) member $($FirewallRuleMember.Value) of rule $($FirewallRuleMember.RuleId) in section $($FirewallRuleMember.SectionId) is the last $($FirewallRuleMember.MemberType.ToLower()) member in this rule.  Its removal will cause this rule to match ANY $($FirewallRuleMember.MemberType)"
