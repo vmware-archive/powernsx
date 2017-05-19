@@ -9214,6 +9214,9 @@ function New-NsxLogicalRouter {
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [String]$Tenant,
         [Parameter (Mandatory=$true)]
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ManagementPortGroup,
@@ -9257,6 +9260,7 @@ function New-NsxLogicalRouter {
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "distributedRouter"
+        if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant }
 
         switch ($ManagementPortGroup){
 
