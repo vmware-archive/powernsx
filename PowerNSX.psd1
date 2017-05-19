@@ -333,7 +333,10 @@ FunctionsToExport = @(
     'Add-NsxIpSetMember',
     'Remove-NsxIpSetMember',
     'Get-NsxUserRole',
-    'Invoke-XpathQuery'
+    'Invoke-XpathQuery',
+    'Get-NsxFirewallRuleMember',
+    'Add-NsxFirewallRuleMember',
+    'Remove-NsxFirewallRuleMember'
 )
 
 # Cmdlets to export from this module
