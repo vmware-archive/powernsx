@@ -2270,6 +2270,7 @@ Function Validate-FirewallRule {
 }
 
 Function Validate-FirewallRuleMember {
+    #Distinct from Validate-FirewallRuleMemberObject in that it checks for an arg that is a valid firewallrule member object, OR a string to match against the value of one.
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2282,6 +2283,42 @@ Function Validate-FirewallRuleMember {
     }
     else {
         Validate-FirewallRuleSourceDest -argument $argument
+    }
+}
+
+Function Validate-FirewallRuleMemberObject {
+
+    #Distinct from Validate-FirewallRuleMember in that it checks for an arg that looks like the appropriate return object from get-nsxfirewallrulemember.
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Same requirements for Firewall Rule SourceDest except for string match on name as well.
+    If ( $argument -is [pscustomobject] ) {
+        if ( -not ( $argument | get-member -name RuleId -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name SectionId -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name MemberType -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name Name -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name Value -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name Type -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        $true
+    }
+    else {
+        throw "Specified argument is not a valid FirewallRuleMember object."
     }
 }
 
@@ -24059,11 +24096,11 @@ function Get-NsxFirewallRuleMember {
                             #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.  Sigh... why is our API so f*@#$&n inconsistent...
                             if ( $source.type -match "ipv4Address|ipv6Address"  ) {
                                 if ( $source.value -match $_Member ) {
-                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $null; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $null; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
                                 }
                             }
                             elseif ( $source.name -match $_Member ) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
                             }
                         }
                     }
@@ -24074,11 +24111,11 @@ function Get-NsxFirewallRuleMember {
                             #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.
                             if ( $destination.type -match "ipv4Address|ipv6Address"  ) {
                                 if ( $destination.value -match $_Member ) {
-                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $null; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $null; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
                                 }
                             }
                             elseif ( $Destination.name -match $_Member ) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
                             }
                         }
                     }
@@ -24091,7 +24128,7 @@ function Get-NsxFirewallRuleMember {
                         foreach ($source in $FirewallRule.Sources.Source ) {
                             #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
                             if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.objectId )) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
                             }
                         }
                     }
@@ -24101,7 +24138,7 @@ function Get-NsxFirewallRuleMember {
                         foreach ($destination in $FirewallRule.Destinations.Destination ) {
                             #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
                             if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.objectId )) {
-                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
                             }
                         }
                     }
@@ -24116,7 +24153,7 @@ function Get-NsxFirewallRuleMember {
                         if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
                             foreach ($source in $FirewallRule.Sources.Source ) {
                                 if (( $source.type -match "Vnic"  ) -and ( $source.name -match $NicName )) {
-                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
                                 }
                             }
                         }
@@ -24125,7 +24162,7 @@ function Get-NsxFirewallRuleMember {
                         if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
                             foreach ($destination in $FirewallRule.Destinations.Destination ) {
                                 if (( $destination.type -match "Vnic"  ) -and ( $destination.name -match $NicName )) {
-                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
                                 }
                             }
                         }
@@ -24137,7 +24174,7 @@ function Get-NsxFirewallRuleMember {
                         if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
                             foreach ($source in $FirewallRule.Sources.Source ) {
                             if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.extensiondata.moref.value )) {
-                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
                                 }
                             }
                         }
@@ -24146,7 +24183,7 @@ function Get-NsxFirewallRuleMember {
                         if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
                             foreach ($destination in $FirewallRule.Destinations.Destination ) {
                             if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.extensiondata.moref.value )) {
-                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
                                 }
                             }
                         }
@@ -24243,6 +24280,140 @@ function Add-NsxFirewallRuleMember {
     }
 
     end {}
+}
+
+function Remove-NsxFirewallRuleMember {
+
+    <#
+    .SYNOPSIS
+    Removes the specified source or destination member from the specified NSX
+    Distributed Firewall Rule.
+
+    .DESCRIPTION
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
+
+    This cmdlet accepts a firewall rule member object returned from
+    Get-NsxFirewallRuleMember and removes it from its parent rule.
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # DFW rule member as returned by Get-NsxFirewallRuleMember
+            [ValidateScript({ Validate-FirewallRuleMemberObject $_ })]
+            [Object]$FirewallRuleMember,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #Override confirmation of removal of last source or destination member - effectively converting rule to match ANY in the appropriate field (source or destination).  Specify as -SayHello2Heaven to disable confirmation prompt.  RIP Chris Cornell, 17 May 2017
+            [switch]$SayHello2Heaven=$false,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        # We process all member modifications offline as part of pipeline processing, then we put the updated sections to the api in the end{} section to optimise multiple edits to the same rule.
+        # Save modified rules in a hash table keyed by ruleid
+        $ModifiedSections = @{}
+     }
+
+    process {
+
+        if ( $confirm ) {
+            $message  = "Removal of a firewall rule member is permanent and will modify your security posture."
+            $question = "Proceed with removal of member $($FirewallRuleMember.Value) from the $($FirewallRuleMember.MemberType) list of firewallrule $($FirewallRuleMember.RuleId) in section $($FirewallRuleMember.SectionId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+
+        if ( $decision -eq 0 ) {
+            if ( $ModifiedSections.ContainsKey($FirewallRuleMember.SectionId )) {
+                # Section has already been updated in this pipeline, so we modify the already updated xml.
+                $SectionXml = $ModifiedSections[$FirewallRuleMember.SectionId]
+            }
+            else {
+                # We havent touched the section yet, so we have to get it
+                $SectionXml = Get-NsxFirewallSection -objectId $FirewallRuleMember.SectionId
+                $ModifiedSections.Add($FirewallRuleMember.SectionId, $SectionXml)
+            }
+
+            $Query = "descendant::rule[@id=`"$($FirewallRuleMember.RuleId.ToString())`"]/*/$($FirewallRuleMember.MemberType.ToString().ToLower())[value=`"$($FirewallRuleMember.Value.ToString())`"]"
+            write-debug "$($MyInvocation.MyCommand.Name) : Executing xpath query to locate member in section: $query"
+            $XmlMember = Invoke-XpathQuery -QueryMethod SelectNodes -Query $Query -node $SectionXml
+
+            if ( @($XmlMember).Count -ne 1) {
+                throw "Xpath query for member $($FirewallRuleMember.Name) did not result in exactly one member being returned. $(@($XmlMember).count) members were matched.  Please report this issue at https://github.com/vmware/powernsx/issues/ and include steps to reproduce."
+            }
+            if ( $XmlMember.ParentNode.ParentNode.id -ne $FirewallRuleMember.RuleId ) {
+                throw "Xpath query for member $($FirewallRuleMember.Name) returned a member with a non matching ruleid: $($XmlMember.ParentNode.ParentNode.id) -ne $($FirewallRuleMember.RuleId).  Please report this issue at https://github.com/vmware/powernsx/issues/ and include steps to reproduce."
+            }
+
+            # Assuming our xpath query is correct, we can simply remove the child element from its parent node
+            $ParentNode = $XmlMember.ParentNode
+            $AllChildNodes = Invoke-XpathQuery -Node $ParentNode -QueryMethod SelectNodes -query "child::$($FirewallRuleMember.MemberType.ToString().ToLower())"
+
+            if ( @($AllChildNodes).count -eq 1 )  {
+                # We have about to remove the last member from the sources or destinations element.  API will reject this, so we need to remove it.
+                # We also should warn the user that this just became an any rule!
+                # Also - when Im doing this 'get my parent and call its removechild method to remove myself' kinda circular operation, it always reminds me of the Lorax lifting himself by the seat of his pants and disapearing...
+
+                if ( -not $SayHello2Heaven ) {
+                    $message  = "The $($FirewallRuleMember.MemberType.ToLower()) member $($FirewallRuleMember.Value) of rule $($FirewallRuleMember.RuleId) in section $($FirewallRuleMember.SectionId) is the last $($FirewallRuleMember.MemberType.ToLower()) member in this rule.  Its removal will cause this rule to match ANY $($FirewallRuleMember.MemberType)"
+                    $question = "Confirm rule $($FirewallRuleMember.RuleId) to match $($FirewallRuleMember.MemberType) ANY?"
+                    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+                }
+                else { $decision = 0 }
+
+                if ( $decision -eq 0 ) {
+                    write-warning "The $($FirewallRuleMember.MemberType.ToLower()) member $($FirewallRuleMember.Value) of rule $($FirewallRuleMember.RuleId) in section $($FirewallRuleMember.SectionId) was the last member in this rule.  Its removal has caused this rule to now match ANY $($FirewallRuleMember.MemberType)."
+                    $ParentNode.RemoveChild($XmlMember) | out-null
+                    $ParentNode.ParentNode.RemoveChild($ParentNode) | out-null
+                }
+            }
+            else {
+                $ParentNode.RemoveChild($XmlMember) | out-null
+            }
+        }
+    }
+
+    end {
+
+        # Section XML is updated in process block.  End block fires at end of pipeline processing and is where we push the updated sections to reduce the number of API roundtrips...
+        foreach ( $Section in $ModifiedSections.Values ) {
+
+            switch ( $Section.Type ) {
+                "LAYER3" { $SectionType = "layer3sections"}
+                "LAYER2" { $SectionType = "layer2sections"}
+                "L3REDIRECT" { $SectionType = "layer3redirectsections"}
+            }
+
+            $uri = "/api/4.0/firewall/globalroot-0/config/$SectionType/$($section.Id)"
+            # Need the IfMatch header to specify the current section generation id
+            $IfMatchHeader = @{"If-Match"=$Section.generationNumber}
+
+            try {
+                $response = Invoke-NsxWebRequest -method put -Uri $uri -body $Section.outerxml -extraheader $IfMatchHeader -connection $connection
+                [xml]$Section = $response.Content
+            }
+            catch {
+                throw "Failed to post updated NSX Firewall Section $($Section.Id).  $_"
+            }
+        }
+    }
 }
 
 

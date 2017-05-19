@@ -1596,7 +1596,7 @@ Describe "DFW" {
             ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
             $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
             ($member | ? { $_.MemberType -eq 'Destination'} | measure).count | should be 0
-            $member.count -eq @($l3modrule1.Sources.Source).count | should be true
+            $member.count -eq @($l3modrule1.Sources.Source).count | should be $true
         }
 
         it "Can get all destinations from an existing L3 rule" {
@@ -1604,14 +1604,14 @@ Describe "DFW" {
             ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
             $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
             ($member | ? { $_.MemberType -eq 'Source'} | measure).count | should be 0
-            $member.count -eq @($l3modrule1.Destinations.Destination).count | should be true
+            $member.count -eq @($l3modrule1.Destinations.Destination).count | should be $true
         }
 
         it "Can get all members (source/destination) from an existing L3 rule" {
             $member = $l3modrule1 | Get-NsxFirewallRuleMember
             ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
             $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            $member.count -eq (@($l3modrule1.Sources.Source).count + @($l3modrule1.Destinations.Destination).count) | should be true
+            $member.count -eq (@($l3modrule1.Sources.Source).count + @($l3modrule1.Destinations.Destination).count) | should be $true
         }
 
         it "Can add a new source to an existing L3 rule" {
@@ -1619,10 +1619,10 @@ Describe "DFW" {
             $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Add-NsxFirewallRuleMember -MemberType Source -Member $script:TestVM2
             ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
             $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count + 1) | should be true
-            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count) | should be true
+            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count + 1) | should be $true
+            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count) | should be $true
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            $rule.Sources.Source.Name -contains $script:TestVMName2 | should be true
+            $rule.Sources.Source.Name -contains $script:TestVMName2 | should be $true
         }
 
         it "Can add a new destination to an existing L3 rule" {
@@ -1630,101 +1630,78 @@ Describe "DFW" {
             $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Add-NsxFirewallRuleMember -MemberType Destination -Member $script:TestVM2
             ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
             $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count) | should be true
-            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count + 1) | should be true
+            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count) | should be $true
+            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count + 1) | should be $true
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            $rule.Destinations.Destination.Name -contains $script:TestVMName2 | should be true
+            $rule.Destinations.Destination.Name -contains $script:TestVMName2 | should be $true
         }
 
         it "Can add multiple sources to an existing L3 rule" {
             $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Add-NsxFirewallRuleMember -MemberType Source -Member $script:TestVM2, $script:TestSG2
             ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
             $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count + 2) | should be true
-            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count) | should be true
+            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count + 2) | should be $true
+            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count) | should be $true
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            $rule.Sources.Source.Name -contains $script:TestVMName2 | should be true
-            $rule.Sources.Source.Name -contains $script:TestSgName2 | should be true
+            $rule.Sources.Source.Name -contains $script:TestVMName2 | should be $true
+            $rule.Sources.Source.Name -contains $script:TestSgName2 | should be $true
         }
 
         it "Can add multiple destinations to an existing L3 rule" {
             $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Add-NsxFirewallRuleMember -MemberType Destination -Member $script:TestVM2, $script:TestSG2
             ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
             $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count + 2) | should be true
-            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count) | should be true
+            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count + 2) | should be $true
+            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count) | should be $true
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            $rule.Destinations.Destination.Name -contains $script:TestVMName2 | should be true
-            $rule.Destinations.Destination.Name -contains $script:TestSgName2 | should be true
+            $rule.Destinations.Destination.Name -contains $script:TestVMName2 | should be $true
+            $rule.Destinations.Destination.Name -contains $script:TestSgName2 | should be $true
         }
 
         it "Can remove an existing source from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Source -Member $script:TestVM1 | Remove-NsxFirewallRuleMember -Confirm:$false
-            ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
-            $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count - 1) | should be true
-            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count) | should be true
+            Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Source -Member $script:TestVM1 | Remove-NsxFirewallRuleMember -Confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            $rule.Sources.Source.Name -contains $script:TestVMName1 | should be false
+            $rule.Sources.Source.Name -contains $script:TestVMName1 | should be $false
         }
 
         it "Can remove an existing destination from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Destination -Member $script:TestVM1 | Remove-NsxFirewallRuleMember -Confirm:$false
-            ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
-            $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count - 1) | should be true
-            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count) | should be true
+            Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Destination -Member $script:TestVM1 | Remove-NsxFirewallRuleMember -Confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            $rule.Destinations.Destination.Name -contains $script:TestVMName1 | should be false
+            $rule.Destinations.Destination.Name -contains $script:TestVMName1 | should be $false
         }
 
         it "Can remove multiple sources from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Source -Member $script:TestVM1, $script:TestSG1 | Remove-NsxFirewallRuleMember -confirm:$false
-            ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
-            $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count - 2) | should be true
-            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count) | should be true
+            Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Source -Member $script:TestVM1, $script:TestSG1 | Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            $rule.Sources.Source.Name -contains $script:TestVMName1 | should be false
-            $rule.Sources.Source.Name -contains $script:TestSgName1 | should be false
+            $rule.Sources.Source.Name -contains $script:TestVMName1 | should be $false
+            $rule.Sources.Source.Name -contains $script:TestSgName1 | should be $false
         }
 
         it "Can remove multiple destinations from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Destination -Member $script:TestVM1, $script:TestSG1 | Remove-NsxFirewallRuleMember -confirm:$false
-            ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
-            $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.membertype -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count - 2) | should be true
-            ($member | ? { $_.membertype -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count) | should be true
+            Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Destination -Member $script:TestVM1, $script:TestSG1 | Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            $rule.Destinations.Destination.Name -contains $script:TestVMName1 | should be false
-            $rule.Destinations.Destination.Name -contains $script:TestSgName1 | should be false
+            $rule.Destinations.Destination.Name -contains $script:TestVMName1 | should be $false
+            $rule.Destinations.Destination.Name -contains $script:TestSgName1 | should be $false
         }
 
         it "Can remove all sources from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Source| Remove-NsxFirewallRuleMember -confirm:$false
-            ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
-            $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.MemberType -eq 'Source' } | measure).count | should be 0
-            ($member | ? { $_.MemberType -eq 'Destination' } | measure).count -eq (@($l3modrule1.Destinations.Destination).count) | should be true
+            Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Source| Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
+            ($rule.Sources.Source.Name).count | should be 0
         }
 
         it "Can remove all destinations from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Destination | Remove-NsxFirewallRuleMember -confirm:$false
-            ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
-            $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
-            ($member | ? { $_.MemberType -eq 'Destination' } | measure).count | should be 0
-            ($member | ? { $_.MemberType -eq 'Source' } | measure).count -eq (@($l3modrule1.Sources.Source).count) | should be true
+            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Destination | Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
+            ($rule.Destinations.Destination.Name).count | should be 0
         }
 
         it "Can remove all members (source/destination) from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember | Remove-NsxFirewallRuleMember -confirm:$false
-            ($member | ? { $_.ruleid -eq $l3modrule1.id} | measure).count | should begreaterthan 0
-            $member | ? { $_.ruleid -ne $l3modrule1.id} | should be $null
+            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember | Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
-            ($member | ? { $_.MemberType -eq 'Source' } | measure).count | should be 0
-            ($member | ? { $_.MemberType -eq 'Destination' } | measure).count | should be 0
+            ($rule.Sources.Source.Name).count | should be 0
+            ($rule.Destinations.Destination.Name).count | should be 0
+
         }
     }
 
