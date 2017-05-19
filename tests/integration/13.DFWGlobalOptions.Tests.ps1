@@ -33,15 +33,15 @@ Describe "DFW Global Properties" {
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         # Threshold Variables
-        $script:cpuThreshold = "75"
-        $script:cpuThreshold1 = "85"
-        $script:memoryThreshold = "75"
-        $script:memoryThreshold1 = "85"
-        $script:cpsThreshold = "125000"
-        $script:cpsThreshold1 = "200000"
-        $script:cpsDefault = "100000"
-        $script:memorydefault = "100"
-        $script:cpudefault = "100"
+        [String]$script:cpuThreshold = "75"
+        [String]$script:cpuThreshold1 = "85"
+        [String]$script:memoryThreshold = "75"
+        [String]$script:memoryThreshold1 = "85"
+        [String]$script:cpsThreshold = "125000"
+        [String]$script:cpsThreshold1 = "200000"
+        [String]$script:cpsDefault = "100000"
+        [String]$script:memorydefault = "100"
+        [String]$script:cpudefault = "100"
 
     }
 
