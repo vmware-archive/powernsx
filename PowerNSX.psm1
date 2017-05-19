@@ -23915,7 +23915,9 @@ function Set-NsxFirewallThreshold {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    begin {
+    begin {}
+    
+    process {
 
         #Capture existing thresholds
         $currentthreshold =  Get-NsxFirewallThreshold
