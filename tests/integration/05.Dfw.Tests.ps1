@@ -219,7 +219,7 @@ Describe "DFW" {
         it "Can delete an L2 section with rules in it when forced" {
             $section = Get-NsxFirewallSection -name $l2sectionname -sectionType layer2sections
             $section | should not be $null
-            $section | Get-NsxFirewallRule | should not be $null
+            $section | Get-NsxFirewallRule -RuleType layer2sections | should not be $null
             { $section | Remove-NsxFirewallSection -Confirm:$false -force } | should not Throw
         }
     }
