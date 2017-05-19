@@ -23923,14 +23923,15 @@ function Set-NsxFirewallThreshold {
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
+        # Must convert all ToString due to Windows issues. macOS and Linux are fine without.
         if ( $PsBoundParameters.ContainsKey('Cpu') ) {
-             $currentthreshold.cpu.percentValue = $Cpu
+             $currentthreshold.cpu.percentValue = $Cpu.ToString()
         }
         if ( $PsBoundParameters.ContainsKey('Memory') ) {
-            $currentthreshold.memory.percentValue = $Memory
+            $currentthreshold.memory.percentValue = $Memory.ToString()
         }
         if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) {
-            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond
+            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond.ToString()
         }
 
         $uri = "/api/4.0/firewall/stats/eventthresholds"
