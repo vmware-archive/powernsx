@@ -2163,6 +2163,7 @@ Function Validate-SecurityGroupMember {
         #Argument is a NIC object.
         $true
     }
+ 
     elseif (($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $argument.ExtensionData.MoRef.Type)) {
         #Argument is a VI ob ject and matches a recognised NSX SG member type
         $true
@@ -23924,13 +23925,13 @@ function Set-NsxFirewallThreshold {
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('Cpu') ) {
-             $currentthreshold.cpu.percentValue = $Cpu
+             $currentthreshold.cpu.percentValue = $Cpu.ToString()
         }
         if ( $PsBoundParameters.ContainsKey('Memory') ) {
-            $currentthreshold.memory.percentValue = $Memory
+            $currentthreshold.memory.percentValue = $Memory.ToString()
         }
         if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) {
-            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond
+            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond.ToString()
         }
 
         $uri = "/api/4.0/firewall/stats/eventthresholds"
