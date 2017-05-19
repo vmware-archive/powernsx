@@ -23924,6 +23924,7 @@ function Set-NsxFirewallThreshold {
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
+        # Must convert all ToString due to Windows issues. macOS and Linux are fine without.
         if ( $PsBoundParameters.ContainsKey('Cpu') ) {
              $currentthreshold.cpu.percentValue = $Cpu.ToString()
         }
