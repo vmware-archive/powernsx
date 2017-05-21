@@ -9835,7 +9835,10 @@ function New-NsxLogicalRouter {
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
+            [PSCustomObject]$Connection=$defaultNSXConnection,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [String]$Tenant
 
     )
 
@@ -9850,6 +9853,10 @@ function New-NsxLogicalRouter {
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "distributedRouter"
+
+        if $PSBoundParameters.ContainsKey("Tenant") { 
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant 
+        }
 
         switch ($ManagementPortGroup){
 
@@ -11791,7 +11798,9 @@ function New-NsxEdge {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "fqdn" -xmlElementText $Hostname
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
-        if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant }
+        if $PSBoundParameters.ContainsKey("Tenant") { 
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant 
+        }
 
         #Appliances element
         [System.XML.XMLElement]$xmlAppliances = $XMLDoc.CreateElement("appliances")
