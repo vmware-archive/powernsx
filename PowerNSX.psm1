@@ -21512,7 +21512,7 @@ function Get-NsxMacSet {
     )
 
     begin {
-        if ( -not $scopeid ) {
+        if ( -not $PsBoundParameters.ContainsKey("scopeId") ) {
             switch ( $PSCmdlet.ParameterSetName ) {
 
                 "UniversalOnly" {
