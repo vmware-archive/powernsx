@@ -17,7 +17,7 @@ Describe "NSXManager" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred
-        $script:adminConnection = Connect-NsxServer -NsxServer $DefaultNsxConnection.Server -Credential $PNSXTestDefMgrCred
+        $script:adminConnection = Connect-NsxServer -NsxServer $DefaultNsxConnection.Server -Credential $PNSXTestDefMgrCred -DefaultConnection:$false
 
 
         #Put any script scope variables you need to reference in your tests.
@@ -60,7 +60,7 @@ Describe "NSXManager" {
         #Connect-NsxServer tests
         it "Can connect directly to NSX server using admin account - legacy mode" {
             $NSXManager = $DefaultNsxConnection.Server
-            $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefMgrCred -VICred $PNSXTestDefViCred -ViWarningAction "Ignore"
+            $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefMgrCred -VICred $PNSXTestDefViCred -ViWarningAction "Ignore" -DefaultConnection:$false
             $DirectConn | should not be $null
             $DirectConn.Version | should not be $null
             $DirectConn.BuildNumber | should not be $null
@@ -69,7 +69,7 @@ Describe "NSXManager" {
 
         it "Can connect directly to NSX server using Ent_Admin SSO account" {
             $NSXManager = $DefaultNsxConnection.Server
-            $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
+            $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefViCred -ViWarningAction "Ignore" -DefaultConnection:$false
             $DirectConn | should not be $null
             $DirectConn.Version | should be $null
             $DirectConn.BuildNumber | should be $null
@@ -139,14 +139,14 @@ Describe "NSXManager" {
         it "Can clear existing NTP configuration" {
             $TimeConfig = Clear-NsxManagerTimeSettings -connection $adminConnection
             $TimeConfig | should be $null
-            $GetTimeConfig = Get-NsxManagerTimeSettings
+            $GetTimeConfig = Get-NsxManagerTimeSettings -connection $adminConnection
             $GetTimeConfig.NtpServer | should be $null
         }
 
         it "Can configure NTP servers" {
             $TimeConfig = Set-NsxManagerTimeSettings -NtpServer $NTPServer1, $NTPServer2 -connection $adminConnection
             $TimeConfig.ntpserver | should not be $null
-            $GetTimeConfig = Get-NsxManagerTimeSettings
+            $GetTimeConfig = Get-NsxManagerTimeSettings -connection $adminConnection
             $GetTimeConfig.ntpserver.string -contains $NTPServer1 | should be $true
             $GetTimeConfig.ntpserver.string -contains $NTPServer2 | should be $true
         }
@@ -154,7 +154,7 @@ Describe "NSXManager" {
         it "Can configure timezone configuration" {
             $TimeConfig = Set-NsxManagerTimeSettings -TimeZone $TimeZone -connection $adminConnection
             $TimeConfig.timezone | should be $Timezone
-            $GetTimeConfig = Get-NsxManagerTimeSettings
+            $GetTimeConfig = Get-NsxManagerTimeSettings -connection $adminConnection
             $TimeConfig.timezone | should be $Timezone
         }
     }
