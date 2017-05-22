@@ -94,6 +94,19 @@ Describe "IPSets" {
             ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
             ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
          }
+
+         it "Can retrieve IpSets from scopeid of globalroot-0" {
+            $ipsets = Get-NsxIpSet -scopeId globalroot-0
+            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+         }
+
+         it "Can retrieve IpSets from scopeid of universalroot-0" {
+            $ipsets = Get-NsxIpSet -scopeId universalroot-0
+            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+         }
+
     }
 
     Context "Successful IpSet Creation" {
