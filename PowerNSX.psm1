@@ -6290,6 +6290,10 @@ function New-NsxController {
     $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
     New-NsxController -ControllerName $ControllerName -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
 
+    .EXAMPLE
+    A secondary or tertiary controller does not require a Password to be defined. 
+
+    New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -connection $Connection -confirm:$false
     #>
 
 
@@ -6325,7 +6329,7 @@ function New-NsxController {
             #vSphere DVPortGroup OR NSX Logical Switch object to connect the Controller VM to
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
             [object]$PortGroup,
-        [Parameter (Mandatory=$True)]
+        [Parameter (Mandatory=$False)]
             #Controller Password (Must be same on all controllers)
             [string]$Password,
         [Parameter ( Mandatory=$False)]
@@ -6340,11 +6344,18 @@ function New-NsxController {
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
     begin {
-    }
+        $count = get-nsxcontroller -connection $Connection | measure
+
+        if ( ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -gt 1)) {
+                Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter"
+            }
+        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
+                Throw "Password property must be defined for the first controller. Define a password with -Password"
+            }
+        }
 
     process {
 
@@ -6370,9 +6381,9 @@ function New-NsxController {
 
         # Check for presence of optional controller name
         if ($PSBoundParameters.ContainsKey("ControllerName")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
+        if ($PSBoundParameters.ContainsKey("Password")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()}
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
-        Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()
 
         $URI = "/api/2.0/vdn/controller"
         $body = $ControllerSpec.OuterXml
