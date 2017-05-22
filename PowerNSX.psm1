@@ -2231,6 +2231,97 @@ Function Validate-FirewallRuleSourceDest {
      }
 }
 
+Function Validate-FirewallRule {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like a DFW rule
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name id -MemberType Properties )) {
+            throw "Specified firewall rule XML element does not contain an id property."
+        }
+
+        if ( -not ( $argument | get-member -name action -Membertype Properties)) {
+            throw "Specified firewall rule XML element does not contain an action property."
+        }
+        if ( -not ( $argument | get-member -name appliedToList -Membertype Properties)) {
+            throw "Specified firewall rule XML element does not contain an appliedToList property."
+        }
+
+        #Validate that the rule has a parent node that we can use to update it if required.
+        try {
+            $ParentSection = invoke-xpathquery -query "parent::section" -QueryMethod SelectSingleNode -Node $argument
+            $sectionId = $Parentsection.HasAttribute("id") -as [int]
+            $RuleId = $argument.HasAttribute("id")
+        }
+        catch {
+            Throw "Unable to retrieve rule and section details from the specified Firewall Rule.  Specify a valid rule and try again."
+        }
+
+        $true
+    }
+    else {
+        throw "Argument must be a firewall rule XML element as returned by Get-NsxFirewallRule"
+    }
+}
+
+Function Validate-FirewallRuleMember {
+    #Distinct from Validate-FirewallRuleMemberObject in that it checks for an arg that is a valid firewallrule member object, OR a string to match against the value of one.
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Same requirements for Firewall Rule SourceDest except for string match on name as well.
+    If ( $argument -is [string] ) {
+        $True
+    }
+    else {
+        Validate-FirewallRuleSourceDest -argument $argument
+    }
+}
+
+Function Validate-FirewallRuleMemberObject {
+
+    #Distinct from Validate-FirewallRuleMember in that it checks for an arg that looks like the appropriate return object from get-nsxfirewallrulemember.
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Same requirements for Firewall Rule SourceDest except for string match on name as well.
+    If ( $argument -is [pscustomobject] ) {
+        if ( -not ( $argument | get-member -name RuleId -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name SectionId -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name MemberType -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name Name -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name Value -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        if ( -not ( $argument | get-member -name Type -Membertype Properties)) {
+            throw "Specified argument is not a valid FirewallRuleMember object."
+        }
+        $true
+    }
+    else {
+        throw "Specified argument is not a valid FirewallRuleMember object."
+    }
+}
+
 Function Validate-ServiceGroup {
 
     Param (
@@ -5154,7 +5245,7 @@ function New-NsxManager{
                     # use splatting to keep the line width in-check/make it easier to read parameters
                     $connectParams = $null
                     $connectParams = @{
-                        Server               = $ipAddress
+                        NsxServer            = $ipAddress
                         UserName             = 'admin'
                         Password             = $cliPassword
                         DisableViAutoConnect = $true
@@ -5581,7 +5672,7 @@ function Get-NsxManagerTimeSettings {
 
     )
 
-    $role = Get-NsxUserRole $Connection.Credential.Username
+    $role = Get-NsxUserRole $Connection.Credential.Username -connection $connection
     if ( $role.role -ne 'super_user' ) {
         throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
     }
@@ -5649,7 +5740,7 @@ function Set-NsxManagerTimeSettings {
 
     )
 
-    $role = Get-NsxUserRole $Connection.Credential.Username
+    $role = Get-NsxUserRole $Connection.Credential.Username -Connection $Connection
     if ( $role.role -ne 'super_user' ) {
         throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
     }
@@ -5666,7 +5757,7 @@ function Set-NsxManagerTimeSettings {
 
                 write-warning "Existing NTP servers are configured and will be retained.  Use Clear-NsxManagerTimeSettings to remove them."
                 #Api doesnt allow 'updates', so we have to save existing, then remove, then readd the union of old and new.
-                Clear-NsxManagerTimeSettings
+                Clear-NsxManagerTimeSettings -Connection $Connection
 
                 foreach ($Server in $ntpserver) {
                     if ( $Existing.timeSettings.ntpServer.string -notcontains $server ) {
@@ -5688,8 +5779,8 @@ function Set-NsxManagerTimeSettings {
 
         $uri = "/api/1.0/appliance-management/system/timesettings"
         $null = Invoke-NsxRestMethod -Method put -body $Existing.timeSettings.outerXml -uri $uri -Connection $Connection
-        Get-NsxManagerTimeSettings
-    }
+        Get-NsxManagerTimeSettings -Connection $Connection
+        }
     else {
         throw "Unexpected response from API when querying existing time settings."
     }
@@ -5779,21 +5870,25 @@ function Get-NsxManagerSyslogServer {
 
     $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
-    #NSX 6.2.3/4 changed API schema here! :( Grrrr.  Have to test and return consistent object
-    if ( $result -is [System.Xml.XmlDocument]) {
-        #Assume the timesettings child exists.
-        $result.syslogserver
-    }
-    elseif ( $result -is [pscustomobject] ) {
-        #Pre 6.2.3 manager response.
-        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
-        [System.XML.XMLElement]$xmlSyslog = $xmlDoc.CreateElement('syslogserver')
-        $xmldoc.AppendChild($xmlSyslog) | out-null
+    # Make sure we actually get a response. If there are no syslog servers
+    # configured, then the API does not return any response body.
+    if ( $result ) {
+        #NSX 6.2.3/4 changed API schema here! :( Grrrr.  Have to test and return consistent object
+        if ( $result -is [System.Xml.XmlDocument]) {
+            #Assume the timesettings child exists.
+            $result.syslogserver
+        }
+        elseif ( $result -is [pscustomobject] ) {
+            #Pre 6.2.3 manager response.
+            [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+            [System.XML.XMLElement]$xmlSyslog = $xmlDoc.CreateElement('syslogserver')
+            $xmldoc.AppendChild($xmlSyslog) | out-null
 
-        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "syslogServer" -xmlElementText $result.syslogServer
-        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "port" -xmlElementText $result.port
-        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "protocol" -xmlElementText $result.protocol
-        $xmlSyslog
+            Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "syslogServer" -xmlElementText $result.syslogServer
+            Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "port" -xmlElementText $result.port
+            Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "protocol" -xmlElementText $result.protocol
+            $xmlSyslog
+        }
     }
 }
 
@@ -6199,6 +6294,10 @@ function New-NsxController {
     $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
     New-NsxController -ControllerName $ControllerName -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
 
+    .EXAMPLE
+    A secondary or tertiary controller does not require a Password to be defined. 
+
+    New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -connection $Connection -confirm:$false
     #>
 
 
@@ -6234,7 +6333,7 @@ function New-NsxController {
             #vSphere DVPortGroup OR NSX Logical Switch object to connect the Controller VM to
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
             [object]$PortGroup,
-        [Parameter (Mandatory=$True)]
+        [Parameter (Mandatory=$False)]
             #Controller Password (Must be same on all controllers)
             [string]$Password,
         [Parameter ( Mandatory=$False)]
@@ -6249,11 +6348,18 @@ function New-NsxController {
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
     begin {
-    }
+        $count = get-nsxcontroller -connection $Connection | measure
+
+        if ( ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -gt 1)) {
+                Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter"
+            }
+        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
+                Throw "Password property must be defined for the first controller. Define a password with -Password"
+            }
+        }
 
     process {
 
@@ -6279,9 +6385,9 @@ function New-NsxController {
 
         # Check for presence of optional controller name
         if ($PSBoundParameters.ContainsKey("ControllerName")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
+        if ($PSBoundParameters.ContainsKey("Password")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()}
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
-        Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()
 
         $URI = "/api/2.0/vdn/controller"
         $body = $ControllerSpec.OuterXml
@@ -19788,18 +19894,20 @@ function Get-NsxSecurityGroup {
     )
 
     begin {
-        switch ( $PSCmdlet.ParameterSetName ) {
+        if (-not $PsBoundParameters.ContainsKey("scopeId") ) {
+            switch ( $PSCmdlet.ParameterSetName ) {
 
-            "UniversalOnly" {
-                $scopeid = "universalroot-0"
-            }
+                "UniversalOnly" {
+                    $scopeid = "universalroot-0"
+                }
 
-            "LocalOnly" {
-                $scopeid = "globalroot-0"
-            }
+                "LocalOnly" {
+                    $scopeid = "globalroot-0"
+                }
 
-            Default {
-                $scopeId = "globalroot-0", "universalroot-0"
+                Default {
+                    $scopeId = "globalroot-0", "universalroot-0"
+                }
             }
         }
     }
@@ -20956,18 +21064,20 @@ function Get-NsxIpSet {
     )
 
     begin {
-        switch ( $PSCmdlet.ParameterSetName ) {
+        if ( -not $PsBoundParameters.ContainsKey("scopeId") ) {
+            switch ( $PSCmdlet.ParameterSetName ) {
 
-            "UniversalOnly" {
-                $scopeid = "universalroot-0"
-            }
+                "UniversalOnly" {
+                    $scopeid = "universalroot-0"
+                }
 
-            "LocalOnly" {
-                $scopeid = "globalroot-0"
-            }
+                "LocalOnly" {
+                    $scopeid = "globalroot-0"
+                }
 
-            Default {
-                $scopeId = "globalroot-0", "universalroot-0"
+                Default {
+                    $scopeId = "globalroot-0", "universalroot-0"
+                }
             }
         }
     }
@@ -21512,18 +21622,20 @@ function Get-NsxMacSet {
     )
 
     begin {
-        switch ( $PSCmdlet.ParameterSetName ) {
+        if ( -not $PsBoundParameters.ContainsKey("scopeId") ) {
+            switch ( $PSCmdlet.ParameterSetName ) {
 
-            "UniversalOnly" {
-                $scopeid = "universalroot-0"
-            }
+                "UniversalOnly" {
+                    $scopeid = "universalroot-0"
+                }
 
-            "LocalOnly" {
-                $scopeid = "globalroot-0"
-            }
+                "LocalOnly" {
+                    $scopeid = "globalroot-0"
+                }
 
-            Default {
-                $scopeId = "globalroot-0", "universalroot-0"
+                Default {
+                    $scopeId = "globalroot-0", "universalroot-0"
+                }
             }
         }
     }
@@ -21803,11 +21915,17 @@ function Get-NsxService {
             #Return services that have a either a matching port, or are defiuned by a range into which the specified port falls
             [int]$Port,
         [Parameter (Mandatory=$false)]
-            #Scopeid - default is globalroot-0
-            [string]$scopeId="globalroot-0",
+            #ScopeId of Service Group.  Can define multiple scopeIds in a list to iterate accross scopes.
+        [string[]]$scopeId,
         [Parameter (Mandatory=$false)]
             #Include services with readonly attribute
             [switch]$IncludeReadOnly=$false,
+        [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+            #Return only Universal objects
+            [switch]$UniversalOnly,
+        [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+            #Return only Locally scoped objects
+            [switch]$LocalOnly,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -21816,6 +21934,22 @@ function Get-NsxService {
     )
 
     begin {
+        if (-not $PsBoundParameters.ContainsKey("scopeId") ){
+            switch ( $PSCmdlet.ParameterSetName ) {
+
+                "UniversalOnly" {
+                    $scopeid = "universalroot-0"
+                }
+
+                "LocalOnly" {
+                    $scopeid = "globalroot-0"
+                }
+
+                Default {
+                    $scopeId = "globalroot-0", "universalroot-0"
+                }
+            }
+        }
 
     }
 
@@ -21840,78 +21974,84 @@ function Get-NsxService {
                 }
             }
 
-            "Name" {
-                #All Services
-                $URI = "/api/2.0/services/application/scope/$scopeId"
-                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
-                    if  ( $name ) {
-                        $svcs = $response.list.application | ? { $_.name -eq $name }
-                    } else {
-                        $svcs = $response.list.application
-                    }
-                    #Filter readonly if switch not set
-                    if ( -not $IncludeReadOnly ) {
-                        $svcs| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
-                    }
-                    else {
-                        $svcs
-                    }
-                }
-            }
-
             "Port" {
 
                 # Service by port
+                foreach ($scope in $scopeid ) {
+                    $application = $null
+                    $URI = "/api/2.0/services/application/scope/$scope"
+                    [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
+                        foreach ( $application in $response.list.application ) {
 
-                $URI = "/api/2.0/services/application/scope/$scopeId"
-                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
-                    foreach ( $application in $response.list.application ) {
+                            if ( $application | get-member -memberType Properties -name element ) {
+                                write-debug "$($MyInvocation.MyCommand.Name) : Testing service $($application.name) with ports: $($application.element.value)"
 
-                        if ( $application | get-member -memberType Properties -name element ) {
-                            write-debug "$($MyInvocation.MyCommand.Name) : Testing service $($application.name) with ports: $($application.element.value)"
+                                #The port configured on a service is stored in element.value and can be
+                                #either an int, range (expressed as inta-intb, or a comma separated list of ints and/or ranges
+                                #So we split the value on comma, the replace the - with .. in a range, and wrap parentheses arount it
+                                #Then, lean on PoSH native range handling to force the lot into an int array...
 
-                            #The port configured on a service is stored in element.value and can be
-                            #either an int, range (expressed as inta-intb, or a comma separated list of ints and/or ranges
-                            #So we split the value on comma, the replace the - with .. in a range, and wrap parentheses arount it
-                            #Then, lean on PoSH native range handling to force the lot into an int array...
+                                switch -regex ( $application.element.value ) {
 
-                            switch -regex ( $application.element.value ) {
+                                    "^[\d,-]+$" {
 
-                                "^[\d,-]+$" {
+                                        [string[]]$valarray = $application.element.value.split(",")
+                                        foreach ($val in $valarray)  {
 
-                                    [string[]]$valarray = $application.element.value.split(",")
-                                    foreach ($val in $valarray)  {
-
-                                        write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"
-                                        [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' )
-                                        #Then test if the port int array contains what we are looking for...
-                                        if ( $ports.contains($port) ) {
-                                            write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
-                                            #Filter readonly if switch not set
-                                            if ( -not $IncludeReadOnly ) {
-                                                $application| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                                            write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"
+                                            [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' )
+                                            #Then test if the port int array contains what we are looking for...
+                                            if ( $ports.contains($port) ) {
+                                                write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
+                                                #Filter readonly if switch not set
+                                                if ( -not $IncludeReadOnly ) {
+                                                    $application| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                                                }
+                                                else {
+                                                    $application
+                                                }
+                                                break
                                             }
-                                            else {
-                                                $application
-                                            }
-                                            break
                                         }
                                     }
-                                }
 
-                                default { #do nothing, port number is not numeric....
-                                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                    default { #do nothing, port number is not numeric....
+                                        write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                    }
                                 }
                             }
-                        }
-                        else {
-                            write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - element not defined"
+                            else {
+                                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - element not defined"
+                            }
                         }
                     }
                 }
             }
+
+            Default {
+                foreach ($scope in $scopeid ) {
+                    $svcs = $null
+                    #All Services
+                    $URI = "/api/2.0/services/application/scope/$scope"
+                    [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
+                        if  ( $name ) {
+                            $svcs = $response.list.application | ? { $_.name -eq $name }
+                        } else {
+                            $svcs = $response.list.application
+                        }
+                        #Filter readonly if switch not set
+                        if ( -not $IncludeReadOnly ) {
+                            $svcs| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                        }
+                        else {
+                            $svcs
+                        }
+                    }
+                }
+            }
+
         }
     }
 
@@ -22174,16 +22314,25 @@ Function Get-NsxServiceGroup {
     MS Exchange 2010 Unified Messaging Server
 
     #>
-    [CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="Default")]
+
     param (
 
-    [Parameter (Mandatory=$false,Position=1,ParameterSetName="Name")]
+    [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+        #Objectid of Service Group
+        [string]$objectId,
+    [Parameter (Mandatory=$true,Position=1,ParameterSetName="Name")]
         [ValidateNotNullorEmpty()]
         [string]$Name,
     [Parameter (Mandatory=$false)]
-        [string]$scopeId="globalroot-0",
-    [Parameter (Mandatory=$false,ParameterSetName="objectId")]
-        [string]$objectId,
+        #ScopeId of Service Group.  Can define multiple scopeIds in a list to iterate accross scopes.
+        [string[]]$scopeId,
+    [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+        #Return only Universal objects
+        [switch]$UniversalOnly,
+    [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+        #Return only Locally scoped objects
+        [switch]$LocalOnly,
     [Parameter (Mandatory=$False)]
         #PowerNSX Connection object
         [ValidateNotNullOrEmpty()]
@@ -22192,6 +22341,22 @@ Function Get-NsxServiceGroup {
     )
 
     begin {
+        if ( -not $PsBoundParameters.ContainsKey("scopeId") ){
+            switch ( $PSCmdlet.ParameterSetName ) {
+
+                "UniversalOnly" {
+                    $scopeid = "universalroot-0"
+                }
+
+                "LocalOnly" {
+                    $scopeid = "globalroot-0"
+                }
+
+                Default {
+                    $scopeId = "globalroot-0", "universalroot-0"
+                }
+            }
+        }
 
     }
 
@@ -22200,22 +22365,24 @@ Function Get-NsxServiceGroup {
         if ( -not $objectId ) {
             #All Sections
 
-            $URI = "/api/2.0/services/applicationgroup/scope/$scopeId"
-            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            foreach ($scope in $scopeid ) {
+                $servicegroup = $null
+                $URI = "/api/2.0/services/applicationgroup/scope/$scope"
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
 
-            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::list/applicationGroup")){
-                $servicegroup = $response.list.applicationGroup
+                if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::list/applicationGroup")){
+                    $servicegroup = $response.list.applicationGroup
 
-                if ($PsBoundParameters.ContainsKey("Name")){
-                    $servicegroup | ? {$_.name -eq $name}
-                }
-                else {
+                    if ($PsBoundParameters.ContainsKey("Name")){
+                        $servicegroup | ? {$_.name -eq $name}
+                    }
+                    else {
 
-                    $servicegroup
+                        $servicegroup
+                    }
                 }
             }
-
         }
         else {
 
@@ -22643,88 +22810,105 @@ function Get-NsxApplicableMember {
 
 ###Private functions
 
-function New-NsxSourceDestNode {
+function Add-NsxSourceDestNode {
+
+    param (
+        [system.xml.xmlelement]$Rule,
+        [ValidateSet ("sources","destinations",IgnoreCase=$false)]
+        [string]$NodeType,
+        [switch]$negated
+    )
+
+    #Create the parent sources element
+    $XmlDoc = $Rule.OwnerDocument
+    [System.XML.XMLElement]$xmlNode = $XMLDoc.CreateElement($NodeType)
+    $Rule.AppendChild($xmlNode) | out-null
+
+    #The excluded attribute indicates negation
+    $xmlNegated = $xmlDoc.createAttribute("excluded")
+    $xmlNode.Attributes.Append($xmlNegated) | out-null
+    $xmlNegated.value = $Negated.ToString().ToLower()
+}
+
+function Add-NsxSourceDestMember {
 
     #Internal function - Handles building the source/dest xml node for a given object.
-
+    # Updates NB 05/17 -> Modified for Add-NSxFirewallRuleMember cmdlet use.
+    #   - Accepts rule (rather than doc) object now
+    #   - Returns modified rule, rather than just the source/dest node.
+    #   - Renamed to reflect 'member' terminology
+    #   - Removed negation logic (moved back to new-rule due to logic not being applicable to individual member instances, function to be duplicated in set-rule cmdlet to allow flipping of negation (and other functions))
     param (
 
         [Parameter (Mandatory=$true)]
-        [ValidateSet ("source","destination")]
-        [string]$itemType,
-        [object[]]$itemlist,
-        [System.XML.XMLDocument]$xmlDoc,
-        [switch]$negateItem
-
+        [ValidateSet ("source","destination",IgnoreCase=$false)]
+        [string]$membertype,
+        [object[]]$memberlist,
+        [System.Xml.XmlElement]$rule
     )
 
-    #The excluded attribute indicates source/dest negation
-    $xmlAttrNegated = $xmlDoc.createAttribute("excluded")
-    if ( $negateItem ) {
-        $xmlAttrNegated.value = "true"
-    } else {
-        $xmlAttrNegated.value = "false"
+    # Get Doc object from passed rule
+    $xmlDoc = $rule.OwnerDocument
+
+    # Get SrcDestNode parent element.  Have to use xpath here as the elem may be empty and powershell unhelpfully turns that into a string for us :|
+    if ( $membertype -eq "Source" ) {
+        [System.Xml.XmlElement]$xmlSrcDestNode = invoke-xpathquery -query "child::sources" -QueryMethod SelectSingleNode -node $rule
+    }
+    else {
+        [System.Xml.XmlElement]$xmlSrcDestNode = invoke-xpathquery -query "child::destinations" -QueryMethod SelectSingleNode -node $rule
     }
 
-    #Create return element and append negation attribute.
-    if ( $itemType -eq "Source" ) { [System.XML.XMLElement]$xmlReturn = $XMLDoc.CreateElement("sources") }
-    if ( $itemType -eq "Destination" ) { [System.XML.XMLElement]$xmlReturn = $XMLDoc.CreateElement("destinations") }
-    $xmlReturn.Attributes.Append($xmlAttrNegated) | out-null
-
-    foreach ($item in $itemlist) {
-        if ( ( $item -as [ipaddress]) -or ( Validate-IPRange -argument $item ) -or ( Validate-IPPrefix -argument $item ) ) {
-            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $item"
+    #Loop the memberlist and create appropriate element in the srcdest node.
+    foreach ($member in $memberlist) {
+        if ( ( $member -as [ipaddress]) -or ( Validate-IPRange -argument $member ) -or ( Validate-IPPrefix -argument $member ) ) {
+            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $member"
         }
         else {
-            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $($item.name)"
+            write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $($member.name)"
         }
-        #Build the return XML element
-        [System.XML.XMLElement]$xmlItem = $XMLDoc.CreateElement($itemType)
+        #Build the return XML element and append to our srcdestnode
+        [System.XML.XMLElement]$xmlMember = $XMLDoc.CreateElement($memberType)
+        $xmlSrcDestNode.appendChild($xmlMember) | out-null
 
-        if ( ( $item -as [ipaddress]) -or ( Validate-IPRange -argument $item ) -or ( Validate-IPPrefix -argument $item ) ) {
+        if ( ( $member -as [ipaddress]) -or ( Validate-IPRange -argument $member ) -or ( Validate-IPPrefix -argument $member ) ) {
             #Item is v4 or 6 address
-            write-debug "$($MyInvocation.MyCommand.Name) : Object $item is an ipaddress"
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Ipv4Address"
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $member is an ipaddress"
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $member
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "type" -xmlElementText "Ipv4Address"
         }
-        elseif ( $item -is [system.xml.xmlelement] ) {
+        elseif ( $member -is [system.xml.xmlelement] ) {
 
-            write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as xml element"
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $($member.name) is specified as xml element"
             #XML representation of NSX object passed - ipset, sec group or logical switch
             #get appropritate name, value.
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.objectId
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-            Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.objectTypeName
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $member.objectId
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $member.name
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "type" -xmlElementText $member.objectTypeName
 
         } else {
 
-            write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is specified as supported powercli object"
+            write-debug "$($MyInvocation.MyCommand.Name) : Object $($member.name) is specified as supported powercli object"
             #Proper PowerCLI Object passed
             #If passed object is a NIC, we have to do some more digging
-            if (  $item -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+            if (  $member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
 
-                write-debug "$($MyInvocation.MyCommand.Name) : Object $($item.name) is vNic"
+                write-debug "$($MyInvocation.MyCommand.Name) : Object $($member.name) is vNic"
                 #Naming based on DFW UI standard
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText "$($item.parent.name) - $($item.name)"
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText "Vnic"
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText "$($member.parent.name) - $($member.name)"
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "type" -xmlElementText "Vnic"
 
-                $vmUuid = ($item.parent | get-view).config.instanceuuid
-                $MemberMoref = "$vmUuid.$($item.id.substring($item.id.length-3))"
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $MemberMoref
+                $vmUuid = ($member.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($member.id.substring($member.id.length-3))"
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $MemberMoref
             }
             else {
                 #any other accepted PowerCLI object, we just need to grab details from the moref.
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "name" -xmlElementText $item.name
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "type" -xmlElementText $item.extensiondata.moref.type
-                Add-XmlElement -xmlRoot $xmlItem -xmlElementName "value" -xmlElementText $item.extensiondata.moref.value
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $member.name
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "type" -xmlElementText $member.extensiondata.moref.type
+                Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $member.extensiondata.moref.value
             }
         }
-
-
-        $xmlReturn.appendChild($xmlItem) | out-null
     }
-
-    $xmlReturn
 }
 
 function New-NsxServiceNode {
@@ -23314,70 +23498,88 @@ function New-NsxFirewallRule  {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Section")]
+            # Section in which the new rule should be created
             [ValidateNotNull()]
             [System.Xml.XmlElement]$Section,
         [Parameter (Mandatory=$true)]
+            # Name of the new rule
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true)]
+            # Action of the rule - allow, deny or reject.
             [ValidateSet("allow","deny","reject")]
             [string]$Action,
         [Parameter (Mandatory=$false)]
+            # Direction of traffic to hit the rule - in, out or inout (Default inout)
             [ValidateSet("inout","in","out")]
             [string]$Direction="inout",
         [Parameter (Mandatory=$false)]
+            # Source(s) of traffic to hit the rule.  IP4/6 members are specified as string, any other member as the appropriate VI or PowerNSX object.
             [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
             [object[]]$Source,
         [Parameter (Mandatory=$false)]
+            # Negate the list of sources hit by the rule
             [ValidateNotNullOrEmpty()]
             [switch]$NegateSource,
         [Parameter (Mandatory=$false)]
+            # Destination(s) of traffic to hit the rule.  IP4/6 members are specified as string, any other member as the appropriate VI or PowerNSX object.
             [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
             [object[]]$Destination,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [switch]$NegateDestination,
         [Parameter (Mandatory=$false)]
+            # Negate the list of destinations hit by the rule
             [ValidateScript ({ Validate-FirewallRuleService $_ })]
             [object[]]$Service,
         [Parameter (Mandatory=$false)]
+            # Comment string for the new rule
             [string]$Comment="",
         [Parameter (Mandatory=$false)]
+            # Rule is created as disabled
             [switch]$Disabled,
         [Parameter (Mandatory=$false)]
+            # Rule logging is enabled
             [switch]$EnableLogging,
         [Parameter (Mandatory=$false)]
+            # Specific Object(s) to which the rule will be applied.
             [ValidateScript({ Validate-FirewallAppliedTo $_ })]
             [object[]]$AppliedTo,
         [Parameter (Mandatory=$false)]
+            # Enable application of the rule to 'DISTRIBUTED_FIREWALL' (ie, to all VNICs present on NSX prepared hypervisors.  This does NOT include NSX Edges)
             [switch]$ApplyToDfw=$true,
         [Parameter (Mandatory=$false)]
+            # Enable application of the rule to all NSX edges
             [switch]$ApplyToAllEdges=$false,
         [Parameter (Mandatory=$false)]
+            # Rule type
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$false)]
+            # Create the new rule at the specified position of the section (Top or Bottom, Default - Top)
             [ValidateSet("Top","Bottom")]
             [string]$Position="Top",
         [Parameter (Mandatory=$false)]
+            # Tag to be configured on the new rule.  Tag is an arbitrary string attached to the rule that does not affect application of the rule, but is included in logged output of rule hits if logging is enabled for the rule.
             [ValidateNotNullorEmpty()]
             [string]$Tag,
         [Parameter (Mandatory=$false)]
+            # Scope of the created rule.
             [string]$ScopeId="globalroot-0",
         [Parameter (Mandatory=$false)]
-            #Specifies that New-NsxFirewall rule will return the actual rule that was created rather than the deprecated behaviour of returning the complete containing section
-            #This option exists to allow existing scripts that use this function to be easily updated to set it to $false and continue working (For now!).
-            #This option is deprecated and will be removed in a future version.
+            # Specifies that New-NsxFirewall rule will return the actual rule that was created rather than the deprecated behaviour of returning the complete containing section
+            # This option exists to allow existing scripts that use this function to be easily updated to set it to $false and continue working (For now!).
+            # This option is deprecated and will be removed in a future version.
             [switch]$ReturnRule=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
+            # PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
+    # Todo: Review need to specify rule type in param - should be able to determine from section type that is mandatory...?
     begin {}
     process {
-
 
         $generationNumber = $section.generationNumber
 
@@ -23408,14 +23610,20 @@ function New-NsxFirewallRule  {
 
         #Build Sources Node
         if ( $source ) {
-            $xmlSources = New-NsxSourceDestNode -itemType "source" -itemlist $source -xmlDoc $xmlDoc -negateItem:$negateSource
-            $xmlRule.appendChild($xmlSources) | out-null
+
+            Add-NsxSourceDestNode -Rule $xmlRule -Nodetype "sources" -negated:$NegateSource
+
+            #Add the source members
+            Add-NsxSourceDestMember -membertype "source" -memberlist $source -rule $xmlRule
         }
 
         #Destinations Node
         if ( $destination ) {
-            $xmlDestinations = New-NsxSourceDestNode -itemType "destination" -itemlist $destination -xmlDoc $xmlDoc -negateItem:$negateDestination
-            $xmlRule.appendChild($xmlDestinations) | out-null
+
+            Add-NsxSourceDestNode -Rule $xmlRule -Nodetype "destinations" -negated:$NegateDestination
+
+            #Add the destination members
+            Add-NsxSourceDestMember -membertype "destination" -memberlist $destination -rule $xmlRule
         }
 
         #Services
@@ -23435,10 +23643,8 @@ function New-NsxFirewallRule  {
 
         #Tag
         if ( $tag ) {
-
             Add-XmlElement -xmlRoot $xmlRule -xmlElementName "tag" -xmlElementText $tag
         }
-
 
         #GetThe existing rule Ids and store them - we check for a rule that isnt contained here in the response so we can presnet back to user with rule id
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Section -Query "child::rule") )  {
@@ -23448,20 +23654,17 @@ function New-NsxFirewallRule  {
             $ExistingIds = @()
         }
 
-
         #Append the new rule to the section
         $xmlrule = $Section.ownerDocument.ImportNode($xmlRule, $true)
         switch ($Position) {
             "Top" { $Section.prependchild($xmlRule) | Out-Null }
             "Bottom" { $Section.appendchild($xmlRule) | Out-Null }
-
         }
         #Do the post
         $body = $Section.OuterXml
         $URI = "/api/4.0/firewall/$scopeId/config/$ruletype/$($section.Id)"
 
         #Need the IfMatch header to specify the current section generation id
-
         $IfMatchHeader = @{"If-Match"=$generationNumber}
         $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -extraheader $IfMatchHeader -connection $connection
 
@@ -23481,7 +23684,6 @@ function New-NsxFirewallRule  {
     }
     end {}
 }
-
 
 
 function Remove-NsxFirewallRule {
@@ -23915,7 +24117,9 @@ function Set-NsxFirewallThreshold {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    begin {
+    begin {}
+
+    process {
 
         #Capture existing thresholds
         $currentthreshold =  Get-NsxFirewallThreshold
@@ -23923,14 +24127,15 @@ function Set-NsxFirewallThreshold {
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
+        # Must convert all ToString due to Windows issues. macOS and Linux are fine without.
         if ( $PsBoundParameters.ContainsKey('Cpu') ) {
-             $currentthreshold.cpu.percentValue = $Cpu
+             $currentthreshold.cpu.percentValue = $Cpu.ToString()
         }
         if ( $PsBoundParameters.ContainsKey('Memory') ) {
-            $currentthreshold.memory.percentValue = $Memory
+            $currentthreshold.memory.percentValue = $Memory.ToString()
         }
         if ( $PsBoundParameters.ContainsKey('ConnectionsPerSecond') ) {
-            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond
+            $currentthreshold.connectionsPerSecond.value = $ConnectionsPerSecond.ToString()
         }
 
         $uri = "/api/4.0/firewall/stats/eventthresholds"
@@ -23942,85 +24147,311 @@ function Set-NsxFirewallThreshold {
     end {}
 }
 
-function Get-NsxFirewallGlobalConfiguration {
+function Get-NsxFirewallRuleMember {
 
     <#
     .SYNOPSIS
-    Retrieves the Distributed Firewall global configuration options.
+    Retrieves the specified members from specified NSX Distributed Firewall
+    Rule.
 
     .DESCRIPTION
-    The global firewalll configuration options can be used to modify
-    firewall performance.
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
 
-    This command will retrieve the current configuration options for the
-    distributed firewall
+    This cmdlet accepts a firewall rule object returned from Get-NsxFirewallRule
+    and returns the specified source and/or destination members of the rule.
+
+    Its primary use is to provide a source object for the
+    Remove-NsxFirewallRuleMember cmdlet.
 
     .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember | format-table
 
-    PS /> Get-NsxFirewallGlobalConfiguration
+        RuleId SectionId MemberType  Name  Value     Type           isValid
+        ------ --------- ----------  ----  -----     ----           -------
+        5441   3717      Source            1.2.3.4   Ipv4Address    true
+        5441   3717      Destination test  ipset-309 IPSet          true
+        5441   3717      Destination Web02 vm-1266   VirtualMachine true
+        5441   3717      Destination       1.2.3.4   Ipv4Address    true
 
-    layer3RuleOptimize layer2RuleOptimize tcpStrictOption
-    ------------------ ------------------ ---------------
-    false              true               false
+    Get all members from rule id 5441 and format output as table.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source -Member 1.2.3.4
+
+
+        RuleId     : 5441
+        SectionId  : 3717
+        MemberType : Source
+        Name       :
+        Value      : 1.2.3.4
+        Type       : Ipv4Address
+        isValid    : true
+
+    Get just the source member 1.2.3.4 from rule id 5441
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -Member 1.2.3.4 | Format-Table
+
+        RuleId SectionId MemberType  Name Value   Type        isValid
+        ------ --------- ----------  ---- -----   ----        -------
+        5441   3717      Source           1.2.3.4 Ipv4Address true
+        5441   3717      Destination      1.2.3.4 Ipv4Address true
+
+    Get member 1.2.3.4 in either source or destination of rule 5441.  Matching by string
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -Member web\d+ | Format-Table
+
+        RuleId SectionId MemberType  Name  Value   Type           isValid
+        ------ --------- ----------  ----  -----   ----           -------
+        5441   3717      Source      Web01 vm-1270 VirtualMachine true
+        5441   3717      Destination Web02 vm-1266 VirtualMachine true
+
+    Get any member of rule 5441 with a name matching the regular expression web\d+ (the string web followed by 1 or more digit)
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -Member (get-vm web01) | Format-Table
+
+        RuleId SectionId MemberType Name  Value   Type           isValid
+        ------ --------- ---------- ----  -----   ----           -------
+        5441   3717      Source     Web01 vm-1270 VirtualMachine true
+
+    Get any member of rule 5441 that is the VM web01. Matching by PowerCLI object
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -Member (get-nsxipset test) | Format-Table
+
+        RuleId SectionId MemberType  Name Value     Type  isValid
+        ------ --------- ----------  ---- -----     ----  -------
+        5441   3717      Destination test ipset-309 IPSet true
+
+    Get any member of the rule 5441 that is the NSX IPSet called test. Matching by PowerNSX object
+
+    .EXAMPLE
+    get-nsxfirewallrule | Get-NsxFirewallRuleMember -Member (get-nsxipset test) | Format-Table
+
+        RuleId SectionId MemberType  Name Value     Type  isValid
+        ------ --------- ----------  ---- -----     ----  -------
+        5441   3717      Destination test ipset-309 IPSet true
+
+    Get any member of the rule 5441 that is the NSX IPSet called test. Matching by PowerNSX object
+
+    .EXAMPLE
+    get-nsxfirewallrule | Get-NsxFirewallRuleMember -Member (get-vm web01) | Format-Table
+
+        RuleId SectionId MemberType Name  Value   Type           isValid
+        ------ --------- ---------- ----  -----   ----           -------
+        5441   3717      Source     Web01 vm-1270 VirtualMachine true
+        4332   3717      Source     Web01 vm-1270 VirtualMachine true
+
+    Get any member of any rule that is the VM object web01.  Matching accross all rules by PowerCLI object
 
     #>
 
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
     param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # DFW rule as returned by Get-NsxFirewallRule / New-NsxFirewallRule
+            [ValidateScript({ Validate-FirewallRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$false, Position=1)]
+            # Member(s) to return.  Can specify as a string or VI / NSX Object (VM, Logical Switch etc)).  String match is processed as regex (eg: web\d{2} is supported)
+            [ValidateScript({ Validate-FirewallRuleMember $_ })]
+            [object[]]$Member=".*",
         [Parameter (Mandatory=$false)]
-            #PowerNSX Connection object.
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
+            # MemberType to return.  Source, Destination or All (Default)
+            [ValidateSet("Source","Destination", "All")]
+            [string]$MemberType="All"
     )
 
-    begin {
-    }
+    begin {}
 
     process {
 
-        $URI = "/api/4.0/firewall/config/globalconfiguration"
-        $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
-
-        try {
-            [system.xml.xmldocument]$globalConfigurationDoc = $response.content
-            $globalConfigurationDoc.globalConfiguration
+        write-debug "$($MyInvocation.MyCommand.Name) : Rule $($FirewallRule.id)"
+        foreach ( $_Member in $Member ) {
+            if ( $_Member -is [string] ) {
+                if ( $Membertype -match "Source|All" ) {
+                    if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
+                        foreach ($source in $FirewallRule.Sources.Source ) {
+                            #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.  Sigh... why is our API so f*@#$&n inconsistent...
+                            if ( $source.type -match "ipv4Address|ipv6Address"  ) {
+                                if ( $source.value -match $_Member ) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $null; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                }
+                            }
+                            elseif ( $source.name -match $_Member ) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                            }
+                        }
+                    }
+                }
+                if ( $Membertype -match "Destination|All" ) {
+                    if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
+                        foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                            #check member type - ipv4/6 addresses dont have a 'name' property, but user will expect operation against 'value' property.
+                            if ( $destination.type -match "ipv4Address|ipv6Address"  ) {
+                                if ( $destination.value -match $_Member ) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $null; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                                }
+                            }
+                            elseif ( $Destination.name -match $_Member ) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                            }
+                        }
+                    }
+                }
             }
-        catch {
-            Throw "Unexpected API response $_"
+            elseif ( $_Member -is [system.xml.xmlelement] ) {
+                #XML representation of NSX object passed - ipset, sec group or logical switch.  match on value (objectId)
+                if ( $Membertype -match "Source|All" ) {
+                    if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
+                        foreach ($source in $FirewallRule.Sources.Source ) {
+                            #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
+                            if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.objectId )) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                            }
+                        }
+                    }
+                }
+                if ( $Membertype -match "Destination|All" ) {
+                    if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
+                        foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                            #ignore any ip4/6 rules - user can only match them on string based search so wont hit here...
+                            if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.objectId )) {
+                                [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $destination.Name; "Value" = $destination.Value; "Type" = $destination.Type; "isValid" = $destination.isValid }
+                            }
+                        }
+                    }
+                }
+            }
+            else {
+                #Proper PowerCLI Object passed
+                if (  $_Member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+                    #If passed object is a NIC, its easiest to match on name.
+                    $NicName = "$($_Member.parent.name) - $($Member.name)"
+                    if ( $Membertype -match "Source|All" ) {
+                        if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
+                            foreach ($source in $FirewallRule.Sources.Source ) {
+                                if (( $source.type -match "Vnic"  ) -and ( $source.name -match $NicName )) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                }
+                            }
+                        }
+                    }
+                    if ( $Membertype -match "Destination|All" ) {
+                        if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
+                            foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                                if (( $destination.type -match "Vnic"  ) -and ( $destination.name -match $NicName )) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                                }
+                            }
+                        }
+                    }
+                }
+                else {
+                    #any other accepted PowerCLI object, we just need to grab details from the moref.
+                    if ( $Membertype -match "Source|All" ) {
+                        if ( Invoke-XpathQuery -Node $FirewallRule -query "child::sources/source" -QueryMethod SelectSingleNode ) {
+                            foreach ($source in $FirewallRule.Sources.Source ) {
+                            if (( $source.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $source.value -match $_Member.extensiondata.moref.value )) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Source"; "Name" = $source.Name; "Value" = $source.Value; "Type" = $source.Type; "isValid" = $source.isValid }
+                                }
+                            }
+                        }
+                    }
+                    if ( $Membertype -match "Destination|All" ) {
+                        if ( Invoke-XpathQuery -Node $FirewallRule -query "child::destinations/destination" -QueryMethod SelectSingleNode ) {
+                            foreach ($destination in $FirewallRule.Destinations.Destination ) {
+                            if (( $destination.type -notmatch "ipv4Address|ipv6Address"  ) -and ( $destination.value -match $_Member.extensiondata.moref.value )) {
+                                    [pscustomobject]@{"RuleId" = $FirewallRule.id; "SectionId" = $FirewallRule.SectionId; "MemberType" = "Destination"; "Name" = $Destination.Name; "Value" = $Destination.Value; "Type" = $Destination.Type; "isValid" = $Destination.isValid }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
         }
-
     }
 
-    end{}
+    end {}
 }
 
-function Set-NsxFirewallGlobalConfiguration {
+function Add-NsxFirewallRuleMember {
 
     <#
     .SYNOPSIS
-    Sets the Distributed Firewall global configuration options.
+    Adds a new source or destination member to the specified NSX Distributed
+    Firewall Rule.
 
     .DESCRIPTION
-    The global firewalll configuration options can be used to modify
-    the distributed firewall.
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
+
+    This cmdlet accepts a firewall rule object returned from Get-NsxFirewallRule
+    and adds the specified source and/or destination members to the rule.
 
     .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | add-NsxFirewallRuleMember -MemberType Source -Member (get-vm web01) | Format-Table
 
-    PS /> Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -EnableTcpStrict -DisableAutoDraft
+        RuleId SectionId MemberType  Name  Value     Type           isValid
+        ------ --------- ----------  ----  -----     ----           -------
+        5441   3717      Source      Web01 vm-1270   VirtualMachine true
+        5441   3717      Source            1.2.3.4   Ipv4Address    true
+        5441   3717      Destination test  ipset-309 IPSet          true
+        5441   3717      Destination Web02 vm-1266   VirtualMachine true
 
-    layer3RuleOptimize layer2RuleOptimize tcpStrictOption autoDraftDisabled
-    ------------------ ------------------ --------------- -----------------
-    false              true               true            true
+    Add the vm web01 as a source member of rule 5441 - output as table.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | add-NsxFirewallRuleMember -MemberType Destination -Member "1.2.3.4" | Format-Table
+
+        RuleId SectionId MemberType  Name  Value     Type           isValid
+        ------ --------- ----------  ----  -----     ----           -------
+        5441   3717      Source      Web01 vm-1270   VirtualMachine true
+        5441   3717      Source            1.2.3.4   Ipv4Address    true
+        5441   3717      Destination test  ipset-309 IPSet          true
+        5441   3717      Destination Web02 vm-1266   VirtualMachine true
+        5441   3717      Destination       1.2.3.4   Ipv4Address    true
+
+    Add the ip 1.2.3.4 to the destinations of rule 5441 - output as table.
+
+    .EXAMPLE
+    get-nsxfirewallrule  -RuleId 5441 | Add-NsxFirewallRuleMember -MemberType Destination -Member (get-vm web02),"1.2.3.4",$IPSetTest | Format-Table
+
+        RuleId SectionId MemberType  Name  Value     Type           isValid
+        ------ --------- ----------  ----  -----     ----           -------
+        5441   3717      Source      Web01 vm-1270   VirtualMachine true
+        5441   3717      Source            1.2.3.4   Ipv4Address    true
+        5441   3717      Destination test  ipset-309 IPSet          true
+        5441   3717      Destination Web02 vm-1266   VirtualMachine true
+        5441   3717      Destination       1.2.3.4   Ipv4Address    true
+
+    Add 1.2.3.4, the vm web02 and the nsx ipset stored in $ipsettest to the rule 5441 - output as table.
 
     #>
 
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
     param (
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateNotNullOrEmpty()]
-            [System.Xml.XmlElement]$GlobalConfiguration,
-        [Parameter (Mandatory=$False)]
-            [switch]$EnableTcpStrict,
-        [Parameter (Mandatory=$False)]
-            [switch]$DisableAutoDraft,
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # DFW rule as returned by Get-NsxFirewallRule / New-NsxFirewallRule
+            [ValidateScript({ Validate-FirewallRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$True, Position=1)]
+            # Member(s) to add.  specify ipv4/6 addresses as a string or other member types as VI / NSX Object (VM, Logical Switch etc)).
+            [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
+            [object[]]$Member,
+        [Parameter (Mandatory=$true)]
+            # MemberType to add.  Source, Destination or Both
+            [ValidateSet("Source","Destination", "Both")]
+            [string]$MemberType,
         [Parameter (Mandatory=$false)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -24029,36 +24460,233 @@ function Set-NsxFirewallGlobalConfiguration {
 
     begin {}
 
-    process{
-        #Capture existing options
-        $_GlobalConfiguration = $GlobalConfiguration.CloneNode($True)
+    process {
 
-        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
-        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+        $sectionId = $FirewallRule.ParentNode.Id
+        $RuleId = $FirewallRule.id
+        $generationNumber = $FirewallRule.ParentNode.generationnumber
 
-        if ( $PsBoundParameters.ContainsKey('EnableTcpStrict') ) {
-             $_GlobalConfiguration.tcpStrictOption = [string]$EnableTcpStrict
+        #Clone the xml so we dont modify source...
+        $_FirewallRule = $FirewallRule.CloneNode($true)
+        if ( $MemberType -eq "Both" ) {
+
+            # We are defaulting negation to false here as negation applied to ALL members.  If we allow user to specify in this cmdlet, then we have to catch the scenario where the rule has existing sources (and we shouldnt override the existing negation setting).  Prefer to require user to explicitly use separate set-nsxfirewallrule -negatesource / -negatedestination?
+            if ( -not ( invoke-xpathquery -QueryMethod SelectSingleNode -query "child::sources" -node $_FirewallRule)) {
+                Add-NsxSourceDestNode -Rule $_FirewallRule -Nodetype "sources" -negated:$false
+            }
+
+            if ( -not ( invoke-xpathquery -QueryMethod SelectSingleNode -query "child::destinations" -node $_FirewallRule)) {
+                Add-NsxSourceDestNode -Rule $_FirewallRule -Nodetype "destinations" -negated:$false
+            }
+
+            Add-NsxSourceDestMember -membertype "source" -memberlist $member -rule $_FirewallRule
+            Add-NsxSourceDestMember -membertype "destination" -memberlist $member -rule $_FirewallRule
+        }
+        else {
+            if ( -not ( invoke-xpathquery -QueryMethod SelectSingleNode -query "child::$($Membertype.ToLower())s" -node $_FirewallRule)) {
+                Add-NsxSourceDestNode -Rule $_FirewallRule -Nodetype "$($Membertype.ToLower())s" -negated:$false
+            }
+            Add-NsxSourceDestMember -membertype $MemberType.ToLower() -memberlist $member -rule $_FirewallRule
         }
 
-        if ( $PsBoundParameters.ContainsKey('DisableAutoDraft') ) {
-            # Check to see if the element already exists
-            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_GlobalConfiguration -Query 'descendant::autoDraftDisabled')) {
-                $_GlobalConfiguration.autoDraftDisabled = [string]$DisableAutoDraft
-            }
-            else {
-                Add-XmlElement -xmlRoot $_GlobalConfiguration -xmlElementName "autoDraftDisabled" -xmlElementText $DisableAutoDraft
-            }
+        $uri = "/api/4.0/firewall/globalroot-0/config/layer3sections/$sectionId/rules/$Ruleid"
+        #Need the IfMatch header to specify the current section generation id
+        $IfMatchHeader = @{"If-Match"=$generationNumber}
+        try {
+            $response = Invoke-NsxWebRequest -method put -Uri $uri -body $_FirewallRule.OuterXml -extraheader $IfMatchHeader -connection $connection
+            [xml]$ruleElem = $response.Content
+            Get-NsxFirewallRule -RuleId $ruleElem.rule.id | Get-NsxFirewallRuleMember
         }
-
-        $uri = "/api/4.0/firewall/config/globalconfiguration"
-        $body = $_GlobalConfiguration.outerXml
-        Invoke-NsxWebRequest -method "PUT" -URI $uri -body $body | out-null
-
-        Get-NsxFirewallGlobalConfiguration
-
+        catch {
+            throw "Failed to add member to specified rule.  $_"
+        }
     }
 
     end {}
+}
+
+function Remove-NsxFirewallRuleMember {
+
+    <#
+    .SYNOPSIS
+    Removes the specified source or destination member from the specified NSX
+    Distributed Firewall Rule.
+
+    .DESCRIPTION
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
+
+    This cmdlet accepts a firewall rule member object returned from
+    Get-NsxFirewallRuleMember and removes it from its parent rule.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source -Member 1.2.3.4 | Remove-NsxFirewallRuleMember
+
+        Removal of a firewall rule member is permanent and will modify your security posture.
+        Proceed with removal of member 1.2.3.4 from the Source list of firewallrule 5441 in section 3717?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+    Remove the source 1.2.3.4 from firewall rule 5441
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source -Member 1.2.3.4 | Remove-NsxFirewallRuleMember
+
+        Removal of a firewall rule member is permanent and will modify your security posture.
+        Proceed with removal of member 1.2.3.4 from the Source list of firewallrule 5441 in section 3717?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+    Remove the source 1.2.3.4 from firewall rule 5441
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source -Member 1.2.3.4 | Remove-NsxFirewallRuleMember -confirm:$false
+
+    Remove the source 1.2.3.4 from firewall rule 5441 with no confirmation.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source | Remove-NsxFirewallRuleMember
+
+        Removal of a firewall rule member is permanent and will modify your security posture.
+        Proceed with removal of member 1.2.3.4 from the Source list of firewallrule 5441 in section 3717?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+        Removal of a firewall rule member is permanent and will modify your security posture.
+        Proceed with removal of member vm-1270 from the Source list of firewallrule 5441 in section 3717?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+        The source member vm-1270 of rule 5441 in section 3717 is the last source member in this rule.  Its removal will cause this rule to match ANY Source
+        Confirm rule 5441 to match Source ANY?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+        WARNING: The source member vm-1270 of rule 5441 in section 3717 was the last member in this rule.  Its removal has caused this rule to now match ANY Source.
+
+    Remove ALL sources from the firewall rule 5441.  Note the extra prompt AND warning that you are about to make this rule match on ANY source.
+
+    .EXAMPLE
+    get-nsxfirewallrule -RuleId 5441 | Get-NsxFirewallRuleMember -MemberType Source | Remove-NsxFirewallRuleMember -Confirm:$false
+
+        The source member vm-1270 of rule 5441 in section 3717 is the last source member in this rule.  Its removal will cause this rule to match ANY Source
+        Confirm rule 5441 to match Source ANY?
+        [Y] Yes  [N] No  [?] Help (default is "N"): y
+
+    Remove ALL sources from the firewall rule 5441 with no confirmation prompt.  Note the remaining prompt AND warning that you are about to make this rule match on ANY source.
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Default")]
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # DFW rule member as returned by Get-NsxFirewallRuleMember
+            [ValidateScript({ Validate-FirewallRuleMemberObject $_ })]
+            [Object]$FirewallRuleMember,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #Override confirmation of removal of last source or destination member - effectively converting rule to match ANY in the appropriate field (source or destination).  Specify as -SayHello2Heaven to disable confirmation prompt.  RIP Chris Cornell, 17 May 2017
+            [switch]$SayHello2Heaven=$false,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        # We process all member modifications offline as part of pipeline processing, then we put the updated sections to the api in the end{} section to optimise multiple edits to the same rule.
+        # Save modified rules in a hash table keyed by ruleid
+        $ModifiedSections = @{}
+     }
+
+    process {
+
+        if ( $confirm ) {
+            $message  = "Removal of a firewall rule member is permanent and will modify your security posture."
+            $question = "Proceed with removal of member $($FirewallRuleMember.Value) from the $($FirewallRuleMember.MemberType) list of firewallrule $($FirewallRuleMember.RuleId) in section $($FirewallRuleMember.SectionId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+
+        if ( $decision -eq 0 ) {
+            if ( $ModifiedSections.ContainsKey($FirewallRuleMember.SectionId )) {
+                # Section has already been updated in this pipeline, so we modify the already updated xml.
+                $SectionXml = $ModifiedSections[$FirewallRuleMember.SectionId]
+            }
+            else {
+                # We havent touched the section yet, so we have to get it
+                $SectionXml = Get-NsxFirewallSection -objectId $FirewallRuleMember.SectionId
+                $ModifiedSections.Add($FirewallRuleMember.SectionId, $SectionXml)
+            }
+
+            $Query = "descendant::rule[@id=`"$($FirewallRuleMember.RuleId.ToString())`"]/*/$($FirewallRuleMember.MemberType.ToString().ToLower())[value=`"$($FirewallRuleMember.Value.ToString())`"]"
+            write-debug "$($MyInvocation.MyCommand.Name) : Executing xpath query to locate member in section: $query"
+            $XmlMember = Invoke-XpathQuery -QueryMethod SelectNodes -Query $Query -node $SectionXml
+
+            if ( @($XmlMember).Count -ne 1) {
+                throw "Xpath query for member $($FirewallRuleMember.Name) did not result in exactly one member being returned. $(@($XmlMember).count) members were matched.  Please report this issue at https://github.com/vmware/powernsx/issues/ and include steps to reproduce."
+            }
+            if ( $XmlMember.ParentNode.ParentNode.id -ne $FirewallRuleMember.RuleId ) {
+                throw "Xpath query for member $($FirewallRuleMember.Name) returned a member with a non matching ruleid: $($XmlMember.ParentNode.ParentNode.id) -ne $($FirewallRuleMember.RuleId).  Please report this issue at https://github.com/vmware/powernsx/issues/ and include steps to reproduce."
+            }
+
+            # Assuming our xpath query is correct, we can simply remove the child element from its parent node
+            $ParentNode = $XmlMember.ParentNode
+            $AllChildNodes = Invoke-XpathQuery -Node $ParentNode -QueryMethod SelectNodes -query "child::$($FirewallRuleMember.MemberType.ToString().ToLower())"
+
+            if ( @($AllChildNodes).count -eq 1 )  {
+                # We have about to remove the last member from the sources or destinations element.  API will reject and empty sources elem, so we need to remove it.
+                # We also should warn the user that this just became an any rule!
+                # Also - when Im doing this 'get my parent and call its removechild method to remove myself' kinda circular operation, it always reminds me of the Lorax lifting himself by the seat of his pants and disappearing...
+
+                if ( -not $SayHello2Heaven ) {
+                    $message  = "The $($FirewallRuleMember.MemberType.ToLower()) member $($FirewallRuleMember.Value) of rule $($FirewallRuleMember.RuleId) in section $($FirewallRuleMember.SectionId) is the last $($FirewallRuleMember.MemberType.ToLower()) member in this rule.  Its removal will cause this rule to match ANY $($FirewallRuleMember.MemberType)"
+                    $question = "Confirm rule $($FirewallRuleMember.RuleId) to match $($FirewallRuleMember.MemberType) ANY?"
+                    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+                }
+                else { $decision = 0 }
+
+                if ( $decision -eq 0 ) {
+                    write-warning "The $($FirewallRuleMember.MemberType.ToLower()) member $($FirewallRuleMember.Value) of rule $($FirewallRuleMember.RuleId) in section $($FirewallRuleMember.SectionId) was the last member in this rule.  Its removal has caused this rule to now match ANY $($FirewallRuleMember.MemberType)."
+                    $ParentNode.RemoveChild($XmlMember) | out-null
+                    $ParentNode.ParentNode.RemoveChild($ParentNode) | out-null
+                }
+            }
+            else {
+                $ParentNode.RemoveChild($XmlMember) | out-null
+            }
+        }
+    }
+
+    end {
+
+        # Section XML is updated in process block.  End block fires at end of pipeline processing and is where we push the updated sections to reduce the number of API roundtrips...
+        foreach ( $Section in $ModifiedSections.Values ) {
+
+            switch ( $Section.Type ) {
+                "LAYER3" { $SectionType = "layer3sections"}
+                "LAYER2" { $SectionType = "layer2sections"}
+                "L3REDIRECT" { $SectionType = "layer3redirectsections"}
+            }
+
+            $uri = "/api/4.0/firewall/globalroot-0/config/$SectionType/$($section.Id)"
+            # Need the IfMatch header to specify the current section generation id
+            $IfMatchHeader = @{"If-Match"=$Section.generationNumber}
+
+            try {
+                $response = Invoke-NsxWebRequest -method put -Uri $uri -body $Section.outerxml -extraheader $IfMatchHeader -connection $connection
+                [xml]$Section = $response.Content
+            }
+            catch {
+                throw "Failed to post updated NSX Firewall Section $($Section.Id).  $_"
+            }
+        }
+    }
 }
 
 ########
