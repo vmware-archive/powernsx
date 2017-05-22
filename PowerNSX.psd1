@@ -338,7 +338,8 @@ FunctionsToExport = @(
     'Invoke-XpathQuery',
     'Get-NsxFirewallRuleMember',
     'Add-NsxFirewallRuleMember',
-    'Remove-NsxFirewallRuleMember'
+    'Remove-NsxFirewallRuleMember',
+    'Remove-NsxController'
 )
 
 # Cmdlets to export from this module
