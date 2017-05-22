@@ -96,9 +96,8 @@ Describe "SecurityGroups" {
             $sg.objectId | should be $get.objectId
          }
 
-        it "Can retrieve only local SecurityGroups" -skip:(-not $universalSyncEnabled ) {
+        it "Can retrieve only local SecurityGroups" {
             New-NsxSecurityGroup -Name $sgPrefix-Local
-            New-NsxSecurityGroup -Name $sgPrefix-Universal
             $secGrp = Get-nsxsecuritygroup -localonly
             ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
             ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
