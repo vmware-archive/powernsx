@@ -21456,7 +21456,7 @@ function Remove-NsxIpSetMember  {
         $modified = $false
         foreach ( $value in $IPAddress ) {
             if ( -not ( $valcollection -contains $value )) {
-                write-warning "$Value $value not a member of IPSet $($ipset.name)"
+                write-warning "$Value not a member of IPSet $($ipset.name)"
             }
             else {
                 $modified = $true
