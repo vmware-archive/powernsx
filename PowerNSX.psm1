@@ -21896,11 +21896,17 @@ function Get-NsxService {
             #Return services that have a either a matching port, or are defiuned by a range into which the specified port falls
             [int]$Port,
         [Parameter (Mandatory=$false)]
-            #Scopeid - default is globalroot-0
-            [string]$scopeId="globalroot-0",
+            #ScopeId of Service Group.  Can define multiple scopeIds in a list to iterate accross scopes.
+        [string[]]$scopeId,
         [Parameter (Mandatory=$false)]
             #Include services with readonly attribute
             [switch]$IncludeReadOnly=$false,
+        [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+            #Return only Universal objects
+            [switch]$UniversalOnly,
+        [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+            #Return only Locally scoped objects
+            [switch]$LocalOnly,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -21909,6 +21915,22 @@ function Get-NsxService {
     )
 
     begin {
+        if (-not $PsBoundParameters.ContainsKey("scopeId") ){
+            switch ( $PSCmdlet.ParameterSetName ) {
+
+                "UniversalOnly" {
+                    $scopeid = "universalroot-0"
+                }
+
+                "LocalOnly" {
+                    $scopeid = "globalroot-0"
+                }
+
+                Default {
+                    $scopeId = "globalroot-0", "universalroot-0"
+                }
+            }
+        }
 
     }
 
@@ -21933,78 +21955,84 @@ function Get-NsxService {
                 }
             }
 
-            "Name" {
-                #All Services
-                $URI = "/api/2.0/services/application/scope/$scopeId"
-                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
-                    if  ( $name ) {
-                        $svcs = $response.list.application | ? { $_.name -eq $name }
-                    } else {
-                        $svcs = $response.list.application
-                    }
-                    #Filter readonly if switch not set
-                    if ( -not $IncludeReadOnly ) {
-                        $svcs| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
-                    }
-                    else {
-                        $svcs
-                    }
-                }
-            }
-
             "Port" {
 
                 # Service by port
+                foreach ($scope in $scopeid ) {
+                    $application = $null
+                    $URI = "/api/2.0/services/application/scope/$scope"
+                    [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
+                        foreach ( $application in $response.list.application ) {
 
-                $URI = "/api/2.0/services/application/scope/$scopeId"
-                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
-                    foreach ( $application in $response.list.application ) {
+                            if ( $application | get-member -memberType Properties -name element ) {
+                                write-debug "$($MyInvocation.MyCommand.Name) : Testing service $($application.name) with ports: $($application.element.value)"
 
-                        if ( $application | get-member -memberType Properties -name element ) {
-                            write-debug "$($MyInvocation.MyCommand.Name) : Testing service $($application.name) with ports: $($application.element.value)"
+                                #The port configured on a service is stored in element.value and can be
+                                #either an int, range (expressed as inta-intb, or a comma separated list of ints and/or ranges
+                                #So we split the value on comma, the replace the - with .. in a range, and wrap parentheses arount it
+                                #Then, lean on PoSH native range handling to force the lot into an int array...
 
-                            #The port configured on a service is stored in element.value and can be
-                            #either an int, range (expressed as inta-intb, or a comma separated list of ints and/or ranges
-                            #So we split the value on comma, the replace the - with .. in a range, and wrap parentheses arount it
-                            #Then, lean on PoSH native range handling to force the lot into an int array...
+                                switch -regex ( $application.element.value ) {
 
-                            switch -regex ( $application.element.value ) {
+                                    "^[\d,-]+$" {
 
-                                "^[\d,-]+$" {
+                                        [string[]]$valarray = $application.element.value.split(",")
+                                        foreach ($val in $valarray)  {
 
-                                    [string[]]$valarray = $application.element.value.split(",")
-                                    foreach ($val in $valarray)  {
-
-                                        write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"
-                                        [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' )
-                                        #Then test if the port int array contains what we are looking for...
-                                        if ( $ports.contains($port) ) {
-                                            write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
-                                            #Filter readonly if switch not set
-                                            if ( -not $IncludeReadOnly ) {
-                                                $application| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                                            write-debug "$($MyInvocation.MyCommand.Name) : Converting range expression and expanding: $val"
+                                            [int[]]$ports = invoke-expression ( $val -replace '^(\d+)-(\d+)$','($1..$2)' )
+                                            #Then test if the port int array contains what we are looking for...
+                                            if ( $ports.contains($port) ) {
+                                                write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
+                                                #Filter readonly if switch not set
+                                                if ( -not $IncludeReadOnly ) {
+                                                    $application| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                                                }
+                                                else {
+                                                    $application
+                                                }
+                                                break
                                             }
-                                            else {
-                                                $application
-                                            }
-                                            break
                                         }
                                     }
-                                }
 
-                                default { #do nothing, port number is not numeric....
-                                    write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                    default { #do nothing, port number is not numeric....
+                                        write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                    }
                                 }
                             }
-                        }
-                        else {
-                            write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - element not defined"
+                            else {
+                                write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - element not defined"
+                            }
                         }
                     }
                 }
             }
+
+            Default {
+                foreach ($scope in $scopeid ) {
+                    $svcs = $null
+                    #All Services
+                    $URI = "/api/2.0/services/application/scope/$scope"
+                    [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
+                        if  ( $name ) {
+                            $svcs = $response.list.application | ? { $_.name -eq $name }
+                        } else {
+                            $svcs = $response.list.application
+                        }
+                        #Filter readonly if switch not set
+                        if ( -not $IncludeReadOnly ) {
+                            $svcs| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                        }
+                        else {
+                            $svcs
+                        }
+                    }
+                }
+            }
+
         }
     }
 
