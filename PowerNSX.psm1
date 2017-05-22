@@ -19788,7 +19788,7 @@ function Get-NsxSecurityGroup {
     )
 
     begin {
-        if (-not $scopeId ) {
+        if (-not $PsBoundParameters.ContainsKey("scopeId") ) {
             switch ( $PSCmdlet.ParameterSetName ) {
 
                 "UniversalOnly" {
