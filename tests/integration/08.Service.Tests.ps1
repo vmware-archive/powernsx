@@ -157,8 +157,8 @@ Describe "Services" {
          }
 
          It "Can retrieve universal Service by name with scopeId" -skip:(-not $universalSyncEnabled ) {
-            {Get-NsxService $svcName -scopeId universalroot-0} | should not throw
-            $svc = Get-NsxService $svcName -scopeId universalroot-0
+            {Get-NsxService $svcDescUniversal -scopeId universalroot-0} | should not throw
+            $svc = Get-NsxService $svcDescUniversal -scopeId universalroot-0
             ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
             ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
          }
