@@ -97,9 +97,16 @@ Describe "SecurityGroups" {
          }
 
         it "Can retrieve only local SecurityGroups" -skip:(-not $universalSyncEnabled ) {
-            New-NsxSecurityGroup -Name $sgPrefix-Local-2
-            New-NsxSecurityGroup -Name $sgPrefix-Universal-2
+            New-NsxSecurityGroup -Name $sgPrefix-Local
+            New-NsxSecurityGroup -Name $sgPrefix-Universal
             $secGrp = Get-nsxsecuritygroup -localonly
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+        }
+
+        it "Can retrieve only local SecurityGroups via scopeid" {
+            New-NsxSecurityGroup -Name $sgPrefix-Local
+            $secGrp = Get-nsxsecuritygroup -scopeid globalroot-0
             ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
             ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
         }
@@ -631,6 +638,14 @@ Describe "SecurityGroups" {
             New-NsxSecurityGroup -Name $sgPrefix-Local-2
             New-NsxSecurityGroup -Name $sgPrefix-Universal-2
             $secGrp = Get-nsxsecuritygroup -universalOnly
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+        }
+
+        it "Can retrieve only universal SecurityGroups via scopeid" -skip:(-not $universalSyncEnabled ) {
+            New-NsxSecurityGroup -Name $sgPrefix-Local-2
+            New-NsxSecurityGroup -Name $sgPrefix-Universal-2
+            $secGrp = Get-nsxsecuritygroup -scopeid universalroot-0
             ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
             ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
         }
