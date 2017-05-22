@@ -22174,16 +22174,25 @@ Function Get-NsxServiceGroup {
     MS Exchange 2010 Unified Messaging Server
 
     #>
-    [CmdLetBinding(DefaultParameterSetName="Name")]
+    [CmdLetBinding(DefaultParameterSetName="Default")]
+
     param (
 
-    [Parameter (Mandatory=$false,Position=1,ParameterSetName="Name")]
+    [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+        #Objectid of Service Group
+        [string]$objectId,
+    [Parameter (Mandatory=$true,Position=1,ParameterSetName="Name")]
         [ValidateNotNullorEmpty()]
         [string]$Name,
     [Parameter (Mandatory=$false)]
-        [string]$scopeId="globalroot-0",
-    [Parameter (Mandatory=$false,ParameterSetName="objectId")]
-        [string]$objectId,
+        #ScopeId of Service Group.  Can define multiple scopeIds in a list to iterate accross scopes.
+        [string[]]$scopeId,
+    [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+        #Return only Universal objects
+        [switch]$UniversalOnly,
+    [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+        #Return only Locally scoped objects
+        [switch]$LocalOnly,
     [Parameter (Mandatory=$False)]
         #PowerNSX Connection object
         [ValidateNotNullOrEmpty()]
@@ -22192,6 +22201,22 @@ Function Get-NsxServiceGroup {
     )
 
     begin {
+        if ( -not $scopeId ){
+            switch ( $PSCmdlet.ParameterSetName ) {
+
+                "UniversalOnly" {
+                    $scopeid = "universalroot-0"
+                }
+
+                "LocalOnly" {
+                    $scopeid = "globalroot-0"
+                }
+
+                Default {
+                    $scopeId = "globalroot-0", "universalroot-0"
+                }
+            }
+        }
 
     }
 
@@ -22200,22 +22225,24 @@ Function Get-NsxServiceGroup {
         if ( -not $objectId ) {
             #All Sections
 
-            $URI = "/api/2.0/services/applicationgroup/scope/$scopeId"
-            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            foreach ($scope in $scopeid ) {
+                $servicegroup = $null
+                $URI = "/api/2.0/services/applicationgroup/scope/$scope"
+                [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
 
-            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::list/applicationGroup")){
-                $servicegroup = $response.list.applicationGroup
+                if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::list/applicationGroup")){
+                    $servicegroup = $response.list.applicationGroup
 
-                if ($PsBoundParameters.ContainsKey("Name")){
-                    $servicegroup | ? {$_.name -eq $name}
-                }
-                else {
+                    if ($PsBoundParameters.ContainsKey("Name")){
+                        $servicegroup | ? {$_.name -eq $name}
+                    }
+                    else {
 
-                    $servicegroup
+                        $servicegroup
+                    }
                 }
             }
-
         }
         else {
 
