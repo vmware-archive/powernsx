@@ -97,14 +97,12 @@ Describe "SecurityGroups" {
          }
 
         it "Can retrieve only local SecurityGroups" {
-            New-NsxSecurityGroup -Name $sgPrefix-Local
             $secGrp = Get-nsxsecuritygroup -localonly
             ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
             ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
         }
 
         it "Can retrieve only local SecurityGroups via scopeid" {
-            New-NsxSecurityGroup -Name $sgPrefix-Local
             $secGrp = Get-nsxsecuritygroup -scopeid globalroot-0
             ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
             ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
@@ -612,6 +610,37 @@ Describe "SecurityGroups" {
 
     }
 
+    Context "Universal SecurityGroup Retrieval" -skip:( -not $universalSyncEnabled ) {
+
+        BeforeAll {
+            New-NsxSecurityGroup -Name $sgPrefix-local-retrieval
+            New-NsxSecurityGroup -Name $sgPrefix-universal-retrieval -universal
+        }
+
+        AfterAll {
+            get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
+        }
+
+        it "Can retrieve both local and universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
+            $secGrp = Get-nsxsecuritygroup
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+        }
+
+        it "Can retrieve only universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
+            $secGrp = Get-nsxsecuritygroup -universalOnly
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+        }
+
+        it "Can retrieve only universal SecurityGroups via scopeid" -skip:(-not $universalSyncEnabled ) {
+            $secGrp = Get-nsxsecuritygroup -scopeid universalroot-0
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+        }
+
+    }
+
     Context "Universal SecurityGroups" {
 
         BeforeAll {
@@ -625,29 +654,6 @@ Describe "SecurityGroups" {
             get-nsxsecuritytag | ? { $_.name -match $sgPrefix } | Remove-NsxSecurityTag -Confirm:$false
         }
 
-        it "Can retrieve both local and universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
-            New-NsxSecurityGroup -Name $sgPrefix-Local-1
-            New-NsxSecurityGroup -Name $sgPrefix-Universal-1
-            $secGrp = Get-nsxsecuritygroup
-            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
-        }
-
-        it "Can retrieve only universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
-            New-NsxSecurityGroup -Name $sgPrefix-Local-2
-            New-NsxSecurityGroup -Name $sgPrefix-Universal-2
-            $secGrp = Get-nsxsecuritygroup -universalOnly
-            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
-        }
-
-        it "Can retrieve only universal SecurityGroups via scopeid" -skip:(-not $universalSyncEnabled ) {
-            New-NsxSecurityGroup -Name $sgPrefix-Local-2
-            New-NsxSecurityGroup -Name $sgPrefix-Universal-2
-            $secGrp = Get-nsxsecuritygroup -scopeid universalroot-0
-            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
-        }
 
         it "Can create a universal SecurityGroup" {
             $secGrpName = "$sgPrefix-sg-universal"
