@@ -6253,10 +6253,10 @@ function New-NsxController {
     )
 
     begin {
-        $count = get-nsxcontroller -connection $defaultNSXConnection | measure
+        $count = get-nsxcontroller -connection $Connection | measure
 
-        if ( ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 1)) {
-                Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter  $_"
+        if ( ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -gt 1)) {
+                Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter"
             }
         if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
                 Throw "Password property must be defined for the first controller. Define a password with -Password"
