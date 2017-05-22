@@ -42,6 +42,14 @@ Describe "ServiceGroups" {
         get-nsxservicegroup | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
         get-nsxservicegroup -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
 
+        #Set flag used to determine if universal objects should be tested.
+        $NsxManagerRole = Get-NsxManagerRole
+        if ( ( $NsxManagerRole.role -eq "PRIMARY") -or ($NsxManagerRole.role -eq "SECONDARY") ) {
+            $universalSyncEnabled = $true
+        }
+        else {
+            $universalSyncEnabled = $false
+        }
 
     }
 
@@ -60,23 +68,45 @@ Describe "ServiceGroups" {
         BeforeAll {
             $script:svcGrpName = "$svcPrefix-get"
             $svcGrpDesc = "PowerNSX Pester Test get serviceGroup"
-            $script:get = New-NsxServiceGroup -Name $svcGrpName -Description $svcGrpDesc
+            $script:getLocal = New-NsxServiceGroup -Name $svcGrpName -Description $svcGrpDesc
 
         }
 
-        it "Can retreive a service group by name" {
+         It "Can retrieve all local ServiceGroups" {
+            {Get-NsxServiceGroup -localonly} | should not throw
+            $sg = Get-NsxServiceGroup -localonly
+            $sg | should not be $null
+            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+         }
+
+         It "Can retrieve both local and universal ServiceGroup" {
+            {Get-NsxServiceGroup} | should not throw
+            $sg = Get-NsxServiceGroup
+            $sg | should not be $null
+            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+         }
+
+        it "Can retreive a group by name" {
             {Get-NsxServiceGroup -Name $svcGrpName} | should not throw
             $sg = Get-NsxServiceGroup -Name $svcGrpName
             $sg | should not be $null
+            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
             $sg.name | should be $svcGrpName
-
          }
 
-        it "Can retreive a service group by id" {
-            {Get-NsxServiceGroup -objectId $get.objectId } | should not throw
-            $sg = Get-NsxServiceGroup -objectId $get.objectId
+        it "Can retreive a local service group by name with scopeid" {
+            {Get-NsxServiceGroup -Name $svcGrpName -scopeid globalroot-0} | should not throw
+            $sg = Get-NsxServiceGroup -Name $svcGrpName -scopeid globalroot-0
             $sg | should not be $null
-            $sg.objectId | should be $get.objectId
+            $sg.name | should be $svcGrpName
+            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should be 1
+         }
+
+        it "Can retreive a local service group by id" {
+            {Get-NsxServiceGroup -objectId $getLocal.objectId } | should not throw
+            $sg = Get-NsxServiceGroup -objectId $getLocal.objectId
+            $sg | should not be $null
+            $sg.objectId | should be $getLocal.objectId
          }
 
 
@@ -86,19 +116,46 @@ Describe "ServiceGroups" {
         BeforeAll {
             $script:svcGrpName = "$svcPrefix-universal-get"
             $svcGrpDesc = "PowerNSX Pester Test get universal serviceGroup"
-            $script:get = New-NsxServiceGroup -Name $svcGrpName -Description $svcGrpDesc -universal
-
+            $script:getLocal = New-NsxServiceGroup -Name $svcGrpName -Description $svcGrpDesc
+            if ( $universalSyncEnabled ) {
+                $script:getUniversal = New-NsxServiceGroup -Name $svcGrpName -Description $svcGrpDesc -universal
+            }
         }
 
-        it "Can retreive a universal service group by name" {
+         It "Can retrieve all universal ServiceGroups" -skip:(-not $universalSyncEnabled ) {
+            {Get-NsxServiceGroup -universalonly} | should not throw
+            $sg = Get-NsxServiceGroup -universalonly
+            $sg | should not be $null
+            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($sg | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+         }
+
+         It "Can retrieve both local and universal ServiceGroup" -skip:(-not $universalSyncEnabled ) {
+            {Get-NsxServiceGroup} | should not throw
+            $sg = Get-NsxServiceGroup
+            $sg | should not be $null
+            ($sg | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+         }
+
+        it "Can retreive all service groups by name" -skip:(-not $universalSyncEnabled ) {
+            {Get-NsxServiceGroup -Name $svcGrpName} | should not throw
+            $sg = Get-NsxServiceGroup -Name $svcGrpName
+            $sg | should not be $null
+            ($sg | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+         }
+
+        it "Can retreive a universal service group by name with scopeid" -skip:(-not $universalSyncEnabled ) {
             {Get-NsxServiceGroup -scopeid universalroot-0 -Name $svcGrpName} | should not throw
             $sg = Get-NsxServiceGroup -scopeid universalroot-0 -Name $svcGrpName
             $sg | should not be $null
             $sg.name | should be $svcGrpName
-
+            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($sg | ? { $_.isUniversal -eq 'True'} | measure).count | should be 1
          }
 
-        it "Can retreive a universal service group by id" {
+        it "Can retreive a universal service group by id" -skip:(-not $universalSyncEnabled ) {
             {Get-NsxServiceGroup -objectId $get.objectId } | should not throw
             $sg = Get-NsxServiceGroup -objectId $get.objectId
             $sg | should not be $null
