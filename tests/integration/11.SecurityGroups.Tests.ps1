@@ -55,7 +55,7 @@ Describe "SecurityGroups" {
 
         #Set flag used to determine if universal objects should be tested.
         $NsxManagerRole = Get-NsxManagerRole
-        if ( ( $NsxManagerRole -eq "PRIMARY") -or ($NsxManagerRole -eq "SECONDARY") ) {
+        if ( ( $NsxManagerRole.role -eq "PRIMARY") -or ($NsxManagerRole.role -eq "SECONDARY") ) {
             $universalSyncEnabled = $true
         }
         else {
