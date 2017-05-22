@@ -40,6 +40,14 @@ Describe "MacSets" {
         #Clean up any existing macsets from previous runs...
         get-nsxmacset | ? { $_.name -match $macsetPrefix } | remove-nsxmacset -confirm:$false
 
+        #Set flag used to determine if universal objects should be tested.
+        $NsxManagerRole = Get-NsxManagerRole
+        if ( ( $NsxManagerRole.role -eq "PRIMARY") -or ($NsxManagerRole.role -eq "SECONDARY") ) {
+            $universalSyncEnabled = $true
+        }
+        else {
+            $universalSyncEnabled = $false
+        }
 
     }
 
@@ -60,8 +68,9 @@ Describe "MacSets" {
             $script:macsetNameUniversal = "$macsetPrefix-get-universal"
             $macsetDescUniversal = "PowerNSX Pester Test get universal macset"
             $script:get = New-nsxmacset -Name $macsetName -Description $macsetDesc
-            $script:getuniversal = New-nsxmacset -Name $macsetNameUniversal -Description $macsetDescUniversal -Universal
-
+            if ( $universalSyncEnabled ) {
+                $script:getuniversal = New-nsxmacset -Name $macsetNameUniversal -Description $macsetDescUniversal -Universal
+            }
         }
 
         it "Can retrieve a macset by name" {
@@ -79,13 +88,18 @@ Describe "MacSets" {
             $macset.objectId | should be $get.objectId
          }
 
-         It "Can retrieve both universal and global macsets" {
+         It "Can retrieve global macsets" {
+            $macsets = Get-Nsxmacset
+            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+         }
+
+         It "Can retrieve both universal and global macsets"  -skip:(-not $universalSyncEnabled ) {
             $macsets = Get-Nsxmacset
             ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
             ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
          }
 
-         It "Can retrieve universal only macsets" {
+         It "Can retrieve universal only macsets" -skip:(-not $universalSyncEnabled ) {
             $macsets = Get-Nsxmacset -UniversalOnly
             ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
             ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
@@ -96,6 +110,19 @@ Describe "MacSets" {
             ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
             ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
          }
+
+         It "Can retrieve universal only macsets with scopeid" -skip:(-not $universalSyncEnabled )  {
+            $macsets = Get-Nsxmacset -scopeid universalroot-0
+            ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+         }
+
+         It "Can retrieve local only macsets with scopeid" {
+            $macsets = Get-Nsxmacset -scopeid globalroot-0
+            ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+         }
+
     }
 
     Context "Successful macset Creation" {
