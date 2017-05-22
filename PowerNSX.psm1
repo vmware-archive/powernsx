@@ -20956,18 +20956,20 @@ function Get-NsxIpSet {
     )
 
     begin {
-        switch ( $PSCmdlet.ParameterSetName ) {
+        if ( -not $scopeId ) {
+            switch ( $PSCmdlet.ParameterSetName ) {
 
-            "UniversalOnly" {
-                $scopeid = "universalroot-0"
-            }
+                "UniversalOnly" {
+                    $scopeid = "universalroot-0"
+                }
 
-            "LocalOnly" {
-                $scopeid = "globalroot-0"
-            }
+                "LocalOnly" {
+                    $scopeid = "globalroot-0"
+                }
 
-            Default {
-                $scopeId = "globalroot-0", "universalroot-0"
+                Default {
+                    $scopeId = "globalroot-0", "universalroot-0"
+                }
             }
         }
     }
