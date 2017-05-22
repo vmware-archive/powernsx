@@ -52,6 +52,15 @@ Describe "SecurityGroups" {
         else {
             $ver_gt_630 = $false
         }
+
+        #Set flag used to determine if universal objects should be tested.
+        $NsxManagerRole = Get-NsxManagerRole
+        if ( ( $NsxManagerRole -eq "PRIMARY") -or ($NsxManagerRole -eq "SECONDARY") ) {
+            $universalSyncEnabled = $true
+        }
+        else {
+            $universalSyncEnabled = $false
+        }
     }
 
     AfterAll {
@@ -87,6 +96,13 @@ Describe "SecurityGroups" {
             $sg.objectId | should be $get.objectId
          }
 
+        it "Can retrieve only local SecurityGroups" -skip:(-not $universalSyncEnabled ) {
+            New-NsxSecurityGroup -Name $sgPrefix-Local-2
+            New-NsxSecurityGroup -Name $sgPrefix-Universal-2
+            $secGrp = Get-nsxsecuritygroup -localonly
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+        }
 
     }
 
@@ -601,6 +617,22 @@ Describe "SecurityGroups" {
         AfterAll {
             get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
             get-nsxsecuritytag | ? { $_.name -match $sgPrefix } | Remove-NsxSecurityTag -Confirm:$false
+        }
+
+        it "Can retrieve both local and universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
+            New-NsxSecurityGroup -Name $sgPrefix-Local-1
+            New-NsxSecurityGroup -Name $sgPrefix-Universal-1
+            $secGrp = Get-nsxsecuritygroup
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+        }
+
+        it "Can retrieve only universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
+            New-NsxSecurityGroup -Name $sgPrefix-Local-2
+            New-NsxSecurityGroup -Name $sgPrefix-Universal-2
+            $secGrp = Get-nsxsecuritygroup -universalOnly
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
         }
 
         it "Can create a universal SecurityGroup" {
