@@ -6234,7 +6234,7 @@ function New-NsxController {
             #vSphere DVPortGroup OR NSX Logical Switch object to connect the Controller VM to
             [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
             [object]$PortGroup,
-        [Parameter (Mandatory=$True)]
+        [Parameter (Mandatory=$False)]
             #Controller Password (Must be same on all controllers)
             [string]$Password,
         [Parameter ( Mandatory=$False)]
@@ -6253,7 +6253,18 @@ function New-NsxController {
     )
 
     begin {
-    }
+        $count = get-nsxcontroller -connection $defaultNSXConnection | measure
+
+        if ( ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 1)) {
+                Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter  $_"
+            }
+        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
+                Throw "Password property must be defined for the first controller. Define a password with -Password"
+            }
+        }
+
+        #if 1 controller and password defined, throw
+        #if 0 controler and password not defined
 
     process {
 
@@ -6279,9 +6290,9 @@ function New-NsxController {
 
         # Check for presence of optional controller name
         if ($PSBoundParameters.ContainsKey("ControllerName")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
+        if ($PSBoundParameters.ContainsKey("Password")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()}
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
-        Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()
 
         $URI = "/api/2.0/vdn/controller"
         $body = $ControllerSpec.OuterXml
