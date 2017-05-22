@@ -42,6 +42,15 @@ Describe "DFW Global Properties" {
         $script:cpsDefault = "100000"
         $script:memorydefault = "100"
         $script:cpudefault = "100"
+        $script:existingFwGlobalOptions = Get-NsxFirewallGlobalConfiguration
+
+        #Set flag used in tests we have to tag out for 6.2.3 and above only...
+        if ( [version]$DefaultNsxConnection.Version -ge [version]"6.2.3" )  {
+            $ver_gt_623 = $true
+        }
+        else {
+            $ver_gt_623 = $false
+        }
 
     }
 
@@ -52,6 +61,10 @@ Describe "DFW Global Properties" {
 
         #TODO: This should take existing and honour it on finish
         Set-NsxFirewallThreshold -Cpu 100 -Memory 100 -ConnectionsPerSecond 100000 | out-null
+
+        # Put the global configuration options back to the way they were before
+        $existingFwGlobalOptions | Set-NsxFirewallGlobalConfiguration
+
         disconnect-nsxserver
     }
 
@@ -100,8 +113,34 @@ Describe "DFW Global Properties" {
 
         }
 
-        it "Can adjust TCP Optimisation"{
-
+        it "Can retrieve DFW Global Configuration Options" {
+            $globalOptions = Get-NsxFirewallGlobalConfiguration
+            $globalOptions | should not be $null
         }
+
+        it "Can Enable TCP Strict Option"{
+            Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -EnableTcpStrict | out-null
+            $get = Get-NsxFirewallGlobalConfiguration
+            $get.tcpStrictOption | Should be "true"
+        }
+
+        it "Can Disable TCP Strict Option"{
+            Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -EnableTcpStrict:$False | out-null
+            $get = Get-NsxFirewallGlobalConfiguration
+            $get.tcpStrictOption | Should be "false"
+        }
+
+        it "Can Disable Auto Drafts"  -skip:(-not $ver_gt_623 ) {
+            Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -DisableAutoDraft | out-null
+            $get = Get-NsxFirewallGlobalConfiguration
+            $get.autoDraftDisabled | Should be "true"
+        }
+
+        it "Can Enable Auto Drafts"  -skip:(-not $ver_gt_623 ) {
+            Get-NsxFirewallGlobalConfiguration | Set-NsxFirewallGlobalConfiguration -DisableAutoDraft:$False | out-null
+            $get = Get-NsxFirewallGlobalConfiguration
+            $get.autoDraftDisabled | Should be "false"
+        }
+
     }
 }
