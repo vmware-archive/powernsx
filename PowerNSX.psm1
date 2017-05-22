@@ -5672,7 +5672,7 @@ function Get-NsxManagerTimeSettings {
 
     )
 
-    $role = Get-NsxUserRole $Connection.Credential.Username
+    $role = Get-NsxUserRole $Connection.Credential.Username -connection $connection
     if ( $role.role -ne 'super_user' ) {
         throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
     }
@@ -5740,7 +5740,7 @@ function Set-NsxManagerTimeSettings {
 
     )
 
-    $role = Get-NsxUserRole $Connection.Credential.Username
+    $role = Get-NsxUserRole $Connection.Credential.Username -Connection $Connection
     if ( $role.role -ne 'super_user' ) {
         throw "Appliance Management APIs require a local NSX Manager account (super_user role access) "
     }
@@ -5757,7 +5757,7 @@ function Set-NsxManagerTimeSettings {
 
                 write-warning "Existing NTP servers are configured and will be retained.  Use Clear-NsxManagerTimeSettings to remove them."
                 #Api doesnt allow 'updates', so we have to save existing, then remove, then readd the union of old and new.
-                Clear-NsxManagerTimeSettings
+                Clear-NsxManagerTimeSettings -Connection $Connection
 
                 foreach ($Server in $ntpserver) {
                     if ( $Existing.timeSettings.ntpServer.string -notcontains $server ) {
@@ -5779,8 +5779,8 @@ function Set-NsxManagerTimeSettings {
 
         $uri = "/api/1.0/appliance-management/system/timesettings"
         $null = Invoke-NsxRestMethod -Method put -body $Existing.timeSettings.outerXml -uri $uri -Connection $Connection
-        Get-NsxManagerTimeSettings
-    }
+        Get-NsxManagerTimeSettings -Connection $Connection
+        }
     else {
         throw "Unexpected response from API when querying existing time settings."
     }
@@ -24042,7 +24042,7 @@ function Set-NsxFirewallThreshold {
     )
 
     begin {}
-    
+
     process {
 
         #Capture existing thresholds
