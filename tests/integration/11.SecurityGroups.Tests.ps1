@@ -614,7 +614,9 @@ Describe "SecurityGroups" {
 
         BeforeAll {
             New-NsxSecurityGroup -Name $sgPrefix-local-retrieval
-            New-NsxSecurityGroup -Name $sgPrefix-universal-retrieval -universal
+            if ( $universalSyncEnabled ) {
+                New-NsxSecurityGroup -Name $sgPrefix-universal-retrieval -universal
+            }
         }
 
         AfterAll {
