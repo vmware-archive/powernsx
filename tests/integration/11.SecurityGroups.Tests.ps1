@@ -52,6 +52,15 @@ Describe "SecurityGroups" {
         else {
             $ver_gt_630 = $false
         }
+
+        #Set flag used to determine if universal objects should be tested.
+        $NsxManagerRole = Get-NsxManagerRole
+        if ( ( $NsxManagerRole.role -eq "PRIMARY") -or ($NsxManagerRole.role -eq "SECONDARY") ) {
+            $universalSyncEnabled = $true
+        }
+        else {
+            $universalSyncEnabled = $false
+        }
     }
 
     AfterAll {
@@ -87,6 +96,17 @@ Describe "SecurityGroups" {
             $sg.objectId | should be $get.objectId
          }
 
+        it "Can retrieve only local SecurityGroups" {
+            $secGrp = Get-nsxsecuritygroup -localonly
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+        }
+
+        it "Can retrieve only local SecurityGroups via scopeid" {
+            $secGrp = Get-nsxsecuritygroup -scopeid globalroot-0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+        }
 
     }
 
@@ -590,6 +610,39 @@ Describe "SecurityGroups" {
 
     }
 
+    Context "Universal SecurityGroup Retrieval" {
+
+        BeforeAll {
+            New-NsxSecurityGroup -Name $sgPrefix-local-retrieval
+            if ( $universalSyncEnabled ) {
+                New-NsxSecurityGroup -Name $sgPrefix-universal-retrieval -universal
+            }
+        }
+
+        AfterAll {
+            get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
+        }
+
+        it "Can retrieve both local and universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
+            $secGrp = Get-nsxsecuritygroup
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+        }
+
+        it "Can retrieve only universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
+            $secGrp = Get-nsxsecuritygroup -universalOnly
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+        }
+
+        it "Can retrieve only universal SecurityGroups via scopeid" -skip:(-not $universalSyncEnabled ) {
+            $secGrp = Get-nsxsecuritygroup -scopeid universalroot-0
+            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+        }
+
+    }
+
     Context "Universal SecurityGroups" {
 
         BeforeAll {
@@ -602,6 +655,7 @@ Describe "SecurityGroups" {
             get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
             get-nsxsecuritytag | ? { $_.name -match $sgPrefix } | Remove-NsxSecurityTag -Confirm:$false
         }
+
 
         it "Can create a universal SecurityGroup" {
             $secGrpName = "$sgPrefix-sg-universal"
