@@ -5779,21 +5779,25 @@ function Get-NsxManagerSyslogServer {
 
     $result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
-    #NSX 6.2.3/4 changed API schema here! :( Grrrr.  Have to test and return consistent object
-    if ( $result -is [System.Xml.XmlDocument]) {
-        #Assume the timesettings child exists.
-        $result.syslogserver
-    }
-    elseif ( $result -is [pscustomobject] ) {
-        #Pre 6.2.3 manager response.
-        [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
-        [System.XML.XMLElement]$xmlSyslog = $xmlDoc.CreateElement('syslogserver')
-        $xmldoc.AppendChild($xmlSyslog) | out-null
+    # Make sure we actually get a response. If there are no syslog servers
+    # configured, then the API does not return any response body.
+    if ( $result ) {
+        #NSX 6.2.3/4 changed API schema here! :( Grrrr.  Have to test and return consistent object
+        if ( $result -is [System.Xml.XmlDocument]) {
+            #Assume the timesettings child exists.
+            $result.syslogserver
+        }
+        elseif ( $result -is [pscustomobject] ) {
+            #Pre 6.2.3 manager response.
+            [System.XML.XMLDocument]$xmldoc = New-Object System.Xml.XmlDocument
+            [System.XML.XMLElement]$xmlSyslog = $xmlDoc.CreateElement('syslogserver')
+            $xmldoc.AppendChild($xmlSyslog) | out-null
 
-        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "syslogServer" -xmlElementText $result.syslogServer
-        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "port" -xmlElementText $result.port
-        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "protocol" -xmlElementText $result.protocol
-        $xmlSyslog
+            Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "syslogServer" -xmlElementText $result.syslogServer
+            Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "port" -xmlElementText $result.port
+            Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "protocol" -xmlElementText $result.protocol
+            $xmlSyslog
+        }
     }
 }
 
