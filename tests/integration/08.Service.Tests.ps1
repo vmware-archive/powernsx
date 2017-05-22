@@ -65,6 +65,15 @@ Describe "Services" {
             "address-mask-request", "address-mask-reply"
         )
 
+        #Set flag used to determine if universal objects should be tested.
+        $NsxManagerRole = Get-NsxManagerRole
+        if ( ( $NsxManagerRole.role -eq "PRIMARY") -or ($NsxManagerRole.role -eq "SECONDARY") ) {
+            $universalSyncEnabled = $true
+        }
+        else {
+            $universalSyncEnabled = $false
+        }
+
     }
 
     AfterAll {
@@ -105,13 +114,53 @@ Describe "Services" {
             $svc.objectId | should be $get.objectId
          }
 
-         It "Can retrieve both universal and global Services" {
+         It "Can retrieve both universal and global Services" -skip:(-not $universalSyncEnabled ) {
+            {Get-NsxService} | should not throw
+            $svc = Get-NsxService
+            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
          }
 
-         It "Can retrieve universal only Services" {
+         It "Can retrieve universal only Services" -skip:(-not $universalSyncEnabled ) {
+            {Get-NsxService -universalOnly} | should not throw
+            $svc = Get-NsxService -universalOnly
+            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
          }
 
          It "Can retrieve local only Services" {
+            {Get-NsxService -localOnly} | should not throw
+            $svc = Get-NsxService -localOnly
+            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+         }
+
+         It "Can retrieve universal only Services with scopeId" -skip:(-not $universalSyncEnabled ) {
+            {Get-NsxService -scopeId universalroot-0} | should not throw
+            $svc = Get-NsxService -scopeId universalroot-0
+            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+         }
+
+         It "Can retrieve local only Services with scopeId" {
+            {Get-NsxService -scopeId globalroot-0} | should not throw
+            $svc = Get-NsxService -scopeId globalroot-0
+            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+         }
+
+         It "Can retrieve global Service by name with scopeId" {
+            {Get-NsxService $svcName -scopeId globalroot-0} | should not throw
+            $svc = Get-NsxService $svcName -scopeId globalroot-0
+            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+         }
+
+         It "Can retrieve universal Service by name with scopeId" -skip:(-not $universalSyncEnabled ) {
+            {Get-NsxService $svcName -scopeId universalroot-0} | should not throw
+            $svc = Get-NsxService $svcName -scopeId universalroot-0
+            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
          }
 
     }
