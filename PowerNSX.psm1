@@ -6199,6 +6199,10 @@ function New-NsxController {
     $ControllerPortGroup = Get-VDPortGroup $ControllerPortGroupName -server $Connection.VIConnection
     New-NsxController -ControllerName $ControllerName -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
 
+    .EXAMPLE
+    A secondary or tertiary controller does not require a Password to be defined. 
+
+    New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -connection $Connection -confirm:$false
     #>
 
 
@@ -6249,7 +6253,6 @@ function New-NsxController {
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
     begin {
@@ -6262,9 +6265,6 @@ function New-NsxController {
                 Throw "Password property must be defined for the first controller. Define a password with -Password"
             }
         }
-
-        #if 1 controller and password defined, throw
-        #if 0 controler and password not defined
 
     process {
 
