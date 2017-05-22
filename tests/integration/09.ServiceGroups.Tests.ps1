@@ -156,10 +156,10 @@ Describe "ServiceGroups" {
          }
 
         it "Can retreive a universal service group by id" -skip:(-not $universalSyncEnabled ) {
-            {Get-NsxServiceGroup -objectId $get.objectId } | should not throw
-            $sg = Get-NsxServiceGroup -objectId $get.objectId
+            {Get-NsxServiceGroup -objectId $getUniversal.objectId } | should not throw
+            $sg = Get-NsxServiceGroup -objectId $getUniversal.objectId
             $sg | should not be $null
-            $sg.objectId | should be $get.objectId
+            $sg.objectId | should be $getUniversal.objectId
          }
 
 
