@@ -610,7 +610,7 @@ Describe "SecurityGroups" {
 
     }
 
-    Context "Universal SecurityGroup Retrieval" -skip:( -not $universalSyncEnabled ) {
+    Context "Universal SecurityGroup Retrieval" {
 
         BeforeAll {
             New-NsxSecurityGroup -Name $sgPrefix-local-retrieval
