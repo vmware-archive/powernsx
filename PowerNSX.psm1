@@ -6279,6 +6279,9 @@ function New-NsxController {
 
     The New-NsxController cmdlet deploys a new NSX Controller.
 
+    Note that a password is still required as a parameter for controller 2 and 3.
+    This is different to deploying them via the Web Client.
+
     .EXAMPLE
     $ippool = New-NsxIpPool -Name ControllerPool -Gateway 192.168.0.1 -SubnetPrefixLength 24 -StartAddress 192.168.0.10 -endaddress 192.168.0.20
     $ControllerCluster = Get-Cluster vSphereCluster
@@ -15963,6 +15966,24 @@ function Set-NsxEdgeOspf {
 
     The Set-NsxEdgeOspf cmdlet allows manipulation of the OSPF specific
     configuration of a given ESG.
+
+    .EXAMPLE
+    Enable OSPF with a RouterID
+
+    Get-NsxEdge Edge01 | Get-NsxEdgerouting | Set-NsxEdgeRouting -EnableOspf 
+    -RouterId 172.16.23.1 -confirm:$false 
+
+    .EXAMPLE
+    Enable OSPF with Graceful Restart
+
+    Get-NsxEdge Edge01 | Get-NsxEdgerouting | Set-NsxEdgeRouting -EnableOspf 
+    -RouterId 172.16.23.1 -gracefulRestart:$true -confirm:$false 
+
+    .EXAMPLE
+    Enable OSPF with Default Originiate
+
+    Get-NsxEdge Edge01 | Get-NsxEdgerouting | Set-NsxEdgeRouting -EnableOspf 
+    -RouterId 172.16.23.1 -DefaultOriginate:$true -confirm:$false
 
 
     #>
