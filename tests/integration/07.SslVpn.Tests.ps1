@@ -89,7 +89,6 @@ Describe "sslvpn" {
             $sslvpn.advancedConfig.randomizeVirtualkeys | should be "true"
             $sslvpn.advancedConfig.preventMultipleLogon | should be "true"
             $sslvpn.advancedConfig.ClientNotification | should be $notificationstring
-            $sslvpn.advancedConfig.enablePublicUrlAccess | should be "true"
             $sslvpn.advancedConfig.timeout.forcedTimeout | should be $forcedTimeout
             $sslvpn.advancedConfig.timeout.sessionIdleTimeout | should be $sessionIdleTimeout
             $sslvpn.clientConfiguration.autoReconnect | should be "true"

@@ -13163,7 +13163,7 @@ function Set-NsxSslVpn {
         [Parameter (Mandatory=$False)]
             [string]$ClientNotification,
         [Parameter (Mandatory=$False)]
-            [switch]$EnablePublicUrlAccess,
+            [string]$EnablePublicUrlAccess=$False,
         [Parameter (Mandatory=$False)]
             [int]$ForcedTimeout,
         [Parameter (Mandatory=$False)]
@@ -13197,7 +13197,10 @@ function Set-NsxSslVpn {
     )
 
     begin {
-
+        if (($EnablePublicUrlAccess -eq $True) -and ([version]$Connection.version -ge [version]"6.3.0")){
+            Write-Warning "PublicURL feature has been deprecated in the 6.3.X release. It has not been enabled."
+            $EnablePublicUrlAccess = $False
+        }
     }
 
     process {
