@@ -618,12 +618,11 @@ Describe "DFW" {
 
         it "Can create an l3 rule with an vnic based source" {
             # Update PowerNSX to get nics fix to arrays
-            Get-VM $testVMName1 | New-NetworkAdapter -StartConnected -Portgroup ($testls | Get-NsxBackingPortGroup).name | out-null
-            Get-VM $testVMName1 | New-NetworkAdapter -StartConnected -Portgroup ($testls | Get-NsxBackingPortGroup).name | out-null
             $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -source $vm1vnic -action allow
             $rule.sources.source.type | should be "Vnic"
             ($rule.sources.source.name).count | should be 2
+            $rule.destinations.destination | should be $null
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
             $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
@@ -820,6 +819,7 @@ Describe "DFW" {
         it "Can create an l3 rule with an vnic based destination" {
             $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -destination $vm1vnic -action allow
+            $rule.sources.source | should be $null
             $rule.destinations.destination.type | should be "Vnic"
             ($rule.destinations.destination.name).count | should be 2
             $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
@@ -922,15 +922,12 @@ Describe "DFW" {
         }
 
         it "Can create an l3 rule with a vnic based applied to" {
-            Get-VM $testVMName1 | New-NetworkAdapter -StartConnected -Portgroup ($testls | Get-NsxBackingPortGroup).name | out-null
-            Get-VM $testVMName1 | New-NetworkAdapter -StartConnected -Portgroup ($testls | Get-NsxBackingPortGroup).name | out-null
             $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -AppliedTo $vm1vnic -action allow
-            $rule.appliedToList.appliedTo.type | should be "Vnic"
+            $rule.sources.source | should be $null
+            $rule.destinations.destination | should be $null
             ($rule.appliedToList.appliedTo.name).count | should be 2
-            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
-            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
-            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "Vnic"
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
