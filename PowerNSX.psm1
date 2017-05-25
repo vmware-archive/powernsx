@@ -13163,7 +13163,7 @@ function Set-NsxSslVpn {
         [Parameter (Mandatory=$False)]
             [string]$ClientNotification,
         [Parameter (Mandatory=$False)]
-            [string]$EnablePublicUrlAccess,
+            [string]$EnablePublicUrlAccess=$False,
         [Parameter (Mandatory=$False)]
             [int]$ForcedTimeout,
         [Parameter (Mandatory=$False)]

@@ -78,7 +78,7 @@ Describe "sslvpn" {
 
             get-nsxedge $ssledgename | Get-NsxSslVpn | Set-NsxSslVpn -EnableCompression `
                 -ForceVirtualKeyboard -RandomizeVirtualkeys -preventMultipleLogon `
-                -ClientNotification $notificationstring -EnablePublicUrlAccess `
+                -ClientNotification $notificationstring -EnablePublicUrlAccess $True `
                 -ForcedTimeout $forcedTimeout -SessionIdleTimeout $sessionIdleTimeout -ClientAutoReconnect -ClientUpgradeNotification `
                 -EnableLogging -LogLevel $loglevel -Enable_AES128_SHA -ServerAddress $sslEdgeIp1 -ServerPort $serverport -Confirm:$false
             $sslvpn = get-nsxedge $ssledgename | Get-NsxSslVpn
