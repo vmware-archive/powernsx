@@ -6411,12 +6411,12 @@ function New-NsxController {
             catch {
                 throw "Controller deployment failed. $_"
             }
-            if ( -not (($response -match "jobdata-\d+") -and ($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
+            if ( -not (($response.content -match "jobdata-\d+") -and ($response.Headers.keys -contains "Location") -and ($response.Headers["Location"] -match "/api/2.0/vdn/controller/" )) ) {
                 throw "Controller deployment failed. $($response.content)"
             }
 
             #Get the new controller id so we can get its status later...
-            $controllerid = $response.Headers["location"] -replace "/api/2.0/vdn/controller/"
+            $controllerid = $response.Headers["Location"] -replace "/api/2.0/vdn/controller/"
 
             #The post is ansync - the controller deployment can fail after the api accepts the post.  we need to check on the status of the job.
             $jobid = $response.content
