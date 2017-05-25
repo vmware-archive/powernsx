@@ -24689,6 +24689,96 @@ function Remove-NsxFirewallRuleMember {
     }
 }
 
+function Get-NsxUniversalSyncStatus {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Universal Sync status from the NSX Manager.
+
+    .DESCRIPTION
+    The universal sync service is responsible for the synchronisation of
+    universal objects between NSX Managers.
+
+    This command will retrieve the current universal sync status.
+
+    .EXAMPLE
+
+    PS /> Get-NsxUniversalSyncStatus
+
+    lastClusterSyncTime syncState nsxManagersStatusList
+    ------------------- --------- ---------------------
+    1495513876555       IN_SYNC
+
+    Retrieve the universal sync status.
+
+    .EXAMPLE
+
+    PS /> Get-NsxUniversalSyncStatus -objectType VirtualWire -objectId universalwire-12
+
+    objectId         objectType  isInSync elements
+    --------         ----------  -------- --------
+    universalwire-12 VirtualWire true     elements
+
+    To query the universal sync status of an individual object, you must
+    provide the objectType AND the objectId of the object you want to check
+    the sync status of.
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Default")]
+
+    param (
+        [Parameter (Mandatory=$true,ParameterSetName="entity")]
+            #Get sync status for a particular entity by supplying the objectType
+            [ValidateSet ( "VdnScope", "Application", "ApplicationGroup", "SecurityGroup", "IPSet", "MACSet", "SecurityTag", "VirtualWire", IgnoreCase=$false )]
+            [string]$objectType,
+        [Parameter (Mandatory=$true,ParameterSetName="entity")]
+            #Get sync status for a particular entity by supplying the objectId
+            [string]$objectId,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        if ( $PSCmdlet.ParameterSetName -eq "entity" ) {
+            $URI = "/api/2.0/universalsync/entitystatus?objectType=$($objectType)&objectId=$($objectId.ToLower())"
+        }
+        else {
+            $URI = "/api/2.0/universalsync/status"
+        }
+
+        # [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+        $response = Invoke-NsxWebRequest -method "get" -uri $URI -connection $connection
+
+        if ( $response | get-member -membertype Property -Name Content ) {
+            try {
+                [system.xml.xmlDocument]$content = $response.content
+
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $content -Query 'descendant::replicationStatus')) {
+                    $universalSyncStatus = $content.replicationStatus
+                }
+                elseif ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $content -Query 'descendant::entitySyncStatus')) {
+                    $universalSyncStatus = $content.entitySyncStatus
+                }
+            }
+            catch {
+                    throw "Content returned from NSX API could not be parsed as XML."
+            }
+            $universalSyncStatus
+        }
+        else {
+            throw "No Content returned from NSX API call."
+        }
+    }
+
+    end{}
+}
+
 function Get-NsxFirewallGlobalConfiguration {
 
     <#

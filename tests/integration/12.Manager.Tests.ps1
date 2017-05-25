@@ -53,6 +53,32 @@ Describe "NSXManager" {
             write-warning "Skipping tests requiring super_user (admin) credentials."
             $Script:IsSuperUser = $false
         }
+
+        #Set flag used in tests we have to tag out for 6.3.0 and above only...
+        if ( [version]$DefaultNsxConnection.Version -ge [version]"6.3.0" )  {
+            $ver_gt_630 = $true
+        }
+        else {
+            $ver_gt_630 = $false
+        }
+
+        #Set flag used to determine if universal objects should be tested.
+        $NsxManagerRole = Get-NsxManagerRole
+        if ( ( $NsxManagerRole.role -eq "PRIMARY") -or ($NsxManagerRole.role -eq "SECONDARY") ) {
+            $universalSyncEnabled = $true
+        }
+        else {
+            $universalSyncEnabled = $false
+        }
+
+        # Set flag for greater the 6.3.0 AND universal sync enabled
+        # Initial use case is for Universal Security Tags introduced in 6.3.0
+        if ( ($ver_gt_630) -and ($universalSyncEnabled) ) {
+            $ver_gt_630_universalSyncEnabled = $true
+        }
+        else {
+            $ver_gt_630_universalSyncEnabled = $false
+        }
     }
 
     Context "Basic Connect" {
@@ -179,6 +205,105 @@ Describe "NSXManager" {
         }
 
         it "Can delete current syslog server configuration" {
+        }
+
+    }
+
+    Context "Universal Sync" {
+
+        BeforeAll {
+            if ( $universalSyncEnabled ) {
+                $script:universalPrefix = "pester_universal"
+                $script:universalTz = Get-NsxTransportZone | ? {$_.isUniversal -eq 'true' | Select -First 1}
+                $script:universalLs = $universalTz | New-NsxLogicalSwitch -Name $universalPrefix-LS1
+                $script:universalSg = New-NsxSecurityGroup -Name $universalPrefix-SecurityGroup -universal
+                $script:universalIpSet = New-NsxIpSet -Name $universalPrefix-IPSet -universal
+                $script:universalMacSet = New-NsxMacSet -Name $universalPrefix-MACSet -universal
+                $script:universalSvc = New-NsxService -Name $universalPrefix-Service -Protocol TCP -Port 80 -universal
+                $script:universalSvcGrp = New-NsxServiceGroup -Name $universalPrefix-ServiceGroup -universal
+
+                if ( $ver_gt_630 ) {
+                    $script:universalSt = New-NsxSecurityTag -Name $universalPrefix-SecurityTag -universal
+                }
+
+            }
+        }
+
+        AfterAll {
+            Get-NsxLogicalSwitch | ? { $_.name -match $universalPrefix } | Remove-NsxLogicalSwitch -confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $universalPrefix } | Remove-NsxSecurityGroup -confirm:$false
+            Get-NsxIpSet | ? { $_.name -match $universalPrefix } | Remove-NsxIpSet -confirm:$false
+            Get-NsxMacSet | ? { $_.name -match $universalPrefix } | Remove-NsxMacSet -confirm:$false
+            Get-NsxService | ? { $_.name -match $universalPrefix } | Remove-NsxService -confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $universalPrefix } | Remove-NsxServiceGroup -confirm:$false
+
+            if ( $ver_gt_630 ) {
+                Get-NsxSecurityTag | ? { $_.name -match $universalPrefix } | Remove-NsxSecurityTag -confirm:$false
+            }
+
+        }
+
+        it "Can retrieve Universal Sync status" -skip:(-not $universalSyncEnabled ) {
+            {Get-NsxUniversalSyncStatus} | should not throw
+            $status = Get-NsxUniversalSyncStatus
+            $status | should not be $null
+            $status.lastClusterSyncTime | should BeGreaterThan 0
+        }
+
+        it "Can retrieve Universal Sync status of a universal transport zone" -skip:(-not $universalSyncEnabled ) {
+            { Get-NsxUniversalSyncStatus -objectType VdnScope -objectId $universalTz.objectId } | should not throw
+            $status = Get-NsxUniversalSyncStatus -objectType VdnScope -objectId $universalTz.objectId
+            $status | should not be $null
+            $status.objectId | should be $universalTz.objectId
+        }
+
+        it "Can retrieve Universal Sync status of a universal logical switch" -skip:(-not $universalSyncEnabled ) {
+            { Get-NsxUniversalSyncStatus -objectType VirtualWire -objectId $universalLs.objectId } | should not throw
+            $status = Get-NsxUniversalSyncStatus -objectType VirtualWire -objectId $universalLs.objectId
+            $status | should not be $null
+            $status.objectId | should be $universalLs.objectId
+        }
+
+        it "Can retrieve Universal Sync status of a universal Security Group" -skip:(-not $universalSyncEnabled ) {
+            { Get-NsxUniversalSyncStatus -objectType SecurityGroup -objectId $universalSg.objectId } | should not throw
+            $status = Get-NsxUniversalSyncStatus -objectType SecurityGroup -objectId $universalSg.objectId
+            $status | should not be $null
+            $status.objectId | should be $universalSg.objectId
+        }
+
+        it "Can retrieve Universal Sync status of a universal IP Set" -skip:(-not $universalSyncEnabled ) {
+            { Get-NsxUniversalSyncStatus -objectType IPSet -objectId $universalIpSet.objectId } | should not throw
+            $status = Get-NsxUniversalSyncStatus -objectType IPSet -objectId $universalIpSet.objectId
+            $status | should not be $null
+            $status.objectId | should be $universalIpSet.objectId
+        }
+
+        it "Can retrieve Universal Sync status of a universal MAC Set" -skip:(-not $universalSyncEnabled ) {
+            { Get-NsxUniversalSyncStatus -objectType MACSet -objectId $universalMacSet.objectId } | should not throw
+            $status = Get-NsxUniversalSyncStatus -objectType MACSet -objectId $universalMacSet.objectId
+            $status | should not be $null
+            $status.objectId | should be $universalMacSet.objectId
+        }
+
+        it "Can retrieve Universal Sync status of a universal Security Tag" -skip:( -not $ver_gt_630_universalSyncEnabled ) {
+            { Get-NsxUniversalSyncStatus -objectType SecurityTag -objectId $universalSt.objectId } | should not throw
+            $status = Get-NsxUniversalSyncStatus -objectType SecurityTag -objectId $universalSt.objectId
+            $status | should not be $null
+            $status.objectId | should be $universalSt.objectId
+        }
+
+        it "Can retrieve Universal Sync status of a universal Service" -skip:(-not $universalSyncEnabled ) {
+            { Get-NsxUniversalSyncStatus -objectType Application -objectId $universalSvc.objectId } | should not throw
+            $status = Get-NsxUniversalSyncStatus -objectType Application -objectId $universalSvc.objectId
+            $status | should not be $null
+            $status.objectId | should be $universalSvc.objectId
+        }
+
+        it "Can retrieve Universal Sync status of a universal Service Group" -skip:(-not $universalSyncEnabled ) {
+            { Get-NsxUniversalSyncStatus -objectType ApplicationGroup -objectId $universalSvcGrp.objectId } | should not throw
+            $status = Get-NsxUniversalSyncStatus -objectType ApplicationGroup -objectId $universalSvcGrp.objectId
+            $status | should not be $null
+            $status.objectId | should be $universalSvcGrp.objectId
         }
 
     }
