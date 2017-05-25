@@ -90,6 +90,9 @@ Describe "DFW" {
         $script:testvm1 = new-vm -name $testVMName1 @vmsplat
         $script:testvm2 = new-vm -name $testVMName2 @vmsplat
         $script:testvm3 = new-vm -name $testVMName3 @vmsplat
+        
+        Get-VM $testVMName1 | New-NetworkAdapter -StartConnected -Portgroup ($testls | Get-NsxBackingPortGroup).name | out-null
+        
 
         #Create Groupings
         $script:TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Pester dfw Test IP Set" -IpAddresses $testIPs
@@ -815,8 +818,6 @@ Describe "DFW" {
         }
 
         it "Can create an l3 rule with an vnic based destination" {
-            Get-VM $testVMName1 | New-NetworkAdapter -StartConnected -Portgroup ($testls | Get-NsxBackingPortGroup).name | out-null
-            Get-VM $testVMName1 | New-NetworkAdapter -StartConnected -Portgroup ($testls | Get-NsxBackingPortGroup).name | out-null
             $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -destination $vm1vnic -action allow
             $rule.destinations.destination.type | should be "Vnic"
