@@ -127,6 +127,8 @@ FunctionsToExport = @(
     'Get-NsxTransportZone',
     'New-NsxTransportZone',
     'Remove-NsxTransportZone',
+    'Add-NsxTransportZoneMember',
+    'Remove-NsxTransportZoneMember',
     'Get-NsxLogicalSwitch',
     'New-NsxLogicalSwitch',
     'Remove-NsxLogicalSwitch',

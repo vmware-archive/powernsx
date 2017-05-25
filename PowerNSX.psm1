@@ -7909,6 +7909,137 @@ function New-NsxTransportZone {
     end {}
 }
 
+function Add-NsxTransportZoneMember {
+
+    <#
+    .SYNOPSIS
+    Adds a new cluster to an existing Transport Zone.
+
+    .DESCRIPTION
+    An NSX Transport Zone defines the maximum scope for logical switches that
+    are bound to it.  NSX Prepared clusters are added to Transport Zones which
+    allows VMs on them to attach to any logical switch bound to the transport
+    zone.
+
+    The Add-NsxTransportZoneMember cmdlet adds a new cluster to an existing
+    Transport Zone on the connected NSX manager.
+
+    #>
+
+
+     param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-TransportZone $_ })]
+            [System.Xml.XmlElement]$TransportZone,
+        [Parameter (Mandatory=$true)]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop[]]$Cluster,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlScope = $XMLDoc.CreateElement("vdnScope")
+        $xmlDoc.Appendchild($xmlScope) | out-null
+
+        Add-XmlElement -xmlRoot $xmlScope -xmlElementName "objectId" -xmlElementText $TransportZone.objectId
+        [System.XML.XMLElement]$xmlClusters = $XMLDoc.CreateElement("clusters")
+        $xmlScope.Appendchild($xmlClusters) | out-null
+        foreach ( $instance in $cluster ) {
+            [System.XML.XMLElement]$xmlCluster1 = $XMLDoc.CreateElement("cluster")
+            $xmlClusters.Appendchild($xmlCluster1) | out-null
+            [System.XML.XMLElement]$xmlCluster2 = $XMLDoc.CreateElement("cluster")
+            $xmlCluster1.Appendchild($xmlCluster2) | out-null
+            Add-XmlElement -xmlRoot $xmlCluster2 -xmlElementName "objectId" -xmlElementText $Instance.ExtensionData.Moref.Value
+        }
+
+        #Do the post
+        $body = $xmlScope.OuterXml
+        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?expand"
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Transport Zone." }
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
+        $response
+
+        # Get-NsxTransportZone -objectId $response -connection $connection
+
+    }
+
+    end {}
+}
+
+function Remove-NsxTransportZoneMember {
+
+    <#
+    .SYNOPSIS
+    Removes an existing cluster from an existing Transport Zone.
+
+    .DESCRIPTION
+    An NSX Transport Zone defines the maximum scope for logical switches that
+    are bound to it.  NSX Prepared clusters are added to Transport Zones which
+    allows VMs on them to attach to any logical switch bound to the transport
+    zone.
+
+    The Remove-NsxTransportZoneMember cmdlet removes a cluster from an existing
+    Transport Zone on the connected NSX manager.
+
+    #>
+
+     param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ Validate-TransportZone $_ })]
+            [System.Xml.XmlElement]$TransportZone,
+        [Parameter (Mandatory=$true)]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop[]]$Cluster,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    #Todo: Improve to accept cluster name as arg instead of PowerCLI object.
+    begin {}
+    process {
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlScope = $XMLDoc.CreateElement("vdnScope")
+        $xmlDoc.Appendchild($xmlScope) | out-null
+
+        Add-XmlElement -xmlRoot $xmlScope -xmlElementName "objectId" -xmlElementText $TransportZone.objectId
+        [System.XML.XMLElement]$xmlClusters = $XMLDoc.CreateElement("clusters")
+        $xmlScope.Appendchild($xmlClusters) | out-null
+        foreach ( $instance in $cluster ) {
+            [System.XML.XMLElement]$xmlCluster1 = $XMLDoc.CreateElement("cluster")
+            $xmlClusters.Appendchild($xmlCluster1) | out-null
+            [System.XML.XMLElement]$xmlCluster2 = $XMLDoc.CreateElement("cluster")
+            $xmlCluster1.Appendchild($xmlCluster2) | out-null
+            Add-XmlElement -xmlRoot $xmlCluster2 -xmlElementName "objectId" -xmlElementText $Instance.ExtensionData.Moref.Value
+        }
+
+        #Do the post
+        $body = $xmlScope.OuterXml
+        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?shrink"
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Transport Zone." }
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
+        $response
+
+        # Get-NsxTransportZone -objectId $response -connection $connection
+
+    }
+
+    end {}
+}
+
+
 function Remove-NsxTransportZone {
 
     <#
