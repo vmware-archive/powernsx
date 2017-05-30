@@ -4510,6 +4510,111 @@ function Get-NsxJobStatus {
 
 }
 
+function Wait-NsxJob {
+
+    param (
+        [string]$jobid,
+        [System.Management.Automation.ScriptBlock]$CompleteCriteria,
+        [int]$WaitTimeout,
+        [switch]$FailOnTimeout
+
+    )
+
+    # Attempt to wait for the specified job until completion criteria tests true.  Timeout is either warning and allow user to quit/throw, or to Throw on timeout
+
+ $jobid = $response.content
+            write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
+
+            $status = $null
+            $Timer = 0
+
+            #Wait a second... the job usually isnt there on initial attempt to query
+            start-sleep -Milliseconds 1000
+
+            #Now - loop, checking job status
+            while ( $status -ne "COMPLETED" ) {
+                if ( $Timer -ge $WaitTimeout ) {
+                    #We exceeded the timeout - what does the user want to do?
+                    $message  = "Waited more than $WaitTimeout seconds for controller deployment to complete.  Recommend checking vCenter for potential cause."
+                    $question = "Continue waiting for Controller?"
+                    $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                    $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                    $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                    $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                    if ($decision -eq 0) {
+                        #User waits...
+                        $timer = 0
+                    }
+                    else {
+                        throw "Timeout waiting for controller deployment to complete."
+                    }
+                }
+
+                try {
+                    [xml]$job = Get-NsxJobStatus -jobId $JobId
+                }
+                catch {
+                    #Can fail if query is too quick
+                    write-warning "Unable to query for controller deployment job"
+                }
+                $status = $job.edgeJob.status
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete.  Current status $status" }
+                if ( $status -eq "FAILED") {
+                    Throw "Controller deployment failed.  $($job.edgeJob.message)"
+                }
+                if ( $status -eq "COMPLETED" ) {
+                    if ($script:PowerNSXConfiguration.ProgressDialogs) {  }
+                    break
+                }
+                start-sleep -Milliseconds 1000
+                $Timer += 1
+            }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for controller deployment job $jobId to complete" -completed }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deploying NSX Controller" -completed }
+
+            $Controller = Get-NsxController -connection $connection -objectid $controllerId
+            if ( $Wait ) {
+
+                #User wants to wait for Controller API to start.
+                $waitStep = 30
+
+                $Timer = 0
+                while ( $Controller.status -ne 'RUNNING' ) {
+
+                    #Loop while the controller is deploying (not RUNNING)
+                    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) " }
+                    start-sleep $WaitStep
+                    $Timer += $WaitStep
+
+                    if ( $Timer -ge $WaitTimeout ) {
+                        #We exceeded the timeout - what does the user want to do?
+                        $message  = "Waited more than $WaitTimeout seconds for controller to become available.  Recommend checking boot process, network config etc."
+                        $question = "Continue waiting for Controller?"
+                        $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                        $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                        if ($decision -eq 0) {
+                           #User waits...
+                           $timer = 0
+                        }
+                        else {
+                            throw "Timeout waiting for controller $($controller.id) to become available."
+                        }
+                    }
+
+                    $Controller = Get-Nsxcontroller -connection $connection -objectId ($controller.id)
+                    if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
+                        throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
+                    }
+                }
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
+            }
+            $controller
+        }
+    }
+
+
 #########
 #########
 # Infra functions
@@ -6291,7 +6396,7 @@ function New-NsxController {
     New-NsxController -ControllerName $ControllerName -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
 
     .EXAMPLE
-    A secondary or tertiary controller does not require a Password to be defined. 
+    A secondary or tertiary controller does not require a Password to be defined.
 
     New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -connection $Connection -confirm:$false
     #>
@@ -7961,11 +8066,14 @@ function Add-NsxTransportZoneMember {
 
         #Do the post
         $body = $xmlScope.OuterXml
-        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?expand"
+        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?action=expand"
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Transport Zone." }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
+
         $response
+
+
 
         # Get-NsxTransportZone -objectId $response -connection $connection
 
@@ -8026,11 +8134,13 @@ function Remove-NsxTransportZoneMember {
 
         #Do the post
         $body = $xmlScope.OuterXml
-        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?shrink"
+        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?action=shrink"
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Transport Zone." }
         $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
         $response
+
+        Wait-NsxJob -jobid -CompleteCriteria -WaitTimeout -FailOnTimeout
 
         # Get-NsxTransportZone -objectId $response -connection $connection
 
