@@ -26459,7 +26459,7 @@ function New-NsxLoadBalancerPool {
         -IpAddress 192.168.200.12 -Port 80 -MonitorPort 8080
         -MaximumConnections 100
 
-    PS C:\> $WebPool = $ESG | New-NsxLoadBalancerPool -Name WebPool
+    PS C:\> $WebPool = Get-NsxEdge Edge01 | New-NsxLoadBalancerPool -Name WebPool
         -Description "WebServer Pool" -Transparent:$false -Algorithm round-robin
         -Monitor $monitor -MemberSpec $WebMember1,$WebMember2
 
