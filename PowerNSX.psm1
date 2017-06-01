@@ -6445,9 +6445,20 @@ function Wait-NsxControllerJob {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
+    #Seriously - the NSX Task framework is the work of the devil.
+    $Start = Get-Date
+    # There is the most detail about the deployment in /api/2.0/vdn/controller/progress, but in certain failure scenarios, this call returns 'Success', but the associated (parent/child?) edge job FAILS. SAD PANDA.  So we check this first...
     write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Controller Job."
 
     Wait-NsxJob -jobid $jobid -JobStatusUri "/api/2.0/vdn/controller/progress" -CompleteCriteria { $job.controllerDeploymentInfo.status -eq "Success" } -FailCriteria { $job.controllerDeploymentInfo.status -eq "Failure" } -StatusExpression { $job.controllerDeploymentInfo.status } -ErrorExpression { $job.controllerDeploymentInfo.exceptionMessage } -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
+
+    $elapsed = ( (get-date) - $start).seconds
+
+    #Now, we check the edge job status...
+    write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Edge Job."
+    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/4.0/edges/jobs" -CompleteCriteria { $job.edgeJob.status -eq "COMPLETED" } -FailCriteria { $job.edgeJob.status -eq "FAILED" } -StatusExpression { $job.edgeJob.message } -WaitTimeout ($WaitTimeout - $elapsed) -FailOnTimeout:$FailOnTimeout
+
+
 
 }
 
@@ -6525,6 +6536,7 @@ function New-NsxController {
             #Block until Controller Status in API is 'RUNNING' (Will timeout with prompt after -WaitTimeout seconds)
             #Useful if automating the deployment of multiple controllers (first must be running before deploying second controller)
             #so you dont have to write looping code to check status of controller before continuing.
+            #NOTE: Not waiting means we do NOT return a controller object!
             [switch]$Wait=$false,
         [Parameter ( Mandatory=$False)]
             #Timeout waiting for controller to become 'RUNNING' before user is prompted to continue or cancel.
@@ -6539,12 +6551,17 @@ function New-NsxController {
         $count = get-nsxcontroller -connection $Connection | measure
 
         if ( ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -gt 1)) {
-                Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter"
-            }
-        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
-                Throw "Password property must be defined for the first controller. Define a password with -Password"
-            }
+            Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter"
         }
+        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
+            Throw "Password property must be defined for the first controller. Define a password with -Password"
+        }
+
+        $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+    }
 
     process {
 
@@ -6597,25 +6614,67 @@ function New-NsxController {
                 throw "Controller deployment failed. $_"
             }
             #Todo : Check if we are being dumb here - shouldnt this be $reponse.content -match?
-            if ( -not (($response -match "jobdata-\d+") -and ($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
+            if ( -not (($response.Content -match "jobdata-\d+") -and ($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
                 throw "Controller deployment failed. $($response.content)"
             }
 
-            #Get the new controller id so we can get its status later...
-            $controllerid = $response.Headers["location"] -replace "/api/2.0/vdn/controller/"
-
             #The post is ansync - the controller deployment can fail after the api accepts the post.  we need to check on the status of the job.
-            $jobid = $response.content
-            write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
+            if ( $Wait ) {
 
-            try {
-                Wait-NsxControllerJob -Jobid $JobID -Connection $Connection
-            }
-            catch {
-                throw "Controller deployment job failed.  $_"
-            }
+                 #Get the new controller id so we can get its status later...
+                $controllerid = $response.Headers["location"] -replace "/api/2.0/vdn/controller/"
 
-            Get-NsxController -connection $connection -objectid $controllerId
+                $jobid = $response.content
+                write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
+
+                #First we wait for NSX job framework to give us the needful
+                $start = get-date
+                try {
+                    Wait-NsxControllerJob -Jobid $JobID -Connection $Connection
+                }
+                catch {
+                    throw "Controller deployment job failed.  $_"
+                }
+
+                #Now we check the Controller object in the API - it still needs to come up to running before user has a working control plane...
+                Do {
+                    #Loop while the controller is deploying (not RUNNING)
+                    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) " }
+                    start-sleep -Seconds 1
+
+                    #Try to get the controller object from NSX
+                    try {
+                        $Controller = Get-NsxController -connection $connection -objectid $controllerId
+                    }
+                    catch {
+                        Throw "Controller $controllerId not found when querying NSX.  This means something caused the controller to be removed AFTER the deployment and edge configuration jobs completed successfully.  Check NSX installation tab, and NSX manager logs for the cause."
+                    }
+
+                    #Make sure it has the props we need to check status!
+                    if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
+                        throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
+                    }
+
+                    #Check for a timeout
+                    if ( ((Get-date) - $start).seconds -ge $WaitTimeout ) {
+                        #We exceeded the timeout - what does the user want to do?
+                        $message  = "Waited more than $WaitTimeout seconds for controller to become available.  Recommend checking boot process, network config etc."
+                        $question = "Continue waiting for Controller?"
+                        $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                        if ($decision -eq 0) {
+                            #User waits...
+                            $start = get-date
+                        }
+                        else {
+                            throw "Timeout waiting for controller $($controller.id) to become available."
+                        }
+                    }
+                } until  ( $Controller.status -eq 'RUNNING' )
+
+                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
+
+                $Controller
+            }
         }
     }
 
