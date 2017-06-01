@@ -6456,9 +6456,7 @@ function Wait-NsxControllerJob {
 
     #Now, we check the edge job status...
     write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Edge Job."
-    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/4.0/edges/jobs" -CompleteCriteria { $job.edgeJob.status -eq "COMPLETED" } -FailCriteria { $job.edgeJob.status -eq "FAILED" } -StatusExpression { $job.edgeJob.message } -WaitTimeout ($WaitTimeout - $elapsed) -FailOnTimeout:$FailOnTimeout
-
-
+    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/4.0/edges/jobs" -CompleteCriteria { $job.edgeJob.status -eq "COMPLETED" } -FailCriteria { $job.edgeJob.status -eq "FAILED" } -StatusExpression { $job.edgeJob.status } -ErrorExpression { $job.edgeJob.message } -WaitTimeout ($WaitTimeout - $elapsed) -FailOnTimeout:$FailOnTimeout
 
 }
 
