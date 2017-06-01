@@ -6445,18 +6445,20 @@ function Wait-NsxControllerJob {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    #Seriously - the NSX Task framework is the work of the devil.
-    $Start = Get-Date
-    # There is the most detail about the deployment in /api/2.0/vdn/controller/progress, but in certain failure scenarios, this call returns 'Success', but the associated (parent/child?) edge job FAILS. SAD PANDA.  So we check this first...
-    write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Controller Job."
+    # #Seriously - the NSX Task framework is the work of the devil.
+    # $Start = Get-Date
+    # # There is the most detail about the deployment in /api/2.0/vdn/controller/progress, but in certain failure scenarios, this call returns 'Success', but the associated (parent/child?) edge job FAILS. SAD PANDA.  So we check this first...
+    # write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Controller Job."
 
-    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/2.0/vdn/controller/progress" -CompleteCriteria { $job.controllerDeploymentInfo.status -eq "Success" } -FailCriteria { $job.controllerDeploymentInfo.status -eq "Failure" } -StatusExpression { $job.controllerDeploymentInfo.status } -ErrorExpression { $job.controllerDeploymentInfo.exceptionMessage } -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
+    # Wait-NsxJob -jobid $jobid -JobStatusUri "/api/2.0/vdn/controller/progress" -CompleteCriteria { $job.controllerDeploymentInfo.status -eq "Success" } -FailCriteria { $job.controllerDeploymentInfo.status -eq "Failure" } -StatusExpression { $job.controllerDeploymentInfo.status } -ErrorExpression { $job.controllerDeploymentInfo.exceptionMessage } -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
 
-    $elapsed = ( (get-date) - $start).seconds
+    # $elapsed = ( (get-date) - $start).seconds
 
-    #Now, we check the edge job status...
-    write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Edge Job."
-    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/4.0/edges/jobs" -CompleteCriteria { $job.edgeJob.status -eq "COMPLETED" } -FailCriteria { $job.edgeJob.status -eq "FAILED" } -StatusExpression { $job.edgeJob.status } -ErrorExpression { $job.edgeJob.message } -WaitTimeout ($WaitTimeout - $elapsed) -FailOnTimeout:$FailOnTimeout
+    # #Now, we check the edge job status...
+    # write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Edge Job."
+    # Wait-NsxJob -jobid $jobid -JobStatusUri "/api/4.0/edges/jobs" -CompleteCriteria { $job.edgeJob.status -eq "COMPLETED" } -FailCriteria { $job.edgeJob.status -eq "FAILED" } -StatusExpression { $job.edgeJob.status } -ErrorExpression { $job.edgeJob.message } -WaitTimeout ($WaitTimeout - $elapsed) -FailOnTimeout:$FailOnTimeout
+
+    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/2.0/services/taskservice/job/" -CompleteCriteria { $job.jobInstances.jobInstance.status -eq "COMPLETED" } -FailCriteria { $job.jobInstances.jobInstance.status -eq "FAILED" } -StatusExpression { $execTask = $job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.status -eq "EXECUTING" }; "Task: $($execTask.name) - $($execTask.taskStatus)" } -ErrorExpression { $failTask = $job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.status -eq "FAILED" }; "$($failTask.statusMessage)" } -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
 
 }
 
@@ -8215,7 +8217,6 @@ function Remove-NsxTransportZoneMember {
 
     end {}
 }
-
 
 function Remove-NsxTransportZone {
 
