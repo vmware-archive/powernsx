@@ -104,6 +104,7 @@ FunctionsToExport = @(
     'Get-PowerNsxVersion',
     'Get-NsxClusterStatus',
     'Invoke-NsxCli',
+    'Wait-NsxJob',
     'Get-NsxCliDfwFilter',
     'Get-NsxCliDfwRule',
     'Get-NsxCliDfwAddrSet',
@@ -111,6 +112,7 @@ FunctionsToExport = @(
     'Set-NsxManager',
     'New-NsxController',
     'Get-NsxController',
+    'Wait-NsxControllerJob',
     'New-NsxIpPool',
     'Get-NsxIpPool',
     'Remove-NsxIpPool'
