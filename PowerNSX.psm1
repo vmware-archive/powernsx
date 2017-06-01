@@ -4566,6 +4566,8 @@ function Wait-NsxJob {
         $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
         function prompt_for_timeout {
+            write-debug "$($MyInvocation.MyCommand.Name) : Timeout waiting for job $jobid"
+
             if ( -not $FailOnTimeout) {
                 $message  = "Waited more than $WaitTimeout seconds for job $jobid to complete.  Recommend checking NSX Manager logs or vCenter tasks for the potential cause."
                 $question = "Continue waiting for the job to complete?"
@@ -4581,6 +4583,8 @@ function Wait-NsxJob {
     }
 
     process {
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Waiting for job $jobid"
 
         $StatusString = $null
         $Timer = 0
@@ -4602,6 +4606,8 @@ function Wait-NsxJob {
             #Get updated jobStatus
             try {
                 [xml]$job = Get-NsxJobStatus -jobId $JobId -JobStatusUri $JobStatusUri -Connection $Connection
+                write-debug "$($MyInvocation.MyCommand.Name) : Got Job from API for job $jobid"
+
             }
             catch {
                 #Can fail if query is too quick
@@ -4614,9 +4620,10 @@ function Wait-NsxJob {
             }
             catch {
                 $StatusString = "Unknown"
-                write-warning "Failed to retreive job status when waiting for job $jobId.  Please report this error on the PowerNSX github site issues page. (github.com/vmware/PowerNSX/issues)"
+                write-warning "Failed to retrieve job status when waiting for job $jobId.  Please report this error on the PowerNSX github site issues page. (github.com/vmware/PowerNSX/issues)"
             }
             if ( &$FailCriteria ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : Failure criteria `"$FailCriteria`" evaluated to true."
 
                 #Try get our error string.  Failure here should indicate that the user needs to tell us that the API returned something unexpected, and/or PowerNSX has a bug that needs fixing.
                 try {
@@ -4624,12 +4631,14 @@ function Wait-NsxJob {
                 }
                 catch {
                     $ErrorString = "Unknown"
-                    write-warning "Failed to retreive job error output when job $jobId failed.  Please report this error on the PowerNSX github site issues page. (github.com/vmware/PowerNSX/issues)"
+                    write-warning "Failed to retrieve job error output when job $jobId failed.  Please report this error on the PowerNSX github site issues page. (github.com/vmware/PowerNSX/issues)"
                 }
 
                 Throw "Job $jobid failed with Status: $StatusString. Error: $ErrorString"
             }
         }
+        write-debug "$($MyInvocation.MyCommand.Name) : Completed criteria `"$CompleteCriteria`" evaluated to true."
+
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete.  Current status: $StatusString" -Completed  }
     }
 
@@ -6436,9 +6445,9 @@ function Wait-NsxControllerJob {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
+    write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Controller Job."
 
-    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/2.0/vdn/controller/progress" -CompleteCriteria { $job.controllerDeploymentInfo.status -eq "Success" } -FailCriteria { $job.controllerDeploymentInfo.status -eq "Failure" } -StatusExpression { $job.controllerDeploymentInfo.status } -ErrorExpression { $job.controllerDeploymentInfo.exceptionMessage } -WaitTimeout $WaitTimeout -FailOnTimeout $FailOnTimeout
-
+    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/2.0/vdn/controller/progress" -CompleteCriteria { $job.controllerDeploymentInfo.status -eq "Success" } -FailCriteria { $job.controllerDeploymentInfo.status -eq "Failure" } -StatusExpression { $job.controllerDeploymentInfo.status } -ErrorExpression { $job.controllerDeploymentInfo.exceptionMessage } -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
 
 }
 
