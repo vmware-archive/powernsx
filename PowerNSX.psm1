@@ -6458,8 +6458,47 @@ function Wait-NsxControllerJob {
     # write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Edge Job."
     # Wait-NsxJob -jobid $jobid -JobStatusUri "/api/4.0/edges/jobs" -CompleteCriteria { $job.edgeJob.status -eq "COMPLETED" } -FailCriteria { $job.edgeJob.status -eq "FAILED" } -StatusExpression { $job.edgeJob.status } -ErrorExpression { $job.edgeJob.message } -WaitTimeout ($WaitTimeout - $elapsed) -FailOnTimeout:$FailOnTimeout
 
-    Wait-NsxJob -jobid $jobid -JobStatusUri "/api/2.0/services/taskservice/job/" -CompleteCriteria { $job.jobInstances.jobInstance.status -eq "COMPLETED" } -FailCriteria { $job.jobInstances.jobInstance.status -eq "FAILED" } -StatusExpression { $execTask = $job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.status -eq "EXECUTING" }; "Task: $($execTask.name) - $($execTask.taskStatus)" } -ErrorExpression { $failTask = $job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.status -eq "FAILED" }; "$($failTask.statusMessage)" } -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
 
+## Todo: status can still fail on no task executing - should default to parent job status.
+
+    $WaitJobArgs = @{
+        "jobid" = $jobid
+        "JobStatusUri" = "/api/2.0/services/taskservice/job/"
+        "CompleteCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "COMPLETED"
+        }
+        "FailCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "FAILED"
+        }
+        "StatusExpression" = {
+            $execTask = @()
+            $StatusMessage = ""
+            $execTask = $job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "EXECUTING" }
+            if ( $exectask.count -eq 1) {
+                $StatusMessage = "Executing Task : $($execTask.name) - $($execTask.taskStatus)"
+            }
+            else {
+                $StatusMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $StatusMessage
+        }
+        "ErrorExpression" = {
+            $failTask = @()
+            $failMessage = ""
+            $failTask = $job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" }
+            if ( $exectask.count -eq 1) {
+                $failMessage = "Failed Task : $($failTask.name) - $($failTask.statusMessage)"
+            }
+            else {
+                $failMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $failMessage
+        }
+        "WaitTimeout" = $WaitTimeout
+        "FailOnTimeout" = $FailOnTimeout
+    }
+
+    Wait-NsxJob @WaitJobArgs
 }
 
 function New-NsxController {
