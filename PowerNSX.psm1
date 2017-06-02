@@ -6491,6 +6491,7 @@ function Wait-NsxControllerJob {
         }
         "WaitTimeout" = $WaitTimeout
         "FailOnTimeout" = $FailOnTimeout
+        "Connection" = $Connection
     }
 
     Wait-NsxJob @WaitJobArgs
@@ -8100,6 +8101,93 @@ function New-NsxTransportZone {
     }
 
     end {}
+}
+
+function Wait-NsxTransportZoneJob {
+
+    <#
+    .SYNOPSIS
+    Wait for the specified member add/remove job until it succeeds or fails.
+
+    .DESCRIPTION
+    Attempt to wait for the specified transport zone modificationjob until it
+    succeeds or fails.
+
+    Wait-NsxTransportZoneJob defaults to timeout at 300 seconds, when the user
+    is prompted to continuing waiting of fail.  If immediate failure upon
+    timeout is desirable (eg within script), then the $failOnTimeout switch can
+    be set.
+
+    .EXAMPLE
+    Wait-NsxTransportZoneJob -Jobid jobdata-1234
+
+    Wait for transportzone job jobdata-1234 up to 30 seconds to complete
+    successfully or fail.  If 30 seconds elapse, then prompt for action.
+
+    .EXAMPLE
+    Wait-NsxTransportZoneJob -Jobid jobdata-1234 -TimeOut 30 -FailOnTimeOut
+
+    Wait for transportzone job jobdata-1234 up to 40 seconds to complete
+    successfully or fail.  If 400 seconds elapse, then throw an error.
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true)]
+            #Job Id string as returned from the api
+            [string]$JobId,
+        [Parameter (Mandatory=$false)]
+            #Seconds to wait before declaring a timeout.  Timeout defaults to 30 seconds.
+            [int]$WaitTimeout=30,
+        [Parameter (Mandatory=$false)]
+            #Do we prompt user an allow them to reset the timeout timer, or throw on timeout
+            [switch]$FailOnTimeout=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+
+    $WaitJobArgs = @{
+        "jobid" = $jobid
+        "JobStatusUri" = "/api/2.0/services/taskservice/job"
+        "CompleteCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "COMPLETED"
+        }
+        "FailCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "FAILED"
+        }
+        "StatusExpression" = {
+            $execTask = @()
+            $StatusMessage = ""
+            $execTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "EXECUTING" })
+            if ( $exectask.count -eq 1) {
+                $StatusMessage = "$($execTask.name) - $($execTask.taskStatus)"
+            }
+            else {
+                $StatusMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $StatusMessage
+        }
+        "ErrorExpression" = {
+            $failTask = @()
+            $failMessage = ""
+            $failTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" })
+            if ( $exectask.count -eq 1) {
+                $failMessage = "Failed Task : $($failTask.name) - $($failTask.statusMessage)"
+            }
+            else {
+                $failMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $failMessage
+        }
+        "WaitTimeout" = $WaitTimeout
+        "FailOnTimeout" = $FailOnTimeout
+    }
+
+    Wait-NsxJob @WaitJobArgs
 }
 
 function Add-NsxTransportZoneMember {
