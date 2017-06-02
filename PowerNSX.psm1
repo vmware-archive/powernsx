@@ -6431,8 +6431,8 @@ function Wait-NsxControllerJob {
             #Job Id string as returned from the api
             [string]$JobId,
         [Parameter (Mandatory=$false)]
-            #Seconds to wait before declaring a timeout.  Timeout defaults to 720 seconds, which is longer than the NSX internal timeout and rollback of a failed controller deployment.
-            [int]$WaitTimeout=720,
+            #Seconds to wait before declaring a timeout.  Timeout defaults to 800 seconds, which is longer than the NSX internal timeout and rollback of a failed controller deployment of around 720 seconds.
+            [int]$WaitTimeout=800,
         [Parameter (Mandatory=$false)]
             #Do we prompt user an allow them to reset the timeout timer, or throw on timeout
             [switch]$FailOnTimeout=$false,
@@ -6571,8 +6571,8 @@ function New-NsxController {
             #NOTE: Not waiting means we do NOT return a controller object!
             [switch]$Wait=$false,
         [Parameter ( Mandatory=$False)]
-            #Timeout waiting for controller to become 'RUNNING' before user is prompted to continue or cancel. Defaults to 720 seconds to exceed the normal NSX rollback timeout of 600 seconds.
-            [int]$WaitTimeout = 720,
+            #Timeout waiting for controller to become 'RUNNING' before user is prompted to continue or cancel. Defaults to 800 seconds to exceed the normal NSX rollback timeout of 720 seconds.
+            [int]$WaitTimeout = 800,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
