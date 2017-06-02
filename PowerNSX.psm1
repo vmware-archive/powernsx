@@ -8209,10 +8209,20 @@ function Add-NsxTransportZoneMember {
      param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #PowerNSX Transport Zone object to be updated
             [ValidateScript({ Validate-TransportZone $_ })]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$true)]
+            #Cluster to be added to the Transport Zone
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop[]]$Cluster,
+        [Parameter ( Mandatory=$False)]
+            #Block until transport zone update job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
+            #Useful if automating the tz modification so you dont have to write looping code to check status of the tz before continuing.
+            #NOTE: Not waiting means we do NOT return an updated tz object!
+            [switch]$Wait=$false,
+        [Parameter ( Mandatory=$False)]
+            #Timeout waiting for tz update job to complete before user is prompted to continue or cancel. Defaults to 30 seconds.
+            [int]$WaitTimeout = 30,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -8242,15 +8252,33 @@ function Add-NsxTransportZoneMember {
         $body = $xmlScope.OuterXml
         $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?action=expand"
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Transport Zone." }
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        try {
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        }
+        catch {
+            throw "Transport Zone update failed. $_"
+        }
+        if ( -not ($response.Content -match "jobdata-\d+")) {
+            throw "Controller deployment failed. $($response.content)"
+        }
+
+        #The post is ansync - the tz modification can fail after the api accepts the post.  we need to check on the status of the job.
+        if ( $Wait ) {
+
+            $jobid = $response.content
+            write-debug "$($MyInvocation.MyCommand.Name) : TZ update job $jobid returned in post response"
+
+            #First we wait for NSX job framework to give us the needful
+            try {
+                Wait-NsxTransportZoneJob -Jobid $JobID -Connection $Connection -WaitTimeout $WaitTimeout
+                Get-NsxTransportZone -connection $connection -objectid $TransportZone.objectId
+            }
+            catch {
+                throw "Cluster addition to Transport Zone $($TransportZone.Name) failed.  $_"
+            }
+        }
+
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
-
-        $response
-
-
-
-        # Get-NsxTransportZone -objectId $response -connection $connection
-
     }
 
     end {}
@@ -8276,10 +8304,20 @@ function Remove-NsxTransportZoneMember {
      param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #PowerNSX Transport Zone object to be updated
             [ValidateScript({ Validate-TransportZone $_ })]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$true)]
+            #Cluster to be added to the Transport Zone
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop[]]$Cluster,
+        [Parameter ( Mandatory=$False)]
+            #Block until transport zone update job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
+            #Useful if automating the tz modification so you dont have to write looping code to check status of the tz before continuing.
+            #NOTE: Not waiting means we do NOT return an updated tz object!
+            [switch]$Wait=$false,
+        [Parameter ( Mandatory=$False)]
+            #Timeout waiting for tz update job to complete before user is prompted to continue or cancel. Defaults to 30 seconds.
+            [int]$WaitTimeout = 30,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -8310,17 +8348,32 @@ function Remove-NsxTransportZoneMember {
         $body = $xmlScope.OuterXml
         $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?action=shrink"
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Transport Zone." }
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        try {
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        }
+        catch {
+            throw "Transport Zone update failed. $_"
+        }
+        if ( -not ($response.Content -match "jobdata-\d+")) {
+            throw "Controller deployment failed. $($response.content)"
+        }
+
+        #The post is ansync - the tz modification can fail after the api accepts the post.  we need to check on the status of the job.
+        if ( $Wait ) {
+
+            $jobid = $response.content
+            write-debug "$($MyInvocation.MyCommand.Name) : TZ update job $jobid returned in post response"
+
+            #First we wait for NSX job framework to give us the needful
+            try {
+                Wait-NsxTransportZoneJob -Jobid $JobID -Connection $Connection -WaitTimeout $WaitTimeout
+                Get-NsxTransportZone -connection $connection -objectid $TransportZone.objectId
+            }
+            catch {
+                throw "Cluster addition to Transport Zone $($TransportZone.Name) failed.  $_"
+            }
+        }
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
-        $response
-
-        $jobid = $response.content
-        write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
-
-        Wait-NsxTransportZoneJob -jobid $jobId
-
-        # Get-NsxTransportZone -objectId $response -connection $connection
-
     }
 
     end {}
