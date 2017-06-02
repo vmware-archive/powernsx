@@ -4593,7 +4593,7 @@ function Wait-NsxJob {
         do {
 
             #Sleep
-            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete.  Current status: $StatusString" }
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Waiting for NSX job $jobId to complete." -Status "$StatusString" }
             start-sleep -Seconds $SleepSeconds
             $Timer += $SleepSeconds
 
@@ -4639,7 +4639,7 @@ function Wait-NsxJob {
         } until ( &$CompleteCriteria )
         write-debug "$($MyInvocation.MyCommand.Name) : Completed criteria `"$CompleteCriteria`" evaluated to true."
 
-        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete.  Current status: $StatusString" -Completed  }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) {  Write-Progress -Activity "Waiting for NSX job $jobId to complete." -Status "$StatusString" -Completed  }
     }
 
     end {}
