@@ -6567,14 +6567,14 @@ function New-NsxController {
             #Controller Password (Must be same on all controllers)
             [string]$Password,
         [Parameter ( Mandatory=$False)]
-            #Block until Controller Status in API is 'RUNNING' (Will timeout with prompt after -WaitTimeout seconds)
+            #Block until Controller deployment job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
             #Useful if automating the deployment of multiple controllers (first must be running before deploying second controller)
             #so you dont have to write looping code to check status of controller before continuing.
             #NOTE: Not waiting means we do NOT return a controller object!
             [switch]$Wait=$false,
         [Parameter ( Mandatory=$False)]
-            #Timeout waiting for controller to become 'RUNNING' before user is prompted to continue or cancel.
-            [int]$WaitTimeout = 600,
+            #Timeout waiting for controller to become 'RUNNING' before user is prompted to continue or cancel. Defaults to 720 seconds to exceed the normal NSX rollback timeout of 600 seconds.
+            [int]$WaitTimeout = 720,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -6662,7 +6662,7 @@ function New-NsxController {
 
                 #First we wait for NSX job framework to give us the needful
                 try {
-                    Wait-NsxControllerJob -Jobid $JobID -Connection $Connection
+                    Wait-NsxControllerJob -Jobid $JobID -Connection $Connection -WaitTimeout $WaitTimeout
                     Get-NsxController -connection $connection -objectid $controllerId
                 }
                 catch {
@@ -6762,6 +6762,11 @@ function Remove-NsxController {
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
+        [Parameter ( Mandatory=$False)]
+            #Block until Controller Removal job is COMPLETED (Will timeout with prompt after 720 seconds)
+            #Useful if automating the removal of multiple controllers (first must be removed before removing second controller)
+            #so you dont have to write looping code to check status of controller before continuing.
+            [switch]$Wait=$false,
         [Parameter (Mandatory=$false)]
             #Force the removal of the last controller.  WARNING THIS WILL IMPACT LOGICAL SWITCHING AND ROUTING FUNCTIONALITY
             [switch]$Force=$false,
