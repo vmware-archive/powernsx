@@ -6445,21 +6445,16 @@ function Wait-NsxControllerJob {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    # #Seriously - the NSX Task framework is the work of the devil.
-    # $Start = Get-Date
-    # # There is the most detail about the deployment in /api/2.0/vdn/controller/progress, but in certain failure scenarios, this call returns 'Success', but the associated (parent/child?) edge job FAILS. SAD PANDA.  So we check this first...
-    # write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Controller Job."
-
-    # Wait-NsxJob -jobid $jobid -JobStatusUri "/api/2.0/vdn/controller/progress" -CompleteCriteria { $job.controllerDeploymentInfo.status -eq "Success" } -FailCriteria { $job.controllerDeploymentInfo.status -eq "Failure" } -StatusExpression { $job.controllerDeploymentInfo.status } -ErrorExpression { $job.controllerDeploymentInfo.exceptionMessage } -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
-
-    # $elapsed = ( (get-date) - $start).seconds
-
-    # #Now, we check the edge job status...
-    # write-debug "$($MyInvocation.MyCommand.Name) : Calling Wait-NsxJob for Edge Job."
-    # Wait-NsxJob -jobid $jobid -JobStatusUri "/api/4.0/edges/jobs" -CompleteCriteria { $job.edgeJob.status -eq "COMPLETED" } -FailCriteria { $job.edgeJob.status -eq "FAILED" } -StatusExpression { $job.edgeJob.status } -ErrorExpression { $job.edgeJob.message } -WaitTimeout ($WaitTimeout - $elapsed) -FailOnTimeout:$FailOnTimeout
-
-
-## Todo: status can still fail on no task executing - should default to parent job status.
+    # Seriously - the NSX Task framework is the work of the devil.
+    # In order to get a _complete_ picture of a controller deployment, we have to track the jobinstance returned by querying the taskservice uri for our returned jobid.
+    # The jobinstance returned is a 'parent' of the job we got from the API.  For a controller deployment job, there are multiple tasks that are executed.
+    # Their status output doesnt exist until they are commenced though, which results in an increasing number of taskinstances that we need to track as deployment is performed.
+    # A task instance state is either COMPLETED, at which time the next task is added, or EXECUTING, and has an interesting taskStatus property, or FAILED, and has an interesting taskMessage property (usually the cause of failure).  When all tasks are COMPLETED, the parent jobInstance is COMPLETED
+    # What makes this annoying is the deployment overall success/failure is only determinable from the parent job instance, however the current status and/or any error messages must be retreived from the task in a FAILED state.  The number of taskInstances is indeterminate
+    # and grows as the job progresses...
+    #
+    # What we do here is declare state of the job we are monitoring on the jobinstance.status, but the output is obtained from the currently EXECUTING (status) or FAILED (error) child task
+    # This really underscores the flexibility of having a generic Wait-NsxJob cmdlet I think :) FIGJAM... :)
 
     $WaitJobArgs = @{
         "jobid" = $jobid
@@ -6670,54 +6665,11 @@ function New-NsxController {
                 $start = get-date
                 try {
                     Wait-NsxControllerJob -Jobid $JobID -Connection $Connection
+                    Get-NsxController -connection $connection -objectid $controllerId
                 }
                 catch {
                     throw "Controller deployment job failed.  $_"
                 }
-
-                #Now we check the Controller object in the API - it still needs to come up to running before user has a working control plane...
-                # Do {
-                #     #Loop while the controller is deploying (not RUNNING)
-                #     if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) " }
-                #     start-sleep -Seconds 1
-
-                #     #Try to get the controller object from NSX
-                #     try {
-                #         $Controller = Get-NsxController -connection $connection -objectid $controllerId
-                #     }
-                #     catch {
-                #         Throw "Controller $controllerId not found when querying NSX.  This means something caused the controller to be removed AFTER the deployment and edge configuration jobs completed successfully.  Check NSX installation tab, and NSX manager logs for the cause."
-                #     }
-
-                #     #Make sure it has the props we need to check status!
-                #     if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
-                #         throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
-                #     }
-
-                #     #Check for a timeout
-                #     if ( ((Get-date) - $start).seconds -ge $WaitTimeout ) {
-                #         #We exceeded the timeout - what does the user want to do?
-                #         $message  = "Waited more than $WaitTimeout seconds for controller to become available.  Recommend checking boot process, network config etc."
-                #         $question = "Continue waiting for Controller?"
-                #         $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
-                #         if ($decision -eq 0) {
-                #             #User waits...
-                #             $start = get-date
-                #         }
-                #         else {
-                #             throw "Timeout waiting for controller $($controller.id) to become available."
-                #         }
-                #     }
-                # } until  ( $Controller.status -eq 'RUNNING' )
-
-                # if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
-                try {
-                    $Controller = Get-NsxController -connection $connection -objectid $controllerId
-                }
-                catch {
-                    Throw "Controller $controllerId not found when querying NSX.  This means something caused the controller to be removed AFTER the deployment and edge configuration jobs completed successfully.  Check NSX installation tab, and NSX manager logs for the cause."
-                }
-                $Controller
             }
         }
     }
@@ -8253,7 +8205,7 @@ function Remove-NsxTransportZoneMember {
         $jobid = $response.content
         write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
 
-        Wait-NsxJob -jobid $jobId -CompleteCriteria -WaitTimeout 30 -FailOnTimeout
+        Wait-NsxTransportZoneJob -jobid $jobId
 
         # Get-NsxTransportZone -objectId $response -connection $connection
 
