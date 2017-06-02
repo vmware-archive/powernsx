@@ -6473,7 +6473,7 @@ function Wait-NsxControllerJob {
         "StatusExpression" = {
             $execTask = @()
             $StatusMessage = ""
-            $execTask = $job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "EXECUTING" }
+            $execTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "EXECUTING" })
             if ( $exectask.count -eq 1) {
                 $StatusMessage = "Executing Task : $($execTask.name) - $($execTask.taskStatus)"
             }
@@ -6485,7 +6485,7 @@ function Wait-NsxControllerJob {
         "ErrorExpression" = {
             $failTask = @()
             $failMessage = ""
-            $failTask = $job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" }
+            $failTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" })
             if ( $exectask.count -eq 1) {
                 $failMessage = "Failed Task : $($failTask.name) - $($failTask.statusMessage)"
             }
