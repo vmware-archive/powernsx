@@ -8219,7 +8219,7 @@ function Add-NsxTransportZoneMember {
             #Block until transport zone update job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
             #Useful if automating the tz modification so you dont have to write looping code to check status of the tz before continuing.
             #NOTE: Not waiting means we do NOT return an updated tz object!
-            [switch]$Wait=$false,
+            [switch]$Wait=$True,
         [Parameter ( Mandatory=$False)]
             #Timeout waiting for tz update job to complete before user is prompted to continue or cancel. Defaults to 30 seconds.
             [int]$WaitTimeout = 30,
@@ -8314,7 +8314,7 @@ function Remove-NsxTransportZoneMember {
             #Block until transport zone update job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
             #Useful if automating the tz modification so you dont have to write looping code to check status of the tz before continuing.
             #NOTE: Not waiting means we do NOT return an updated tz object!
-            [switch]$Wait=$false,
+            [switch]$Wait=$True,
         [Parameter ( Mandatory=$False)]
             #Timeout waiting for tz update job to complete before user is prompted to continue or cancel. Defaults to 30 seconds.
             [int]$WaitTimeout = 30,
