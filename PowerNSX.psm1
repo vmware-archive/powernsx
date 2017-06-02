@@ -6434,8 +6434,8 @@ function Wait-NsxControllerJob {
             #Job Id string as returned from the api
             [string]$JobId,
         [Parameter (Mandatory=$false)]
-            #Seconds to wait before declaring a timeout
-            [int]$WaitTimeout=300,
+            #Seconds to wait before declaring a timeout.  Timeout defaults to 720 seconds, which is longer than the NSX internal timeout and rollback of a failed controller deployment.
+            [int]$WaitTimeout=720,
         [Parameter (Mandatory=$false)]
             #Do we prompt user an allow them to reset the timeout timer, or throw on timeout
             [switch]$FailOnTimeout=$false,
@@ -6463,7 +6463,7 @@ function Wait-NsxControllerJob {
 
     $WaitJobArgs = @{
         "jobid" = $jobid
-        "JobStatusUri" = "/api/2.0/services/taskservice/job/"
+        "JobStatusUri" = "/api/2.0/services/taskservice/job"
         "CompleteCriteria" = {
             $job.jobInstances.jobInstance.status -eq "COMPLETED"
         }
