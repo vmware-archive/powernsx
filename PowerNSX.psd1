@@ -112,6 +112,7 @@ FunctionsToExport = @(
     'Set-NsxManager',
     'New-NsxController',
     'Get-NsxController',
+    'Remove-NsxController',
     'Wait-NsxControllerJob',
     'New-NsxIpPool',
     'Get-NsxIpPool',

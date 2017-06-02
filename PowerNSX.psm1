@@ -6647,7 +6647,6 @@ function New-NsxController {
             catch {
                 throw "Controller deployment failed. $_"
             }
-            #Todo : Check if we are being dumb here - shouldnt this be $reponse.content -match?
             if ( -not (($response.Content -match "jobdata-\d+") -and ($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
                 throw "Controller deployment failed. $($response.content)"
             }
@@ -6662,7 +6661,6 @@ function New-NsxController {
                 write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
 
                 #First we wait for NSX job framework to give us the needful
-                $start = get-date
                 try {
                     Wait-NsxControllerJob -Jobid $JobID -Connection $Connection
                     Get-NsxController -connection $connection -objectid $controllerId
@@ -6795,7 +6793,30 @@ function Remove-NsxController {
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/controller/$($objectId)?forceRemoval=$force"
             if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Controller $objectId" }
-            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            try {
+                $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            }
+            catch {
+                throw "Controller deployment failed. $_"
+            }
+
+            if ( -not ($response.Content -match "jobdata-\d+")) {
+                throw "Controller deployment failed. $($response.content)"
+            }
+
+            #The post is ansync - the controller deployment can fail after the api accepts the post.  we need to check on the status of the job.
+            if ( $Wait ) {
+                $jobid = $response.content
+                write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
+
+                #First we wait for NSX job framework to give us the needful
+                try {
+                    Wait-NsxControllerJob -Jobid $JobID -Connection $Connection
+                }
+                catch {
+                    throw "Controller removal job failed.  $_"
+                }
+            }
             if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Controller $objectId" -completed }
         }
     }
