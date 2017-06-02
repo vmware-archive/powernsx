@@ -6676,42 +6676,47 @@ function New-NsxController {
                 }
 
                 #Now we check the Controller object in the API - it still needs to come up to running before user has a working control plane...
-                Do {
-                    #Loop while the controller is deploying (not RUNNING)
-                    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) " }
-                    start-sleep -Seconds 1
+                # Do {
+                #     #Loop while the controller is deploying (not RUNNING)
+                #     if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) " }
+                #     start-sleep -Seconds 1
 
-                    #Try to get the controller object from NSX
-                    try {
-                        $Controller = Get-NsxController -connection $connection -objectid $controllerId
-                    }
-                    catch {
-                        Throw "Controller $controllerId not found when querying NSX.  This means something caused the controller to be removed AFTER the deployment and edge configuration jobs completed successfully.  Check NSX installation tab, and NSX manager logs for the cause."
-                    }
+                #     #Try to get the controller object from NSX
+                #     try {
+                #         $Controller = Get-NsxController -connection $connection -objectid $controllerId
+                #     }
+                #     catch {
+                #         Throw "Controller $controllerId not found when querying NSX.  This means something caused the controller to be removed AFTER the deployment and edge configuration jobs completed successfully.  Check NSX installation tab, and NSX manager logs for the cause."
+                #     }
 
-                    #Make sure it has the props we need to check status!
-                    if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
-                        throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
-                    }
+                #     #Make sure it has the props we need to check status!
+                #     if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
+                #         throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
+                #     }
 
-                    #Check for a timeout
-                    if ( ((Get-date) - $start).seconds -ge $WaitTimeout ) {
-                        #We exceeded the timeout - what does the user want to do?
-                        $message  = "Waited more than $WaitTimeout seconds for controller to become available.  Recommend checking boot process, network config etc."
-                        $question = "Continue waiting for Controller?"
-                        $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
-                        if ($decision -eq 0) {
-                            #User waits...
-                            $start = get-date
-                        }
-                        else {
-                            throw "Timeout waiting for controller $($controller.id) to become available."
-                        }
-                    }
-                } until  ( $Controller.status -eq 'RUNNING' )
+                #     #Check for a timeout
+                #     if ( ((Get-date) - $start).seconds -ge $WaitTimeout ) {
+                #         #We exceeded the timeout - what does the user want to do?
+                #         $message  = "Waited more than $WaitTimeout seconds for controller to become available.  Recommend checking boot process, network config etc."
+                #         $question = "Continue waiting for Controller?"
+                #         $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                #         if ($decision -eq 0) {
+                #             #User waits...
+                #             $start = get-date
+                #         }
+                #         else {
+                #             throw "Timeout waiting for controller $($controller.id) to become available."
+                #         }
+                #     }
+                # } until  ( $Controller.status -eq 'RUNNING' )
 
-                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
-
+                # if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
+                try {
+                    $Controller = Get-NsxController -connection $connection -objectid $controllerId
+                }
+                catch {
+                    Throw "Controller $controllerId not found when querying NSX.  This means something caused the controller to be removed AFTER the deployment and edge configuration jobs completed successfully.  Check NSX installation tab, and NSX manager logs for the cause."
+                }
                 $Controller
             }
         }
