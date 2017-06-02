@@ -6475,7 +6475,7 @@ function Wait-NsxControllerJob {
             $StatusMessage = ""
             $execTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "EXECUTING" })
             if ( $exectask.count -eq 1) {
-                $StatusMessage = "Executing Task : $($execTask.name) - $($execTask.taskStatus)"
+                $StatusMessage = "$($execTask.name) - $($execTask.taskStatus)"
             }
             else {
                 $StatusMessage = "$($job.jobinstances.jobInstance.Status)"
