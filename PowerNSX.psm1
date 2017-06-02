@@ -6398,6 +6398,67 @@ function Get-NsxManagerRole {
 
 }
 
+function Set-NsxManagerRole {
+    <#
+    .SYNOPSIS
+    Sets the NSX Manager Role.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Set-NsxManagerRole cmdlet sets the universal sync role of the
+    NSX Manager against which the command is run.
+
+    The only state transitions that are allowed are Standalone (default) to
+    Primary, Secondary to Primary, Primary to StandAlone, or Secondary to
+    StandAlone.
+
+    This cmdlet does not configure a manager as the Secondary role.
+
+    To configure an NSX Manager as secondary, you must use
+    Add-NsxSecondaryManager against the Primary NSX Manager.
+
+    .EXAMPLE
+    Set-NsxManagerRole -Role Primary
+
+    Sets the universal sync role to Primary for the connected NSX Manager
+
+    .EXAMPLE
+    Set-NsxManagerRole -Role StandAlone
+
+    Sets the universal sync role to Standalone for the connected NSX Manager
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$True)]
+            #New Role for connected NSX Manager
+            [ValidateSet("Primary", "StandAlone")]
+            [String]$Role,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    switch ($role) {
+        "Primary" { $URI = "/api/2.0/universalsync/configuration/role?action=set-as-primary" }
+        "StandAlone" { $URI = "/api/2.0/universalsync/configuration/role?action=set-as-standalone" }
+        Default { Throw "Not Implemented"}
+    }
+
+    try  {
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+        $content = [xml]$response.content
+        $content.universalSyncRole
+    }
+    Catch {
+        Throw "Failed setting NSX Manager role.  $_"
+    }
+}
+
 function Wait-NsxControllerJob {
 
     <#

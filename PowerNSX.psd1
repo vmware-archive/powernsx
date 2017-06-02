@@ -310,6 +310,7 @@ FunctionsToExport = @(
     'Get-NsxManagerSystemSummary',
     'Get-NsxManagerCertificate',
     'Get-NsxManagerRole',
+    'Set-NsxManagerRole',
     'New-NsxServiceGroup',
     'Add-NsxServiceGroupMember',
     'Get-NsxServiceGroup',
