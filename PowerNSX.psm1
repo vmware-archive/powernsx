@@ -6478,7 +6478,7 @@ function Wait-NsxControllerJob {
             $failTask = @()
             $failMessage = ""
             $failTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" })
-            if ( $exectask.count -eq 1) {
+            if ( $failTask.count -eq 1) {
                 $failMessage = "Failed Task : $($failTask.name) - $($failTask.statusMessage)"
             }
             else {
@@ -8172,7 +8172,7 @@ function Wait-NsxTransportZoneJob {
             $failTask = @()
             $failMessage = ""
             $failTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" })
-            if ( $exectask.count -eq 1) {
+            if ( $failTask.count -eq 1) {
                 $failMessage = "Failed Task : $($failTask.name) - $($failTask.statusMessage)"
             }
             else {
