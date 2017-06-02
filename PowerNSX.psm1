@@ -4586,7 +4586,7 @@ function Wait-NsxJob {
 
         write-debug "$($MyInvocation.MyCommand.Name) : Waiting for job $jobid"
 
-        $StatusString = $null
+        $StatusString = "Unknown"
         $Timer = 0
 
         #Now - loop, checking job status
@@ -4645,9 +4645,6 @@ function Wait-NsxJob {
     end {}
 
 }
-
-
-
 
 #########
 #########
@@ -8121,14 +8118,14 @@ function Wait-NsxTransportZoneJob {
     .EXAMPLE
     Wait-NsxTransportZoneJob -Jobid jobdata-1234
 
-    Wait for transportzone job jobdata-1234 up to 30 seconds to complete
-    successfully or fail.  If 30 seconds elapse, then prompt for action.
+    Wait for transportzone job jobdata-1234 up to the default of 30 seconds to
+    complete successfully or fail.  If 30 seconds elapse, then prompt for action.
 
     .EXAMPLE
-    Wait-NsxTransportZoneJob -Jobid jobdata-1234 -TimeOut 30 -FailOnTimeOut
+    Wait-NsxTransportZoneJob -Jobid jobdata-1234 -TimeOut 40 -FailOnTimeOut
 
     Wait for transportzone job jobdata-1234 up to 40 seconds to complete
-    successfully or fail.  If 400 seconds elapse, then throw an error.
+    successfully or fail.  If 40 seconds elapse, then throw an error.
 
     #>
 
@@ -8185,6 +8182,7 @@ function Wait-NsxTransportZoneJob {
         }
         "WaitTimeout" = $WaitTimeout
         "FailOnTimeout" = $FailOnTimeout
+        "Connection" = $Connection
     }
 
     Wait-NsxJob @WaitJobArgs
