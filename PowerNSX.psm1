@@ -4620,7 +4620,7 @@ function Wait-NsxJob {
             }
             catch {
                 $StatusString = "Unknown"
-                write-warning "Failed to retrieve job status when waiting for job $jobId.  Please report this error on the PowerNSX github site issues page. (github.com/vmware/PowerNSX/issues)"
+                write-warning "Failed to retrieve job status when waiting for job $jobId.  Please report this error on the PowerNSX issues page. (github.com/vmware/PowerNSX/issues) : $_"
             }
             if ( &$FailCriteria ) {
                 write-debug "$($MyInvocation.MyCommand.Name) : Failure criteria `"$FailCriteria`" evaluated to true."
@@ -4631,7 +4631,7 @@ function Wait-NsxJob {
                 }
                 catch {
                     $ErrorString = "Unknown"
-                    write-warning "Failed to retrieve job error output when job $jobId failed.  Please report this error on the PowerNSX github site issues page. (github.com/vmware/PowerNSX/issues)"
+                    write-warning "Failed to retrieve job error output when job $jobId failed.  Please report this error on the PowerNSX issues page. (github.com/vmware/PowerNSX/issues) : $_"
                 }
 
                 Throw "Job $jobid failed with Status: $StatusString. Error: $ErrorString"
