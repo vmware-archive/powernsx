@@ -6485,7 +6485,7 @@ function Set-NsxManagerRole {
             if ( $matches[1] -as [xml] ) {
                 $Error = [xml]$matches[1]
                 $ErrorCode = $Error.SelectSingleNode("child::error/errorCode")
-                if ( $errorCode -eq '125023') {
+                if ( $errorCode.'#text' -eq '125023') {
                     write-warning $Error.error.details
                     $ParsedXmlError = $true
                 }
