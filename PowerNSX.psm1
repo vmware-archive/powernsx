@@ -6454,7 +6454,12 @@ function Set-NsxManagerRole {
     .EXAMPLE
     Set-NsxManagerRole -Role StandAlone
 
-    Sets the universal sync role to Standalone for the connected NSX Manager
+    Sets the universal sync role to Standalone for the connected NSX Manager.
+
+    Note, if running this against a manager that currently is configured as
+    secondary, and universal objects exist, then the state will transition to
+    TRANSIT rather than standalone.  The may then be configured as PRIMARY, or
+    if all universal objects are deleted, as STANDALONE.
 
     #>
 
@@ -6513,6 +6518,14 @@ function Invoke-NsxManagerSync {
     The Invoke-NsxManagerSync cmdlet triggers the universal sync service to
     replicate universally scoped objects to secondary NSX Managers.
 
+    No response is returned from a successful call.  Use Get-NsxManagerSyncStatus
+    to determine last successful sync time.
+
+    .EXAMPLE
+    Invoke-NsxManagerSync
+
+    Triggers synchronisation.  May only be run on a primary NSX manager.
+
     #>
 
     param (
@@ -6544,6 +6557,12 @@ function Get-NsxManagerSyncStatus {
 
     The Get-NsxManagerSyncStatus cmdlet retrieves the current status of the
     universal sync service on the NSX Manager against which the command is run.
+
+    .EXAMPLE
+    Get-NsxManagerSyncStatus
+
+    Returns the universal replication syncronisation status for the default NSX
+    manager.
     #>
 
     param (
@@ -6581,6 +6600,21 @@ function Add-NsxSecondaryManager {
     The connected NSX Manager must be configured with the Primary Role, and
     the standalone NSX Manager to be added must be configured with the
     Standalone role.
+
+    .EXAMPLE
+    Add-NsxSecondaryManager -NsxManager nsx-m-01b -Username admin -Password VMware1! -AcceptPresentedThumbprint
+
+    Adds the NSX Manager nsx-m-01b as a secondary to the currently connected primary NSX Manager and accepts whatever thumbprint the server returns.
+
+    .EXAMPLE
+    Add-NsxSecondaryManager -NsxManager nsx-m-01b -Credential $Cred -AcceptPresentedThumbprint
+
+    Adds the NSX Manager nsx-m-01b as a secondary to the currently connected primary NSX Manager and accepts whatever thumbprint the server returns.  Credentials are specified as a PSCredential object.
+
+    .EXAMPLE
+    Add-NsxSecondaryManager -NsxManager nsx-m-01b -Username admin -Password VMware1! -Thumbprint d7:8d:8a:06:55:52:2a:49:00:06:b1:58:c2:cd:2b:82:21:6b:2f:92
+
+    Adds the NSX Manager nsx-m-01b as a secondary to the currently connected primary NSX Manager and validates that the thumbprint presented by the server is as specified.
 
     #>
     [CmdletBinding(DefaultParameterSetName="Credential")]
@@ -6689,6 +6723,30 @@ function Get-NsxSecondaryManager {
     retrieves configured secondary NSX managers.  If run against a secondary
     NSX Manager, information about the configured primary is returned.
 
+    .EXAMPLE
+    Get-NsxSecondaryManager -connection $PrimaryNsxManagerConnection
+
+    uuid                  : 08edd323-fd72-4fd6-9de5-6072bb077d0e
+    nsxManagerIp          : nsx-m-01b
+    nsxManagerUsername    : replicator-08edd323-fd72-4fd6-9de5-6072bb077d0e
+    certificateThumbprint : d7:8d:8a:06:55:52:2a:49:00:06:b1:58:c2:cd:2b:82:21:6b:2f:92
+    isPrimary             : false
+
+    Retrieves the configured secondary NSX managers on the primary NSX manager
+    defined in the connection $PrimaryNsxManagerConnection.
+
+    .EXAMPLE
+    Get-NsxSecondaryManager -connection $SecondaryNsxManagerConnection
+
+    uuid                : 423CA89C-FCED-43C8-6D20-E15CF52E654A
+    nsxManagerIp        : 192.168.102.201
+    primaryUuid         : 8f356635-3c5f-4d72-8f42-bbc6419ce678
+    primaryNsxManagerIp : 192.168.101.201
+    isPrimary           : false
+
+    Retrieves the configured details of the specified secondary NSX manager, and
+    the primary NSX manager IP Address and uuid
+
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
@@ -6737,6 +6795,21 @@ function Remove-NsxSecondaryManager {
 
     The Remove-NsxSecondaryManager cmdlet removes a secondary NSX Manager
     from a CrossVC configured NSX environment.
+
+    .EXAMPLE
+    Get-NsxSecondaryManager nsx-m-01b | Remove-NsxSecondaryManager
+
+    Remove the connected and functional NSX manager nsx-m-01b.  nsx-m-01b will
+    be configured as a standalone manager.
+
+    If nsx-m-01b is not online, or functional, the attempt will fail and -force
+    must be used.
+
+    .EXAMPLE
+    Get-NsxSecondaryManager nsx-m-01b | Remove-NsxSecondaryManager -force
+
+    Remove the NSX manager nsx-m-01b - no attempt is made to reconfigure the
+    secondary.
 
     #>
 
@@ -8597,6 +8670,22 @@ function Add-NsxTransportZoneMember {
     The Add-NsxTransportZoneMember cmdlet adds a new cluster to an existing
     Transport Zone on the connected NSX manager.
 
+    .EXAMPLE
+    Get-NsxTransportZone TZ1 | Add-NsxTransportZoneMember -Cluster (Get-cluster)
+
+    Adds all clusters from the connected vCenter server to the Transport Zone TZ1
+
+    .EXAMPLE
+    Get-NsxTransportZone -Connection $bconn -UniversalOnly | Add-NsxTransportZoneMember -Cluster (Get-cluster Compute1_b -Server vc-01b.corp.local) -Connection $bconn
+
+    Gets the universal transport zone from the NSX server specified by $bconn
+    and adds the cluster Compute1_b from vCenter server vc-01b.corp.local to it.
+
+    This is an example of adding a secondary NSX manager associated VC cluster to
+    a universal transport zone.  Care must be taken to ensure only the clusters
+    from the associated vCenter server are added to the nsx manager specified
+    in the connection object (or the default connection)
+
     #>
 
 
@@ -8692,6 +8781,13 @@ function Remove-NsxTransportZoneMember {
 
     The Remove-NsxTransportZoneMember cmdlet removes a cluster from an existing
     Transport Zone on the connected NSX manager.
+
+    .EXAMPLE
+    Get-NsxTransportZone -UniversalOnly -Connection $bconn | Remove-NSxTransportZoneMember -Cluster (get-cluster Compute1_b -Server vc-01b.corp.local) -Connection $bconn
+
+    Remove the cluster Compute1_b defined in vCenter server vc-01b.corp.local
+    from the universal transport zone configured on the nsx manager specified by
+    $bconn
 
     #>
 
