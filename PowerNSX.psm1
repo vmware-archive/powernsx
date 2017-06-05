@@ -25768,6 +25768,46 @@ function Set-NsxFirewallGlobalConfiguration {
     end {}
 }
 
+function Invoke-NsxUniversalSync {
+
+    <#
+    .SYNOPSIS
+    Sync all objects on the NSX Manager.
+
+    .DESCRIPTION
+    The universal sync service is responsible for the synchronisation of
+    universal objects between NSX Managers.
+
+    This command triggers the universal sync service to sync all objects
+    to all NSX Managers.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection = $defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Invoking Universal Sync of all objects"
+
+        $uri = "/api/2.0/universalsync/sync?action=invoke"
+        Invoke-NsxWebRequest -method "POST" -URI $uri | out-null
+
+    }
+
+    end {}
+
+}
+
+
 
 ########
 ########
