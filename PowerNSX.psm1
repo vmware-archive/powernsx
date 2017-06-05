@@ -6481,7 +6481,7 @@ function Set-NsxManagerRole {
     }
     Catch {
         $ParsedXmlError = $false
-        if ( $_ -match '.*(<?xml version="1.0" encoding="UTF-8"?>.*)' ) {
+        if ( $_ -match '.*(\<\?xml version="1\.0" encoding="UTF-8"\?\>\s.*)' ) {
             if ( $matches[1] -as [xml] ) {
                 $Error = [xml]$matches[1]
                 $ErrorCode = $Error.SelectSingleNode("child::error/errorCode")
