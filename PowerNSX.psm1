@@ -6540,7 +6540,7 @@ function Add-NsxSecondaryManager {
     if ( $AcceptPresentedThumbprint ) {
         #Get the cert thumbprint of the specified manager.
         try {
-            $Cert = Get-NsxManagerCertificate -Connection $Connection
+            $Cert = Get-NsxManagerCertificate -Connection $NewMgrConnection
             $Thumbprint = $Cert.Sha1Hash
         }
         catch {
