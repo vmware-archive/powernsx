@@ -6606,7 +6606,7 @@ function Get-NsxSecondaryManager {
     $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
     try {
         $content = [xml]$response.content
-        switch ( $PSCmdlet.ParamaterSetName ) {
+        switch ( $PSCmdlet.ParameterSetName ) {
 
             "Name" { $content.nsxManagerInfos.nsxManagerInfo  | ? { $_.Name -match $Name}}
             "Uuid" { $content.nsxManagerInfos.nsxManagerInfo | ? { $_.uuid -eq $uuid}}
