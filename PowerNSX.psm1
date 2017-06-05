@@ -6758,33 +6758,38 @@ function Remove-NsxSecondaryManager {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
+    begin {}
 
-    if ( $confirm ) {
-        $message  = "Removal of a secondary NSX Manager will prevent synchronisation of universal objects to the manager being removed."
-        $question = "Proceed with removal of secondary NSX Manager $($SecondaryManager.nsxManagerIp)?"
+    process {
+        if ( $confirm ) {
+            $message  = "Removal of a secondary NSX Manager will prevent synchronisation of universal objects to the manager being removed."
+            $question = "Proceed with removal of secondary NSX Manager $($SecondaryManager.nsxManagerIp)?"
 
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            if ( $PSBoundParameters.ContainsKey("Force")) {
+                $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)?force=true"
+            }
+            else{
+                $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)"
+            }
+
+            try  {
+                $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            }
+            Catch {
+                Throw "Failed removing secondary NSX Manager.  $_"
+            }
+        }
     }
-    else { $decision = 0 }
-    if ($decision -eq 0) {
-        if ( $PSBoundParameters.ContainsKey("Force")) {
-            $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)?force=true"
-        }
-        else{
-            $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)"
-        }
 
-        try  {
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
-        }
-        Catch {
-            Throw "Failed removing secondary NSX Manager.  $_"
-        }
-    }
+    end{}
 }
 
 function Wait-NsxControllerJob {
