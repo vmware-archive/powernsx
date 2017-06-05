@@ -6669,8 +6669,10 @@ function Remove-NsxSecondaryManager {
             [System.Xml.XmlElement]$SecondaryManager,
         [Parameter (Mandatory=$False)]
             #Confirm removal.
-            [ValidateNotNullorEmpty()]
             [switch]$Confirm=$True,
+        [Parameter (Mandatory=$False)]
+            #Force removal of a missing secondary.
+            [switch]$Force,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -6690,7 +6692,12 @@ function Remove-NsxSecondaryManager {
     }
     else { $decision = 0 }
     if ($decision -eq 0) {
-        $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)"
+        if ( $PSBoundParameters.ContainsKey("Force") {
+            $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)?force=true"
+        }
+        else{
+            $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)"
+        }
 
         try  {
             $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
