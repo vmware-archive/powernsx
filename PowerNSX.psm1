@@ -6649,7 +6649,7 @@ function Get-NsxSecondaryManager {
         $content = [xml]$response.content
         if ( invoke-xpathquery -querymethod SelectSingleNode -Query "child::nsxManagerInfos/nsxManagerInfo" -Node $content ) {
             switch ( $PSCmdlet.ParameterSetName ) {
-                "Name" { $content.nsxManagerInfos.nsxManagerInfo  | ? { $_.Name -match $Name}}
+                "Name" { $content.nsxManagerInfos.nsxManagerInfo  | ? { $_.nsxManagerIp -match $Name}}
                 "Uuid" { $content.nsxManagerInfos.nsxManagerInfo | ? { $_.uuid -eq $uuid}}
                 default { $content.nsxManagerInfos.nsxManagerInfo }
             }
