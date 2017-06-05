@@ -6530,7 +6530,7 @@ function Add-NsxSecondaryManager {
     }
 
     #Validate manager to be added is role standalone
-    $NewMgrConnection = Connect-NsxServer -NsxServer $NsxManager -Credential $Credential -DisableVIAutoConnect -DefaultConnection:$false
+    $NewMgrConnection = Connect-NsxServer -NsxServer $NsxManager -Credential $Credential -DisableVIAutoConnect -DefaultConnection:$false -WarningAction SilentlyContinue
     $NewMgrRole = Get-NsxManagerRole -Connection $NewMgrConnection
     if ( $NewMgrRole.role -ne 'STANDALONE') {
         throw "The specified NSX Manager is currently configured with the role $($NewMgrRole.role) but must be configured as STANDALONE to be added to a Cross VC environment."
@@ -6561,7 +6561,7 @@ function Add-NsxSecondaryManager {
     $URI = "/api/2.0/universalsync/configuration/nsxmanagers"
 
     try  {
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+        $response = invoke-nsxwebrequest -method "post" -body $NsxManagerInfoElement.OuterXml -uri $URI -connection $connection
         $content = [xml]$response.content
         $content
     }
