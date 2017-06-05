@@ -350,7 +350,8 @@ FunctionsToExport = @(
     'Get-NsxFirewallRuleMember',
     'Add-NsxFirewallRuleMember',
     'Remove-NsxFirewallRuleMember',
-    'Remove-NsxController'
+    'Remove-NsxController',
+    'Get-NsxUniversalSyncStatus'
 )
 
 # Cmdlets to export from this module
