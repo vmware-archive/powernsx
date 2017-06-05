@@ -6585,8 +6585,17 @@ function Get-NsxSecondaryManager {
 
     #>
 
+    [CmdletBinding(DefaultParameterSetName="Default")]
     param (
 
+        [Parameter (Mandatory=$True, ParameterSetName="uuid")]
+            #UUID of Nsx Secondary Manager to return
+            [ValidateNotNullOrEmpty()]
+            [string]$Uuid,
+        [Parameter (Mandatory=$True, ParameterSetName="Name")]
+            #Name of Nsx Secondary Manager to return
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -6597,7 +6606,12 @@ function Get-NsxSecondaryManager {
     $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
     try {
         $content = [xml]$response.content
-        $content
+        switch ( $PSCmdlet.ParamaterSetName ) {
+
+            "Name" { $content.nsxManagerInfos.nsxManagerInfo  | ? { $_.Name -match $Name}}
+            "Uuid" { $content.nsxManagerInfos.nsxManagerInfo | ? { $_.uuid -eq $uuid}}
+            default { $content.nsxManagerInfos.nsxManagerInfo }
+        }
     }
     catch {
         throw "Unable to retrieve secondary NSX Manager information. $_"
