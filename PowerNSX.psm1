@@ -6662,7 +6662,7 @@ function Remove-NsxSecondaryManager {
 
     param (
 
-        [Parameter (Mandatory=$True)]
+        [Parameter (Mandatory=$True, ValueFromPipeline=$true)]
             #Secondary NSX Manager object to be removed as returned by Get-NsxSecondaryManager
             [ValidateScript( { Validate-SecondaryManager $_ })]
             [System.Xml.XmlElement]$SecondaryManager,
