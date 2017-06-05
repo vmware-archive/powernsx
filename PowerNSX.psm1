@@ -6526,7 +6526,7 @@ function Add-NsxSecondaryManager {
             $Credential = Get-Credential -Message "NSX manager credentials"
         }
         $UserName = $Credential.Username
-        $Password = $Credential.GetNetworkPassword().Password
+        $Password = $Credential.GetNetworkCredential().Password
     }
 
     #Validate manager to be added is role standalone
