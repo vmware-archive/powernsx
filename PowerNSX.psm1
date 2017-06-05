@@ -6499,10 +6499,10 @@ function Add-NsxSecondaryManager {
             #Password for NSX Manager to be added.  A local account with SuperUser privileges is required.
             [ValidateNotNullorEmpty()]
             [String]$Password,
-        [Parameter (Mandatory=$True, ParameterSetName="Credential")]
+        [Parameter (Mandatory=$False, ParameterSetName="Credential")]
             #Credential object for NSX Manager to be added.  A local account with SuperUser privileges is required.
             [ValidateNotNullorEmpty()]
-            [String]$Credential = { Get-Credential -Message "NSX Manager admin account" },
+            [pscredential]$Credential = { Get-Credential -Message "NSX Manager admin account" },
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
