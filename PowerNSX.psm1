@@ -6480,18 +6480,19 @@ function Set-NsxManagerRole {
         $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
     }
     Catch {
-        if ( $_ -as [xml] ) {
-            $Error = [xml]$_
-            $ErrorCode = $Error.SelectSingleNode("child::error/errorCode")
-            if ( $errorCode -eq '125023') {
-                write-warning $Error.error.details
-            }
-            else {
-                #rethrow
-                Throw "Failed setting NSX Manager role.  $_"
+        $ParsedXmlError = $false
+        if ( $_ -match '.*(<?xml version="1.0" encoding="UTF-8"?>.*)' ) {
+            if ( $matches[1] -as [xml] ) {
+                $Error = [xml]$matches[1]
+                $ErrorCode = $Error.SelectSingleNode("child::error/errorCode")
+                if ( $errorCode -eq '125023') {
+                    write-warning $Error.error.details
+                    $ParsedXmlError = $true
+                }
             }
         }
-        else {
+        if ( -not $ParsedXmlError )  {
+            #If we didnt get some XML out of the error that we parsed as expected...
             Throw "Failed setting NSX Manager role.  $_"
         }
     }
