@@ -2919,7 +2919,34 @@ Function Validate-Controller {
     }
 }
 
+Function Validate-SecondaryManager {
 
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name uuid -Membertype Properties)) {
+            throw "Specify a valid secondary NSX manager."
+        }
+        if ( -not ( $argument | get-member -name nsxManagerIp -Membertype Properties)) {
+            throw "Specify a valid secondary NSX manager."
+        }
+        if ( -not ( $argument | get-member -name isPrimary -Membertype Properties)) {
+            throw "Specify a valid secondary NSX manager."
+        }
+        if ( $argument.isPrimary -eq 'true'){
+            throw "The specified manager has the primary role. Specify a valid secondary NSX manager."
+        }
+
+        $true
+    }
+    else {
+        throw "Specify a valid secondary NSX manager."
+    }
+}
 
 
 ##########
@@ -4478,35 +4505,171 @@ function Update-PowerNsx {
 function Get-NsxJobStatus {
 
     param(
-        # [Parameter (Mandatory=$false)]
-        #     [switch]$ActiveJobsOnly=$false,
+        #Job Id.
         [Parameter (Mandatory=$true)]
             [string]$jobId,
+        #Job Query URI.  There are several job subsystems in NSX.  Some of them overlap.
+        [string]$JobStatusUri,
+        #PowerNSX Connection Object
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin{
-
-        if ( $PSBoundParameters.ContainsKey("jobid")) {
-            #Just getting a singlejob by ID
-            $URI = "/api/4.0/edges/jobs/$jobId"
-
-        }
-        # else {
-        #     #Getting multiple jobs
-        #     if ( $ActiveJobsOnly ) { $status = "active"} else { $status = "all" }
-        #     $URI = "/api/4.0/edges/jobs?status=$status"
-
-        # }
-        $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+        $response = invoke-nsxwebrequest -method "get" -uri "$JobStatusUri/$jobId" -connection $connection
         [xml]$response.Content
     }
 
     process{}
 
     end{}
+
+}
+
+function Wait-NsxJob {
+
+    <#
+    .SYNOPSIS
+    Wait for the specified job until completion criteria tests true.
+
+    .DESCRIPTION
+    Attempt to wait for the specified job until completion criteria tests true.
+
+    Timeout is either warning and allow user to quit/throw, or to Throw on
+    timeout.
+
+    Success and Failure criteria can be expressed via scriptblock ($job is the
+    returned XML object that you can traverse)
+
+    Status expression and ErrorExpression provide methods of providing output
+    back to the user about job status.  Neither of these affect the evaluation
+    of Success or Failure criteria.
+
+    Intended to be internal generic job wait routine for PowerNSX cmdlet
+    consumption.
+
+    PowerNSX users should use object specific Wait-Nsx*Job Cmdlets that call
+    this cmdlet.
+    #>
+
+    param (
+        [Parameter (Mandatory=$true)]
+            #Job Id string as returned from the api
+            [string]$jobid,
+        [Parameter (Mandatory=$true)]
+            #Job Query URI.  There are several job subsystems in NSX.  Some of them overlap.
+            [string]$JobStatusUri,
+        [Parameter (Mandatory=$true)]
+            #ScriptBlock that is used to evaluate completion.  $job is the xml object returned from the API, so this should be something like { $job.controllerDeploymentInfo.status -eq "Success" }
+            [System.Management.Automation.ScriptBlock]$CompleteCriteria,
+        [Parameter (Mandatory=$true)]
+            #ScriptBlock that is used to evaluate completion.  $job is the xml object returned from the API, so this should be something like { $job.controllerDeploymentInfo.status -eq "Failure" }.  Wait-NsxJob will return immediately if this tests true.
+            [System.Management.Automation.ScriptBlock]$FailCriteria,
+        [Parameter (Mandatory=$true)]
+            #Scriptblock that is used to retreive a status string.  $job is the xml object returned from the API, so this should be something like { $job.controllerDeploymentInfo.status }. Used only in status output (not in job completion criteria.)
+            [System.Management.Automation.ScriptBlock]$StatusExpression,
+        [Parameter (Mandatory=$false)]
+            #ScriptBlock that is used to retrieve any error string.  Defaults to $StatusExpression.  $job is the xml object returned from the API, so this should be something like { $job.controllerDeploymentInfo.ExceptionMessage }.  This is only used in warning/error output (not in job completion criteria.)
+            [System.Management.Automation.ScriptBlock]$ErrorExpression = $StatusExpression,
+        [Parameter (Mandatory=$false)]
+            #Seconds to wait before declaring a timeout
+            [int]$WaitTimeout=300,
+        [Parameter (Mandatory=$false)]
+            #Do we prompt user an allow them to reset the timeout timer, or throw on timeout
+            [switch]$FailOnTimeout=$false,
+        [Parameter (Mandatory=$false)]
+            #Number of seconds to sleep between status checks
+            [int]$SleepSeconds=1,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+        function prompt_for_timeout {
+            write-debug "$($MyInvocation.MyCommand.Name) : Timeout waiting for job $jobid"
+
+            if ( -not $FailOnTimeout) {
+                $message  = "Waited more than $WaitTimeout seconds for job $jobid to complete.  Recommend checking NSX Manager logs or vCenter tasks for the potential cause."
+                $question = "Continue waiting for the job to complete?"
+                $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
+                if ( $decision -eq 1 ) {
+                throw "Timeout waiting for job $jobid to complete."
+                }
+            }
+            else {
+                throw "Timeout waiting for job $jobid to complete."
+            }
+        }
+    }
+
+    process {
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Waiting for job $jobid"
+
+        $StatusString = "Unknown"
+        $Timer = 0
+
+        #Now - loop, checking job status
+        do {
+
+            #Sleep
+            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Waiting for NSX job $jobId to complete." -Status "$StatusString" }
+            start-sleep -Seconds $SleepSeconds
+            $Timer += $SleepSeconds
+
+            #Are we timed out?
+            if ( $Timer -ge $WaitTimeout ) {
+                prompt_for_timeout
+                $timer = 0
+            }
+
+            #Get updated jobStatus
+            try {
+                [xml]$job = Get-NsxJobStatus -jobId $JobId -JobStatusUri $JobStatusUri -Connection $Connection
+                write-debug "$($MyInvocation.MyCommand.Name) : Got Job from API for job $jobid"
+
+            }
+            catch {
+                #Can fail if query is too quick
+                write-warning "Unable to query for job $jobid at $JobStatusUri. Does the job exist?"
+            }
+
+            #Try get our status string.  Failure here should indicate that the user needs to tell us that the API returned something unexpected, and/or PowerNSX has a bug that needs fixing.
+            try {
+                $StatusString = &$StatusExpression
+            }
+            catch {
+                $StatusString = "Unknown"
+                write-warning "Failed to retrieve job status when waiting for job $jobId.  Please report this error on the PowerNSX issues page. (github.com/vmware/PowerNSX/issues) : $_"
+            }
+            if ( &$FailCriteria ) {
+                write-debug "$($MyInvocation.MyCommand.Name) : Failure criteria `"$FailCriteria`" evaluated to true."
+
+                #Try get our error string.  Failure here should indicate that the user needs to tell us that the API returned something unexpected, and/or PowerNSX has a bug that needs fixing.
+                try {
+                    $ErrorString = &$ErrorExpression
+                }
+                catch {
+                    $ErrorString = "Unknown"
+                    write-warning "Failed to retrieve job error output when job $jobId failed.  Please report this error on the PowerNSX issues page. (github.com/vmware/PowerNSX/issues) : $_"
+                }
+
+                Throw "Job $jobid failed with Status: $StatusString. Error: $ErrorString"
+            }
+        } until ( &$CompleteCriteria )
+        write-debug "$($MyInvocation.MyCommand.Name) : Completed criteria `"$CompleteCriteria`" evaluated to true."
+
+        if ($script:PowerNSXConfiguration.ProgressDialogs) {  Write-Progress -Activity "Waiting for NSX job $jobId to complete." -Status "$StatusString" -Completed  }
+    }
+
+    end {}
 
 }
 
@@ -6266,6 +6429,542 @@ function Get-NsxManagerRole {
 
 }
 
+function Set-NsxManagerRole {
+    <#
+    .SYNOPSIS
+    Sets the NSX Manager Role.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Set-NsxManagerRole cmdlet sets the universal sync role of the
+    NSX Manager against which the command is run.
+
+    The only state transitions that are allowed are Standalone (default) to
+    Primary, Secondary to Primary, Primary to StandAlone, or Secondary to
+    StandAlone.
+
+    This cmdlet does not configure a manager as the Secondary role.
+
+    To configure an NSX Manager as secondary, you must use
+    Add-NsxSecondaryManager against the Primary NSX Manager.
+
+    .EXAMPLE
+    Set-NsxManagerRole -Role Primary
+
+    Sets the universal sync role to Primary for the connected NSX Manager
+
+    .EXAMPLE
+    Set-NsxManagerRole -Role StandAlone
+
+    Sets the universal sync role to Standalone for the connected NSX Manager.
+
+    Note, if running this against a manager that currently is configured as
+    secondary, and universal objects exist, then the state will transition to
+    TRANSIT rather than standalone.  The may then be configured as PRIMARY, or
+    if all universal objects are deleted, as STANDALONE.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$True)]
+            #New Role for connected NSX Manager
+            [ValidateSet("Primary", "StandAlone")]
+            [String]$Role,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    switch ($role) {
+        "Primary" { $URI = "/api/2.0/universalsync/configuration/role?action=set-as-primary" }
+        "StandAlone" { $URI = "/api/2.0/universalsync/configuration/role?action=set-as-standalone" }
+        Default { Throw "Not Implemented"}
+    }
+
+    try  {
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+    }
+    Catch {
+        $ParsedXmlError = $false
+        if ( $_ -match '.*(\<\?xml version="1\.0" encoding="UTF-8"\?\>\s.*)' ) {
+            if ( $matches[1] -as [xml] ) {
+                $Error = [xml]$matches[1]
+                $ErrorCode = invoke-xpathquery -Node $error -QueryMethod SelectSingleNode -query "child::error/errorCode"
+                if ( $errorCode.'#text' -eq '125023') {
+                    write-warning $Error.error.details
+                    $ParsedXmlError = $true
+                }
+            }
+        }
+        if ( -not $ParsedXmlError )  {
+            #If we didnt get some XML out of the error that we parsed as expected...
+            Throw "Failed setting NSX Manager role.  $_"
+        }
+    }
+
+    #Regetting here, to catch the in transit state that a secondary edge will likely be when told to become standalone
+    Get-NsxManagerRole -Connection $Connection
+}
+
+function Invoke-NsxManagerSync {
+    <#
+    .SYNOPSIS
+    Triggers synchronisation of universal objects from a primary NSX Manager.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Invoke-NsxManagerSync cmdlet triggers the universal sync service to
+    replicate universally scoped objects to secondary NSX Managers.
+
+    No response is returned from a successful call.  Use Get-NsxManagerSyncStatus
+    to determine last successful sync time.
+
+    .EXAMPLE
+    Invoke-NsxManagerSync
+
+    Triggers synchronisation.  May only be run on a primary NSX manager.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    $URI = "/api/2.0/universalsync/sync?action=invoke"
+
+    try  {
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+    }
+    catch {
+        Throw "Failed to invoke synchronisation. $_"
+    }
+}
+
+function Get-NsxManagerSyncStatus {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager universal sync status.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Get-NsxManagerSyncStatus cmdlet retrieves the current status of the
+    universal sync service on the NSX Manager against which the command is run.
+
+    .EXAMPLE
+    Get-NsxManagerSyncStatus
+
+    Returns the universal replication syncronisation status for the default NSX
+    manager.
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/universalsync/status"
+
+    [System.Xml.XmlDocument]$result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+    if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $result -Query 'child::replicationStatus') {
+        $result.replicationStatus
+    }
+
+}
+
+function Add-NsxSecondaryManager {
+    <#
+    .SYNOPSIS
+    Adds a standalone NSX Manager to an existing CrossVC configured NSX
+    environment.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Add-NsxSecondaryManager cmdlet adds a standalone NSX Manager
+    to a CrossVC configured NSX environment.
+
+    The connected NSX Manager must be configured with the Primary Role, and
+    the standalone NSX Manager to be added must be configured with the
+    Standalone role.
+
+    .EXAMPLE
+    Add-NsxSecondaryManager -NsxManager nsx-m-01b -Username admin -Password VMware1! -AcceptPresentedThumbprint
+
+    Adds the NSX Manager nsx-m-01b as a secondary to the currently connected primary NSX Manager and accepts whatever thumbprint the server returns.
+
+    .EXAMPLE
+    Add-NsxSecondaryManager -NsxManager nsx-m-01b -Credential $Cred -AcceptPresentedThumbprint
+
+    Adds the NSX Manager nsx-m-01b as a secondary to the currently connected primary NSX Manager and accepts whatever thumbprint the server returns.  Credentials are specified as a PSCredential object.
+
+    .EXAMPLE
+    Add-NsxSecondaryManager -NsxManager nsx-m-01b -Username admin -Password VMware1! -Thumbprint d7:8d:8a:06:55:52:2a:49:00:06:b1:58:c2:cd:2b:82:21:6b:2f:92
+
+    Adds the NSX Manager nsx-m-01b as a secondary to the currently connected primary NSX Manager and validates that the thumbprint presented by the server is as specified.
+
+    #>
+    [CmdletBinding(DefaultParameterSetName="Credential")]
+    param (
+
+        [Parameter (Mandatory=$True)]
+            #Hostname or IPAddress of the Standalone NSX Manger to be added
+            [ValidateNotNullorEmpty()]
+            [String]$NsxManager,
+        [Parameter (Mandatory=$False)]
+            #SHA1 hash of the NSX Manager certificate.  Required unless -AcceptPresentedThumprint is specified.
+            [ValidateNotNullorEmpty()]
+            [String]$Thumbprint,
+        [Parameter (Mandatory=$False)]
+            #Accept any thumbprint presented by the server specified with -NsxManager.  Insecure.
+            [Switch]$AcceptPresentedThumbprint,
+        [Parameter (Mandatory=$False, ParameterSetName="UserPass")]
+            #Username for NSX Manager to be added.  A local account with SuperUser privileges is required.  Defaults to admin.
+            [ValidateNotNullorEmpty()]
+            [String]$Username="admin",
+        [Parameter (Mandatory=$True, ParameterSetName="UserPass")]
+            #Password for NSX Manager to be added.  A local account with SuperUser privileges is required.
+            [ValidateNotNullorEmpty()]
+            [String]$Password,
+        [Parameter (Mandatory=$False, ParameterSetName="Credential")]
+            #Credential object for NSX Manager to be added.  A local account with SuperUser privileges is required.
+            [ValidateNotNullorEmpty()]
+            [pscredential]$Credential,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+    #Validate connected Manager is role Primary
+    $ConnectedMgrRole = Get-NsxManagerRole -Connection $Connection
+    if ( $ConnectedMgrRole.role -ne 'PRIMARY') {
+        throw "The connected NSX Manager is currently configure with the role $($ConnectedMgrRole.role), but must be configured as PRIMARY to allow a secondary NSX Manager to be added to it."
+    }
+
+    #Build cred object for default auth if user specified username/pass
+    if ($PSCmdlet.ParameterSetName -eq "UserPass" ) {
+        $Credential = new-object System.Management.Automation.PSCredential($Username, $(ConvertTo-SecureString $Password -AsPlainText -Force))
+    }
+    else {
+        #We need user/pass to generate the xml for the primary NSX Manager.
+        if ( -not $PSBoundParameters.ContainsKey("Credential")) {
+            $Credential = Get-Credential -Message "NSX manager credentials"
+        }
+        $UserName = $Credential.Username
+        $Password = $Credential.GetNetworkCredential().Password
+    }
+
+    #Validate manager to be added is role standalone
+    $NewMgrConnection = Connect-NsxServer -NsxServer $NsxManager -Credential $Credential -DisableVIAutoConnect -DefaultConnection:$false -WarningAction SilentlyContinue
+    $NewMgrRole = Get-NsxManagerRole -Connection $NewMgrConnection
+    if ( $NewMgrRole.role -ne 'STANDALONE') {
+        throw "The specified NSX Manager is currently configured with the role $($NewMgrRole.role) but must be configured as STANDALONE to be added to a Cross VC environment."
+    }
+
+    #Make sure we have a thumbprint
+    if ( $AcceptPresentedThumbprint ) {
+        #Get the cert thumbprint of the specified manager.
+        try {
+            $Cert = Get-NsxManagerCertificate -Connection $NewMgrConnection
+            $Thumbprint = $Cert.Sha1Hash
+        }
+        catch {
+            throw "Failed retrieving the certificate thumbprint from the specified NSX manager.  $_"
+        }
+    }
+    elseif ( -not $PSBoundParameters.ContainsKey("Thumbprint")) {
+        throw "The Thumbprint of the NSX Manager to be added as secondary must be specified, or -AcceptPresentedThumbprint specified (insecure)."
+    }
+
+    $XmlDoc = New-Object System.Xml.XmlDocument
+    $NsxManagerInfoElement = $XmlDoc.CreateElement("nsxManagerInfo")
+    Add-XmlElement -xmlRoot $NsxManagerInfoElement -xmlElementName nsxManagerIp -xmlElementText $NsxManager
+    Add-XmlElement -xmlRoot $NsxManagerInfoElement -xmlElementName nsxManagerUsername -xmlElementText $UserName
+    Add-XmlElement -xmlRoot $NsxManagerInfoElement -xmlElementName nsxManagerPassword -xmlElementText $Password
+    Add-XmlElement -xmlRoot $NsxManagerInfoElement -xmlElementName certificateThumbprint -xmlElementText $Thumbprint
+
+    $URI = "/api/2.0/universalsync/configuration/nsxmanagers"
+
+    try  {
+        $response = invoke-nsxwebrequest -method "post" -body $NsxManagerInfoElement.OuterXml -uri $URI -connection $connection
+        $content = [xml]$response.content
+        $content.nsxManagerInfo
+    }
+    Catch {
+        Throw "Failed adding secondary NSX Manager.  $_"
+    }
+}
+
+function Get-NsxSecondaryManager {
+    <#
+    .SYNOPSIS
+    Gets configured secondary NSX Managers from the connected NSX Manager.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    If run against a primary NSX Manager, the Get-NsxSecondaryManager cmdlet
+    retrieves configured secondary NSX managers.  If run against a secondary
+    NSX Manager, information about the configured primary is returned.
+
+    .EXAMPLE
+    Get-NsxSecondaryManager -connection $PrimaryNsxManagerConnection
+
+    uuid                  : 08edd323-fd72-4fd6-9de5-6072bb077d0e
+    nsxManagerIp          : nsx-m-01b
+    nsxManagerUsername    : replicator-08edd323-fd72-4fd6-9de5-6072bb077d0e
+    certificateThumbprint : d7:8d:8a:06:55:52:2a:49:00:06:b1:58:c2:cd:2b:82:21:6b:2f:92
+    isPrimary             : false
+
+    Retrieves the configured secondary NSX managers on the primary NSX manager
+    defined in the connection $PrimaryNsxManagerConnection.
+
+    .EXAMPLE
+    Get-NsxSecondaryManager -connection $SecondaryNsxManagerConnection
+
+    uuid                : 423CA89C-FCED-43C8-6D20-E15CF52E654A
+    nsxManagerIp        : 192.168.102.201
+    primaryUuid         : 8f356635-3c5f-4d72-8f42-bbc6419ce678
+    primaryNsxManagerIp : 192.168.101.201
+    isPrimary           : false
+
+    Retrieves the configured details of the specified secondary NSX manager, and
+    the primary NSX manager IP Address and uuid
+
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Default")]
+    param (
+
+        [Parameter (Mandatory=$True, ParameterSetName="uuid")]
+            #UUID of Nsx Secondary Manager to return
+            [ValidateNotNullOrEmpty()]
+            [string]$Uuid,
+        [Parameter (Mandatory=$True, ParameterSetName="Name", Position=1)]
+            #Name of Nsx Secondary Manager to return
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    $URI = "/api/2.0/universalsync/configuration/nsxmanagers"
+    $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+    try {
+        $content = [xml]$response.content
+        if ( invoke-xpathquery -querymethod SelectSingleNode -Query "child::nsxManagerInfos/nsxManagerInfo" -Node $content ) {
+            switch ( $PSCmdlet.ParameterSetName ) {
+                "Name" { $content.nsxManagerInfos.nsxManagerInfo  | ? { $_.nsxManagerIp -match $Name}}
+                "Uuid" { $content.nsxManagerInfos.nsxManagerInfo | ? { $_.uuid -eq $uuid}}
+                default { $content.nsxManagerInfos.nsxManagerInfo }
+            }
+        }
+    }
+    catch {
+        throw "Unable to retrieve secondary NSX Manager information. $_"
+    }
+}
+
+function Remove-NsxSecondaryManager {
+    <#
+    .SYNOPSIS
+    Removes a secondary NSX Manager from a CrossVC configured NSX
+    environment.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Remove-NsxSecondaryManager cmdlet removes a secondary NSX Manager
+    from a CrossVC configured NSX environment.
+
+    .EXAMPLE
+    Get-NsxSecondaryManager nsx-m-01b | Remove-NsxSecondaryManager
+
+    Remove the connected and functional NSX manager nsx-m-01b.  nsx-m-01b will
+    be configured as a standalone manager.
+
+    If nsx-m-01b is not online, or functional, the attempt will fail and -force
+    must be used.
+
+    .EXAMPLE
+    Get-NsxSecondaryManager nsx-m-01b | Remove-NsxSecondaryManager -force
+
+    Remove the NSX manager nsx-m-01b - no attempt is made to reconfigure the
+    secondary.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$True, ValueFromPipeline=$true)]
+            #Secondary NSX Manager object to be removed as returned by Get-NsxSecondaryManager
+            [ValidateScript( { Validate-SecondaryManager $_ })]
+            [System.Xml.XmlElement]$SecondaryManager,
+        [Parameter (Mandatory=$False)]
+            #Confirm removal.
+            [switch]$Confirm=$True,
+        [Parameter (Mandatory=$False)]
+            #Force removal of a missing secondary.
+            [switch]$Force,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+        if ( $confirm ) {
+            $message  = "Removal of a secondary NSX Manager will prevent synchronisation of universal objects to the manager being removed."
+            $question = "Proceed with removal of secondary NSX Manager $($SecondaryManager.nsxManagerIp)?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            if ( $PSBoundParameters.ContainsKey("Force")) {
+                $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)?force=true"
+            }
+            else{
+                $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)"
+            }
+
+            try  {
+                $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            }
+            Catch {
+                Throw "Failed removing secondary NSX Manager.  $_"
+            }
+        }
+    }
+
+    end{}
+}
+
+function Wait-NsxControllerJob {
+
+    <#
+    .SYNOPSIS
+    Wait for the specified controller job until it succeeds or fails.
+
+    .DESCRIPTION
+    Attempt to wait for the specified controller deployment succeeds or fails.
+
+    Wait-NsxControllerJob defaults to timeout at 300 seconds, when the user
+    is prompted to continuing waiting of fail.  If immediate failure upon
+    timeout is desirable (eg within script), then the $failOnTimeout switch can
+    be set.
+
+    .EXAMPLE
+    Wait-NsxControllerJob -Jobid jobdata-1234
+
+    Wait for controller job jobdata-1234 up to 300 seconds to complete
+    successfully or fail.  If 300 seconds elapse, then prompt for action.
+
+    .EXAMPLE
+    Wait-NsxControllerJob -Jobid jobdata-1234 -TimeOut 400 -FailOnTimeOut
+
+    Wait for controller job jobdata-1234 up to 40 seconds to complete
+    successfully or fail.  If 400 seconds elapse, then throw an error.
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true)]
+            #Job Id string as returned from the api
+            [string]$JobId,
+        [Parameter (Mandatory=$false)]
+            #Seconds to wait before declaring a timeout.  Timeout defaults to 800 seconds, which is longer than the NSX internal timeout and rollback of a failed controller deployment of around 720 seconds.
+            [int]$WaitTimeout=800,
+        [Parameter (Mandatory=$false)]
+            #Do we prompt user an allow them to reset the timeout timer, or throw on timeout
+            [switch]$FailOnTimeout=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    # Seriously - the NSX Task framework is the work of the devil.
+    # In order to get a _complete_ picture of a controller deployment, we have to track the jobinstance returned by querying the taskservice uri for our returned jobid.
+    # The jobinstance returned is a 'parent' of the job we got from the API.  For a controller deployment job, there are multiple tasks that are executed.
+    # Their status output doesnt exist until they are commenced though, which results in an increasing number of taskinstances that we need to track as deployment is performed.
+    # A task instance state is either COMPLETED, at which time the next task is added, or EXECUTING, and has an interesting taskStatus property, or FAILED, and has an interesting taskMessage property (usually the cause of failure).  When all tasks are COMPLETED, the parent jobInstance is COMPLETED
+    # What makes this annoying is the deployment overall success/failure is only determinable from the parent job instance, however the current status and/or any error messages must be retreived from the task in a FAILED state.  The number of taskInstances is indeterminate
+    # and grows as the job progresses...
+    #
+    # What we do here is declare state of the job we are monitoring on the jobinstance.status, but the output is obtained from the currently EXECUTING (status) or FAILED (error) child task
+    # This really underscores the flexibility of having a generic Wait-NsxJob cmdlet I think :) FIGJAM... :)
+
+    $WaitJobArgs = @{
+        "jobid" = $jobid
+        "JobStatusUri" = "/api/2.0/services/taskservice/job"
+        "CompleteCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "COMPLETED"
+        }
+        "FailCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "FAILED"
+        }
+        "StatusExpression" = {
+            $execTask = @()
+            $StatusMessage = ""
+            $execTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "EXECUTING" })
+            if ( $exectask.count -eq 1) {
+                $StatusMessage = "$($execTask.name) - $($execTask.taskStatus)"
+            }
+            else {
+                $StatusMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $StatusMessage
+        }
+        "ErrorExpression" = {
+            $failTask = @()
+            $failMessage = ""
+            $failTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" })
+            if ( $failTask.count -eq 1) {
+                $failMessage = "Failed Task : $($failTask.name) - $($failTask.statusMessage)"
+            }
+            else {
+                $failMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $failMessage
+        }
+        "WaitTimeout" = $WaitTimeout
+        "FailOnTimeout" = $FailOnTimeout
+        "Connection" = $Connection
+    }
+
+    Wait-NsxJob @WaitJobArgs
+}
+
 function New-NsxController {
 
     <#
@@ -6295,7 +6994,7 @@ function New-NsxController {
     New-NsxController -ControllerName $ControllerName -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -password $DefaultNsxControllerPassword -connection $Connection -confirm:$false
 
     .EXAMPLE
-    A secondary or tertiary controller does not require a Password to be defined. 
+    A secondary or tertiary controller does not require a Password to be defined.
 
     New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -connection $Connection -confirm:$false
     #>
@@ -6337,13 +7036,14 @@ function New-NsxController {
             #Controller Password (Must be same on all controllers)
             [string]$Password,
         [Parameter ( Mandatory=$False)]
-            #Block until Controller Status in API is 'RUNNING' (Will timeout with prompt after -WaitTimeout seconds)
+            #Block until Controller deployment job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
             #Useful if automating the deployment of multiple controllers (first must be running before deploying second controller)
             #so you dont have to write looping code to check status of controller before continuing.
+            #NOTE: Not waiting means we do NOT return a controller object!
             [switch]$Wait=$false,
         [Parameter ( Mandatory=$False)]
-            #Timeout waiting for controller to become 'RUNNING' before user is prompted to continue or cancel.
-            [int]$WaitTimeout = 600,
+            #Timeout waiting for controller to become 'RUNNING' before user is prompted to continue or cancel. Defaults to 800 seconds to exceed the normal NSX rollback timeout of 720 seconds.
+            [int]$WaitTimeout = 800,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -6354,12 +7054,17 @@ function New-NsxController {
         $count = get-nsxcontroller -connection $Connection | measure
 
         if ( ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -gt 1)) {
-                Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter"
-            }
-        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
-                Throw "Password property must be defined for the first controller. Define a password with -Password"
-            }
+            Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter"
         }
+        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
+            Throw "Password property must be defined for the first controller. Define a password with -Password"
+        }
+
+        $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+    }
 
     process {
 
@@ -6411,103 +7116,28 @@ function New-NsxController {
             catch {
                 throw "Controller deployment failed. $_"
             }
-            if ( -not (($response -match "jobdata-\d+") -and ($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
+            if ( -not (($response.Content -match "jobdata-\d+") -and ($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
                 throw "Controller deployment failed. $($response.content)"
             }
 
-            #Get the new controller id so we can get its status later...
-            $controllerid = $response.Headers["location"] -replace "/api/2.0/vdn/controller/"
-
             #The post is ansync - the controller deployment can fail after the api accepts the post.  we need to check on the status of the job.
-            $jobid = $response.content
-            write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
-
-            $status = $null
-            $Timer = 0
-
-            #Wait a second... the job usually isnt there on initial attempt to query
-            start-sleep -Milliseconds 1000
-
-            #Now - loop, checking job status
-            while ( $status -ne "COMPLETED" ) {
-                if ( $Timer -ge $WaitTimeout ) {
-                    #We exceeded the timeout - what does the user want to do?
-                    $message  = "Waited more than $WaitTimeout seconds for controller deployment to complete.  Recommend checking vCenter for potential cause."
-                    $question = "Continue waiting for Controller?"
-                    $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-                    $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-                    $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-                    $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
-                    if ($decision -eq 0) {
-                        #User waits...
-                        $timer = 0
-                    }
-                    else {
-                        throw "Timeout waiting for controller deployment to complete."
-                    }
-                }
-
-                try {
-                    [xml]$job = Get-NsxJobStatus -jobId $JobId
-                }
-                catch {
-                    #Can fail if query is too quick
-                    write-warning "Unable to query for controller deployment job"
-                }
-                $status = $job.edgeJob.status
-                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete.  Current status $status" }
-                if ( $status -eq "FAILED") {
-                    Throw "Controller deployment failed.  $($job.edgeJob.message)"
-                }
-                if ( $status -eq "COMPLETED" ) {
-                    if ($script:PowerNSXConfiguration.ProgressDialogs) {  }
-                    break
-                }
-                start-sleep -Milliseconds 1000
-                $Timer += 1
-            }
-            if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -Activity "Processing" -Status "Waiting for controller deployment job $jobId to complete" -completed }
-            if ($script:PowerNSXConfiguration.ProgressDialogs) { write-progress -activity "Deploying NSX Controller" -completed }
-
-            $Controller = Get-NsxController -connection $connection -objectid $controllerId
             if ( $Wait ) {
 
-                #User wants to wait for Controller API to start.
-                $waitStep = 30
+                 #Get the new controller id so we can get its status later...
+                $controllerid = $response.Headers["location"] -replace "/api/2.0/vdn/controller/"
 
-                $Timer = 0
-                while ( $Controller.status -ne 'RUNNING' ) {
+                $jobid = $response.content
+                write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
 
-                    #Loop while the controller is deploying (not RUNNING)
-                    if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status)) " }
-                    start-sleep $WaitStep
-                    $Timer += $WaitStep
-
-                    if ( $Timer -ge $WaitTimeout ) {
-                        #We exceeded the timeout - what does the user want to do?
-                        $message  = "Waited more than $WaitTimeout seconds for controller to become available.  Recommend checking boot process, network config etc."
-                        $question = "Continue waiting for Controller?"
-                        $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-                        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-                        $yesnochoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-                        $decision = $Host.UI.PromptForChoice($message, $question, $yesnochoices, 0)
-                        if ($decision -eq 0) {
-                           #User waits...
-                           $timer = 0
-                        }
-                        else {
-                            throw "Timeout waiting for controller $($controller.id) to become available."
-                        }
-                    }
-
-                    $Controller = Get-Nsxcontroller -connection $connection -objectId ($controller.id)
-                    if ( -not ( Invoke-XpathQuery -QueryMethod SelectSingleNode -query "child::status" -Node $controller )) {
-                        throw "Controller deployment failed.  Status property not available on returned controller object.  Check NSX for more details on cause."
-                    }
+                #First we wait for NSX job framework to give us the needful
+                try {
+                    Wait-NsxControllerJob -Jobid $JobID -Connection $Connection -WaitTimeout $WaitTimeout
+                    Get-NsxController -connection $connection -objectid $controllerId
                 }
-                if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress "Waiting for NSX controller to enter a running state. (Current state: $($Controller.Status))" -Completed }
+                catch {
+                    throw "Controller deployment job failed.  $_"
+                }
             }
-            $controller
         }
     }
 
@@ -6601,6 +7231,11 @@ function Remove-NsxController {
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
+        [Parameter ( Mandatory=$False)]
+            #Block until Controller Removal job is COMPLETED (Will timeout with prompt after 720 seconds)
+            #Useful if automating the removal of multiple controllers (first must be removed before removing second controller)
+            #so you dont have to write looping code to check status of controller before continuing.
+            [switch]$Wait=$false,
         [Parameter (Mandatory=$false)]
             #Force the removal of the last controller.  WARNING THIS WILL IMPACT LOGICAL SWITCHING AND ROUTING FUNCTIONALITY
             [switch]$Force=$false,
@@ -6632,7 +7267,30 @@ function Remove-NsxController {
         if ($decision -eq 0) {
             $URI = "/api/2.0/vdn/controller/$($objectId)?forceRemoval=$force"
             if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Controller $objectId" }
-            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            try {
+                $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            }
+            catch {
+                throw "Controller deployment failed. $_"
+            }
+
+            if ( -not ($response.Content -match "jobdata-\d+")) {
+                throw "Controller deployment failed. $($response.content)"
+            }
+
+            #The post is ansync - the controller deployment can fail after the api accepts the post.  we need to check on the status of the job.
+            if ( $Wait ) {
+                $jobid = $response.content
+                write-debug "$($MyInvocation.MyCommand.Name) : Controller deployment job $jobid returned in post response"
+
+                #First we wait for NSX job framework to give us the needful
+                try {
+                    Wait-NsxControllerJob -Jobid $JobID -Connection $Connection
+                }
+                catch {
+                    throw "Controller removal job failed.  $_"
+                }
+            }
             if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Remove Controller $objectId" -completed }
         }
     }
@@ -7908,6 +8566,308 @@ function New-NsxTransportZone {
 
         Get-NsxTransportZone -objectId $response -connection $connection
 
+    }
+
+    end {}
+}
+
+function Wait-NsxTransportZoneJob {
+
+    <#
+    .SYNOPSIS
+    Wait for the specified member add/remove job until it succeeds or fails.
+
+    .DESCRIPTION
+    Attempt to wait for the specified transport zone modificationjob until it
+    succeeds or fails.
+
+    Wait-NsxTransportZoneJob defaults to timeout at 300 seconds, when the user
+    is prompted to continuing waiting of fail.  If immediate failure upon
+    timeout is desirable (eg within script), then the $failOnTimeout switch can
+    be set.
+
+    .EXAMPLE
+    Wait-NsxTransportZoneJob -Jobid jobdata-1234
+
+    Wait for transportzone job jobdata-1234 up to the default of 30 seconds to
+    complete successfully or fail.  If 30 seconds elapse, then prompt for action.
+
+    .EXAMPLE
+    Wait-NsxTransportZoneJob -Jobid jobdata-1234 -TimeOut 40 -FailOnTimeOut
+
+    Wait for transportzone job jobdata-1234 up to 40 seconds to complete
+    successfully or fail.  If 40 seconds elapse, then throw an error.
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true)]
+            #Job Id string as returned from the api
+            [string]$JobId,
+        [Parameter (Mandatory=$false)]
+            #Seconds to wait before declaring a timeout.  Timeout defaults to 30 seconds.
+            [int]$WaitTimeout=30,
+        [Parameter (Mandatory=$false)]
+            #Do we prompt user an allow them to reset the timeout timer, or throw on timeout
+            [switch]$FailOnTimeout=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+
+    $WaitJobArgs = @{
+        "jobid" = $jobid
+        "JobStatusUri" = "/api/2.0/services/taskservice/job"
+        "CompleteCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "COMPLETED"
+        }
+        "FailCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "FAILED"
+        }
+        "StatusExpression" = {
+            $execTask = @()
+            $StatusMessage = ""
+            $execTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "EXECUTING" })
+            if ( $exectask.count -eq 1) {
+                $StatusMessage = "$($execTask.name) - $($execTask.taskStatus)"
+            }
+            else {
+                $StatusMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $StatusMessage
+        }
+        "ErrorExpression" = {
+            $failTask = @()
+            $failMessage = ""
+            $failTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" })
+            if ( $failTask.count -eq 1) {
+                $failMessage = "Failed Task : $($failTask.name) - $($failTask.statusMessage)"
+            }
+            else {
+                $failMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $failMessage
+        }
+        "WaitTimeout" = $WaitTimeout
+        "FailOnTimeout" = $FailOnTimeout
+        "Connection" = $Connection
+    }
+
+    Wait-NsxJob @WaitJobArgs
+}
+
+function Add-NsxTransportZoneMember {
+
+    <#
+    .SYNOPSIS
+    Adds a new cluster to an existing Transport Zone.
+
+    .DESCRIPTION
+    An NSX Transport Zone defines the maximum scope for logical switches that
+    are bound to it.  NSX Prepared clusters are added to Transport Zones which
+    allows VMs on them to attach to any logical switch bound to the transport
+    zone.
+
+    The Add-NsxTransportZoneMember cmdlet adds a new cluster to an existing
+    Transport Zone on the connected NSX manager.
+
+    .EXAMPLE
+    Get-NsxTransportZone TZ1 | Add-NsxTransportZoneMember -Cluster (Get-cluster)
+
+    Adds all clusters from the connected vCenter server to the Transport Zone TZ1
+
+    .EXAMPLE
+    Get-NsxTransportZone -Connection $bconn -UniversalOnly | Add-NsxTransportZoneMember -Cluster (Get-cluster Compute1_b -Server vc-01b.corp.local) -Connection $bconn
+
+    Gets the universal transport zone from the NSX server specified by $bconn
+    and adds the cluster Compute1_b from vCenter server vc-01b.corp.local to it.
+
+    This is an example of adding a secondary NSX manager associated VC cluster to
+    a universal transport zone.  Care must be taken to ensure only the clusters
+    from the associated vCenter server are added to the nsx manager specified
+    in the connection object (or the default connection)
+
+    #>
+
+
+     param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #PowerNSX Transport Zone object to be updated
+            [ValidateScript({ Validate-TransportZone $_ })]
+            [System.Xml.XmlElement]$TransportZone,
+        [Parameter (Mandatory=$true)]
+            #Cluster to be added to the Transport Zone
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop[]]$Cluster,
+        [Parameter ( Mandatory=$False)]
+            #Block until transport zone update job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
+            #Useful if automating the tz modification so you dont have to write looping code to check status of the tz before continuing.
+            #NOTE: Not waiting means we do NOT return an updated tz object!
+            [switch]$Wait=$True,
+        [Parameter ( Mandatory=$False)]
+            #Timeout waiting for tz update job to complete before user is prompted to continue or cancel. Defaults to 30 seconds.
+            [int]$WaitTimeout = 30,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlScope = $XMLDoc.CreateElement("vdnScope")
+        $xmlDoc.Appendchild($xmlScope) | out-null
+
+        Add-XmlElement -xmlRoot $xmlScope -xmlElementName "objectId" -xmlElementText $TransportZone.objectId
+        [System.XML.XMLElement]$xmlClusters = $XMLDoc.CreateElement("clusters")
+        $xmlScope.Appendchild($xmlClusters) | out-null
+        foreach ( $instance in $cluster ) {
+            [System.XML.XMLElement]$xmlCluster1 = $XMLDoc.CreateElement("cluster")
+            $xmlClusters.Appendchild($xmlCluster1) | out-null
+            [System.XML.XMLElement]$xmlCluster2 = $XMLDoc.CreateElement("cluster")
+            $xmlCluster1.Appendchild($xmlCluster2) | out-null
+            Add-XmlElement -xmlRoot $xmlCluster2 -xmlElementName "objectId" -xmlElementText $Instance.ExtensionData.Moref.Value
+        }
+
+        #Do the post
+        $body = $xmlScope.OuterXml
+        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?action=expand"
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Transport Zone." }
+        try {
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        }
+        catch {
+            throw "Transport Zone update failed. $_"
+        }
+        if ( -not ($response.Content -match "jobdata-\d+")) {
+            throw "Controller deployment failed. $($response.content)"
+        }
+
+        #The post is ansync - the tz modification can fail after the api accepts the post.  we need to check on the status of the job.
+        if ( $Wait ) {
+
+            $jobid = $response.content
+            write-debug "$($MyInvocation.MyCommand.Name) : TZ update job $jobid returned in post response"
+
+            #First we wait for NSX job framework to give us the needful
+            try {
+                Wait-NsxTransportZoneJob -Jobid $JobID -Connection $Connection -WaitTimeout $WaitTimeout
+                Get-NsxTransportZone -connection $connection -objectid $TransportZone.objectId
+            }
+            catch {
+                throw "Cluster addition to Transport Zone $($TransportZone.Name) failed.  $_"
+            }
+        }
+
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
+    }
+
+    end {}
+}
+
+function Remove-NsxTransportZoneMember {
+
+    <#
+    .SYNOPSIS
+    Removes an existing cluster from an existing Transport Zone.
+
+    .DESCRIPTION
+    An NSX Transport Zone defines the maximum scope for logical switches that
+    are bound to it.  NSX Prepared clusters are added to Transport Zones which
+    allows VMs on them to attach to any logical switch bound to the transport
+    zone.
+
+    The Remove-NsxTransportZoneMember cmdlet removes a cluster from an existing
+    Transport Zone on the connected NSX manager.
+
+    .EXAMPLE
+    Get-NsxTransportZone -UniversalOnly -Connection $bconn | Remove-NSxTransportZoneMember -Cluster (get-cluster Compute1_b -Server vc-01b.corp.local) -Connection $bconn
+
+    Remove the cluster Compute1_b defined in vCenter server vc-01b.corp.local
+    from the universal transport zone configured on the nsx manager specified by
+    $bconn
+
+    #>
+
+     param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #PowerNSX Transport Zone object to be updated
+            [ValidateScript({ Validate-TransportZone $_ })]
+            [System.Xml.XmlElement]$TransportZone,
+        [Parameter (Mandatory=$true)]
+            #Cluster to be added to the Transport Zone
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop[]]$Cluster,
+        [Parameter ( Mandatory=$False)]
+            #Block until transport zone update job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
+            #Useful if automating the tz modification so you dont have to write looping code to check status of the tz before continuing.
+            #NOTE: Not waiting means we do NOT return an updated tz object!
+            [switch]$Wait=$True,
+        [Parameter ( Mandatory=$False)]
+            #Timeout waiting for tz update job to complete before user is prompted to continue or cancel. Defaults to 30 seconds.
+            [int]$WaitTimeout = 30,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    #Todo: Improve to accept cluster name as arg instead of PowerCLI object.
+    begin {}
+    process {
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlScope = $XMLDoc.CreateElement("vdnScope")
+        $xmlDoc.Appendchild($xmlScope) | out-null
+
+        Add-XmlElement -xmlRoot $xmlScope -xmlElementName "objectId" -xmlElementText $TransportZone.objectId
+        [System.XML.XMLElement]$xmlClusters = $XMLDoc.CreateElement("clusters")
+        $xmlScope.Appendchild($xmlClusters) | out-null
+        foreach ( $instance in $cluster ) {
+            [System.XML.XMLElement]$xmlCluster1 = $XMLDoc.CreateElement("cluster")
+            $xmlClusters.Appendchild($xmlCluster1) | out-null
+            [System.XML.XMLElement]$xmlCluster2 = $XMLDoc.CreateElement("cluster")
+            $xmlCluster1.Appendchild($xmlCluster2) | out-null
+            Add-XmlElement -xmlRoot $xmlCluster2 -xmlElementName "objectId" -xmlElementText $Instance.ExtensionData.Moref.Value
+        }
+
+        #Do the post
+        $body = $xmlScope.OuterXml
+        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)?action=shrink"
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-Progress -activity "Updating Transport Zone." }
+        try {
+            $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        }
+        catch {
+            throw "Transport Zone update failed. $_"
+        }
+        if ( -not ($response.Content -match "jobdata-\d+")) {
+            throw "Controller deployment failed. $($response.content)"
+        }
+
+        #The post is ansync - the tz modification can fail after the api accepts the post.  we need to check on the status of the job.
+        if ( $Wait ) {
+
+            $jobid = $response.content
+            write-debug "$($MyInvocation.MyCommand.Name) : TZ update job $jobid returned in post response"
+
+            #First we wait for NSX job framework to give us the needful
+            try {
+                Wait-NsxTransportZoneJob -Jobid $JobID -Connection $Connection -WaitTimeout $WaitTimeout
+                Get-NsxTransportZone -connection $connection -objectid $TransportZone.objectId
+            }
+            catch {
+                throw "Cluster addition to Transport Zone $($TransportZone.Name) failed.  $_"
+            }
+        }
+        if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
     }
 
     end {}
