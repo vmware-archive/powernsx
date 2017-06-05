@@ -6478,12 +6478,26 @@ function Set-NsxManagerRole {
 
     try  {
         $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
-        $content = [xml]$response.content
-        $content.universalSyncRole
     }
     Catch {
-        Throw "Failed setting NSX Manager role.  $_"
+        if ( $_ -as [xml] ) {
+            $Error = [xml]$_
+            $ErrorCode = $Error.SelectSingleNode("child::error/errorCode")
+            if ( $errorCode -eq '125023') {
+                write-warning $Error.error.details
+            }
+            else {
+                #rethrow
+                Throw "Failed setting NSX Manager role.  $_"
+            }
+        }
+        else {
+            Throw "Failed setting NSX Manager role.  $_"
+        }
     }
+
+    #Regetting here, to catch the in transit state that a secondary edge will likely be when told to become standalone
+    Get-NsxManagerRole -Connection $Connection
 }
 
 function Add-NsxSecondaryManager {
@@ -6692,7 +6706,7 @@ function Remove-NsxSecondaryManager {
     }
     else { $decision = 0 }
     if ($decision -eq 0) {
-        if ( $PSBoundParameters.ContainsKey("Force") {
+        if ( $PSBoundParameters.ContainsKey("Force")) {
             $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)?force=true"
         }
         else{
