@@ -6563,7 +6563,7 @@ function Add-NsxSecondaryManager {
     try  {
         $response = invoke-nsxwebrequest -method "post" -body $NsxManagerInfoElement.OuterXml -uri $URI -connection $connection
         $content = [xml]$response.content
-        $content
+        $content.nsxManagerInfo
     }
     Catch {
         Throw "Failed adding secondary NSX Manager.  $_"
