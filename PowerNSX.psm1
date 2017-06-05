@@ -6477,7 +6477,7 @@ function Add-NsxSecondaryManager {
     Standalone role.
 
     #>
-
+    [CmdletBinding(DefaultParameterSetName="Credential")]
     param (
 
         [Parameter (Mandatory=$True)]
@@ -6517,7 +6517,7 @@ function Add-NsxSecondaryManager {
     }
 
     #Build cred object for default auth if user specified username/pass
-    if ($PSCmdlet.ParameterSetName = "UserPass" ) {
+    if ($PSCmdlet.ParameterSetName -eq "UserPass" ) {
         $Credential = new-object System.Management.Automation.PSCredential($Username, $(ConvertTo-SecureString $Password -AsPlainText -Force))
     }
     else {
