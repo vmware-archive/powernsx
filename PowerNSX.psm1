@@ -6559,8 +6559,8 @@ function Get-NsxManagerSyncStatus {
 
     [System.Xml.XmlDocument]$result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
-    if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $result -Query 'child::universalSyncRole') {
-        $result.universalSyncRole
+    if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $result -Query 'child::replicationStatus') {
+        $result.replicationStatus
     }
 
 }
