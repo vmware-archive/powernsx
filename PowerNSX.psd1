@@ -311,6 +311,8 @@ FunctionsToExport = @(
     'Get-NsxManagerCertificate',
     'Get-NsxManagerRole',
     'Set-NsxManagerRole',
+    'Invoke-NsxManagerSync',
+    'Get-NsxManagerSyncStatus',
     'Add-NsxSecondaryManager',
     'Get-NsxSecondaryManager',
     'Remove-NsxSecondaryManager',

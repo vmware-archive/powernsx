@@ -6501,6 +6501,70 @@ function Set-NsxManagerRole {
     Get-NsxManagerRole -Connection $Connection
 }
 
+function Invoke-NsxManagerSync {
+    <#
+    .SYNOPSIS
+    Triggers synchronisation of universal objects from a primary NSX Manager.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Invoke-NsxManagerSync cmdlet triggers the universal sync service to
+    replicate universally scoped objects to secondary NSX Managers.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    $URI = "/api/2.0/universalsync/sync?action=invoke"
+
+    try  {
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+    }
+    catch {
+        Throw "Failed to invoke synchronisation. $_"
+    }
+}
+
+function Get-NsxManagerSyncStatus {
+    <#
+    .SYNOPSIS
+    Retrieves NSX Manager universal sync status.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Get-NsxManagerSyncStatus cmdlet retrieves the current status of the
+    universal sync service on the NSX Manager against which the command is run.
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/universalsync/status"
+
+    [System.Xml.XmlDocument]$result = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+    if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $result -Query 'child::universalSyncRole') {
+        $result.universalSyncRole
+    }
+
+}
+
 function Add-NsxSecondaryManager {
     <#
     .SYNOPSIS
