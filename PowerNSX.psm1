@@ -6633,11 +6633,12 @@ function Get-NsxSecondaryManager {
     $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
     try {
         $content = [xml]$response.content
-        switch ( $PSCmdlet.ParameterSetName ) {
-
-            "Name" { $content.nsxManagerInfos.nsxManagerInfo  | ? { $_.Name -match $Name}}
-            "Uuid" { $content.nsxManagerInfos.nsxManagerInfo | ? { $_.uuid -eq $uuid}}
-            default { $content.nsxManagerInfos.nsxManagerInfo }
+        if ( invoke-xpathquery -querymethod SelectSingleNode -Query "child::nsxManagerInfos/nsxManagerInfo" -Node $content ) {
+            switch ( $PSCmdlet.ParameterSetName ) {
+                "Name" { $content.nsxManagerInfos.nsxManagerInfo  | ? { $_.Name -match $Name}}
+                "Uuid" { $content.nsxManagerInfos.nsxManagerInfo | ? { $_.uuid -eq $uuid}}
+                default { $content.nsxManagerInfos.nsxManagerInfo }
+            }
         }
     }
     catch {
@@ -6666,7 +6667,7 @@ function Remove-NsxSecondaryManager {
             #Secondary NSX Manager object to be removed as returned by Get-NsxSecondaryManager
             [ValidateScript( { Validate-SecondaryManager $_ })]
             [System.Xml.XmlElement]$SecondaryManager,
-        [Parameter (Mandatory=$True)]
+        [Parameter (Mandatory=$False)]
             #Confirm removal.
             [ValidateNotNullorEmpty()]
             [switch]$Confirm=$True,
@@ -6677,14 +6678,26 @@ function Remove-NsxSecondaryManager {
     )
 
 
+    if ( $confirm ) {
+        $message  = "Removal of a secondary NSX Manager will prevent synchronisation of universal objects to the manager being removed."
+        $question = "Proceed with removal of secondary NSX Manager $($SecondaryManager.nsxManagerIp)?"
 
-    $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)"
+        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
-    try  {
-        $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
     }
-    Catch {
-        Throw "Failed removing secondary NSX Manager.  $_"
+    else { $decision = 0 }
+    if ($decision -eq 0) {
+        $URI = "/api/2.0/universalsync/configuration/nsxmanagers/$($SecondaryManager.uuid)"
+
+        try  {
+            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+        }
+        Catch {
+            Throw "Failed removing secondary NSX Manager.  $_"
+        }
     }
 }
 
