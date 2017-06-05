@@ -6567,6 +6567,144 @@ function Add-NsxSecondaryManager {
     }
 }
 
+function Get-NsxSecondaryManager {
+    <#
+    .SYNOPSIS
+    Gets configured secondary NSX Managers from the connected NSX Manager.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    If run against a primary NSX Manager, the Get-NsxSecondaryManager cmdlet
+    retrieves configured secondary NSX managers.  If run against a secondary
+    NSX Manager, information about the configured primary is returned.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    $URI = "/api/2.0/universalsync/configuration/nsxmanagers"
+    $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+    try {
+        $content = [xml]$response.content
+        $content
+    }
+    catch {
+        throw "Unable to retrieve secondary NSX Manager information. $_"
+    }
+}
+
+function Remove-NsxSecondaryManager {
+    <#
+    .SYNOPSIS
+    Removes a secondary NSX Manager from a CrossVC configured NSX
+    environment.
+
+    .DESCRIPTION
+    The NSX Manager is the central management component of VMware NSX for
+    vSphere.
+
+    The Remove-NsxSecondaryManager cmdlet removes a secondary NSX Manager
+    from a CrossVC configured NSX environment.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$True)]
+            #Hostname or IPAddress of the Standalone NSX Manger to be removed
+            [ValidateNotNullorEmpty()]
+            [String]$NsxManager,
+        [Parameter (Mandatory=$False)]
+            #SHA1 hash of the NSX Manager certificate.  Required unless -AcceptPresentedThumprint is specified.
+            [ValidateNotNullorEmpty()]
+            [String]$Thumbprint,
+        [Parameter (Mandatory=$False)]
+            #Accept any thumbprint presented by the server specified with -NsxManager.  Insecure.
+            [Switch]$AcceptPresentedThumbprint,
+        [Parameter (Mandatory=$False, ParameterSetName="UserPass")]
+            #Username for NSX Manager to be added.  A local account with SuperUser privileges is required.  Defaults to admin.
+            [ValidateNotNullorEmpty()]
+            [String]$Username="admin",
+        [Parameter (Mandatory=$True, ParameterSetName="UserPass")]
+            #Password for NSX Manager to be added.  A local account with SuperUser privileges is required.
+            [ValidateNotNullorEmpty()]
+            [String]$Password,
+        [Parameter (Mandatory=$True, ParameterSetName="Credential")]
+            #Credential object for NSX Manager to be added.  A local account with SuperUser privileges is required.
+            [ValidateNotNullorEmpty()]
+            [String]$Credential = { Get-Credential -Message "NSX Manager admin account" },
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+    #Validate connected Manager is role Primary
+    $ConnectedMgrRole = Get-NsxManagerRole -Connection $Connection
+    if ( $ConnectedMgrRole.role -ne 'PRIMARY') {
+        throw "The connected NSX Manager is currently configure with the role $($ConnectedMgrRole.role), but must be configured as PRIMARY to allow a secondary NSX Manager to be added to it."
+    }
+
+    #Build cred object for default auth if user specified username/pass
+    if ($PSCmdlet.ParameterSetName = "UserPass" ) {
+        $Credential = new-object System.Management.Automation.PSCredential($Username, $(ConvertTo-SecureString $Password -AsPlainText -Force))
+    }
+    else {
+        #We need user/pass to generate the xml for the primary NSX Manager.
+        $UserName = $Credential.Username
+        $Password = $Credential.GetNetworkPassword().Password
+    }
+
+    #Validate manager to be added is role standalone
+    $NewMgrConnection = Connect-NsxServer -NsxServer $NsxManager -Credential $Credential -DisableVIAutoConnect -DefaultConnection:$false
+    $NewMgrRole = Get-NsxManagerRole -Connection $NewMgrConnection
+    if ( $NewMgrRole.role -ne 'STANDALONE') {
+        throw "The specified NSX Manager is currently configured with the role $($NewMgrRole.role) but must be configured as STANDALONE to be added to a Cross VC environment."
+    }
+
+    #Make sure we have a thumbprint
+    if ( $AcceptPresentedThumbprint ) {
+        #Get the cert thumbprint of the specified manager.
+        try {
+            $Cert = Get-NsxManagerCertificate -Connection $Connection
+            $Thumbprint = $Cert.Sha1Hash
+        }
+        catch {
+            throw "Failed retrieving the certificate thumbprint from the specified NSX manager.  $_"
+        }
+    }
+    elseif ( -not $PSBoundParameters.ContainsKey("Thumbprint")) {
+        throw "The Thumbprint of the NSX Manager to be added as secondary must be specified, or -AcceptPresentedThumbprint specified (insecure)."
+    }
+
+    $XmlDoc = New-Object System.Xml.XmlDocument
+    $NsxManagerInfoElement = $XmlDoc.CreateElement("nsxManagerInfo")
+    Add-XmlElement -xmlRoot $NsxManagerInfoElement -xmlElementName nsxManagerIp -xmlElementText $NsxManager
+    Add-XmlElement -xmlRoot $NsxManagerInfoElement -xmlElementName nsxManagerUsername -xmlElementText $UserName
+    Add-XmlElement -xmlRoot $NsxManagerInfoElement -xmlElementName nsxManagerPassword -xmlElementText $Password
+    Add-XmlElement -xmlRoot $NsxManagerInfoElement -xmlElementName certificateThumbprint -xmlElementText $Thumbprint
+
+    $URI = "/api/2.0/universalsync/configuration/nsxmanagers"
+
+    try  {
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $NsxManagerInfoElement -connection $connection
+        $content = [xml]$response.content
+        $content
+    }
+    Catch {
+        Throw "Failed adding secondary NSX Manager.  $_"
+    }
+}
+
 function Wait-NsxControllerJob {
 
     <#
