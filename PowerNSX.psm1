@@ -6484,7 +6484,7 @@ function Set-NsxManagerRole {
         if ( $_ -match '.*(\<\?xml version="1\.0" encoding="UTF-8"\?\>\s.*)' ) {
             if ( $matches[1] -as [xml] ) {
                 $Error = [xml]$matches[1]
-                $ErrorCode = $Error.SelectSingleNode("child::error/errorCode")
+                $ErrorCode = invoke-xpathquery -Node $error -QueryMethod SelectSingleNode -query "child::error/errorCode"
                 if ( $errorCode.'#text' -eq '125023') {
                     write-warning $Error.error.details
                     $ParsedXmlError = $true
