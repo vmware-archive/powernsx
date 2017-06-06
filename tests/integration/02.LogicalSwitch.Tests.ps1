@@ -12,7 +12,17 @@ Describe "Logical Switching" {
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:ls1_name = "pester_ls_ls1"
-
+        $script:tz = Get-NsxTransportZone -LocalOnly | select -first 1
+        $emptycl = ($tz).clusters.cluster.cluster.name | % {get-cluster $_ } | ? { ($_ | get-vm | measure).count -eq 0 }
+        if ( -not $emptycl ) {
+            write-warning "No cluster that is a member of an NSX TransportZone but not hosting any VMs could be found for Transport Zone membership addition/removal tests."
+            $script:SkipTzMember = $True
+        }
+        else {
+            $script:cl = $emptycl | select -First 1
+            $script:SkipTzMember = $False
+            write-warning "Using $($tz.Name) and cluster $cl for transportzone membership test"
+        }
     }
 
     it "Can retrieve a transport zone" {
@@ -31,19 +41,6 @@ Describe "Logical Switching" {
     }
 
     Context "Transport Zone Tests" {
-        BeforeAll {
-            $script:tz = Get-NsxTransportZone | select -first 1
-            $emptycl = ($tz).clusters.cluster.cluster.name | % {get-cluster $_ } | ? { ($_ | get-vm | measure).count -eq 0 }
-            if ( -not $emptycl ) {
-                write-warning "No cluster that is a member of an NSX TransportZone but not hosting any VMs could be found for Transport Zone membership addition/removal tests."
-                $script:SkipTzMember = $True
-            }
-            else {
-                $script:cl = $emptycl | select -First 1
-                $script:SkipTzMember = $False
-                write-warning "Using cluster $cl for transportzone membership test"
-            }
-        }
 
         AfterEach {
             if ( -not $SkipTzMember ) {
@@ -51,10 +48,11 @@ Describe "Logical Switching" {
                 if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -notcontains $cl.objectId ) {
                     #Cluster has been removed, and needs to be readded...
                     $CurrentTz | Add-NsxTransportZoneMember -Cluster $cl
-                    do {
-                        $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
-                        write-warning "Post test cluster addition validation "
-                    } until ( $CurrentTz.Clusters.Cluster.Cluster.objectId -contains $cl.objectId)
+                    # do {
+                    #     #Need to block until the API reflects the change we just made... sigh...
+                    #     start-sleep 1
+                    #     $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
+                    # } until ( $CurrentTz.Clusters.Cluster.Cluster.objectId -contains $cl.objectId)
                 }
             }
         }
