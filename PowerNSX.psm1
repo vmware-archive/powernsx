@@ -4633,7 +4633,7 @@ function Wait-NsxGenericJob {
     Wait for the specified job until it succeeds or fails.
 
     .DESCRIPTION
-    Generic task framework handler.  Wait-NsxJob attempts waits for the
+    Generic task framework handler.  Wait-NsxGenericJob attempts waits for the
     specified job to succeed or fail.
 
     Wait-NsxGenericJob defaults to timeout at 30 seconds, when the user

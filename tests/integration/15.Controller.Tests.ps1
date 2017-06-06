@@ -30,7 +30,7 @@ Describe "Controller" {
     }
 
     It "Can deploy a controller - Sync" -Skip:$SkipCtrlTest {
-        $newctrl = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait
+        $newctrl = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait -Confirm:$false
         $currentCtrl = Get-NsxController -ObjectId $newctrl.objectid
         $currentCtrl | should notbe $null
         $currentCtrl.status | should be "RUNNING"
