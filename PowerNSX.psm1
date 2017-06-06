@@ -2883,10 +2883,10 @@ Function Validate-Controller {
 
     if ($argument -is [System.Xml.XmlElement] ) {
 
-        if ( -not ( $argument | get-member -name objectTypeName -Membertype Properties)) {
+        if ( -not ( $argument | get-member -name id -Membertype Properties)) {
             throw "Specify a valid Controller."
         }
-        if ( -not ( $argument.objectTypeName -eq "Controller")) {
+        if ( -not ( $argument.id -match "controller-\d+")) {
             throw "Specify a valid Controller."
         }
         $true
