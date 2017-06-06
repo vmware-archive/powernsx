@@ -8746,7 +8746,7 @@ function Add-NsxTransportZoneMember {
             throw "Transport Zone update failed. $_"
         }
         if ( -not ($response.Content -match "jobdata-\d+")) {
-            throw "Controller deployment failed. $($response.content)"
+            throw "Transport Zone update failed. $($response.content)"
         }
 
         #The post is ansync - the tz modification can fail after the api accepts the post.  we need to check on the status of the job.
@@ -8849,7 +8849,7 @@ function Remove-NsxTransportZoneMember {
             throw "Transport Zone update failed. $_"
         }
         if ( -not ($response.Content -match "jobdata-\d+")) {
-            throw "Controller deployment failed. $($response.content)"
+            throw "Transport Zone update failed. $($response.content)"
         }
 
         #The post is ansync - the tz modification can fail after the api accepts the post.  we need to check on the status of the job.
@@ -8864,7 +8864,7 @@ function Remove-NsxTransportZoneMember {
                 Get-NsxTransportZone -connection $connection -objectid $TransportZone.objectId
             }
             catch {
-                throw "Cluster addition to Transport Zone $($TransportZone.Name) failed.  $_"
+                throw "Cluster removal from Transport Zone $($TransportZone.Name) failed.  $_"
             }
         }
         if ($script:PowerNSXConfiguration.ProgressDialogs) { Write-progress -activity "Updating Transport Zone." -completed }
