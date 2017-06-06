@@ -50,19 +50,12 @@ Describe "Logical Switching" {
                 $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
                 if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -notcontains $cl.objectId ) {
                     #Cluster has been removed, and needs to be readded...
-                    $CurrentTz | Add-NsxTransportZoneMember -Cluster $cl -Wait
+                    $CurrentTz | Add-NsxTransportZoneMember -Cluster $cl
                 }
             }
         }
 
         Context "Transport Zone Cluster Addition" {
-
-            it "Can remove a transportzone cluster - async" -skip:$SkipTzMember {
-                $result = $tz | Remove-NsxTransportZoneMember -Cluster $cl -wait:$false
-                $result | should be $null
-                $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
-                $CurrentTz.clusters.cluster.cluster.name -contains $cl.name | should be $false
-            }
 
             it "Can remove a transportzone cluster - synch" -skip:$SkipTzMember {
                 $tz | Remove-NsxTransportZoneMember -Cluster $cl
@@ -80,14 +73,6 @@ Describe "Logical Switching" {
                         $CurrentTz | Remove-NsxTransportZoneMember -Cluster $cl -Wait
                     }
                 }
-            }
-
-            it "Can add a transportzone cluster - async" -skip:$SkipTzMember {
-                $result = $tz | Add-NsxTransportZoneMember -Cluster $cl -wait:$false
-                $result | should be $null
-                $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
-                $CurrentTz.clusters.cluster.cluster.name -contains $cl.name | should be $true
-
             }
 
             it "Can add a transportzone cluster - synch" -skip:$SkipTzMember {
