@@ -55,9 +55,9 @@ Describe "Logical Switching" {
             }
         }
 
-        Context "Transport Zone Cluster Addition" {
+        Context "Transport Zone Cluster Removal" {
 
-            it "Can remove a transportzone cluster - synch" -skip:$SkipTzMember {
+            it "Can remove a transportzone cluster" -skip:$SkipTzMember {
                 $tz | Remove-NsxTransportZoneMember -Cluster $cl
                 $updatedtz = Get-NsxTransportZone -objectId $tz.objectId
                 $updatedtz.clusters.cluster.cluster.name -contains $cl.name | should be $false
@@ -66,16 +66,16 @@ Describe "Logical Switching" {
 
         Context "Transport Zone Cluster Addition" {
             BeforeEach {
-                if ( $SkipTzMember ) {
+                if ( -not $SkipTzMember ) {
                     $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
                     if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -contains $cl.objectId ) {
                         #Cluster has been added, and needs to be removed...
-                        $CurrentTz | Remove-NsxTransportZoneMember -Cluster $cl -Wait
+                        $CurrentTz | Remove-NsxTransportZoneMember -Cluster $cl
                     }
                 }
             }
 
-            it "Can add a transportzone cluster - synch" -skip:$SkipTzMember {
+            it "Can add a transportzone cluster" -skip:$SkipTzMember {
                 $tz | Add-NsxTransportZoneMember -Cluster $cl
                 $updatedtz = Get-NsxTransportZone -objectId $tz.objectId
                 $updatedtz.clusters.cluster.cluster.name -contains $cl.name | should be $true
