@@ -38,7 +38,7 @@ Describe "Controller" {
 
     It "Can remove a controller - Sync" -Skip:$SkipCtrlTest {
         $ctrlToRemove = Get-NSxController | ? { $_.id -ne $ctrl.id }
-        {$CtrlToRemove | Remove-NsxController -Wait } | should not throw
+        {$CtrlToRemove | Remove-NsxController -Wait -Confirm:$false} | should not throw
         Get-NsxController -ObjectId $ctrlToRemove.id  | should be $null
     }
     AfterAll {
