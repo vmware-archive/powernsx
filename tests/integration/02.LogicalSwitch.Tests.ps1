@@ -46,7 +46,7 @@ Describe "Logical Switching" {
         }
 
         AfterEach {
-            if ( $SkipTzMember ) {
+            if ( -not $SkipTzMember ) {
                 $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
                 if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -notcontains $cl.objectId ) {
                     #Cluster has been removed, and needs to be readded...
@@ -58,7 +58,7 @@ Describe "Logical Switching" {
         Context "Transport Zone Cluster Addition" {
 
             it "Can remove a transportzone cluster - async" -skip:$SkipTzMember {
-                $tz | Remove-NsxTransportZoneMember -Cluster $cl
+                $tz | Remove-NsxTransportZoneMember -Cluster $cl -wait:$false
                 $updatedtz = Get-NsxTransportZone -objectId $tz.objectId
                 $updatedtz | should be $null
                 $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
@@ -84,7 +84,7 @@ Describe "Logical Switching" {
             }
 
             it "Can add a transportzone cluster - async" -skip:$SkipTzMember {
-                $tz | Add-NsxTransportZoneMember -Cluster $cl
+                $tz | Add-NsxTransportZoneMember -Cluster $cl -wait:$false
                 $updatedtz = Get-NsxTransportZone -objectId $tz.objectId
                 $updatedtz | should be $null
                 $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
