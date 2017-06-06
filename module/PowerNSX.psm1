@@ -36249,5 +36249,43 @@ function Copy-NsxEdge{
     end {}
 }
 
+function Get-NsxDns {
+
+    <#
+    .SYNOPSIS
+    Retrieves the DNS configuration from a specified Edge.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    The NSX Edge DNS add DNS server (relay) on the Edge
+
+    This cmdlet retrieves the DNS configuration from a specified Edge.
+    .EXAMPLE
+
+    PS C:\> Get-NsxEdge edge01 | Get-NsxDns
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateEdge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+
+    begin {}
+
+    process {
+
+        $_DNS = $Edge.features.dns.CloneNode($True)
+        Add-XmlElement -xmlRoot $_DNS -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_DNS
+
+    }
+}
+
 #Call Init function
 _init
