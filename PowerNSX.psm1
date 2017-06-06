@@ -4502,31 +4502,6 @@ function Update-PowerNsx {
     set-strictmode -Version Latest
 }
 
-function Get-NsxJobStatus {
-
-    param(
-        #Job Id.
-        [Parameter (Mandatory=$true)]
-            [string]$jobId,
-        #Job Query URI.  There are several job subsystems in NSX.  Some of them overlap.
-        [string]$JobStatusUri,
-        #PowerNSX Connection Object
-        [Parameter (Mandatory=$False)]
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
-    )
-
-    begin{
-        $response = invoke-nsxwebrequest -method "get" -uri "$JobStatusUri/$jobId" -connection $connection
-        [xml]$response.Content
-    }
-
-    process{}
-
-    end{}
-
-}
-
 function Wait-NsxJob {
 
     <#
@@ -4632,8 +4607,10 @@ function Wait-NsxJob {
 
             #Get updated jobStatus
             try {
-                [xml]$job = Get-NsxJobStatus -jobId $JobId -JobStatusUri $JobStatusUri -Connection $Connection
-                write-debug "$($MyInvocation.MyCommand.Name) : Got Job from API for job $jobid"
+                $response = invoke-nsxwebrequest -method "get" -uri "$JobStatusUri/$jobId" -connection $connection
+                [xml]$job = $response.Content
+
+                write-debug "$($MyInvocation.MyCommand.Name) : Got job from $JobStatusUri for job $jobid"
 
             }
             catch {

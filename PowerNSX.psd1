@@ -330,7 +330,6 @@ FunctionsToExport = @(
     'Import-NsxObject',
     'Connect-NsxLogicalSwitch',
     'Disconnect-NsxLogicalSwitch',
-    'Get-NsxJobStatus',
     'Add-NsxLicense',
     'Get-NsxLicense',
     'Get-NsxApplicableMember',
