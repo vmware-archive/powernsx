@@ -349,6 +349,7 @@ FunctionsToExport = @(
     'Get-NsxFirewallRuleMember',
     'Add-NsxFirewallRuleMember',
     'Remove-NsxFirewallRuleMember',
+    'Wait-NsxGenericJob',
     'Remove-NsxController'
 )
 

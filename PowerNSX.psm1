@@ -4500,8 +4500,8 @@ function Wait-NsxJob {
     Intended to be internal generic job wait routine for PowerNSX cmdlet
     consumption.
 
-    PowerNSX users should use object specific Wait-Nsx*Job Cmdlets that call
-    this cmdlet.
+    PowerNSX users should use object specific Wait-Nsx*Job or Wiat-NsxGenericJob
+    Cmdlets that call this cmdlet.
     #>
 
     param (
@@ -4624,6 +4624,93 @@ function Wait-NsxJob {
 
     end {}
 
+}
+
+function Wait-NsxGenericJob {
+
+    <#
+    .SYNOPSIS
+    Wait for the specified job until it succeeds or fails.
+
+    .DESCRIPTION
+    Generic task framework handler.  Wait-NsxJob attempts waits for the
+    specified job to succeed or fail.
+
+    Wait-NsxGenericJob defaults to timeout at 30 seconds, when the user
+    is prompted to continuing waiting or fail.  If immediate failure upon
+    timeout is desirable (eg within script), then the $failOnTimeout switch can
+    be set.
+
+    .EXAMPLE
+    Wait-NsxGenericJob -Jobid jobdata-1234
+
+    Wait for job jobdata-1234 up to 30 seconds to complete
+    successfully or fail.  If 30 seconds elapse, then prompt for action.
+
+    .EXAMPLE
+    Wait-NsxGenericJob -Jobid jobdata-1234 -TimeOut 40 -FailOnTimeOut
+
+    Wait for controller job jobdata-1234 up to 40 seconds to complete
+    successfully or fail.  If 40 seconds elapse, then throw an error.
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true)]
+            #Job Id string as returned from the api
+            [string]$JobId,
+        [Parameter (Mandatory=$false)]
+            #Seconds to wait before declaring a timeout.  Timeout defaults to 30 seconds.
+            [int]$WaitTimeout=30,
+        [Parameter (Mandatory=$false)]
+            #Do we prompt user an allow them to reset the timeout timer, or throw on timeout
+            [switch]$FailOnTimeout=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+
+    $WaitJobArgs = @{
+        "jobid" = $jobid
+        "JobStatusUri" = "/api/2.0/services/taskservice/job"
+        "CompleteCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "COMPLETED"
+        }
+        "FailCriteria" = {
+            $job.jobInstances.jobInstance.status -eq "FAILED"
+        }
+        "StatusExpression" = {
+            $execTask = @()
+            $StatusMessage = ""
+            $execTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "EXECUTING" })
+            if ( $exectask.count -eq 1) {
+                $StatusMessage = "$($execTask.name) - $($execTask.taskStatus)"
+            }
+            else {
+                $StatusMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $StatusMessage
+        }
+        "ErrorExpression" = {
+            $failTask = @()
+            $failMessage = ""
+            $failTask = @($job.jobinstances.jobInstance.taskInstances.taskInstance | where-object { $_.taskStatus -eq "FAILED" })
+            if ( $failTask.count -eq 1) {
+                $failMessage = "Failed Task : $($failTask.name) - $($failTask.statusMessage)"
+            }
+            else {
+                $failMessage = "$($job.jobinstances.jobInstance.Status)"
+            }
+            $failMessage
+        }
+        "WaitTimeout" = $WaitTimeout
+        "FailOnTimeout" = $FailOnTimeout
+        "Connection" = $Connection
+    }
+
+    Wait-NsxJob @WaitJobArgs
 }
 
 #########
@@ -9357,10 +9444,18 @@ function Connect-NsxLogicalSwitch {
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop[]]$NetworkAdapter,
         [Parameter(Mandatory=$true, Position=1)]
+            #Logical Switch to connect NICs or VMs to.
             [ValidateScript({ Validate-LogicalSwitch $_ })]
             [System.Xml.XmlElement]$LogicalSwitch,
         [Parameter(Mandatory=$false)]
+            #If specified VM is multi homed, connect all NICs to the same network.  Defaults to $false
             [switch]$ConnectMultipleNics=$false,
+        [Parameter(Mandatory=$false)]
+            #If job reaches -WaitTimeout without failing or completing, do we prompt, or fail with error?
+            [switch]$FailOnTimeout=$false,
+        [Parameter(Mandatory=$false)]
+            #Seconds to wait for connection job to complete.  Defaults to 30 seconds.
+            [int]$WaitTimeout = 30,
         [Parameter (Mandatory=$false)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -9399,30 +9494,7 @@ function Connect-NsxLogicalSwitch {
             $job = [xml]$response.content
             $jobId = $job."com.vmware.vshield.vsm.vdn.dto.ui.ReconfigureVMTaskResultDto".jobId
 
-            $status = $null
-            while ( $status -ne "COMPLETED" ) {
-                $failcount = 0
-                while ( $failCount -lt 3 ) {
-                    try {
-                        [xml]$job = Get-NsxJobStatus -jobId $JobId
-                        $status = $job.edgeJob.status
-                        Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete"
-                        if ( $status -ne "COMPLETED" ) {
-                            write-verbose "Waiting for async job $jobid to complete.  Current status $status."
-                            start-sleep -Milliseconds 1000
-                        }
-                        else {
-                            Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" -completed
-                            break
-                        }
-                    }
-                    catch {
-                        #Can fail if query is too quick
-                        start-sleep -Milliseconds 1000
-                        $failcount++
-                    }
-                }
-            }
+            Wait-NsxGenericJob -Jobid $JobID -Connection $Connection -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
         }
     }
 
@@ -9484,9 +9556,17 @@ function Disconnect-NsxLogicalSwitch {
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop[]]$NetworkAdapter,
         [Parameter(Mandatory=$false)]
+            #If specified VM is multi homed, disconnect all NICs from the same network.  Defaults to $false
             [switch]$DisconnectMultipleNics=$false,
         [Parameter(Mandatory=$false)]
+            #Prompt for confirmation.
             [switch]$Confirm=$true,
+        [Parameter(Mandatory=$false)]
+            #If job reaches -WaitTimeout without failing or completing, do we prompt, or fail with error?
+            [switch]$FailOnTimeout=$false,
+        [Parameter(Mandatory=$false)]
+            #Seconds to wait for connection job to complete.  Defaults to 30 seconds.
+            [int]$WaitTimeout = 30,
         [Parameter (Mandatory=$false)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -9537,30 +9617,8 @@ function Disconnect-NsxLogicalSwitch {
                 $job = [xml]$response.content
                 $jobId = $job."com.vmware.vshield.vsm.vdn.dto.ui.ReconfigureVMTaskResultDto".jobId
 
-                $status = $null
-                while ( $status -ne "COMPLETED" ) {
-                    $failcount = 0
-                    while ( $failCount -lt 3 ) {
-                        try {
-                            [xml]$job = Get-NsxJobStatus -jobId $JobId
-                            Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete"
-                            $status = $job.edgeJob.status
-                            if ( $status -ne "COMPLETED" ) {
-                                write-verbose "Waiting for async job $jobid to complete.  Current status $status."
-                                start-sleep -Milliseconds 1000
-                            }
-                            else {
-                                Write-Progress -Activity "Processing" -Status "Waiting for NSX job $jobId to complete" -completed
-                                break
-                            }
-                        }
-                        catch {
-                            #Can fail if query is too quick
-                            start-sleep -Milliseconds 1000
-                            $failcount++
-                        }
-                    }
-                }
+                Wait-NsxGenericJob -Jobid $JobID -Connection $Connection -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
+
             }
         }
     }
