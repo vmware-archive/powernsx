@@ -4518,7 +4518,6 @@ function Wait-NsxJob {
     returned XML object that you can traverse)
 
     Status expression and ErrorExpression provide methods of providing output
-    back to the user about job status.  Neither of these affect the evaluation
     of Success or Failure criteria.
 
     Intended to be internal generic job wait routine for PowerNSX cmdlet
@@ -7093,7 +7092,7 @@ function New-NsxController {
             catch {
                 throw "Controller deployment failed. $_"
             }
-            if ( -not (($response.Content -match "jobdata-\d+") -and ($response.Headers.keys -contains "location") -and ($response.Headers["location"] -match "/api/2.0/vdn/controller/" )) ) {
+            if ( -not (($response.Content -match "jobdata-\d+") -and ($response.Headers.keys -contains "location") -and ($response.Headers["Location"] -match "/api/2.0/vdn/controller/" )) ) {
                 throw "Controller deployment failed. $($response.content)"
             }
 
