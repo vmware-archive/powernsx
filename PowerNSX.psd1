@@ -31,7 +31,7 @@ has its own license that is located in the source code of the respective compone
 RootModule = 'PowerNSX.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.1.0'
+ModuleVersion = '3.0.0'
 
 # ID used to uniquely identify this module
 GUID = 'ea3b0bdc-83a3-4cae-9920-7257beae8614'
@@ -330,7 +330,6 @@ FunctionsToExport = @(
     'Import-NsxObject',
     'Connect-NsxLogicalSwitch',
     'Disconnect-NsxLogicalSwitch',
-    'Get-NsxJobStatus',
     'Add-NsxLicense',
     'Get-NsxLicense',
     'Get-NsxApplicableMember',
@@ -350,6 +349,7 @@ FunctionsToExport = @(
     'Get-NsxFirewallRuleMember',
     'Add-NsxFirewallRuleMember',
     'Remove-NsxFirewallRuleMember',
+    'Wait-NsxGenericJob',
     'Remove-NsxController'
 )
 

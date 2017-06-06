@@ -46,11 +46,26 @@ Describe "Environment" -Tags "Environment" {
         ($tz | measure).count | should be 1
     }
 
+    It "Has a single local SegmentID range defined" {
+        $Segment = Get-NsxSegmentIdRange -LocalOnly
+        $Segment.isUniversal  | should be "false"
+        $Segment | should not be $null
+        ($Segment | measure).count | should be 1
+    }
+
     It "Has a single universal TransportZone" {
         $Tz = Get-NsxTransportZone | ? { $_.isUniversal -eq 'true'}
         $tz | should not be $null
         ($tz | measure).count | should be 1
     }
+
+    It "Has a single universal SegmentID range defined" {
+        $Segment = Get-NsxSegmentIdRange -UniversalOnly
+        $Segment.isUniversal  | should be "true"
+        $Segment | should not be $null
+        ($Segment | measure).count | should be 1
+    }
+
     it "Destroys default NSX connection" {
         disconnect-nsxserver
         $DefaultNsxServer | should be $null

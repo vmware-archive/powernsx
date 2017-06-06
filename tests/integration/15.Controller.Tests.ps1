@@ -30,16 +30,16 @@ Describe "Controller" {
     }
 
     It "Can deploy a controller - Sync" -Skip:$SkipCtrlTest {
-        $newctrl = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait
-        $currentCtrl = Get-NsxController -ObjectId $newctrl.objectid
-        $currentCtrl | should notbe $null
+        $newctrl = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait -Confirm:$false
+        $currentCtrl = Get-NsxController -ObjectId $newctrl.id
+        $currentCtrl | should not be $null
         $currentCtrl.status | should be "RUNNING"
     }
 
     It "Can remove a controller - Sync" -Skip:$SkipCtrlTest {
-        $ctrlToRemove = Get-NSxController | ? { $_.objectId -ne $ctrl.objectId }
-        {$CtrlToRemove | Remove-NsxController -Wait } | should not throw
-        Get-NsxController -ObjectId $ctrlToRemove.objectid  | should be $null
+        $ctrlToRemove = Get-NSxController | ? { $_.id -ne $ctrl.id }
+        {$CtrlToRemove | Remove-NsxController -Wait -Confirm:$false} | should not throw
+        Get-NsxController -ObjectId $ctrlToRemove.id  | should be $null
     }
     AfterAll {
 
