@@ -79,36 +79,23 @@ Function _init {
         ##################WARNING############################
         $WarningString = @"
 ###################################WARNING######################################
-PowerNSX support for Powershell Core is experimental and may not work as
-expected.
+PowerNSX support for Powershell Core is still experimental.
 
 Please see the PowerNSX github site for current list of known issues.
 
-Some known issues you are likely to hit:
-    *   Xml response from NSX API is not (always) parsed correctly and causes
-        invoke-restmethod exceptions.  All known instances of this issue have
-        been fixed.  Please raise an issue if you hit this.
-    *   Cmdlets using invoke-nsxrestmethod do not return the webrequest response
-        in the event an exception is thrown, making error messages basically
-        useless.  Invoke-NsxWebrequest has been updated to resolve this. Please
-        raise an issue if you encounter an error where you do not get access to
-        the actual response that the NSX API returned.
-    *   Progress (write-progress) reporting in PowerShell core causes output
-        issues where output is overwritten.  Progress dialogs are suppressed by
-        default on PowerNSX Core.  These can be reenabled with
-        `$PowerNSXConfiguration.ProgressDialogs = `$true.  The
-        `$PowerNSXConfiguration object will be expanded upon in subsequent
-        commits.  It is not currently persistent.
-    *   Limited testing
-
 If you encounter an issue using PowerNSX, please raise it at
 https://github.com/vmware/powernsx/issues
-
 ###################################WARNING######################################
 
 "@
-        write-host -ForegroundColor Red $WarningString
+        write-host -ForegroundColor Yellow $WarningString
 
+        if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
+            write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
+            if ( $PSVersionTable.PSVersion -ne '6.0.0-alpha') {
+                throw "The PowerShell Core Beta has known issues that cause PowerNSX to fail.  Refusing to load module."
+            }
+        }
         #Attempt to load PowerCLI modules required
         foreach ($Module in $CoreRequiredModules ) {
             if ( -not $CurrentModules.Name.Contains($Module)) {
@@ -138,14 +125,14 @@ https://github.com/vmware/powernsx/issues
 
     }
 
-    #Setup the PowerNSXConfiguration object.
-    $script:PowerNSXConfiguration = @{}
-    if ( $script:PNsxPSTarget -eq "Desktop") {
-        $script:PowerNSXConfiguration.Add("ProgressDialogs", $true)
-    }
-    else {
-        $script:PowerNSXConfiguration.Add("ProgressDialogs", $false)
-    }
+    # #Setup the PowerNSXConfiguration object.
+    # $script:PowerNSXConfiguration = @{}
+    # if ( $script:PNsxPSTarget -eq "Desktop") {
+    #     $script:PowerNSXConfiguration.Add("ProgressDialogs", $true)
+    # }
+    # else {
+    #     $script:PowerNSXConfiguration.Add("ProgressDialogs", $false)
+    # }
 
 
     ## Define class required for certificate validation override.  Version dependant.
