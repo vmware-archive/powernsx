@@ -8319,13 +8319,21 @@ function Get-NsxSegmentIdRange {
 
     #>
 
-    [CmdletBinding(DefaultParameterSetName="Name")]
+    [CmdletBinding(DefaultParameterSetName="Default")]
 
     param (
         [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+            #Name of the segment ID range to return
             [string]$Name,
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
+            #ObjectId of the segment ID range to return
             [string]$ObjectId,
+        [Parameter (Mandatory=$true, ParameterSetName="UniversalOnly")]
+            #Return only Universal objects
+            [switch]$UniversalOnly,
+        [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
+            #Return only Locally scoped objects
+            [switch]$LocalOnly,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -8333,22 +8341,24 @@ function Get-NsxSegmentIdRange {
 
     )
 
-    if ( $PsBoundParameters.ContainsKey('ObjectId')) {
+    Process {
 
-        $URI = "/api/2.0/vdn/config/segments/$ObjectId"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        $response.segmentRange
-    }
-    else {
+        if ( $PsBoundParameters.ContainsKey('ObjectId')) {
 
-        $URI = "/api/2.0/vdn/config/segments"
-        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-        If ( $PsBoundParameters.ContainsKey("Name")) {
-
-            $response.segmentRanges.segmentRange | ? { $_.name -eq $Name }
+            $URI = "/api/2.0/vdn/config/segments/$ObjectId"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            $response.segmentRange
         }
         else {
-            $response.segmentRanges.segmentRange
+
+            $URI = "/api/2.0/vdn/config/segments"
+            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            switch ( $PSCmdlet.ParameterSetName ) {
+                "Name" { $response.segmentRanges.segmentRange | ? { $_.name -eq $Name } }
+                "UniversalOnly" { $response.segmentRanges.segmentRange | ? { $_.isUniversal -eq "true" } }
+                "LocalOnly" { $response.segmentRanges.segmentRange | ? { $_.isUniversal -eq "false" } }
+                Default { $response.segmentRanges.segmentRange }
+            }
         }
     }
 }
