@@ -45,14 +45,9 @@ Describe "Logical Switching" {
         AfterEach {
             if ( -not $SkipTzMember ) {
                 $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
-                if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -notcontains $cl.objectId ) {
+                if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -notcontains $cl.ExtensionData.MoRef.Value ) {
                     #Cluster has been removed, and needs to be readded...
                     $CurrentTz | Add-NsxTransportZoneMember -Cluster $cl
-                    # do {
-                    #     #Need to block until the API reflects the change we just made... sigh...
-                    #     start-sleep 1
-                    #     $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
-                    # } until ( $CurrentTz.Clusters.Cluster.Cluster.objectId -contains $cl.objectId)
                 }
             }
         }
@@ -70,7 +65,7 @@ Describe "Logical Switching" {
             BeforeEach {
                 if ( -not $SkipTzMember ) {
                     $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
-                    if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -contains $cl.objectId ) {
+                    if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -contains $cl.ExtensionData.MoRef.Value ) {
                         #Cluster has been added, and needs to be removed...
                         $CurrentTz | Remove-NsxTransportZoneMember -Cluster $cl
                     }
