@@ -51,6 +51,10 @@ Describe "Logical Switching" {
                 if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -notcontains $cl.objectId ) {
                     #Cluster has been removed, and needs to be readded...
                     $CurrentTz | Add-NsxTransportZoneMember -Cluster $cl
+                    do {
+                        $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
+                        write-warning "Post test cluster addition validation "
+                    } until ( $CurrentTz.Clusters.Cluster.Cluster.objectId -contains $cl.objectId)
                 }
             }
         }
@@ -83,6 +87,8 @@ Describe "Logical Switching" {
         }
 
     }
+
+
 
     AfterAll {
 
