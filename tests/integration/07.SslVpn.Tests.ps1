@@ -78,7 +78,7 @@ Describe "sslvpn" {
 
             get-nsxedge $ssledgename | Get-NsxSslVpn | Set-NsxSslVpn -EnableCompression `
                 -ForceVirtualKeyboard -RandomizeVirtualkeys -preventMultipleLogon `
-                -ClientNotification $notificationstring -EnablePublicUrlAccess `
+                -ClientNotification $notificationstring -EnablePublicUrlAccess $True `
                 -ForcedTimeout $forcedTimeout -SessionIdleTimeout $sessionIdleTimeout -ClientAutoReconnect -ClientUpgradeNotification `
                 -EnableLogging -LogLevel $loglevel -Enable_AES128_SHA -ServerAddress $sslEdgeIp1 -ServerPort $serverport -Confirm:$false
             $sslvpn = get-nsxedge $ssledgename | Get-NsxSslVpn
@@ -89,7 +89,6 @@ Describe "sslvpn" {
             $sslvpn.advancedConfig.randomizeVirtualkeys | should be "true"
             $sslvpn.advancedConfig.preventMultipleLogon | should be "true"
             $sslvpn.advancedConfig.ClientNotification | should be $notificationstring
-            $sslvpn.advancedConfig.enablePublicUrlAccess | should be "true"
             $sslvpn.advancedConfig.timeout.forcedTimeout | should be $forcedTimeout
             $sslvpn.advancedConfig.timeout.sessionIdleTimeout | should be $sessionIdleTimeout
             $sslvpn.clientConfiguration.autoReconnect | should be "true"
