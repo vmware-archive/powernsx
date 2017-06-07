@@ -31,7 +31,7 @@ has its own license that is located in the source code of the respective compone
 RootModule = 'PowerNSX.psm1'
 
 # Version number of this module.
-ModuleVersion = '2.1.0'
+ModuleVersion = '3.0.0'
 
 # ID used to uniquely identify this module
 GUID = 'ea3b0bdc-83a3-4cae-9920-7257beae8614'
@@ -104,6 +104,7 @@ FunctionsToExport = @(
     'Get-PowerNsxVersion',
     'Get-NsxClusterStatus',
     'Invoke-NsxCli',
+    'Wait-NsxJob',
     'Get-NsxCliDfwFilter',
     'Get-NsxCliDfwRule',
     'Get-NsxCliDfwAddrSet',
@@ -111,6 +112,8 @@ FunctionsToExport = @(
     'Set-NsxManager',
     'New-NsxController',
     'Get-NsxController',
+    'Remove-NsxController',
+    'Wait-NsxControllerJob',
     'New-NsxIpPool',
     'Get-NsxIpPool',
     'Remove-NsxIpPool'
@@ -127,6 +130,8 @@ FunctionsToExport = @(
     'Get-NsxTransportZone',
     'New-NsxTransportZone',
     'Remove-NsxTransportZone',
+    'Add-NsxTransportZoneMember',
+    'Remove-NsxTransportZoneMember',
     'Get-NsxLogicalSwitch',
     'New-NsxLogicalSwitch',
     'Remove-NsxLogicalSwitch',
@@ -305,6 +310,12 @@ FunctionsToExport = @(
     'Get-NsxManagerSystemSummary',
     'Get-NsxManagerCertificate',
     'Get-NsxManagerRole',
+    'Set-NsxManagerRole',
+    'Invoke-NsxManagerSync',
+    'Get-NsxManagerSyncStatus',
+    'Add-NsxSecondaryManager',
+    'Get-NsxSecondaryManager',
+    'Remove-NsxSecondaryManager',
     'New-NsxServiceGroup',
     'Add-NsxServiceGroupMember',
     'Get-NsxServiceGroup',
@@ -319,7 +330,6 @@ FunctionsToExport = @(
     'Import-NsxObject',
     'Connect-NsxLogicalSwitch',
     'Disconnect-NsxLogicalSwitch',
-    'Get-NsxJobStatus',
     'Add-NsxLicense',
     'Get-NsxLicense',
     'Get-NsxApplicableMember',
@@ -339,6 +349,7 @@ FunctionsToExport = @(
     'Get-NsxFirewallRuleMember',
     'Add-NsxFirewallRuleMember',
     'Remove-NsxFirewallRuleMember',
+    'Wait-NsxGenericJob',
     'Remove-NsxController'
 )
 

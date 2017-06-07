@@ -12,6 +12,17 @@ Describe "Logical Switching" {
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:ls1_name = "pester_ls_ls1"
+        $script:tz = Get-NsxTransportZone -LocalOnly | select -first 1
+        $emptycl = ($tz).clusters.cluster.cluster.name | % {get-cluster $_ } | ? { ($_ | get-vm | measure).count -eq 0 }
+        if ( -not $emptycl ) {
+            write-warning "No cluster that is a member of an NSX TransportZone but not hosting any VMs could be found for Transport Zone membership addition/removal tests."
+            $script:SkipTzMember = $True
+        }
+        else {
+            $script:cl = $emptycl | select -First 1
+            $script:SkipTzMember = $False
+            write-warning "Using $($tz.Name) and cluster $cl for transportzone membership test"
+        }
     }
 
     it "Can retrieve a transport zone" {
@@ -28,6 +39,49 @@ Describe "Logical Switching" {
         get-nsxlogicalswitch $ls1_name | Remove-NsxLogicalSwitch -Confirm:$false
         get-nsxlogicalswitch $ls1_name | should be $null
     }
+
+    Context "Transport Zone Tests" {
+
+        AfterEach {
+            if ( -not $SkipTzMember ) {
+                $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
+                if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -notcontains $cl.ExtensionData.MoRef.Value ) {
+                    #Cluster has been removed, and needs to be readded...
+                    $CurrentTz | Add-NsxTransportZoneMember -Cluster $cl
+                }
+            }
+        }
+
+        Context "Transport Zone Cluster Removal" {
+
+            it "Can remove a transportzone cluster" -skip:$SkipTzMember {
+                $tz | Remove-NsxTransportZoneMember -Cluster $cl
+                $updatedtz = Get-NsxTransportZone -objectId $tz.objectId
+                $updatedtz.clusters.cluster.cluster.name -contains $cl.name | should be $false
+            }
+        }
+
+        Context "Transport Zone Cluster Addition" {
+            BeforeEach {
+                if ( -not $SkipTzMember ) {
+                    $CurrentTz = Get-NsxTransportZone -objectid $tz.objectId
+                    if ( $CurrentTz.Clusters.Cluster.Cluster.objectId -contains $cl.ExtensionData.MoRef.Value ) {
+                        #Cluster has been added, and needs to be removed...
+                        $CurrentTz | Remove-NsxTransportZoneMember -Cluster $cl
+                    }
+                }
+            }
+
+            it "Can add a transportzone cluster" -skip:$SkipTzMember {
+                $tz | Add-NsxTransportZoneMember -Cluster $cl
+                $updatedtz = Get-NsxTransportZone -objectId $tz.objectId
+                $updatedtz.clusters.cluster.cluster.name -contains $cl.name | should be $true
+            }
+        }
+
+    }
+
+
 
     AfterAll {
 
