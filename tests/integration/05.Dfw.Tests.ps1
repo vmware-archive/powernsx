@@ -885,15 +885,10 @@ Describe "DFW" {
             $rule.sources | should be $null
             $rule.destination | should be $null
             $rule.appliedToList.appliedTo.Name | should be $testlsname
-            #$rule.appliedToList.appliedTo.Value | should not be $null
             $rule.appliedToList.appliedTo.Type | should be "VirtualWire"
-            #$rule.appliedToList.appliedTo.isValue | should not be $null
             $rule.name | should be "pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "false"
-        }
-
-        it "Can create an l3 rule with a vapp based applied to" {
         }
 
         it "Can create an l3 rule with a vnic based applied to" {

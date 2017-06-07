@@ -2140,6 +2140,10 @@ Function Validate-SecurityGroupMember {
         #Argument is a NIC object.
         $true
     }
+    elseif ( $argument -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop] ) {
+        #Argument is a vApp object ID
+        $true
+    }
     elseif (($argument -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $argument.ExtensionData.MoRef.Type)) {
         #Argument is a VI ob ject and matches a recognised NSX SG member type
         $true
