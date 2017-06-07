@@ -227,6 +227,7 @@ $FunctionsToExport = @(
     'New-NsxLoadBalancerPool',
     'Get-NsxLoadBalancerPool',
     'Remove-NsxLoadBalancerPool',
+    'Set-NsxLoadBalancerPool',
     'Get-NsxLoadBalancerPoolMember',
     'Set-NsxLoadBalancerPoolMember',
     'Add-NsxLoadBalancerPoolMember',

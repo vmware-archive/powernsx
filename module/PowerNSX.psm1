@@ -34618,8 +34618,138 @@ function Set-NsxSecurityPolicyFirewallRule   {
     }
 }
 
-function Add-NsxSecurityPolicyRuleGroup   {
+function Set-NsxLoadBalancerPool {
 
+
+    <#
+    .SYNOPSIS
+    Modified a LoadBalancer Pool on the specified ESG.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly
+    among multiple servers in such a way that the load distribution is
+    transparent to users. Load balancing thus helps in achieving optimal
+    resource utilization, maximizing throughput, minimizing response time, and
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    A pool manages load balancer distribution methods and has a service monitor
+    attached to it for health check parameters.  Each Pool has one or more
+    members.  Prior to creating or updating a pool to add a member, a member
+    spec describing the member needs to be created.
+
+    This cmdlet modified LoadBalancer Pool on the specified ESG.
+
+    .EXAMPLE
+
+    $MyLBPool = Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool
+    $MyLBPool | Set-NsxLoadBalancerPool -Name WebPool -Description "WebServer Pool"
+
+    Update Name and Description of LoadBalancer Pool
+
+    .EXAMPLE
+
+    $MyLBPool = Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool
+    $MyLBPool | Set-NsxLoadBalancerPool -Transparent
+
+    Enable transparent mode in Load Balancer Pool
+
+    .EXAMPLE
+
+    $MyLBPool = Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool
+    $MyLBPool | Set-NsxLoadBalancerPool -Transparent:$false
+
+    Disable transparent mode in Load Balancer Pool
+
+    .EXAMPLE
+
+    $MyLBPool = Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool
+    $MyLBPool | Set-NsxLoadBalancerPool -Algorithm ip-hash
+
+    Choose the algorithm emergency (round-robin, ip-hash, uri, leastconn) of Load Balancer Pool
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateLoadBalancerPool $_ })]
+            [System.Xml.XmlElement]$LoadBalancerPool,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNull()]
+            [string]$Description="",
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [switch]$Transparent,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("round-robin", "ip-hash", "uri", "leastconn")]
+            [string]$Algorithm,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LoadBalancerPool = $LoadBalancerPool.CloneNode($true)
+        #Store the poolId
+        $poolId = $_LoadBalancerPool.poolId
+        $poolname = $_LoadBalancerPool.name
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_LoadBalancerPool.edgeId
+        $_LoadBalancerPool.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancerPool -Query 'descendant::edgeId')) ) | out-null
+
+
+        if ( $PsBoundParameters.ContainsKey('name') ) {
+            $_LoadBalancerPool.name = $name
+			$poolname = $name
+        }
+
+        if ( $PsBoundParameters.ContainsKey('Description') ) {
+            $_LoadBalancerPool.description = $Description
+        }
+
+        if ( $PsBoundParameters.ContainsKey('Transparent') ) {
+            if ( $Transparent ) {
+                $_LoadBalancerPool.Transparent = "true"
+            } else {
+                $_LoadBalancerPool.Transparent = "false"
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('Algorithm') ) {
+            $_LoadBalancerPool.Algorithm = $Algorithm
+        }
+
+        $URI = "/api/4.0/edges/$EdgeId/loadbalancer/config/pools/$poolId"
+        $body = $_LoadBalancerPool.OuterXml
+
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Load Balancer Pool Config"
+        $response = invoke-nsxwebrequest -method "PUT" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+
+        $UpdatedEdge = Get-NsxEdge -objectId $($EdgeId) -connection $connection
+        $return = $UpdatedEdge.features.loadBalancer.pool | ? { $_.name -eq $poolname }
+        Add-XmlElement -xmlroot $return -xmlElementName "edgeId" -xmlElementText $edgeId
+        $return
+    }
+
+    end {}
+}
+
+function Add-NsxSecurityPolicyRuleGroup   {
     <#
     .SYNOPSIS
     Modifies the configuration of an existing Security Policy Firewall or
