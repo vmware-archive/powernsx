@@ -29,23 +29,38 @@ Describe "Controller" {
         }
     }
 
-    It "Can deploy a controller - Sync" -Skip:$SkipCtrlTest {
-        $newctrl = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait -Confirm:$false
+    It "Can deploy a second controller - test warning" -Skip:$SkipCtrlTest {
+        #Test that an expected warning is output to the warning stream...
+        (( $newctrl = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait -Confirm:$false -password "rubbish" ) 3>&1) -match "A controller is already deployed but a password argument was specified to New-NsxController." | should be $true
         $currentCtrl = Get-NsxController -ObjectId $newctrl.id
         $currentCtrl | should not be $null
         $currentCtrl.status | should be "RUNNING"
     }
 
-    It "Can remove a controller - Sync" -Skip:$SkipCtrlTest {
-        $ctrlToRemove = Get-NSxController | ? { $_.id -ne $ctrl.id }
-        {$CtrlToRemove | Remove-NsxController -Wait -Confirm:$false} | should not throw
-        Get-NsxController -ObjectId $ctrlToRemove.id  | should be $null
+    It "Can deploy a third controller - test warning" -Skip:$SkipCtrlTest {
+        #Test that an expected warning is output to the warning stream...
+        (( $newctrl = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait -Confirm:$false -password "rubbish" ) 3>&1) -match "A controller is already deployed but a password argument was specified to New-NsxController." | should be $true
+        $currentCtrl = Get-NsxController -ObjectId $newctrl.id
+        $currentCtrl | should not be $null
+        $currentCtrl.status | should be "RUNNING"
     }
+    It "Can remove a controllers" -Skip:$SkipCtrlTest {
+        $ctrlToRemove = @(Get-NSxController | ? { $_.id -ne $ctrl.id })
+        {$CtrlToRemove | Remove-NsxController -Wait -Confirm:$false} | should not throw
+        foreach ( $ctrl in $ctrlToRemove ) {
+            Get-NsxController -ObjectId $ctrl.id  | should be $null
+        }
+    }
+
+
     AfterAll {
 
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #We kill the connection to NSX Manager here.
+
         disconnect-nsxserver
+
     }
+
 }
 
