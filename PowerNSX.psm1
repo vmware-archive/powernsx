@@ -7095,13 +7095,13 @@ function New-NsxController {
     )
 
     begin {
-        $count = get-nsxcontroller -connection $Connection | measure
+        $Ctrlcount = get-nsxcontroller -connection $Connection | measure
 
-        if ( ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -gt 1)) {
-            Throw "A Controller already exists. Secondary and Tertiary controllers do not use the password parameter"
+        if ( ($PSBoundParameters.ContainsKey("Password")) -and ($Ctrlcount.count -gt 0)) {
+            write-warning "A controller is already deployed but a password argument was specified to New-NsxController. The new controller will be configured with the same password as the initial one and the specified password ignored"
         }
-        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($count.count -eq 0)) {
-            Throw "Password property must be defined for the first controller. Define a password with -Password"
+        if ( -not ($PSBoundParameters.ContainsKey("Password")) -and ($Ctrlcount.count -eq 0)) {
+            Throw "A password is required to deploy the inital controller. Try again and specify the -Password parameter."
         }
 
         $yesnochoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
@@ -7134,7 +7134,7 @@ function New-NsxController {
 
         # Check for presence of optional controller name
         if ($PSBoundParameters.ContainsKey("ControllerName")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
-        if ($PSBoundParameters.ContainsKey("Password")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()}
+        if ($PSBoundParameters.ContainsKey("Password") -and ($Ctrlcount.count -eq 0)) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()}
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
 
