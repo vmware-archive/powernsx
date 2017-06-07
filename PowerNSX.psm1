@@ -172,8 +172,12 @@ https://github.com/vmware/powernsx/issues
             public Dictionary<string, string> Headers;
             public string Content;
             public internalWebResponse() {
-                this.Headers = new Dictionary<string,string>();
+                this.Headers = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
             }
+	    public override string ToString()
+	    {
+		return this.Content;
+	    }
         }
 
         public class InternalWebRequestException: Exception
