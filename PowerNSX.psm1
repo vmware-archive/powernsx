@@ -17,7 +17,6 @@ FOR A PARTICULAR PURPOSE. See the GNU General Public License version 2 for more 
 You should have received a copy of the General Public License version 2 along with this program.
 If not, see https://www.gnu.org/licenses/gpl-2.0.html.
 
-The full text of the General Public License 2.0 is provided in the COPYING file.
 Some files may be comprised of various open source software components, each of which
 has its own license that is located in the source code of the respective component.
 #>
@@ -942,6 +941,7 @@ function Validate-UpdateBranch {
     }
 
 }
+
 Function Validate-TransportZone {
 
     Param (
@@ -2165,6 +2165,17 @@ Function Validate-SecurityGroupMember {
     }
     else {
         throw "Member is not a supported type.  Specify an object of type $($NsxMemberTypes -join ",")."
+    }
+}
+
+Function Validate-IPHost {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+    if ( ( $argument -as [ipaddress] ) -or ( ( Validate-IPPrefix $argument ) -and ($argument -match '^(\d{1,3}\.){3}\d{1,3}\/32\s*$') ) )  {
+        $true
     }
 }
 
@@ -9177,7 +9188,7 @@ function Get-NsxLogicalSwitch {
     param (
 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
-            [ValidateNotNullOrEmpty()]
+            [ValidateScript({ Validate-TransportZone $_ })]
             [alias("vdnScope")]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$false,Position=1)]
@@ -9211,8 +9222,8 @@ function Get-NsxLogicalSwitch {
 
             #Getting all LS in a given VDNScope
             $lspagesize = 10
-            if ( $PSBoundParameters.ContainsKey('vndScope')) {
-                $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
+            if ( $PSBoundParameters.ContainsKey('TransportZone')) {
+                    $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
             }
             else {
                 $URI = "/api/2.0/vdn/virtualwires?pagesize=$lspagesize&startindex=00"
@@ -10832,13 +10843,15 @@ function New-NsxLogicalRouter {
         [Parameter (Mandatory=$false)]
             #Create the universal logical router with Local Egress enabled.
             [switch]$EnableLocalEgress=$false,
+        [Parameter (Mandatory=$false)]
+            #Optional tenant string to be configured on the DLR.
+            [ValidateNotNullOrEmpty()]
+            [String]$Tenant,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
-
 
     begin {}
     process {
@@ -10851,11 +10864,13 @@ function New-NsxLogicalRouter {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "distributedRouter"
 
-        switch ($ManagementPortGroup){
+        if ($PSBoundParameters.ContainsKey("Tenant")) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant
+        }
 
+        switch ($ManagementPortGroup){
             { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
             { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
-
         }
 
         [System.XML.XMLElement]$xmlMgmtIf = $XMLDoc.CreateElement("mgmtInterface")
@@ -10866,10 +10881,8 @@ function New-NsxLogicalRouter {
         $xmlRoot.appendChild($xmlAppliances) | out-null
 
         switch ($psCmdlet.ParameterSetName){
-
             "Cluster"  { $ResPoolId = $($cluster | get-resourcepool | ? { $_.parent.id -eq $cluster.id }).extensiondata.moref.value }
             "ResourcePool"  { $ResPoolId = $ResourcePool.extensiondata.moref.value }
-
         }
 
         [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
@@ -10882,7 +10895,6 @@ function New-NsxLogicalRouter {
             $xmlAppliances.appendChild($xmlAppliance) | out-null
             Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
             Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $HAdatastore.extensiondata.moref.value
-
         }
 
         [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("interfaces")
@@ -10891,7 +10903,6 @@ function New-NsxLogicalRouter {
 
             $import = $xmlDoc.ImportNode(($VnicSpec), $true)
             $xmlVnics.AppendChild($import) | out-null
-
         }
 
         if ( ( $EnableLocalEgress ) -and ( $universal ) ) {
@@ -10919,7 +10930,6 @@ function New-NsxLogicalRouter {
 
         }
         Get-NsxLogicalRouter -objectID $edgeId -connection $connection
-
     }
     end {}
 }
@@ -12705,12 +12715,15 @@ function New-NsxEdge {
 
     param (
         [Parameter (Mandatory=$true)]
+            #Name of the edge appliance.
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
+            #Resource pool into which to deploy the Edge.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
+            #DRS Cluster into which to deploy the Edge.
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
@@ -12718,59 +12731,79 @@ function New-NsxEdge {
             })]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$true)]
+            #Datastore onto which to deploy the edge appliance (If HA is enabled, use -HADatastore to specify an alternate location if desired.)
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
         [Parameter (Mandatory=$false)]
+            #Cli account username.
             [ValidateNotNullOrEmpty()]
             [String]$Username="admin",
         [Parameter (Mandatory=$false)]
+            #CLI account password
             [ValidateNotNullOrEmpty()]
             [String]$Password,
         [Parameter (Mandatory=$false)]
+            #Datastore onto which to deploy the HA edge appliance (Best practice is to use an alternative datastore/array to the first edge appliance in a HA pair.  Defaults to the same datastore as the first appliance.)
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore=$datastore,
         [Parameter (Mandatory=$false)]
+            #Formfactor for the deploye dedge appliance.
             [ValidateSet ("compact","large","xlarge","quadlarge")]
             [string]$FormFactor="compact",
         [Parameter (Mandatory=$false)]
+            #VI folder into which to place the edge in the VMs and Templates inventory.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.FolderInterop]$VMFolder,
         [Parameter (Mandatory=$false)]
+            #Optional tenant string.
             [ValidateNotNullOrEmpty()]
             [String]$Tenant,
         [Parameter (Mandatory=$false)]
+            #DNS hostname to configure on the edge appliance.  Defaults to the edge name.
             [ValidateNotNullOrEmpty()]
             [String]$Hostname=$Name,
         [Parameter (Mandatory=$false)]
+            #Enable SSH
             [ValidateNotNullOrEmpty()]
             [switch]$EnableSSH=$false,
         [Parameter (Mandatory=$false)]
+            #Enable autogeneration of edge firewall rules for enabled services.  Defaults to $true
             [ValidateNotNullOrEmpty()]
             [switch]$AutoGenerateRules=$true,
         [Parameter (Mandatory=$false)]
+            #Enable edge firewall.  Defaults to $true.
             [switch]$FwEnabled=$true,
         [Parameter (Mandatory=$false)]
+            #Set default firewall rule to allow.  Defaults to $false.
             [switch]$FwDefaultPolicyAllow=$false,
         [Parameter (Mandatory=$false)]
+            #Enable Firewall Logging.  Defaults to $true.
             [switch]$FwLoggingEnabled=$true,
         [Parameter (Mandatory=$false)]
+            #Enable HA on the deployed Edge.  Defaults to $false.
             [ValidateNotNullOrEmpty()]
             [switch]$EnableHa=$false,
         [Parameter (Mandatory=$false)]
+            #Configure the Edge Appliance Dead Time.
             [ValidateRange(6,900)]
             [int]$HaDeadTime,
         [Parameter (Mandatory=$false)]
+            #Configure the vNIC index used to send HA heartbeats.
             [ValidateRange(0,9)]
             [int]$HaVnic,
         [Parameter (Mandatory=$false)]
+            #Enable syslog.  Defaults to $false.
             [switch]$EnableSyslog=$false,
         [Parameter (Mandatory=$false)]
+            #Configure the syslog server.
             [ValidateNotNullOrEmpty()]
             [string[]]$SyslogServer,
         [Parameter (Mandatory=$false)]
+            #Configure the syslog protocol.
             [ValidateSet("udp","tcp",IgnoreCase=$true)]
             [string]$SyslogProtocol,
        [Parameter (Mandatory=$true)]
+            #Define the Edge Interface configuration.  Specify a collection of one or more interface specs as created by New-NsxEdgeInterfaceSpec.
             [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
             [System.Xml.XmlElement[]]$Interface,
         [Parameter (Mandatory=$False)]
@@ -12791,17 +12824,17 @@ function New-NsxEdge {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "fqdn" -xmlElementText $Hostname
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
-        if ( $Tenant ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant }
+        if ($PSBoundParameters.ContainsKey("Tenant")) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant
+        }
 
         #Appliances element
         [System.XML.XMLElement]$xmlAppliances = $XMLDoc.CreateElement("appliances")
         $xmlRoot.appendChild($xmlAppliances) | out-null
 
         switch ($psCmdlet.ParameterSetName){
-
             "Cluster"  { $ResPoolId = $($cluster | get-resourcepool | ? { $_.parent.id -eq $cluster.id }).extensiondata.moref.value }
             "ResourcePool"  { $ResPoolId = $ResourcePool.extensiondata.moref.value }
-
         }
 
         Add-XmlElement -xmlRoot $xmlAppliances -xmlElementName "applianceSize" -xmlElementText $FormFactor
@@ -12849,7 +12882,6 @@ function New-NsxEdge {
         }
 
         if ( $PsBoundParameters.containsKey('SyslogServer')) {
-
             [System.XML.XMLElement]$xmlServerAddresses = $XMLDoc.CreateElement("serverAddresses")
             $xmlSyslog.appendChild($xmlServerAddresses) | out-null
             foreach ( $server in $SyslogServer ) {
@@ -12878,7 +12910,6 @@ function New-NsxEdge {
             [System.XML.XMLElement]$xmlAutoConfig = $XMLDoc.CreateElement("autoConfiguration")
             $xmlRoot.appendChild($xmlAutoConfig) | out-null
             Add-XmlElement -xmlRoot $xmlAutoConfig -xmlElementName "enabled" -xmlElementText $AutoGenerateRules.ToString().ToLower()
-
         }
 
         #CLI Settings
@@ -12890,17 +12921,14 @@ function New-NsxEdge {
             if ( $PsBoundParameters.ContainsKey('Password') ) {
                 Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "userName" -xmlElementText $UserName
                 Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "password" -xmlElementText $Password
-
             }
             if ( $PsBoundParameters.ContainsKey('EnableSSH') ) { Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "remoteAccess" -xmlElementText $EnableSsh.ToString().ToLower() }
         }
 
         #DNS Settings
         if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') -or $PSBoundParameters.ContainsKey('SecondaryDNSServer') -or $PSBoundParameters.ContainsKey('DNSDomainName') ) {
-
             [System.XML.XMLElement]$xmlDnsClient = $XMLDoc.CreateElement("dnsClient")
             $xmlRoot.appendChild($xmlDnsClient) | out-null
-
             if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "primaryDns" -xmlElementText $PrimaryDnsServer }
             if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "secondaryDns" -xmlElementText $SecondaryDNSServer }
             if ( $PsBoundParameters.ContainsKey('DNSDomainName') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "domainName" -xmlElementText $DNSDomainName }
@@ -12910,12 +12938,10 @@ function New-NsxEdge {
         [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("vnics")
         $xmlRoot.appendChild($xmlVnics) | out-null
         foreach ( $VnicSpec in $Interface ) {
-
             $import = $xmlDoc.ImportNode(($VnicSpec), $true)
             $xmlVnics.AppendChild($import) | out-null
 
         }
-
 
         # #Do the post
         $body = $xmlroot.OuterXml
@@ -12926,7 +12952,6 @@ function New-NsxEdge {
         $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)]
 
         Get-NsxEdge -objectID $edgeId -connection $connection
-
     }
     end {}
 }
@@ -22428,6 +22453,33 @@ function Remove-NsxIpSetMember  {
     IP Range: (eg, 1.2.3.4-1.2.3.10)
     IP Subnet: (eg, 1.2.3.0/24)
 
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember -IPAddress 3.3.3.3
+
+    Removes the address 3.3.3.3 and 3.3.3.3/32 from the given NSX IPSet
+
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember -IPAddress 3.3.3.3/32
+
+    Removes the address 3.3.3.3 and 3.3.3.3/32 from the given NSX IPSet
+
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember -IPAddress 10.0.0.0/8
+
+    Removes the network 10.0.0.0/8 from the given NSX IPSet
+
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember
+    -IPAddress 192.168.1.1-192.168.1.254
+
+    Removes the range 192.168.1.1-192.168.1.254 from the given NSX IPSet
+
+    .EXAMPLE
+    PS C:\> Get-NsxIpset Test-IPSet | Remove-NsxIpSetMember
+    -IPAddress 3.3.3.3,10.0.0.0/8,192.168.1.1-192.168.1.254
+
+    Removes the given IP Addresses, Networks and Ranges from the NSX IPSet
+
     #>
 
     [CmdletBinding()]
@@ -22462,13 +22514,47 @@ function Remove-NsxIpSetMember  {
         [system.collections.arraylist]$ValCollection = $_ipset.value -split ","
         $modified = $false
         foreach ( $value in $IPAddress ) {
-            if ( -not ( $valcollection -contains $value )) {
-                write-warning "$Value $value not a member of IPSet $($ipset.name)"
+            # An IPSET allows the users to enter a host as either 1.1.1.1 or
+            # 1.1.1.1/32. So if the users specifies that they want to remove
+            # 1.1.1.1 we need to look for both 1.1.1.1 AND 1.1.1.1/32 to remove.
+            if ( Validate-IPHost $value ) {
+                if ( $value -as [ipaddress] ) {
+                    if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$($value)/32" ) ) ) {
+                        write-warning "$Value not a member of IPSet $($ipset.name)"
+                    }
+                    else {
+                        $modified = $true
+                        $ValCollection.Remove($value)
+                        $ValCollection.Remove("$($value)/32")
+                    }
+                }
+                else {
+                    if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$(($value -split "/")[0])" ) ) ) {
+                        write-warning "$Value not a member of IPSet $($ipset.name)"
+                    }
+                    else {
+                        $modified = $true
+                        $ValCollection.Remove($value)
+                        $ValCollection.Remove("$(($value -split "/")[0])")
+                    }
+                }
             }
             else {
-                $modified = $true
-                $ValCollection.Remove($value)
+                if ( ( -not ( $valcollection -contains $value ) ) ) {
+                    write-warning "$Value not a member of IPSet $($ipset.name)"
+                }
+                else {
+                    $modified = $true
+                    $ValCollection.Remove($value)
+                }
             }
+        }
+
+        # Aparently the API chucks a wobbly and returns a 400 error if you
+        # try to remove the last IP Address from an IP Set resulting in a blank
+        # value. But it will allow you to create one with no value set... go figure.
+        if ( $ValCollection.count -eq 0 ) {
+            throw "Operation will result in an empty IP Set and the API will throw a 400 error."
         }
 
         if ( $modified ) {
@@ -22486,7 +22572,6 @@ function Remove-NsxIpSetMember  {
             }
         }
     }
-    end {}
 }
 
 function Remove-NsxIpPool {

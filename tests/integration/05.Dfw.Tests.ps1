@@ -90,7 +90,7 @@ Describe "DFW" {
         $script:testvm1 = new-vm -name $testVMName1 @vmsplat
         $script:testvm2 = new-vm -name $testVMName2 @vmsplat
         $script:testvm3 = new-vm -name $testVMName3 @vmsplat
-
+        
         #Create Groupings
         $script:TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Pester dfw Test IP Set" -IpAddresses $testIPs
         $script:TestIpSet2 = New-NsxIpSet -Name $testIPSetName2 -Description "Pester dfw Test IP Set2" -IpAddresses $testIPs2
@@ -613,8 +613,18 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
-        it "Can create an l3 rule with an vnic based source" {
+        it "Can create an l3 rule with a vnic based source" {
             # Update PowerNSX to get nics fix to arrays
+            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -source $vm1vnic -action allow
+            $rule.sources.source.type | should be "Vnic"
+            $rule.destinations.destination | should be $null
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with an ip host based destination" {
@@ -802,7 +812,17 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
-        it "Can create an l3 rule with an vnic based destination" {
+        it "Can create an l3 rule with a vnic based destination" {
+            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -destination $vm1vnic -action allow
+            $rule.sources.source | should be $null
+            $rule.destinations.destination.type | should be "Vnic"
+            $rule.appliedToList.appliedTo.Name | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Value | should be "DISTRIBUTED_FIREWALL"
+            $rule.appliedToList.appliedTo.Type | should be "DISTRIBUTED_FIREWALL"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a security group based applied to" {
@@ -897,6 +917,14 @@ Describe "DFW" {
         }
 
         it "Can create an l3 rule with a vnic based applied to" {
+            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -AppliedTo $vm1vnic -action allow
+            $rule.sources.source | should be $null
+            $rule.destinations.destination | should be $null
+            $rule.appliedToList.appliedTo.Type | should be "Vnic"
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "false"
         }
 
         it "Can create an l3 rule with a negated source" {
@@ -1734,7 +1762,7 @@ Describe "DFW" {
         it "Can create an l2 rule with an vapp based source" {
         }
 
-        it "Can create an l2 rule with an vnic based source" {
+        it "Can create an l2 rule with a vnic based source" {
         }
 
         it "Can create an l2 rule with a security group based destination" {
@@ -1761,7 +1789,7 @@ Describe "DFW" {
         it "Can create an l2 rule with an vapp based destination" {
         }
 
-        it "Can create an l2 rule with an vnic based destination" {
+        it "Can create an l2 rule with a vnic based destination" {
         }
 
         it "Can create an l2 rule with a security group based applied to" {
