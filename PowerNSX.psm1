@@ -10832,16 +10832,17 @@ function New-NsxLogicalRouter {
         [Parameter (Mandatory=$false)]
             #Create the universal logical router with Local Egress enabled.
             [switch]$EnableLocalEgress=$false,
+        [Parameter (Mandatory=$false)]
+            #Optional tenant string to be configured on the DLR.
+            [ValidateNotNullOrEmpty()]
+            [String]$Tenant
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection,
-        [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
-            [String]$Tenant
+
 
     )
-
 
     begin {}
     process {
@@ -10854,15 +10855,13 @@ function New-NsxLogicalRouter {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "distributedRouter"
 
-        if $PSBoundParameters.ContainsKey("Tenant") { 
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant 
+        if ($PSBoundParameters.ContainsKey("Tenant")) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant
         }
 
         switch ($ManagementPortGroup){
-
             { $_ -is [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop] }  { $PortGroupID = $_.ExtensionData.MoRef.Value }
             { $_ -is [System.Xml.XmlElement]} { $PortGroupID = $_.objectId }
-
         }
 
         [System.XML.XMLElement]$xmlMgmtIf = $XMLDoc.CreateElement("mgmtInterface")
@@ -10873,10 +10872,8 @@ function New-NsxLogicalRouter {
         $xmlRoot.appendChild($xmlAppliances) | out-null
 
         switch ($psCmdlet.ParameterSetName){
-
             "Cluster"  { $ResPoolId = $($cluster | get-resourcepool | ? { $_.parent.id -eq $cluster.id }).extensiondata.moref.value }
             "ResourcePool"  { $ResPoolId = $ResourcePool.extensiondata.moref.value }
-
         }
 
         [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
@@ -10889,7 +10886,6 @@ function New-NsxLogicalRouter {
             $xmlAppliances.appendChild($xmlAppliance) | out-null
             Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
             Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $HAdatastore.extensiondata.moref.value
-
         }
 
         [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("interfaces")
@@ -10898,7 +10894,6 @@ function New-NsxLogicalRouter {
 
             $import = $xmlDoc.ImportNode(($VnicSpec), $true)
             $xmlVnics.AppendChild($import) | out-null
-
         }
 
         if ( ( $EnableLocalEgress ) -and ( $universal ) ) {
@@ -10926,7 +10921,6 @@ function New-NsxLogicalRouter {
 
         }
         Get-NsxLogicalRouter -objectID $edgeId -connection $connection
-
     }
     end {}
 }
@@ -12798,8 +12792,8 @@ function New-NsxEdge {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "fqdn" -xmlElementText $Hostname
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
-        if $PSBoundParameters.ContainsKey("Tenant") { 
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant 
+        if $PSBoundParameters.ContainsKey("Tenant") {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant
         }
 
         #Appliances element
