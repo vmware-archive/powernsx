@@ -10835,13 +10835,11 @@ function New-NsxLogicalRouter {
         [Parameter (Mandatory=$false)]
             #Optional tenant string to be configured on the DLR.
             [ValidateNotNullOrEmpty()]
-            [String]$Tenant
+            [String]$Tenant,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection,
-
-
+            [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
     begin {}
