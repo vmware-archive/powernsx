@@ -87,12 +87,6 @@ Describe "Logical Routing" {
     }
 
     it "Can create a logical router" {
-        New-NsxLogicalRouter -Name $name -ManagementPortGroup $lswitches[4] -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds
-        $lr | should not be $null
-        $lr.tenant | should be "default"
-    }
-
-    it "Can create a logical router with a tenant name" {
         New-NsxLogicalRouter -Tenant $TenantName -Name $name -ManagementPortGroup $lswitches[4] -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds
         $lr = Get-NsxLogicalRouter $name
         $lr | should not be $null
