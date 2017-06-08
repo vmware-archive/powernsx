@@ -23822,11 +23822,28 @@ function Get-NsxApplicableMember {
 
     Get the applicable member list for ServiceGroup membership.
 
+    .EXAMPLE
+    Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -Universal
+
+    Get the Universal IP Set applicable member list
+
+    .EXAMPLE
+    Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal
+
+    Get the applicable member list for Universal ServiceGroup membership.
+
     #>
     [CmdLetBinding(DefaultParameterSetName="securitygroup")]
     param (
 
         [Parameter (Mandatory=$false)]
+            [ValidateScript({
+                if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
+                    $True
+                } else {
+                    Throw "$_ is not a valid scope. Valid options are: globalroot-0 | universalroot-0 | edge-id"
+                }
+            })]
             [string]$scopeId="globalroot-0",
         [Parameter (Mandatory=$true, ParameterSetName="securitygroup" )]
             [switch]$SecurityGroupApplicableMembers,
@@ -23835,6 +23852,8 @@ function Get-NsxApplicableMember {
         [Parameter (Mandatory=$true, ParameterSetName="securitygroup" )]
             [ValidateSet("IPSet", "ClusterComputeResource", "VirtualWire", "VirtualMachine", "DirectoryGroup", "SecurityGroup", "VirtualApp", "ResourcePool", "DistributedVirtualPortgroup", "Datacenter", "Network", "Vnic", "SecurityTag", "MACSet", IgnoreCase=$false)]
             [string]$MemberType,
+        [Parameter (Mandatory=$false)]
+            [switch]$Universal=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -23846,11 +23865,13 @@ function Get-NsxApplicableMember {
     }
     process{
 
+        if ( $universal ) { $scopeId = "universalroot-0"}
+
         if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
-            $URI = "/api/2.0/services/securitygroup/scope/$scopeId/members/$MemberType"
+            $URI = "/api/2.0/services/securitygroup/scope/$($scopeId.ToLower())/members/$MemberType"
         }
         else {
-            $URI = "/api/2.0/services/applicationgroup/scope/$scopeId/members/"
+            $URI = "/api/2.0/services/applicationgroup/scope/$($scopeId.ToLower())/members/"
         }
         try {
             $response = Invoke-NsxWebRequest -Uri $Uri -method Get -connection $connection
