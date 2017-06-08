@@ -12704,12 +12704,15 @@ function New-NsxEdge {
 
     param (
         [Parameter (Mandatory=$true)]
+            #Name of the edge appliance.
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
+            #Resource pool into which to deploy the Edge.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ResourcePoolInterop]$ResourcePool,
         [Parameter (Mandatory=$true,ParameterSetName="Cluster")]
+            #DRS Cluster into which to deploy the Edge.
             [ValidateScript({
                 if ( $_ -eq $null ) { throw "Must specify Cluster."}
                 if ( -not $_.DrsEnabled ) { throw "Cluster is not DRS enabled."}
@@ -12717,59 +12720,79 @@ function New-NsxEdge {
             })]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$true)]
+            #Datastore onto which to deploy the edge appliance (If HA is enabled, use -HADatastore to specify an alternate location if desired.)
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
         [Parameter (Mandatory=$false)]
+            #Cli account username.
             [ValidateNotNullOrEmpty()]
             [String]$Username="admin",
         [Parameter (Mandatory=$false)]
+            #CLI account password
             [ValidateNotNullOrEmpty()]
             [String]$Password,
         [Parameter (Mandatory=$false)]
+            #Datastore onto which to deploy the HA edge appliance (Best practice is to use an alternative datastore/array to the first edge appliance in a HA pair.  Defaults to the same datastore as the first appliance.)
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$HADatastore=$datastore,
         [Parameter (Mandatory=$false)]
+            #Formfactor for the deploye dedge appliance.
             [ValidateSet ("compact","large","xlarge","quadlarge")]
             [string]$FormFactor="compact",
         [Parameter (Mandatory=$false)]
+            #VI folder into which to place the edge in the VMs and Templates inventory.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.FolderInterop]$VMFolder,
         [Parameter (Mandatory=$false)]
+            #Optional tenant string.
             [ValidateNotNullOrEmpty()]
             [String]$Tenant,
         [Parameter (Mandatory=$false)]
+            #DNS hostname to configure on the edge appliance.  Defaults to the edge name.
             [ValidateNotNullOrEmpty()]
             [String]$Hostname=$Name,
         [Parameter (Mandatory=$false)]
+            #Enable SSH
             [ValidateNotNullOrEmpty()]
             [switch]$EnableSSH=$false,
         [Parameter (Mandatory=$false)]
+            #Enable autogeneration of edge firewall rules for enabled services.  Defaults to $true
             [ValidateNotNullOrEmpty()]
             [switch]$AutoGenerateRules=$true,
         [Parameter (Mandatory=$false)]
+            #Enable edge firewall.  Defaults to $true.
             [switch]$FwEnabled=$true,
         [Parameter (Mandatory=$false)]
+            #Set default firewall rule to allow.  Defaults to $false.
             [switch]$FwDefaultPolicyAllow=$false,
         [Parameter (Mandatory=$false)]
+            #Enable Firewall Logging.  Defaults to $true.
             [switch]$FwLoggingEnabled=$true,
         [Parameter (Mandatory=$false)]
+            #Enable HA on the deployed Edge.  Defaults to $false.
             [ValidateNotNullOrEmpty()]
             [switch]$EnableHa=$false,
         [Parameter (Mandatory=$false)]
+            #Configure the Edge Appliance Dead Time.
             [ValidateRange(6,900)]
             [int]$HaDeadTime,
         [Parameter (Mandatory=$false)]
+            #Configure the vNIC index used to send HA heartbeats.
             [ValidateRange(0,9)]
             [int]$HaVnic,
         [Parameter (Mandatory=$false)]
+            #Enable syslog.  Defaults to $false.
             [switch]$EnableSyslog=$false,
         [Parameter (Mandatory=$false)]
+            #Configure the syslog server.
             [ValidateNotNullOrEmpty()]
             [string[]]$SyslogServer,
         [Parameter (Mandatory=$false)]
+            #Configure the syslog protocol.
             [ValidateSet("udp","tcp",IgnoreCase=$true)]
             [string]$SyslogProtocol,
        [Parameter (Mandatory=$true)]
+            #Define the Edge Interface configuration.  Specify a collection of one or more interface specs as created by New-NsxEdgeInterfaceSpec.
             [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
             [System.Xml.XmlElement[]]$Interface,
         [Parameter (Mandatory=$False)]
@@ -12790,7 +12813,7 @@ function New-NsxEdge {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "fqdn" -xmlElementText $Hostname
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
-        if $PSBoundParameters.ContainsKey("Tenant") {
+        if ($PSBoundParameters.ContainsKey("Tenant")) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenant" -xmlElementText $Tenant
         }
 
@@ -12799,10 +12822,8 @@ function New-NsxEdge {
         $xmlRoot.appendChild($xmlAppliances) | out-null
 
         switch ($psCmdlet.ParameterSetName){
-
             "Cluster"  { $ResPoolId = $($cluster | get-resourcepool | ? { $_.parent.id -eq $cluster.id }).extensiondata.moref.value }
             "ResourcePool"  { $ResPoolId = $ResourcePool.extensiondata.moref.value }
-
         }
 
         Add-XmlElement -xmlRoot $xmlAppliances -xmlElementName "applianceSize" -xmlElementText $FormFactor
@@ -12850,7 +12871,6 @@ function New-NsxEdge {
         }
 
         if ( $PsBoundParameters.containsKey('SyslogServer')) {
-
             [System.XML.XMLElement]$xmlServerAddresses = $XMLDoc.CreateElement("serverAddresses")
             $xmlSyslog.appendChild($xmlServerAddresses) | out-null
             foreach ( $server in $SyslogServer ) {
@@ -12879,7 +12899,6 @@ function New-NsxEdge {
             [System.XML.XMLElement]$xmlAutoConfig = $XMLDoc.CreateElement("autoConfiguration")
             $xmlRoot.appendChild($xmlAutoConfig) | out-null
             Add-XmlElement -xmlRoot $xmlAutoConfig -xmlElementName "enabled" -xmlElementText $AutoGenerateRules.ToString().ToLower()
-
         }
 
         #CLI Settings
@@ -12891,17 +12910,14 @@ function New-NsxEdge {
             if ( $PsBoundParameters.ContainsKey('Password') ) {
                 Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "userName" -xmlElementText $UserName
                 Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "password" -xmlElementText $Password
-
             }
             if ( $PsBoundParameters.ContainsKey('EnableSSH') ) { Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "remoteAccess" -xmlElementText $EnableSsh.ToString().ToLower() }
         }
 
         #DNS Settings
         if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') -or $PSBoundParameters.ContainsKey('SecondaryDNSServer') -or $PSBoundParameters.ContainsKey('DNSDomainName') ) {
-
             [System.XML.XMLElement]$xmlDnsClient = $XMLDoc.CreateElement("dnsClient")
             $xmlRoot.appendChild($xmlDnsClient) | out-null
-
             if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "primaryDns" -xmlElementText $PrimaryDnsServer }
             if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "secondaryDns" -xmlElementText $SecondaryDNSServer }
             if ( $PsBoundParameters.ContainsKey('DNSDomainName') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "domainName" -xmlElementText $DNSDomainName }
@@ -12911,12 +12927,10 @@ function New-NsxEdge {
         [System.XML.XMLElement]$xmlVnics = $XMLDoc.CreateElement("vnics")
         $xmlRoot.appendChild($xmlVnics) | out-null
         foreach ( $VnicSpec in $Interface ) {
-
             $import = $xmlDoc.ImportNode(($VnicSpec), $true)
             $xmlVnics.AppendChild($import) | out-null
 
         }
-
 
         # #Do the post
         $body = $xmlroot.OuterXml
@@ -12927,7 +12941,6 @@ function New-NsxEdge {
         $edgeId = $response.Headers.Location.split("/")[$response.Headers.Location.split("/").GetUpperBound(0)]
 
         Get-NsxEdge -objectID $edgeId -connection $connection
-
     }
     end {}
 }
