@@ -598,7 +598,7 @@ function Get-FeatureStatus {
     $statusstring
 }
 
-function Parse-CentralCliResponse {
+function ParseCentralCliResponse {
 
     param (
         [Parameter ( Mandatory=$True, Position=1)]
@@ -927,7 +927,7 @@ function Parse-CentralCliResponse {
 ########
 # Validation Functions
 
-function Validate-UpdateBranch {
+function ValidateUpdateBranch {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -942,7 +942,7 @@ function Validate-UpdateBranch {
 
 }
 
-Function Validate-TransportZone {
+Function ValidateTransportZone {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -966,7 +966,7 @@ Function Validate-TransportZone {
     }
 }
 
-Function Validate-LogicalSwitchOrDistributedPortGroup {
+Function ValidateLogicalSwitchOrDistributedPortGroup {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1004,7 +1004,7 @@ Function Validate-LogicalSwitchOrDistributedPortGroup {
     $true
 }
 
-Function Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup {
+Function ValidateLogicalSwitchOrDistributedPortGroupOrStandardPortGroup {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1039,7 +1039,7 @@ Function Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup {
     $true
 }
 
-Function Validate-IpPool {
+Function ValidateIpPool {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1065,7 +1065,7 @@ Function Validate-IpPool {
     }
 }
 
-Function Validate-VdsContext {
+Function ValidateVdsContext {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1093,7 +1093,7 @@ Function Validate-VdsContext {
     }
 }
 
-Function Validate-SegmentIdRange {
+Function ValidateSegmentIdRange {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1121,7 +1121,7 @@ Function Validate-SegmentIdRange {
     }
 }
 
-Function Validate-DistributedSwitch {
+Function ValidateDistributedSwitch {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1136,7 +1136,7 @@ Function Validate-DistributedSwitch {
     $true
 }
 
-Function Validate-LogicalSwitch {
+Function ValidateLogicalSwitch {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1168,7 +1168,7 @@ Function Validate-LogicalSwitch {
     $true
 }
 
-Function Validate-LogicalRouterInterfaceSpec {
+Function ValidateLogicalRouterInterfaceSpec {
 
     Param (
 
@@ -1184,7 +1184,7 @@ Function Validate-LogicalRouterInterfaceSpec {
     $true
 }
 
-Function Validate-EdgeInterfaceSpec {
+Function ValidateEdgeInterfaceSpec {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1198,7 +1198,7 @@ Function Validate-EdgeInterfaceSpec {
     $true
 }
 
-Function Validate-EdgeInterfaceAddress {
+Function ValidateEdgeInterfaceAddress {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1229,7 +1229,7 @@ Function Validate-EdgeInterfaceAddress {
     }
 }
 
-Function Validate-AddressGroupSpec {
+Function ValidateAddressGroupSpec {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1251,7 +1251,7 @@ Function Validate-AddressGroupSpec {
     }
 }
 
-Function Validate-LogicalRouter {
+Function ValidateLogicalRouter {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1290,7 +1290,7 @@ Function Validate-LogicalRouter {
     }
 }
 
-Function Validate-Edge {
+Function ValidateEdge {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1329,7 +1329,7 @@ Function Validate-Edge {
     }
 }
 
-Function Validate-EdgeRouting {
+Function ValidateEdgeRouting {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1358,7 +1358,7 @@ Function Validate-EdgeRouting {
     }
 }
 
-Function Validate-EdgeStaticRoute {
+Function ValidateEdgeStaticRoute {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1387,7 +1387,7 @@ Function Validate-EdgeStaticRoute {
     }
 }
 
-Function Validate-EdgeBgpNeighbour {
+Function ValidateEdgeBgpNeighbour {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1422,7 +1422,7 @@ Function Validate-EdgeBgpNeighbour {
     }
 }
 
-Function Validate-EdgeOspfArea {
+Function ValidateEdgeOspfArea {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1448,7 +1448,7 @@ Function Validate-EdgeOspfArea {
     }
 }
 
-Function Validate-EdgeOspfInterface {
+Function ValidateEdgeOspfInterface {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1474,7 +1474,7 @@ Function Validate-EdgeOspfInterface {
     }
 }
 
-Function Validate-EdgeRedistributionRule {
+Function ValidateEdgeRedistributionRule {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1503,7 +1503,7 @@ Function Validate-EdgeRedistributionRule {
     }
 }
 
-Function Validate-LogicalRouterRouting {
+Function ValidateLogicalRouterRouting {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1532,7 +1532,7 @@ Function Validate-LogicalRouterRouting {
     }
 }
 
-Function Validate-LogicalRouterStaticRoute {
+Function ValidateLogicalRouterStaticRoute {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1561,7 +1561,7 @@ Function Validate-LogicalRouterStaticRoute {
     }
 }
 
-Function Validate-LogicalRouterBgpNeighbour {
+Function ValidateLogicalRouterBgpNeighbour {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1596,7 +1596,7 @@ Function Validate-LogicalRouterBgpNeighbour {
     }
 }
 
-Function Validate-LogicalRouterOspfArea {
+Function ValidateLogicalRouterOspfArea {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1622,7 +1622,7 @@ Function Validate-LogicalRouterOspfArea {
     }
 }
 
-Function Validate-LogicalRouterOspfInterface {
+Function ValidateLogicalRouterOspfInterface {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1648,7 +1648,7 @@ Function Validate-LogicalRouterOspfInterface {
     }
 }
 
-Function Validate-LogicalRouterRedistributionRule {
+Function ValidateLogicalRouterRedistributionRule {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1677,7 +1677,7 @@ Function Validate-LogicalRouterRedistributionRule {
     }
 }
 
-Function Validate-EdgePrefix {
+Function ValidateEdgePrefix {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1703,7 +1703,7 @@ Function Validate-EdgePrefix {
     }
 }
 
-Function Validate-LogicalRouterPrefix {
+Function ValidateLogicalRouterPrefix {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1729,7 +1729,7 @@ Function Validate-LogicalRouterPrefix {
     }
 }
 
-Function Validate-EdgeInterface {
+Function ValidateEdgeInterface {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1761,7 +1761,7 @@ Function Validate-EdgeInterface {
     $true
 }
 
-Function Validate-LogicalRouterInterface {
+Function ValidateLogicalRouterInterface {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1793,7 +1793,7 @@ Function Validate-LogicalRouterInterface {
     $true
 }
 
-Function Validate-EdgeSubInterface {
+Function ValidateEdgeSubInterface {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1828,7 +1828,7 @@ Function Validate-EdgeSubInterface {
     $true
 }
 
-Function Validate-EdgeNat {
+Function ValidateEdgeNat {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1857,7 +1857,7 @@ Function Validate-EdgeNat {
     }
 }
 
-Function Validate-EdgeNatRule {
+Function ValidateEdgeNatRule {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1895,7 +1895,7 @@ Function Validate-EdgeNatRule {
     }
 }
 
-Function Validate-EdgeSslVpn {
+Function ValidateEdgeSslVpn {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1933,7 +1933,7 @@ Function Validate-EdgeSslVpn {
     }
 }
 
-Function Validate-EdgeCsr {
+Function ValidateEdgeCsr {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1962,7 +1962,7 @@ Function Validate-EdgeCsr {
     }
 }
 
-Function Validate-EdgeCertificate {
+Function ValidateEdgeCertificate {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -1991,7 +1991,7 @@ Function Validate-EdgeCertificate {
     }
 }
 
-Function Validate-EdgeSslVpnUser {
+Function ValidateEdgeSslVpnUser {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2018,7 +2018,7 @@ Function Validate-EdgeSslVpnUser {
     }
 }
 
-Function Validate-EdgeSslVpnIpPool {
+Function ValidateEdgeSslVpnIpPool {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2054,7 +2054,7 @@ Function Validate-EdgeSslVpnIpPool {
     }
 }
 
-Function Validate-EdgeSslVpnPrivateNetwork {
+Function ValidateEdgeSslVpnPrivateNetwork {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2084,7 +2084,7 @@ Function Validate-EdgeSslVpnPrivateNetwork {
     }
 }
 
-Function Validate-EdgeSslVpnClientPackage {
+Function ValidateEdgeSslVpnClientPackage {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2114,7 +2114,7 @@ Function Validate-EdgeSslVpnClientPackage {
     }
 }
 
-Function Validate-SecurityGroupMember {
+Function ValidateSecurityGroupMember {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2168,18 +2168,18 @@ Function Validate-SecurityGroupMember {
     }
 }
 
-Function Validate-IPHost {
+Function ValidateIPHost {
 
     Param (
         [Parameter (Mandatory=$true)]
         [object]$argument
     )
-    if ( ( $argument -as [ipaddress] ) -or ( ( Validate-IPPrefix $argument ) -and ($argument -match '^(\d{1,3}\.){3}\d{1,3}\/32\s*$') ) )  {
+    if ( ( $argument -as [ipaddress] ) -or ( ( ValidateIPPrefix $argument ) -and ($argument -match '^(\d{1,3}\.){3}\d{1,3}\/32\s*$') ) )  {
         $true
     }
 }
 
-Function Validate-IPRange {
+Function ValidateIPRange {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2190,7 +2190,7 @@ Function Validate-IPRange {
     }
 }
 
-Function Validate-IPPrefix {
+Function ValidateIPPrefix {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2201,7 +2201,7 @@ Function Validate-IPPrefix {
     }
 }
 
-Function Validate-FirewallRuleSourceDest {
+Function ValidateFirewallRuleSourceDest {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2212,18 +2212,18 @@ Function Validate-FirewallRuleSourceDest {
     if ( $argument -as [ipaddress] ) {
         $true
     }
-    elseif ( Validate-IPRange -argument $argument ) {
+    elseif ( ValidateIPRange -argument $argument ) {
         $true
     }
-    elseif ( Validate-IPPrefix -argument $argument ) {
+    elseif ( ValidateIPPrefix -argument $argument ) {
         $true
     }
     else {
-        Validate-SecurityGroupMember $argument
+        ValidateSecurityGroupMember $argument
      }
 }
 
-Function Validate-FirewallRule {
+Function ValidateFirewallRule {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2261,8 +2261,8 @@ Function Validate-FirewallRule {
     }
 }
 
-Function Validate-FirewallRuleMember {
-    #Distinct from Validate-FirewallRuleMemberObject in that it checks for an arg that is a valid firewallrule member object, OR a string to match against the value of one.
+Function ValidateFirewallRuleMember {
+    #Distinct from ValidateFirewallRuleMemberObject in that it checks for an arg that is a valid firewallrule member object, OR a string to match against the value of one.
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2274,13 +2274,13 @@ Function Validate-FirewallRuleMember {
         $True
     }
     else {
-        Validate-FirewallRuleSourceDest -argument $argument
+        ValidateFirewallRuleSourceDest -argument $argument
     }
 }
 
-Function Validate-FirewallRuleMemberObject {
+Function ValidateFirewallRuleMemberObject {
 
-    #Distinct from Validate-FirewallRuleMember in that it checks for an arg that looks like the appropriate return object from get-nsxfirewallrulemember.
+    #Distinct from ValidateFirewallRuleMember in that it checks for an arg that looks like the appropriate return object from get-nsxfirewallrulemember.
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2314,7 +2314,7 @@ Function Validate-FirewallRuleMemberObject {
     }
 }
 
-Function Validate-ServiceGroup {
+Function ValidateServiceGroup {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2337,7 +2337,7 @@ Function Validate-ServiceGroup {
     }
 }
 
-Function Validate-Service {
+Function ValidateService {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2360,18 +2360,18 @@ Function Validate-Service {
     }
 }
 
-Function Validate-ServiceOrServiceGroup {
+Function ValidateServiceOrServiceGroup {
 
     Param (
         [Parameter (Mandatory=$true)]
         [object]$argument
     )
     try {
-        Validate-Service -argument $argument
+        ValidateService -argument $argument
     }
     catch {
         try {
-            Validate-ServiceGroup -argument $argument
+            ValidateServiceGroup -argument $argument
         }
         catch {
             throw "Invalid Service or Service Group specific"
@@ -2381,7 +2381,7 @@ Function Validate-ServiceOrServiceGroup {
     $true
 }
 
-Function Validate-ServiceGroup {
+Function ValidateServiceGroup {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2404,7 +2404,7 @@ Function Validate-ServiceGroup {
     }
 }
 
-Function Validate-Service {
+Function ValidateService {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2427,18 +2427,18 @@ Function Validate-Service {
     }
 }
 
-Function Validate-ServiceOrServiceGroup {
+Function ValidateServiceOrServiceGroup {
 
     Param (
         [Parameter (Mandatory=$true)]
         [object]$argument
     )
     try {
-        Validate-Service -argument $argument
+        ValidateService -argument $argument
     }
     catch {
         try {
-            Validate-ServiceGroup -argument $argument
+            ValidateServiceGroup -argument $argument
         }
         catch {
             throw "Invalid Service or Service Group specific"
@@ -2448,7 +2448,7 @@ Function Validate-ServiceOrServiceGroup {
     $true
 }
 
-Function Validate-FirewallRuleService {
+Function ValidateFirewallRuleService {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2476,11 +2476,11 @@ Function Validate-FirewallRuleService {
         { ($argument -is [System.Xml.XmlElement]) -or ($argument -is [System.Object])} {
             foreach ( $item in $argument ) {
                 try {
-                    Validate-Service -argument $item
+                    ValidateService -argument $item
                 }
                 catch {
                     try {
-                        Validate-ServiceGroup -argument $item
+                        ValidateServiceGroup -argument $item
                     }
                     catch {
                         throw "Invalid Service or Service Group specified"
@@ -2493,7 +2493,7 @@ Function Validate-FirewallRuleService {
     }
 }
 
-Function Validate-FirewallAppliedTo {
+Function ValidateFirewallAppliedTo {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2553,7 +2553,7 @@ Function Validate-FirewallAppliedTo {
     $true
 }
 
-Function Validate-LoadBalancer {
+Function ValidateLoadBalancer {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2579,7 +2579,7 @@ Function Validate-LoadBalancer {
     }
 }
 
-Function Validate-LoadBalancerMonitor {
+Function ValidateLoadBalancerMonitor {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2608,7 +2608,7 @@ Function Validate-LoadBalancerMonitor {
     }
 }
 
-Function Validate-LoadBalancerVip {
+Function ValidateLoadBalancerVip {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2637,7 +2637,7 @@ Function Validate-LoadBalancerVip {
     }
 }
 
-Function Validate-LoadBalancerMemberSpec {
+Function ValidateLoadBalancerMemberSpec {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2667,7 +2667,7 @@ Function Validate-LoadBalancerMemberSpec {
     }
 }
 
-Function Validate-LoadBalancerApplicationProfile {
+Function ValidateLoadBalancerApplicationProfile {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2693,7 +2693,7 @@ Function Validate-LoadBalancerApplicationProfile {
     }
 }
 
-Function Validate-LoadBalancerPool {
+Function ValidateLoadBalancerPool {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2716,7 +2716,7 @@ Function Validate-LoadBalancerPool {
     }
 }
 
-Function Validate-LoadBalancerPoolMember {
+Function ValidateLoadBalancerPoolMember {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2745,7 +2745,7 @@ Function Validate-LoadBalancerPoolMember {
     }
 }
 
-Function Validate-SecurityTag {
+Function ValidateSecurityTag {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2774,7 +2774,7 @@ Function Validate-SecurityTag {
     }
 }
 
-Function Validate-SpoofguardPolicy {
+Function ValidateSpoofguardPolicy {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2803,7 +2803,7 @@ Function Validate-SpoofguardPolicy {
     }
 }
 
-Function Validate-SpoofguardNic {
+Function ValidateSpoofguardNic {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2829,7 +2829,7 @@ Function Validate-SpoofguardNic {
     }
 }
 
-Function Validate-VirtualMachine {
+Function ValidateVirtualMachine {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2843,7 +2843,7 @@ Function Validate-VirtualMachine {
     $true
 }
 
-Function Validate-TagAssignment {
+Function ValidateTagAssignment {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2872,7 +2872,7 @@ Function Validate-TagAssignment {
     }
 }
 
-Function Validate-FwSourceDestFilter {
+Function ValidateFwSourceDestFilter {
     Param (
         [Parameter (Mandatory=$true)]
         [object]$argument
@@ -2889,7 +2889,7 @@ Function Validate-FwSourceDestFilter {
     }
 }
 
-Function Validate-Controller {
+Function ValidateController {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -2911,7 +2911,7 @@ Function Validate-Controller {
     }
 }
 
-Function Validate-SecondaryManager {
+Function ValidateSecondaryManager {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -4044,7 +4044,7 @@ function Connect-NsxServer {
             [string]$ViWarningAction="Continue"
     )
 
-    function _Test-vCenterConn {
+    function TestvCenterConn {
 
         #Internal function to test if registered vCenter has a current connection.
         param (
@@ -4216,7 +4216,7 @@ function Connect-NsxServer {
         }
         else {
             $RegisteredvCenterIP = $vcInfo.vcInfo.ipAddress
-            $VIServerConnection = _Test-vCenterConn -RegisteredvCenterIp $RegisteredvCenterIP
+            $VIServerConnection = TestvCenterConn -RegisteredvCenterIp $RegisteredvCenterIP
 
             if ( $VIServerConnection ) {
                 $VIConnection = $VIServerConnection
@@ -4275,7 +4275,7 @@ function Connect-NsxServer {
         try {
 
             #Connect to specified VC using 'default credentials...
-            $VIConnection = _Test-vCenterConn -RegisteredvCenterIp $vCenterServer
+            $VIConnection = TestvCenterConn -RegisteredvCenterIp $vCenterServer
             if ( -not $VIConnection ) {
                 $VIConnection = Connect-VIServer -Credential $Credential -server $vCenterServer -NotDefault:(-not $VIDefaultConnection) -WarningAction:$ViWarningAction -erroraction Stop
             }
@@ -4406,7 +4406,8 @@ function Update-PowerNsx {
 
         [Parameter (Mandatory = $True, Position=1)]
             #Valid Branches supported for upgrading to.
-            [ValidateScript({ Validate-UpdateBranch $_ })]
+            [ValidateScript({ Validate
+            UpdateBranch $_ })]
             [string]$Branch,
             [ValidateSet("CurrentUser","AllUsers")][string]$InstallType="CurrentUser"
 
@@ -4865,7 +4866,7 @@ function Invoke-NsxCli {
             } else {
 
                 Write-Verbose -Message "[$($MyInvocation.MyCommand.Name)] Parsing Output"
-                Parse-CentralCliResponse $response
+                ParseCentralCliResponse $response
 
             } # end if/else
 
@@ -6859,7 +6860,7 @@ function Remove-NsxSecondaryManager {
 
         [Parameter (Mandatory=$True, ValueFromPipeline=$true)]
             #Secondary NSX Manager object to be removed as returned by Get-NsxSecondaryManager
-            [ValidateScript( { Validate-SecondaryManager $_ })]
+            [ValidateScript( { ValidateSecondaryManager $_ })]
             [System.Xml.XmlElement]$SecondaryManager,
         [Parameter (Mandatory=$False)]
             #Confirm removal.
@@ -7048,7 +7049,7 @@ function New-NsxController {
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$True)]
             #Pre Created IP Pool object from which controller IP will be allocated
-            [ValidateScript({ Validate-IpPool $_ })]
+            [ValidateScript({ ValidateIpPool $_ })]
             [System.Xml.XmlElement]$IpPool,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
             #vSphere DRS Resource Pool into which to deploy Controller VM
@@ -7068,7 +7069,7 @@ function New-NsxController {
             [VMware.VimAutomation.ViCore.Interop.V1.DatastoreManagement.DatastoreInterop]$Datastore,
         [Parameter (Mandatory=$true)]
             #vSphere DVPortGroup OR NSX Logical Switch object to connect the Controller VM to
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$PortGroup,
         [Parameter (Mandatory=$False)]
             #Controller Password (Must be same on all controllers)
@@ -7260,7 +7261,7 @@ function Remove-NsxController {
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true,Position=1, ParameterSetName="Object")]
             #PowerNSX Controller object obtained via Get-NsxController
-            [ValidateScript({ Validate-Controller $_ })]
+            [ValidateScript({ ValidateController $_ })]
             [System.Xml.XmlElement]$Controller,
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             #ObjectID of the controller to remove
@@ -7602,7 +7603,7 @@ function New-NsxVdsContext {
 
         [Parameter (Mandatory=$true, Position=1)]
             #PowerCLI VDSwitch Object to configure for NSX
-            [ValidateScript({ Validate-DistributedSwitch $_ })]
+            [ValidateScript({ ValidateDistributedSwitch $_ })]
             [object]$VirtualDistributedSwitch,
         [Parameter (Mandatory=$true)]
             #Teaming configuration for NSX Logical Switches
@@ -7684,7 +7685,7 @@ function Remove-NsxVdsContext {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             #NSX VDS Context Object ID to remove
-            [ValidateScript({ Validate-VdsContext $_ })]
+            [ValidateScript({ ValidateVdsContext $_ })]
             [System.Xml.XmlElement]$VdsContext,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -7758,10 +7759,10 @@ function New-NsxClusterVxlanConfig {
             [ValidateNotNullorEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-DistributedSwitch $_ })]
+            [ValidateScript({ ValidateDistributedSwitch $_ })]
             [object]$VirtualDistributedSwitch,
         [Parameter (Mandatory=$False)]
-            [ValidateScript({ Validate-IpPool $_ })]
+            [ValidateScript({ ValidateIpPool $_ })]
             [System.Xml.XmlElement]$IpPool,
         [Parameter (Mandatory=$False)]
             [int]$VlanId="",
@@ -8419,7 +8420,7 @@ function Remove-NsxSegmentIdRange {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-SegmentIdRange $_ })]
+            [ValidateScript({ ValidateSegmentIdRange $_ })]
             [System.Xml.XmlElement]$SegmentIdRange,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -8745,7 +8746,7 @@ function Add-NsxTransportZoneMember {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             #PowerNSX Transport Zone object to be updated
-            [ValidateScript({ Validate-TransportZone $_ })]
+            [ValidateScript({ ValidateTransportZone $_ })]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$true)]
             #Cluster to be added to the Transport Zone
@@ -8847,7 +8848,7 @@ function Remove-NsxTransportZoneMember {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             #PowerNSX Transport Zone object to be updated
-            [ValidateScript({ Validate-TransportZone $_ })]
+            [ValidateScript({ ValidateTransportZone $_ })]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$true)]
             #Cluster to be added to the Transport Zone
@@ -8944,7 +8945,7 @@ function Remove-NsxTransportZone {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-TransportZone $_ })]
+            [ValidateScript({ ValidateTransportZone $_ })]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -9171,7 +9172,7 @@ function Get-NsxLogicalSwitch {
     param (
 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
-            [ValidateScript({ Validate-TransportZone $_ })]
+            [ValidateScript({ ValidateTransportZone $_ })]
             [alias("vdnScope")]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$false,Position=1)]
@@ -9443,7 +9444,7 @@ function Connect-NsxLogicalSwitch {
             [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop[]]$NetworkAdapter,
         [Parameter(Mandatory=$true, Position=1)]
             #Logical Switch to connect NICs or VMs to.
-            [ValidateScript({ Validate-LogicalSwitch $_ })]
+            [ValidateScript({ ValidateLogicalSwitch $_ })]
             [System.Xml.XmlElement]$LogicalSwitch,
         [Parameter(Mandatory=$false)]
             #If specified VM is multi homed, connect all NICs to the same network.  Defaults to $false
@@ -9463,7 +9464,7 @@ function Connect-NsxLogicalSwitch {
 
     begin{
 
-        function _Process-Nic {
+        function ProcessNic {
 
             param (
                 $nic
@@ -9513,13 +9514,13 @@ function Connect-NsxLogicalSwitch {
                     }
 
                     foreach ( $nic in $nics ) {
-                         _Process-Nic $nic
+                         ProcessNic $nic
                     }
                 }
             }
             "NIC" {
                 foreach ( $nic in $NetworkAdapter ) {
-                     _Process-Nic $nic
+                     ProcessNic $nic
                 }
             }
         }
@@ -9574,7 +9575,7 @@ function Disconnect-NsxLogicalSwitch {
 
     begin{
 
-        function _Process-Nic {
+        function ProcessNic {
 
             param (
                 $nic
@@ -9638,13 +9639,13 @@ function Disconnect-NsxLogicalSwitch {
                     }
 
                     foreach ( $nic in $nics ) {
-                         _Process-Nic $nic
+                         ProcessNic $nic
                     }
                 }
             }
             "NIC" {
                 foreach ( $nic in $nics ) {
-                     _Process-Nic $nic
+                     ProcessNic $nic
                 }
             }
         }
@@ -9825,7 +9826,7 @@ function New-NsxSpoofguardPolicy {
         [Parameter (Mandatory=$false)]
             [switch]$AllowLocalIps,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroupOrStandardPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroupOrStandardPortGroup $_ })]
             [object[]]$Network,
         [Parameter (Mandatory=$False)]
             [switch]$Publish=$false,
@@ -10120,7 +10121,7 @@ function Get-NsxSpoofguardNic {
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "MAC")]
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VM")]
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "NIC")]
-            [ValidateScript( { Validate-SpoofguardPolicy $_ } )]
+            [ValidateScript( { ValidateSpoofguardPolicy $_ } )]
             [System.xml.xmlElement]$SpoofguardPolicy,
         [Parameter (Mandatory=$false, ParameterSetName = "Default")]
         [Parameter (Mandatory=$false, ParameterSetName = "MAC")]
@@ -10246,7 +10247,7 @@ function Grant-NsxSpoofguardNicApproval {
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
-            [ValidateScript( { Validate-SpoofguardNic $_ } )]
+            [ValidateScript( { ValidateSpoofguardNic $_ } )]
             [System.xml.xmlElement]$SpoofguardNic,
         [Parameter (Mandatory=$True, ParameterSetName="ipAddress")]
             [ValidateNotNullOrEmpty()]
@@ -10408,7 +10409,7 @@ function Revoke-NsxSpoofguardNicApproval {
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
-            [ValidateScript( { Validate-SpoofguardNic $_ } )]
+            [ValidateScript( { ValidateSpoofguardNic $_ } )]
             [System.xml.xmlElement]$SpoofguardNic,
         [Parameter (Mandatory=$True, ParameterSetName="IpList")]
             [ValidateNotNullOrEmpty()]
@@ -10557,7 +10558,7 @@ function New-NsxLogicalRouterInterfaceSpec {
             [ValidateSet ("internal","uplink")]
             [string]$Type,
         [Parameter (Mandatory=$false)]
-            [ValidateScript({Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ConnectedTo,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
@@ -10622,7 +10623,7 @@ function New-NsxLogicalRouterInterfaceSpec {
             if ( $PsBoundParameters.ContainsKey("PrimaryAddress" )) { $AddressGroupParameters.Add("PrimaryAddress",$PrimaryAddress) }
             if ( $PsBoundParameters.ContainsKey("SubnetPrefixLength" )) { $AddressGroupParameters.Add("SubnetPrefixLength",$SubnetPrefixLength) }
 
-            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            AddNsxEdgeVnicAddressGroup @AddressGroupParameters
 
         }
         $xmlVnic
@@ -10796,10 +10797,10 @@ function New-NsxLogicalRouter {
             [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ManagementPortGroup,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-LogicalRouterInterfaceSpec $_ })]
+            [ValidateScript({ ValidateLogicalRouterInterfaceSpec $_ })]
             [System.Xml.XmlElement[]]$Interface,
         [Parameter (Mandatory=$true,ParameterSetName="ResourcePool")]
             [ValidateNotNullOrEmpty()]
@@ -10942,7 +10943,7 @@ function Remove-NsxLogicalRouter {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouter $_ })]
+            [ValidateScript({ ValidateLogicalRouter $_ })]
             [System.Xml.XmlElement]$LogicalRouter,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -11004,7 +11005,7 @@ function Set-NsxLogicalRouterInterface {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterInterface $_ })]
+            [ValidateScript({ ValidateLogicalRouterInterface $_ })]
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
@@ -11013,7 +11014,7 @@ function Set-NsxLogicalRouterInterface {
             [ValidateSet ("internal","uplink")]
             [string]$Type,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ConnectedTo,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
@@ -11109,7 +11110,7 @@ function New-NsxLogicalRouterInterface {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouter $_ })]
+            [ValidateScript({ ValidateLogicalRouter $_ })]
             [System.Xml.XmlElement]$LogicalRouter,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
@@ -11118,7 +11119,7 @@ function New-NsxLogicalRouterInterface {
             [ValidateSet ("internal","uplink")]
             [string]$Type,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ConnectedTo,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
@@ -11196,7 +11197,7 @@ function Remove-NsxLogicalRouterInterface {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterInterface $_ })]
+            [ValidateScript({ ValidateLogicalRouterInterface $_ })]
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
@@ -11265,7 +11266,7 @@ function Get-NsxLogicalRouterInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouter $_ })]
+            [ValidateScript({ ValidateLogicalRouter $_ })]
             [System.Xml.XmlElement]$LogicalRouter,
         [Parameter (Mandatory=$False,ParameterSetName="Name",Position=1)]
             [string]$Name,
@@ -11326,7 +11327,7 @@ function Get-NsxLogicalRouterInterface {
 
 ###Private functions
 
-function PrivateAdd-NsxEdgeVnicAddressGroup {
+function AddNsxEdgeVnicAddressGroup {
 
     #Private function that Edge (ESG and LogicalRouter) VNIC creation leverages
     #To create valid address groups (primary and potentially secondary address)
@@ -11462,7 +11463,7 @@ function New-NsxEdgeInterfaceSpec {
             [ValidateSet ("internal","uplink","trunk")]
             [string]$Type,
         [Parameter (Mandatory=$false)]
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ConnectedTo,
         [Parameter (Mandatory=$false)]
             [string]$PrimaryAddress,
@@ -11546,7 +11547,7 @@ function New-NsxEdgeInterfaceSpec {
             if ( $PsBoundParameters.ContainsKey("SecondaryAddresses" )) { $AddressGroupParameters.Add("SecondaryAddresses",$SecondaryAddresses) }
 
 
-            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            AddNsxEdgeVnicAddressGroup @AddressGroupParameters
         }
 
         $xmlVnic
@@ -11582,7 +11583,7 @@ function New-NsxEdgeSubInterfaceSpec {
             [ValidateRange(1,4094)]
             [int]$TunnelId,
         [Parameter (Mandatory=$false,ParameterSetName="Network")]
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$Network,
         [Parameter (Mandatory=$false,ParameterSetName="VLAN")]
             [ValidateRange(0,4094)]
@@ -11655,7 +11656,7 @@ function New-NsxEdgeSubInterfaceSpec {
             if ( $PsBoundParameters.ContainsKey("SubnetPrefixLength" )) { $AddressGroupParameters.Add("SubnetPrefixLength",$SubnetPrefixLength) }
             if ( $PsBoundParameters.ContainsKey("SecondaryAddresses" )) { $AddressGroupParameters.Add("SecondaryAddresses",$SecondaryAddresses) }
 
-            PrivateAdd-NsxEdgeVnicAddressGroup @AddressGroupParameters
+            AddNsxEdgeVnicAddressGroup @AddressGroupParameters
         }
 
         $xmlVnic
@@ -11703,7 +11704,7 @@ function Set-NsxEdgeInterface {
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="AddressGroupSpec")]
-            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [ValidateScript({ ValidateEdgeInterface $_ })]
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
@@ -11715,7 +11716,7 @@ function Set-NsxEdgeInterface {
             [string]$Type,
         [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$ConnectedTo,
         [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [ValidateNotNullOrEmpty()]
@@ -11726,7 +11727,7 @@ function Set-NsxEdgeInterface {
         [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [string[]]$SecondaryAddresses=@(),
         [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
-            [ValidateScript({ Validate-AddressGroupSpec $_ })]
+            [ValidateScript({ ValidateAddressGroupSpec $_ })]
             [System.Xml.XmlElement[]]$AddressSpec,
         [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
@@ -11851,7 +11852,7 @@ function Clear-NsxEdgeInterface {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [ValidateScript({ ValidateEdgeInterface $_ })]
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
@@ -11931,7 +11932,7 @@ function Get-NsxEdgeInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False,ParameterSetName="Name",Position=1)]
             [string]$Name,
@@ -12024,13 +12025,13 @@ function New-NsxEdgeSubInterface {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [ValidateScript({ ValidateEdgeInterface $_ })]
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$true)]
             [ValidateRange(1,4094)]
             [int]$TunnelId,
         [Parameter (Mandatory=$false,ParameterSetName="Network")]
-            [ValidateScript({ Validate-LogicalSwitchOrDistributedPortGroup $_ })]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ })]
             [object]$Network,
         [Parameter (Mandatory=$false,ParameterSetName="VLAN")]
             [ValidateRange(0,4094)]
@@ -12153,7 +12154,7 @@ function Remove-NsxEdgeSubInterface {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSubInterface $_ })]
+            [ValidateScript({ ValidateEdgeSubInterface $_ })]
             [System.Xml.XmlElement]$Subinterface,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -12232,7 +12233,7 @@ function Get-NsxEdgeSubInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [ValidateScript({ ValidateEdgeInterface $_ })]
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$False,ParameterSetName="Name",Position=1)]
             [string]$Name,
@@ -12313,7 +12314,7 @@ function Get-NsxEdgeInterfaceAddress {
     param (
 
          [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [ValidateScript({ ValidateEdgeInterface $_ })]
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
@@ -12384,7 +12385,7 @@ function Add-NsxEdgeInterfaceAddress {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="AddressGroupSpec")]
-            [ValidateScript({ Validate-EdgeInterface $_ })]
+            [ValidateScript({ ValidateEdgeInterface $_ })]
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
             [ValidateNotNullOrEmpty()]
@@ -12395,7 +12396,7 @@ function Add-NsxEdgeInterfaceAddress {
         [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
             [string[]]$SecondaryAddresses=@(),
         [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
-            [ValidateScript({ Validate-AddressGroupSpec $_ })]
+            [ValidateScript({ ValidateAddressGroupSpec $_ })]
             [System.Xml.XmlElement[]]$AddressSpec,
         [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
@@ -12418,10 +12419,10 @@ function Add-NsxEdgeInterfaceAddress {
 
         if ( $PSCmdlet.ParameterSetName -eq "DirectAddress") {
             if ( $PsBoundParameters.ContainsKey('SecondaryAddresses')) {
-                PrivateAdd-NsxEdgeVnicAddressGroup -xmlAddressGroups $AddressGroups -PrimaryAddress $PrimaryAddress -SubnetPrefixLength $SubnetPrefixLength -SecondaryAddresses $SecondaryAddresses
+                AddNsxEdgeVnicAddressGroup -xmlAddressGroups $AddressGroups -PrimaryAddress $PrimaryAddress -SubnetPrefixLength $SubnetPrefixLength -SecondaryAddresses $SecondaryAddresses
             }
             else {
-                PrivateAdd-NsxEdgeVnicAddressGroup -xmlAddressGroups $AddressGroups -PrimaryAddress $PrimaryAddress -SubnetPrefixLength $SubnetPrefixLength -SecondaryAddresses $SecondaryAddresses
+                AddNsxEdgeVnicAddressGroup -xmlAddressGroups $AddressGroups -PrimaryAddress $PrimaryAddress -SubnetPrefixLength $SubnetPrefixLength -SecondaryAddresses $SecondaryAddresses
             }
         }
 
@@ -12473,7 +12474,7 @@ function Remove-NsxEdgeInterfaceAddress {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeInterfaceAddress $_ })]
+            [ValidateScript({ ValidateEdgeInterfaceAddress $_ })]
             [System.Xml.XmlElement]$InterfaceAddress,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -12787,7 +12788,7 @@ function New-NsxEdge {
             [string]$SyslogProtocol,
        [Parameter (Mandatory=$true)]
             #Define the Edge Interface configuration.  Specify a collection of one or more interface specs as created by New-NsxEdgeInterfaceSpec.
-            [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
+            [ValidateScript({ ValidateEdgeInterfaceSpec $_ })]
             [System.Xml.XmlElement[]]$Interface,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -12975,7 +12976,7 @@ function Repair-NsxEdge {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             #The Edge object to be repaired.  Accepted on pipline
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -13056,7 +13057,7 @@ function Set-NsxEdge {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -13130,7 +13131,7 @@ function Remove-NsxEdge {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -13197,7 +13198,7 @@ function Enable-NsxEdgeSsh {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -13246,7 +13247,7 @@ function Disable-NsxEdgeSsh {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -13321,7 +13322,7 @@ function Set-NsxEdgeNat {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeNat $_ })]
+            [ValidateScript({ ValidateEdgeNat $_ })]
             [System.Xml.XmlElement]$EdgeNat,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -13415,7 +13416,7 @@ function Get-NsxEdgeNat {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge
     )
 
@@ -13461,7 +13462,7 @@ function Get-NsxEdgeNatRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeNat $_ })]
+            [ValidateScript({ ValidateEdgeNat $_ })]
             [System.Xml.XmlElement]$EdgeNat,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
@@ -13530,7 +13531,7 @@ function New-NsxEdgeNatRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeNat $_ })]
+            [ValidateScript({ ValidateEdgeNat $_ })]
             [System.Xml.XmlElement]$EdgeNat,
         [Parameter (Mandatory=$False)]
             [ValidateRange(0,200)]
@@ -13664,7 +13665,7 @@ function Remove-NsxEdgeNatRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeNatRule $_ })]
+            [ValidateScript({ ValidateEdgeNatRule $_ })]
             [System.Xml.XmlElement]$NatRule,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -13744,7 +13745,7 @@ function Get-NsxEdgeCsr {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Edge")]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             [string]$objectId,
@@ -13815,7 +13816,7 @@ function New-NsxEdgeCsr{
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$True)]
             [string]$CommonName,
@@ -13941,7 +13942,7 @@ function Remove-NsxEdgeCsr{
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeCsr $_ })]
+            [ValidateScript({ ValidateEdgeCsr $_ })]
             [System.Xml.XmlElement]$Csr,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -14011,7 +14012,7 @@ function Get-NsxEdgeCertificate{
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Edge")]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             [string]$objectId,
@@ -14081,7 +14082,7 @@ function New-NsxEdgeSelfSignedCertificate{
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeCSR $_ })]
+            [ValidateScript({ ValidateEdgeCSR $_ })]
             [System.Xml.XmlElement]$CSR,
         [Parameter (Mandatory=$False)]
             [int]$NumberOfDays=365,
@@ -14143,7 +14144,7 @@ function Remove-NsxEdgeCertificate{
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeCertificate $_ })]
+            [ValidateScript({ ValidateEdgeCertificate $_ })]
             [System.Xml.XmlElement]$Certificate,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -14216,7 +14217,7 @@ function Get-NsxSslVpn {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge
     )
 
@@ -14244,7 +14245,7 @@ function Set-NsxSslVpn {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -14486,7 +14487,7 @@ function New-NsxSslVpnAuthServer {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$False)]
             [ValidateRange(1,63)]
@@ -14623,7 +14624,7 @@ function Get-NsxSslVpnAuthServer {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$false,Position=1)]
             [ValidateSet("local",IgnoreCase=$false)]
@@ -14670,7 +14671,7 @@ function New-NsxSslVpnUser{
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -14753,7 +14754,7 @@ function Get-NsxSslVpnUser {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$false,Position=1)]
             [string]$UserName
@@ -14791,7 +14792,7 @@ function Remove-NsxSslVpnUser {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpnUser $_ })]
+            [ValidateScript({ ValidateEdgeSslVpnUser $_ })]
             [System.Xml.XmlElement]$SslVpnUser,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -14838,7 +14839,7 @@ function New-NsxSslVpnIpPool {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -14923,7 +14924,7 @@ function Get-NsxSslVpnIpPool {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$false,Position=1)]
             [string]$IpRange
@@ -14962,7 +14963,7 @@ function Remove-NsxSslVpnIpPool {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpnIpPool $_ })]
+            [ValidateScript({ ValidateEdgeSslVpnIpPool $_ })]
             [System.Xml.XmlElement]$SslVpnIpPool,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -15009,7 +15010,7 @@ function New-NsxSslVpnPrivateNetwork {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -15086,7 +15087,7 @@ function Get-NsxSslVpnPrivateNetwork {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$false,Position=1)]
             [string]$Network
@@ -15125,7 +15126,7 @@ function Remove-NsxSslVpnPrivateNetwork {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpnPrivateNetwork $_ })]
+            [ValidateScript({ ValidateEdgeSslVpnPrivateNetwork $_ })]
             [System.Xml.XmlElement]$SslVpnPrivateNetwork,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -15172,7 +15173,7 @@ function New-NsxSslVpnClientInstallationPackage {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$True)]
             [string]$Name,
@@ -15291,7 +15292,7 @@ function Get-NsxSslVpnClientInstallationPackage {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpn $_ })]
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
         [Parameter (Mandatory=$false,Position=1)]
             [string]$Name
@@ -15330,7 +15331,7 @@ function Remove-NsxSslVpnClientInstallationPackage {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeSslVpnClientPackage $_ })]
+            [ValidateScript({ ValidateEdgeSslVpnClientPackage $_ })]
             [System.Xml.XmlElement]$EdgeSslVpnClientPackage,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -15427,7 +15428,7 @@ function Set-NsxEdgeRouting {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -15714,7 +15715,7 @@ function Get-NsxEdgeRouting {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge
     )
 
@@ -15768,7 +15769,7 @@ function Get-NsxEdgeStaticRoute {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
@@ -15845,7 +15846,7 @@ function New-NsxEdgeStaticRoute {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -15977,7 +15978,7 @@ function Remove-NsxEdgeStaticRoute {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeStaticRoute $_ })]
+            [ValidateScript({ ValidateEdgeStaticRoute $_ })]
             [System.Xml.XmlElement]$StaticRoute,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -16082,7 +16083,7 @@ function Get-NsxEdgePrefix {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
@@ -16161,7 +16162,7 @@ function New-NsxEdgePrefix {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullorEmpty()]
@@ -16269,7 +16270,7 @@ function Remove-NsxEdgePrefix {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgePrefix $_ })]
+            [ValidateScript({ ValidateEdgePrefix $_ })]
             [System.Xml.XmlElement]$Prefix,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -16363,7 +16364,7 @@ function Get-NsxEdgeBgp {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting
     )
 
@@ -16414,7 +16415,7 @@ function Set-NsxEdgeBgp {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -16593,7 +16594,7 @@ function Get-NsxEdgeBgpNeighbour {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
@@ -16682,7 +16683,7 @@ function New-NsxEdgeBgpNeighbour {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -16813,7 +16814,7 @@ function Remove-NsxEdgeBgpNeighbour {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeBgpNeighbour $_ })]
+            [ValidateScript({ ValidateEdgeBgpNeighbour $_ })]
             [System.Xml.XmlElement]$BgpNeighbour,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -16916,7 +16917,7 @@ function Get-NsxEdgeOspf {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting
     )
 
@@ -16967,7 +16968,7 @@ function Set-NsxEdgeOspf {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -17119,7 +17120,7 @@ function Get-NsxEdgeOspfArea {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$false)]
             [ValidateRange(0,4294967295)]
@@ -17196,7 +17197,7 @@ function Remove-NsxEdgeOspfArea {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeOspfArea $_ })]
+            [ValidateScript({ ValidateEdgeOspfArea $_ })]
             [System.Xml.XmlElement]$OspfArea,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -17301,7 +17302,7 @@ function New-NsxEdgeOspfArea {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -17441,7 +17442,7 @@ function Get-NsxEdgeOspfInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$false)]
             [ValidateRange(0,4294967295)]
@@ -17530,7 +17531,7 @@ function Remove-NsxEdgeOspfInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeOspfInterface $_ })]
+            [ValidateScript({ ValidateEdgeOspfInterface $_ })]
             [System.Xml.XmlElement]$OspfInterface,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -17628,7 +17629,7 @@ function New-NsxEdgeOspfInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -17768,7 +17769,7 @@ function Get-NsxEdgeRedistributionRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$false)]
             [ValidateSet("ospf","bgp")]
@@ -17878,7 +17879,7 @@ function Remove-NsxEdgeRedistributionRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRedistributionRule $_ })]
+            [ValidateScript({ ValidateEdgeRedistributionRule $_ })]
             [System.Xml.XmlElement]$RedistributionRule,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -17989,7 +17990,7 @@ function New-NsxEdgeRedistributionRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-EdgeRouting $_ })]
+            [ValidateScript({ ValidateEdgeRouting $_ })]
             [System.Xml.XmlElement]$EdgeRouting,
         [Parameter (Mandatory=$True)]
             [ValidateSet("ospf","bgp",IgnoreCase=$false)]
@@ -18153,7 +18154,7 @@ function Set-NsxLogicalRouterRouting {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -18476,7 +18477,7 @@ function Get-NsxLogicalRouterRouting {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouter $_ })]
+            [ValidateScript({ ValidateLogicalRouter $_ })]
             [System.Xml.XmlElement]$LogicalRouter
     )
 
@@ -18527,7 +18528,7 @@ function Get-NsxLogicalRouterStaticRoute {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
@@ -18601,7 +18602,7 @@ function New-NsxLogicalRouterStaticRoute {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -18730,7 +18731,7 @@ function Remove-NsxLogicalRouterStaticRoute {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterStaticRoute $_ })]
+            [ValidateScript({ ValidateLogicalRouterStaticRoute $_ })]
             [System.Xml.XmlElement]$StaticRoute,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -18832,7 +18833,7 @@ function Get-NsxLogicalRouterPrefix {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
@@ -18904,7 +18905,7 @@ function New-NsxLogicalRouterPrefix {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullorEmpty()]
@@ -19005,7 +19006,7 @@ function Remove-NsxLogicalRouterPrefix {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterPrefix $_ })]
+            [ValidateScript({ ValidateLogicalRouterPrefix $_ })]
             [System.Xml.XmlElement]$Prefix,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -19097,7 +19098,7 @@ function Get-NsxLogicalRouterBgp {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting
     )
 
@@ -19144,7 +19145,7 @@ function Set-NsxLogicalRouterBgp {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -19320,7 +19321,7 @@ function Get-NsxLogicalRouterBgpNeighbour {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullorEmpty()]
@@ -19406,7 +19407,7 @@ function New-NsxLogicalRouterBgpNeighbour {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -19543,7 +19544,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterBgpNeighbour $_ })]
+            [ValidateScript({ ValidateLogicalRouterBgpNeighbour $_ })]
             [System.Xml.XmlElement]$BgpNeighbour,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -19643,7 +19644,7 @@ function Get-NsxLogicalRouterOspf {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting
     )
 
@@ -19691,7 +19692,7 @@ function Set-NsxLogicalRouterOspf {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -19877,7 +19878,7 @@ function Get-NsxLogicalRouterOspfArea {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$false)]
             [ValidateRange(0,4294967295)]
@@ -19951,7 +19952,7 @@ function Remove-NsxLogicalRouterOspfArea {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterOspfArea $_ })]
+            [ValidateScript({ ValidateLogicalRouterOspfArea $_ })]
             [System.Xml.XmlElement]$OspfArea,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -20053,7 +20054,7 @@ function New-NsxLogicalRouterOspfArea {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -20190,7 +20191,7 @@ function Get-NsxLogicalRouterOspfInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$false)]
             [ValidateRange(0,4294967295)]
@@ -20276,7 +20277,7 @@ function Remove-NsxLogicalRouterOspfInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterOspfInterface $_ })]
+            [ValidateScript({ ValidateLogicalRouterOspfInterface $_ })]
             [System.Xml.XmlElement]$OspfInterface,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -20371,7 +20372,7 @@ function New-NsxLogicalRouterOspfInterface {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -20508,7 +20509,7 @@ function Get-NsxLogicalRouterRedistributionRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$false)]
             [ValidateSet("ospf","bgp")]
@@ -20617,7 +20618,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRedistributionRule $_ })]
+            [ValidateScript({ ValidateLogicalRouterRedistributionRule $_ })]
             [System.Xml.XmlElement]$RedistributionRule,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -20724,7 +20725,7 @@ function New-NsxLogicalRouterRedistributionRule {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LogicalRouterRouting $_ })]
+            [ValidateScript({ ValidateLogicalRouterRouting $_ })]
             [System.Xml.XmlElement]$LogicalRouterRouting,
         [Parameter (Mandatory=$True)]
             [ValidateSet("ospf","bgp",IgnoreCase=$false)]
@@ -21003,11 +21004,11 @@ function New-NsxSecurityGroup   {
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
             #Static include membership
-            [ValidateScript({ Validate-SecurityGroupMember $_ })]
+            [ValidateScript({ ValidateSecurityGroupMember $_ })]
             [object[]]$IncludeMember,
         [Parameter (Mandatory=$false)]
             #Static exclude membership
-            [ValidateScript({ Validate-SecurityGroupMember $_ })]
+            [ValidateScript({ ValidateSecurityGroupMember $_ })]
             [object[]]$ExcludeMember,
         [Parameter (Mandatory=$false)]
             #Scope of object.  For universal object creation, use the -Universal switch.
@@ -21291,7 +21292,7 @@ function Add-NsxSecurityGroupMember {
             [switch]$MemberIsExcluded=$false,
         [Parameter (Mandatory=$true)]
             #The member(s) to be added
-            [ValidateScript({ Validate-SecurityGroupMember $_ })]
+            [ValidateScript({ ValidateSecurityGroupMember $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -21412,7 +21413,7 @@ function Remove-NsxSecurityGroupMember {
         [Parameter (Mandatory=$False)]
             [switch]$FailIfAbsent=$true,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-SecurityGroupMember $_ })]
+            [ValidateScript({ ValidateSecurityGroupMember $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -21695,7 +21696,7 @@ function Remove-NsxSecurityTag {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript( { Validate-SecurityTag $_ })]
+            [ValidateScript( { ValidateSecurityTag $_ })]
             [System.Xml.XmlElement]$SecurityTag,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -21784,7 +21785,7 @@ function Get-NsxSecurityTagAssignment {
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "Tag")]
-            [ValidateScript( { Validate-SecurityTag $_ })]
+            [ValidateScript( { ValidateSecurityTag $_ })]
             [System.Xml.XmlElement]$SecurityTag,
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
             [ValidateNotNullorEmpty()]
@@ -21880,7 +21881,7 @@ function New-NsxSecurityTagAssignment {
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop[]]$VirtualMachine,
         [Parameter (Mandatory=$true, Position = 1, ParameterSetName = "VirtualMachine")]
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "SecurityTag")]
-            [ValidateScript( { Validate-SecurityTag $_ })]
+            [ValidateScript( { ValidateSecurityTag $_ })]
             [System.Xml.XmlElement[]]$SecurityTag,
         [Parameter (Mandatory=$true, ParameterSetName = "VirtualMachine")]
             [switch]$ApplyTag,
@@ -21947,7 +21948,7 @@ function Remove-NsxSecurityTagAssignment {
 
     param (
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
-            [ValidateScript ({ Validate-TagAssignment $_ })]
+            [ValidateScript ({ ValidateTagAssignment $_ })]
             [PSCustomObject]$TagAssignment,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -22500,7 +22501,7 @@ function Remove-NsxIpSetMember  {
             # An IPSET allows the users to enter a host as either 1.1.1.1 or
             # 1.1.1.1/32. So if the users specifies that they want to remove
             # 1.1.1.1 we need to look for both 1.1.1.1 AND 1.1.1.1/32 to remove.
-            if ( Validate-IPHost $value ) {
+            if ( ValidateIPHost $value ) {
                 if ( $value -as [ipaddress] ) {
                     if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$($value)/32" ) ) ) {
                         write-warning "$Value not a member of IPSet $($ipset.name)"
@@ -22579,7 +22580,7 @@ function Remove-NsxIpPool {
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             #IPPool object to be removed.
-            [ValidateScript({ Validate-IpPool $_ })]
+            [ValidateScript({ ValidateIpPool $_ })]
             [System.Xml.XmlElement]$IPPool,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -23511,7 +23512,7 @@ function Get-NsxServiceGroupMember {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-ServiceOrServiceGroup $_ })]
+            [ValidateScript({ ValidateServiceOrServiceGroup $_ })]
             [System.Xml.XmlElement]$ServiceGroup,
         [Parameter (Mandatory=$false)]
             [string]$scopeId="globalroot-0",
@@ -23567,7 +23568,7 @@ function Remove-NsxServiceGroup {
     #>
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-ServiceGroup $_ })]
+            [ValidateScript({ ValidateServiceGroup $_ })]
             [System.Xml.XmlElement]$ServiceGroup,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -23747,10 +23748,10 @@ function Add-NsxServiceGroupMember {
     param (
         #Mastergroup added from Get-NsxServiceGroup
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-ServiceGroup $_ })]
+            [ValidateScript({ ValidateServiceGroup $_ })]
             [System.Xml.XmlElement]$ServiceGroup,
         [Parameter (Mandatory=$true,Position=1)]
-            [ValidateScript({ Validate-ServiceOrServiceGroup $_ })]
+            [ValidateScript({ ValidateServiceOrServiceGroup $_ })]
             #The [] in XmlElement means it can expect more than one object!
             [System.Xml.XmlElement[]]$Member,
         [Parameter (Mandatory=$False)]
@@ -23916,7 +23917,7 @@ function Add-NsxSourceDestMember {
 
     #Loop the memberlist and create appropriate element in the srcdest node.
     foreach ($member in $memberlist) {
-        if ( ( $member -as [ipaddress]) -or ( Validate-IPRange -argument $member ) -or ( Validate-IPPrefix -argument $member ) ) {
+        if ( ( $member -as [ipaddress]) -or ( ValidateIPRange -argument $member ) -or ( ValidateIPPrefix -argument $member ) ) {
             write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $member"
         }
         else {
@@ -23926,7 +23927,7 @@ function Add-NsxSourceDestMember {
         [System.XML.XMLElement]$xmlMember = $XMLDoc.CreateElement($memberType)
         $xmlSrcDestNode.appendChild($xmlMember) | out-null
 
-        if ( ( $member -as [ipaddress]) -or ( Validate-IPRange -argument $member ) -or ( Validate-IPPrefix -argument $member ) ) {
+        if ( ( $member -as [ipaddress]) -or ( ValidateIPRange -argument $member ) -or ( ValidateIPPrefix -argument $member ) ) {
             #Item is v4 or 6 address
             write-debug "$($MyInvocation.MyCommand.Name) : Object $member is an ipaddress"
             Add-XmlElement -xmlRoot $xmlMember -xmlElementName "value" -xmlElementText $member
@@ -24407,10 +24408,10 @@ function Get-NsxFirewallRule {
             [ValidateSet("layer3sections","layer2sections","layer3redirectsections",ignorecase=$false)]
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$False,ParameterSetName="Filter")]
-            [ValidateScript({ Validate-FwSourceDestFilter $_ })]
+            [ValidateScript({ ValidateFwSourceDestFilter $_ })]
             [object]$Source,
         [Parameter (Mandatory=$False,ParameterSetName="Filter")]
-            [ValidateScript({ Validate-FwSourceDestFilter $_ })]
+            [ValidateScript({ ValidateFwSourceDestFilter $_ })]
             [object]$Destination,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -24569,7 +24570,7 @@ function New-NsxFirewallRule  {
             [string]$Direction="inout",
         [Parameter (Mandatory=$false)]
             # Source(s) of traffic to hit the rule.  IP4/6 members are specified as string, any other member as the appropriate VI or PowerNSX object.
-            [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
+            [ValidateScript({ ValidateFirewallRuleSourceDest $_ })]
             [object[]]$Source,
         [Parameter (Mandatory=$false)]
             # Negate the list of sources hit by the rule
@@ -24577,14 +24578,14 @@ function New-NsxFirewallRule  {
             [switch]$NegateSource,
         [Parameter (Mandatory=$false)]
             # Destination(s) of traffic to hit the rule.  IP4/6 members are specified as string, any other member as the appropriate VI or PowerNSX object.
-            [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
+            [ValidateScript({ ValidateFirewallRuleSourceDest $_ })]
             [object[]]$Destination,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [switch]$NegateDestination,
         [Parameter (Mandatory=$false)]
             # Negate the list of destinations hit by the rule
-            [ValidateScript ({ Validate-FirewallRuleService $_ })]
+            [ValidateScript ({ ValidateFirewallRuleService $_ })]
             [object[]]$Service,
         [Parameter (Mandatory=$false)]
             # Comment string for the new rule
@@ -24597,7 +24598,7 @@ function New-NsxFirewallRule  {
             [switch]$EnableLogging,
         [Parameter (Mandatory=$false)]
             # Specific Object(s) to which the rule will be applied.
-            [ValidateScript({ Validate-FirewallAppliedTo $_ })]
+            [ValidateScript({ ValidateFirewallAppliedTo $_ })]
             [object[]]$AppliedTo,
         [Parameter (Mandatory=$false)]
             # Enable application of the rule to 'DISTRIBUTED_FIREWALL' (ie, to all VNICs present on NSX prepared hypervisors.  This does NOT include NSX Edges)
@@ -25310,11 +25311,11 @@ function Get-NsxFirewallRuleMember {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             # DFW rule as returned by Get-NsxFirewallRule / New-NsxFirewallRule
-            [ValidateScript({ Validate-FirewallRule $_ })]
+            [ValidateScript({ ValidateFirewallRule $_ })]
             [System.Xml.XmlElement]$FirewallRule,
         [Parameter (Mandatory=$false, Position=1)]
             # Member(s) to return.  Can specify as a string or VI / NSX Object (VM, Logical Switch etc)).  String match is processed as regex (eg: web\d{2} is supported)
-            [ValidateScript({ Validate-FirewallRuleMember $_ })]
+            [ValidateScript({ ValidateFirewallRuleMember $_ })]
             [object[]]$Member=".*",
         [Parameter (Mandatory=$false)]
             # MemberType to return.  Source, Destination or All (Default)
@@ -25496,11 +25497,11 @@ function Add-NsxFirewallRuleMember {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             # DFW rule as returned by Get-NsxFirewallRule / New-NsxFirewallRule
-            [ValidateScript({ Validate-FirewallRule $_ })]
+            [ValidateScript({ ValidateFirewallRule $_ })]
             [System.Xml.XmlElement]$FirewallRule,
         [Parameter (Mandatory=$True, Position=1)]
             # Member(s) to add.  specify ipv4/6 addresses as a string or other member types as VI / NSX Object (VM, Logical Switch etc)).
-            [ValidateScript({ Validate-FirewallRuleSourceDest $_ })]
+            [ValidateScript({ ValidateFirewallRuleSourceDest $_ })]
             [object[]]$Member,
         [Parameter (Mandatory=$true)]
             # MemberType to add.  Source, Destination or Both
@@ -25632,7 +25633,7 @@ function Remove-NsxFirewallRuleMember {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             # DFW rule member as returned by Get-NsxFirewallRuleMember
-            [ValidateScript({ Validate-FirewallRuleMemberObject $_ })]
+            [ValidateScript({ ValidateFirewallRuleMemberObject $_ })]
             [Object]$FirewallRuleMember,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -25896,7 +25897,7 @@ function Get-NsxLoadBalancer {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge
     )
 
@@ -25940,7 +25941,7 @@ function Set-NsxLoadBalancer {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$False)]
             [switch]$Enabled,
@@ -26048,7 +26049,7 @@ function Get-NsxLoadBalancerMonitor {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [PSCustomObject]$LoadBalancer,
         [Parameter (Mandatory=$true,ParameterSetName="monitorId")]
             [string]$monitorId,
@@ -26122,7 +26123,7 @@ function New-NsxLoadBalancerMonitor {
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="TCP")]
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="ICMP")]
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName="UDP")]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$true, ParameterSetName="HTTP")]
             [switch]$TypeHttp,
@@ -26320,7 +26321,7 @@ function Remove-NsxLoadBalancerMonitor {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LoadBalancerMonitor $_ })]
+            [ValidateScript({ ValidateLoadBalancerMonitor $_ })]
             [System.Xml.XmlElement]$Monitor,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -26401,7 +26402,7 @@ function Get-NsxLoadBalancerApplicationProfile {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$true,ParameterSetName="applicationProfileId")]
             [alias("applicationProfileId")]
@@ -26471,7 +26472,7 @@ function New-NsxLoadBalancerApplicationProfile {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -26616,7 +26617,7 @@ function Remove-NsxLoadBalancerApplicationProfile {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LoadBalancerApplicationProfile $_ })]
+            [ValidateScript({ ValidateLoadBalancerApplicationProfile $_ })]
             [System.Xml.XmlElement]$ApplicationProfile,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -26789,7 +26790,7 @@ function New-NsxLoadBalancerPool {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -26804,10 +26805,10 @@ function New-NsxLoadBalancerPool {
             [ValidateSet("round-robin", "ip-hash", "uri", "leastconn")]
             [string]$Algorithm,
         [Parameter (Mandatory=$false)]
-            [ValidateScript({ Validate-LoadBalancerMonitor $_ })]
+            [ValidateScript({ ValidateLoadBalancerMonitor $_ })]
             [System.Xml.XmlElement]$Monitor,
         [Parameter (Mandatory=$false)]
-            [ValidateScript({ Validate-LoadBalancerMemberSpec $_ })]
+            [ValidateScript({ ValidateLoadBalancerMemberSpec $_ })]
             [System.Xml.XmlElement[]]$MemberSpec,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -26903,7 +26904,7 @@ function Get-NsxLoadBalancerPool {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$true,ParameterSetName="poolId")]
             [string]$PoolId,
@@ -26968,7 +26969,7 @@ function Remove-NsxLoadBalancerPool {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LoadBalancerPool $_ })]
+            [ValidateScript({ ValidateLoadBalancerPool $_ })]
             [System.Xml.XmlElement]$LoadBalancerPool,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -27054,7 +27055,7 @@ function Get-NsxLoadBalancerPoolMember {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancerPool $_ })]
+            [ValidateScript({ ValidateLoadBalancerPool $_ })]
             [System.Xml.XmlElement]$LoadBalancerPool,
         [Parameter (Mandatory=$true,ParameterSetName="MemberId")]
             [string]$MemberId,
@@ -27121,7 +27122,7 @@ function Add-NsxLoadBalancerPoolMember {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancerPool $_ })]
+            [ValidateScript({ ValidateLoadBalancerPool $_ })]
             [System.Xml.XmlElement]$LoadBalancerPool,
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
@@ -27223,7 +27224,7 @@ function Remove-NsxLoadBalancerPoolMember {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LoadBalancerPoolMember $_ })]
+            [ValidateScript({ ValidateLoadBalancerPoolMember $_ })]
             [System.Xml.XmlElement]$LoadBalancerPoolMember,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -27312,7 +27313,7 @@ function Get-NsxLoadBalancerVip {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$true,ParameterSetName="VirtualServerId")]
             [string]$VirtualServerId,
@@ -27383,7 +27384,7 @@ function Add-NsxLoadBalancerVip {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$True)]
             [ValidateNotNullOrEmpty()]
@@ -27404,10 +27405,10 @@ function Add-NsxLoadBalancerVip {
             [ValidateNotNullorEmpty()]
             [switch]$Enabled=$true,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-LoadBalancerApplicationProfile $_ })]
+            [ValidateScript({ ValidateLoadBalancerApplicationProfile $_ })]
             [System.Xml.XmlElement]$ApplicationProfile,
         [Parameter (Mandatory=$true)]
-            [ValidateScript({ Validate-LoadBalancerPool $_ })]
+            [ValidateScript({ ValidateLoadBalancerPool $_ })]
             [System.Xml.XmlElement]$DefaultPool,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
@@ -27503,7 +27504,7 @@ function Remove-NsxLoadBalancerVip {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({ Validate-LoadBalancerVip $_ })]
+            [ValidateScript({ ValidateLoadBalancerVip $_ })]
             [System.Xml.XmlElement]$LoadBalancerVip,
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
@@ -27580,7 +27581,7 @@ function Get-NsxLoadBalancerStats{
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             #Load Balancer from which to retrieve stats.  Must be enabled.
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -27651,7 +27652,7 @@ function Get-NsxLoadBalancerApplicationRule {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$false,ParameterSetName="ObjectId")]
             [string]$ObjectId,
@@ -27718,7 +27719,7 @@ function New-NsxLoadBalancerApplicationRule {
 
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateScript({ Validate-LoadBalancer $_ })]
+            [ValidateScript({ ValidateLoadBalancer $_ })]
             [System.Xml.XmlElement]$LoadBalancer,
         [Parameter (Mandatory=$True)]
             [string]$Script,
@@ -28539,7 +28540,7 @@ function Get-NsxBackingPortGroup{
      param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({Validate-LogicalSwitch $_ })]
+            [ValidateScript({ValidateLogicalSwitch $_ })]
             [object]$LogicalSwitch
     )
 
@@ -28603,7 +28604,7 @@ function Get-NsxBackingDVSwitch{
      param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateScript({Validate-LogicalSwitch $_ })]
+            [ValidateScript({ValidateLogicalSwitch $_ })]
             [object]$LogicalSwitch
     )
 
@@ -28723,7 +28724,7 @@ function Copy-NsxEdge{
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
             #PowerNSX Edge Object as retrieved with Get-NsxEdge representing the source edge to duplicate.
-            [ValidateScript({ Validate-Edge $_ })]
+            [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge,
         [Parameter (Mandatory=$true)]
             #Duplicated Edge Name (base of appliance name and default for fqdn)
@@ -28819,7 +28820,7 @@ function Copy-NsxEdge{
             #
             #In summary, the only thing that can (must) change from the source edge is the primary and any secondary IP Addresses for every addressgroup on every interface, and potentially, the connected network.
             #If not specified, the user is interactively prompted for replacement addresses on each primary and secondary address on each addressgroup on each enabled VNIC on the source edge.
-            [ValidateScript({ Validate-EdgeInterfaceSpec $_ })]
+            [ValidateScript({ ValidateEdgeInterfaceSpec $_ })]
             [System.Xml.XmlElement[]]$Interface,
         [Parameter (Mandatory=$false)]
             #Any self signed certificates found on the source edge will be regenerated on the destination edge as new certificates with the fqdn as the cn (all other details duplicated), and services configured to use the regenerated certificate.  Set this to $false to disable autogeneration of certificates (services will have to be manually reconfigured to use a different certificate)
