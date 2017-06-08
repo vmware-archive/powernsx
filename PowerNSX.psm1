@@ -17,7 +17,6 @@ FOR A PARTICULAR PURPOSE. See the GNU General Public License version 2 for more 
 You should have received a copy of the General Public License version 2 along with this program.
 If not, see https://www.gnu.org/licenses/gpl-2.0.html.
 
-The full text of the General Public License 2.0 is provided in the COPYING file.
 Some files may be comprised of various open source software components, each of which
 has its own license that is located in the source code of the respective component.
 #>
@@ -942,6 +941,7 @@ function Validate-UpdateBranch {
     }
 
 }
+
 Function Validate-TransportZone {
 
     Param (
@@ -9177,7 +9177,7 @@ function Get-NsxLogicalSwitch {
     param (
 
         [Parameter (Mandatory=$false,ValueFromPipeline=$true,ParameterSetName="vdnscope")]
-            [ValidateNotNullOrEmpty()]
+            [ValidateScript({ Validate-TransportZone $_ })]
             [alias("vdnScope")]
             [System.Xml.XmlElement]$TransportZone,
         [Parameter (Mandatory=$false,Position=1)]
@@ -9211,8 +9211,8 @@ function Get-NsxLogicalSwitch {
 
             #Getting all LS in a given VDNScope
             $lspagesize = 10
-            if ( $PSBoundParameters.ContainsKey('vndScope')) {
-                $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
+            if ( $PSBoundParameters.ContainsKey('TransportZone')) {
+                    $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires?pagesize=$lspagesize&startindex=00"
             }
             else {
                 $URI = "/api/2.0/vdn/virtualwires?pagesize=$lspagesize&startindex=00"
