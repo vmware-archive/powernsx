@@ -46,7 +46,7 @@ $Script:AllServicesRequiringPort = @( "FTP", "L2_OTHERS", "L3_OTHERS",
  "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS",
   "SUN_RPC_TCP", "SUN_RPC_UDP" )
 
-$script:AllServicesNotRequiringPort = $Script:AllValidServices | ? { $AllServicesRequiringPort -notcontains $_ }
+$script:AllServicesNotRequiringPort = $Script:AllValidServices | Where-Object { $AllServicesRequiringPort -notcontains $_ }
 
 $Script:AllValidIcmpTypes = @("echo-reply", "destination-unreachable",
     "source-quench", "redirect", "echo-request", "time-exceeded",
@@ -589,7 +589,7 @@ function Get-FeatureStatus {
         [system.xml.xmlelement[]]$statusxml
         )
 
-    [system.xml.xmlelement]$feature = $statusxml | ? { $_.featureId -eq $featurestring } | select -first 1
+    [system.xml.xmlelement]$feature = $statusxml | where-object { $_.featureId -eq $featurestring } | select-object -first 1
     [string]$statusstring = $feature.status
     $message = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $feature -Query 'message')
     if ( $message -and ( $message | get-member -membertype Property -Name '#Text')) {
@@ -2247,8 +2247,8 @@ Function Validate-FirewallRule {
         #Validate that the rule has a parent node that we can use to update it if required.
         try {
             $ParentSection = invoke-xpathquery -query "parent::section" -QueryMethod SelectSingleNode -Node $argument
-            $sectionId = $Parentsection.HasAttribute("id") -as [int]
-            $RuleId = $argument.HasAttribute("id")
+            $null = $Parentsection.HasAttribute("id") -as [int]
+            $null = $argument.HasAttribute("id")
         }
         catch {
             Throw "Unable to retrieve rule and section details from the specified Firewall Rule.  Specify a valid rule and try again."
@@ -4280,7 +4280,7 @@ function Connect-NsxServer {
                 $VIConnection = Connect-VIServer -Credential $Credential -server $vCenterServer -NotDefault:(-not $VIDefaultConnection) -WarningAction:$ViWarningAction -erroraction Stop
             }
             $ExtensionManager = Get-View ExtensionManager -Server $ViConnection
-            $NSXExtension = $ExtensionManager.ExtensionList  |? { $_.key -eq 'com.vmware.vShieldManager' }
+            $NSXExtension = $ExtensionManager.ExtensionList  | where-object { $_.key -eq 'com.vmware.vShieldManager' }
             if ( -not  $NSXExtension ) {
                 throw "The connected vCenter server does not have a registered NSX solution."
             }
@@ -4388,7 +4388,7 @@ function Get-PowerNsxVersion {
     #>
 
     #Updated to take advantage of Manifest info.
-    Get-Module PowerNsx | select version, path, author, companyName
+    Get-Module PowerNsx | select-object-object version, path, author, companyName
 }
 
 function Update-PowerNsx {
@@ -4414,25 +4414,8 @@ function Update-PowerNsx {
 
     $PNsxUrl = "$PNsxUrlBase/$Branch/PowerNSXInstaller.ps1"
 
-    #Where am I currently installed?
-    $currentMod = Get-Module PowerNSX
-    $CurrentModpath = split-path $currentMod.Path -parent
-
     if ( $script:PNsxPSTarget -eq "Desktop") {
 
-        ## Dont know why we are doing this here, given that we do it in the installer anyway...
-
-        # if ($CurrentModpath -eq "$($env:ProgramFiles)\Common Files\Modules") {
-        #     #Windows - AllUsers install check we have admin
-
-        #     if ( -not ( ([Security.Principal.WindowsPrincipal] [Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(`
-        #         [Security.Principal.WindowsBuiltInRole] "Administrator"))) {
-
-        #         write-host -ForegroundColor Yellow "The PowerNSX installer requires Administrative rights to install for AllUsers."
-        #         write-host -ForegroundColor Yellow "Please restart PowerShell with right click, 'Run As Administrator' or install PowerNSX for the current user only."
-        #         return
-        #     }
-        # }
         #OS specific temp variable
         $tmpdir = $($env:Temp)
     }
@@ -4456,7 +4439,7 @@ function Update-PowerNsx {
     set-strictmode -Off
 
     try {
-        $scr = try {
+        try {
             $filename = split-path $PNsxUrl -leaf
             invoke-webrequest -uri $PNsxUrl -outfile "$tmpdir\$filename"
         }
@@ -4481,7 +4464,7 @@ function Update-PowerNsx {
     write-host -ForegroundColor Magenta "PowerNSX has been updated.  Please restart PowerShell to use the updated version."
 
     #Check to make sure we dont have mutiple installs....
-    if ( (get-module -ListAvailable PowerNSX | measure ).count -ne 1 ) {
+    if ( (get-module -ListAvailable PowerNSX | measure-object ).count -ne 1 ) {
         write-warning "Mutiple PowerNSX installations found.  It is recommended to remove one of them or the universe may implode! (Or you may end up using an older version without realising, which is nearly as bad!)"
         foreach ( $mod in (get-module -ListAvailable PowerNSX) ) {
             write-warning "PowerNSX Install found in $($mod.path | split-path -parent )"
@@ -5377,7 +5360,7 @@ function New-NsxManager{
 
         # Chose a target host that is not in Maintenance Mode and select based on available memory
         $TargetVMHost = $null
-        $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | Select -first 1
+        $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | select-object-object -first 1
 
         # throw an error if there are not any hosts suitable for deployment (ie: all hosts are in maint. mode)
         if ($targetVmHost -eq $null) {
@@ -5741,7 +5724,7 @@ function Get-NsxManagerCertificate {
 
     Retreives the SSL Certificates from the connected NSX Manager
 
-    Get-NsxManagerCertificate | where { $_.isCa -eq "false" } | select sha1Hash
+    Get-NsxManagerCertificate | where { $_.isCa -eq "false" } | select-object sha1Hash
 
     Retrieves the SSL Certificates SHA1 hash from the connected NSX Manager
     #>
@@ -6541,7 +6524,7 @@ function Set-NsxManagerRole {
     }
 
     try  {
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
     }
     Catch {
         $ParsedXmlError = $false
@@ -6598,7 +6581,7 @@ function Invoke-NsxManagerSync {
     $URI = "/api/2.0/universalsync/sync?action=invoke"
 
     try  {
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
     }
     catch {
         Throw "Failed to invoke synchronisation. $_"
@@ -6831,8 +6814,8 @@ function Get-NsxSecondaryManager {
         $content = [xml]$response.content
         if ( invoke-xpathquery -querymethod SelectSingleNode -Query "child::nsxManagerInfos/nsxManagerInfo" -Node $content ) {
             switch ( $PSCmdlet.ParameterSetName ) {
-                "Name" { $content.nsxManagerInfos.nsxManagerInfo  | ? { $_.nsxManagerIp -match $Name}}
-                "Uuid" { $content.nsxManagerInfos.nsxManagerInfo | ? { $_.uuid -eq $uuid}}
+                "Name" { $content.nsxManagerInfos.nsxManagerInfo  | where-object { $_.nsxManagerIp -match $Name}}
+                "Uuid" { $content.nsxManagerInfos.nsxManagerInfo | where-object { $_.uuid -eq $uuid}}
                 default { $content.nsxManagerInfos.nsxManagerInfo }
             }
         }
@@ -6913,7 +6896,7 @@ function Remove-NsxSecondaryManager {
             }
 
             try  {
-                $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+                $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             }
             Catch {
                 Throw "Failed removing secondary NSX Manager.  $_"
@@ -7106,7 +7089,7 @@ function New-NsxController {
     )
 
     begin {
-        $Ctrlcount = get-nsxcontroller -connection $Connection | measure
+        $Ctrlcount = get-nsxcontroller -connection $Connection | measure-object
 
         if ( ($PSBoundParameters.ContainsKey("Password")) -and ($Ctrlcount.count -gt 0)) {
             write-warning "A controller is already deployed but a password argument was specified to New-NsxController. The new controller will be configured with the same password as the initial one and the specified password ignored"
@@ -7241,7 +7224,7 @@ function Get-NsxController {
 
     if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::controllers/controller')) {
         if ( $PsBoundParameters.containsKey('objectId')) {
-            $response.controllers.controller | ? { $_.Id -eq $ObjectId }
+            $response.controllers.controller | where-object { $_.Id -eq $ObjectId }
         } else {
             $response.controllers.controller
         }
@@ -7526,7 +7509,7 @@ function Get-NsxIpPool {
         [system.xml.xmlDocument]$content = $response.content
         if (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $content -Query 'child::ipamAddressPools/ipamAddressPool'){
             If ( $PsBoundParameters.ContainsKey("Name")) {
-                $content.ipamAddressPools.ipamAddressPool | ? { $_.name -eq $Name }
+                $content.ipamAddressPools.ipamAddressPool | where-object { $_.name -eq $Name }
             }
             else {
                 $content.ipamAddressPools.ipamAddressPool
@@ -7582,7 +7565,7 @@ function Get-NsxVdsContext {
             if ( $response.vdsContexts -as [system.xml.xmlelement]) {
                 If ( $response | get-member -memberType properties vdsContexts ) {
                     if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response.vdsContexts -Query "descendant::vdsContext")) {
-                        $response.vdsContexts.vdsContext | ? { $_.switch.name -eq $Name }
+                        $response.vdsContexts.vdsContext | where-object { $_.switch.name -eq $Name }
                     }
                 }
             }
@@ -7671,7 +7654,7 @@ function New-NsxVdsContext {
         $body = $xmlContext.OuterXml
         $URI = "/api/2.0/nwfabric/configure"
         Write-Progress -activity "Configuring VDS context on VDS $($VirtualDistributedSwitch.Name)."
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Configuring VDS context on VDS $($VirtualDistributedSwitch.Name)." -completed
 
         Get-NsxVdsContext -objectId $VirtualDistributedSwitch.Extensiondata.Moref.Value -connection $connection
@@ -7801,7 +7784,7 @@ function New-NsxClusterVxlanConfig {
 
         #Check that the VDS has a VDS context in NSX and is configured.
         try {
-            $vdscontext = Get-NsxVdsContext -objectId $VirtualDistributedSwitch.Extensiondata.MoRef.Value -connection $connection
+            $null = Get-NsxVdsContext -objectId $VirtualDistributedSwitch.Extensiondata.MoRef.Value -connection $connection
         }
         catch {
             throw "Specified VDS is not configured for NSX.  Use New-NsxVdsContext to configure the VDS and try again."
@@ -7839,7 +7822,7 @@ function New-NsxClusterVxlanConfig {
         # #Do the post
         $body = $xmlContext.OuterXml
         $URI = "/api/2.0/nwfabric/configure"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
         #Get Initial Status
         $status = $cluster | get-NsxClusterStatus -connection $connection
@@ -7959,7 +7942,7 @@ function Install-NsxCluster {
         # #Do the post
         $body = $xmlContext.OuterXml
         $URI = "/api/2.0/nwfabric/configure"
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
         #Get Initial Status
         $status = $cluster | get-NsxClusterStatus -connection $Connection
@@ -8266,7 +8249,7 @@ function Remove-NsxClusterVxlanConfig {
 
             Write-Progress -parentid 1 -id 5 -activity "VXLAN Config Status: $VxlanConfig" -completed
             Write-Progress -id 1 -activity "Unconfiguring VXLAN on $($Cluster.Name)." -status "In Progress..." -completed
-            $cluster | get-NsxClusterStatus -connection $connection | ? { $_.featureId -eq "com.vmware.vshield.vsm.vxlan" }
+            $cluster | get-NsxClusterStatus -connection $connection | where-object { $_.featureId -eq "com.vmware.vshield.vsm.vxlan" }
         }
     }
 
@@ -8409,9 +8392,9 @@ function Get-NsxSegmentIdRange {
             $URI = "/api/2.0/vdn/config/segments"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             switch ( $PSCmdlet.ParameterSetName ) {
-                "Name" { $response.segmentRanges.segmentRange | ? { $_.name -eq $Name } }
-                "UniversalOnly" { $response.segmentRanges.segmentRange | ? { $_.isUniversal -eq "true" } }
-                "LocalOnly" { $response.segmentRanges.segmentRange | ? { $_.isUniversal -eq "false" } }
+                "Name" { $response.segmentRanges.segmentRange | where-object { $_.name -eq $Name } }
+                "UniversalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "true" } }
+                "LocalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "false" } }
                 Default { $response.segmentRanges.segmentRange }
             }
         }
@@ -8535,13 +8518,13 @@ function Get-NsxTransportZone {
 
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::vdnScopes/vdnScope")) {
             if ( $PsBoundParameters.containsKey('name') ) {
-                $response.vdnscopes.vdnscope | ? { $_.name -eq $name }
+                $response.vdnscopes.vdnscope | where-object { $_.name -eq $name }
             }
             elseif ( $UniversalOnly ) {
-                $response.vdnscopes.vdnscope | ? { $_.isUniversal -eq 'True' }
+                $response.vdnscopes.vdnscope | where-object { $_.isUniversal -eq 'True' }
             }
             elseif ( $LocalOnly ) {
-                $response.vdnscopes.vdnscope | ? { $_.isUniversal -eq 'False' }
+                $response.vdnscopes.vdnscope | where-object { $_.isUniversal -eq 'False' }
             }
             else {
                 $response.vdnscopes.vdnscope
@@ -9092,7 +9075,7 @@ function Get-NsxLicense {
             try {
                 $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
                 $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection
-                $LicenseManager.Licenses | ? { $_.EditionKey -match 'nsx' }
+                $LicenseManager.Licenses | where-object { $_.EditionKey -match 'nsx' }
             }
             catch {
                 throw "Unable to retreive NSX license. $_"
@@ -9277,7 +9260,7 @@ function Get-NsxLogicalSwitch {
             }
 
             if ( $name ) {
-                $logicalSwitches | ? { $_.name -eq $name }
+                $logicalSwitches | where-object { $_.name -eq $name }
             } else {
                 $logicalSwitches
             }
@@ -9733,7 +9716,7 @@ function Get-NsxSpoofguardPolicy {
             if ( $response ) {
                 if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::spoofguardPolicies/spoofguardPolicy')) {
                     if  ( $Name  ) {
-                        $polcollection = $response.spoofguardPolicies.spoofguardPolicy | ? { $_.name -eq $Name }
+                        $polcollection = $response.spoofguardPolicies.spoofguardPolicy | where-object { $_.name -eq $Name }
                     } else {
                         $polcollection = $response.spoofguardPolicies.spoofguardPolicy
                     }
@@ -9799,7 +9782,7 @@ function New-NsxSpoofguardPolicy {
     Switch LSTemp
 
     .EXAMPLE
-    $vss_pg = Get-VirtualPortGroup -Name "VM Network" | select -First 1
+    $vss_pg = Get-VirtualPortGroup -Name "VM Network" | select-object -First 1
     $vds_pg = Get-VDPortgroup -Name "Internet"
     $ls = Get-NsxTransportZone | Get-NsxLogicalSwitch -Name LSTemp
     New-NsxSpoofguardPolicy -Name Test -Description Testing -OperationMode manual -Network $vss_pg, $vds_pg, $ls
@@ -9894,7 +9877,7 @@ function New-NsxSpoofguardPolicy {
                     #You also dont seem to be able to do a get-view on it :|
                     #So, I have get a hasthtable of all morefs that represent VSS based PGs and search it for the name of the PG the user specified.  Im fairly (not 100%) sure this is safe as networkname should be unique at least within VSS portgroups...
 
-                    $StandardPgHash = Get-View -ViewType Network -Property Name | ? { $_.Moref.Type -match 'Network' } | select name, moref | Sort-Object -Property Name -Unique | Group-Object -AsHashTable -Property Name
+                    $StandardPgHash = Get-View -ViewType Network -Property Name | where-object { $_.Moref.Type -match 'Network' } | select-object-object name, moref | Sort-Object -Property Name -Unique | Group-Object -AsHashTable -Property Name
 
                     $Item = $StandardPgHash.Item($_.name)
                     if ( -not $item ) { throw "PortGroup $($_.name) not found." }
@@ -9914,7 +9897,7 @@ function New-NsxSpoofguardPolicy {
         #Now we Publish...
         if ( $publish ) {
             $URI = "/api/4.0/services/spoofguard/$($policyId)?action=publish"
-            $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
         }
 
         Get-NsxSpoofguardPolicy -objectId $policyId -connection $connection
@@ -10034,7 +10017,7 @@ function Publish-NsxSpoofguardPolicy {
     Create and then separately publish a new policy.
 
     .EXAMPLE
-    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-Vm TestVm | get-NetworkAdapter | select -first 1) | Grant-NsxSpoofguardNicApproval -IpAddress 1.2.3.4
+    Get-NsxSpoofguardPolicy test | Get-NsxSpoofguardNic -NetworkAdapter (Get-Vm TestVm | get-NetworkAdapter | select-object -first 1) | Grant-NsxSpoofguardNicApproval -IpAddress 1.2.3.4
     Get-NsxSpoofguardPolicy test | Publish-NsxSpoofguardPolicy
 
     Grant an approval to the first nic on the VM TestVM for ip 1.2.3.4 and publish it
@@ -10188,16 +10171,16 @@ function Get-NsxSpoofguardNic {
 
             switch ( $PsCmdlet.ParameterSetName  ) {
 
-                "MAC" { $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress } }
+                "MAC" { $outcollection = $response.spoofguardList.Spoofguard | where-object { $_.detectedMacAddress -eq $MacAddress } }
                 "NIC" {
                     $MacAddress = $NetworkAdapter.MacAddress
-                    $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress }
+                    $outcollection = $response.spoofguardList.Spoofguard | where-object { $_.detectedMacAddress -eq $MacAddress }
                 }
 
                 "VM" {
                     foreach ( $Nic in ($virtualmachine | Get-NetworkAdapter )) {
                         $MacAddress = $Nic.MacAddress
-                        $outcollection = $response.spoofguardList.Spoofguard | ? { $_.detectedMacAddress -eq $MacAddress }
+                        $outcollection = $response.spoofguardList.Spoofguard | where-object { $_.detectedMacAddress -eq $MacAddress }
                     }
                 }
                 default { $outcollection = $response.spoofguardList.Spoofguard }
@@ -10308,7 +10291,7 @@ function Grant-NsxSpoofguardNicApproval {
         if ( $PsBoundParameters.ContainsKey('ipAddress') ) {
             foreach ( $ip in $ipAddress ) {
 
-                if ( (Invoke-XPathQuery -QueryMethod SelectNodes -Node $approvedIpAddressNode -Query "descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {
+                if ( (Invoke-XPathQuery -QueryMethod SelectNodes -Node $approvedIpAddressNode -Query "descendant::ipAddress") | where-object { $_.'#Text' -eq $ip }) {
                     write-warning "Not adding duplicate IP Address $ip as it is already added."
                 }
                 else {
@@ -10337,7 +10320,7 @@ function Grant-NsxSpoofguardNicApproval {
                 foreach ( $ip in $_SpoofguardNic.detectedIpAddress.ipAddress )  {
                     #Have to ensure we dont add a duplicate here...
 
-                    if ( (Invoke-XPathQuery -QueryMethod SelectNodes -Node $approvedIpAddressNode -Query "descendant::ipAddress") | ? { $_.'#Text' -eq $ip }) {
+                    if ( (Invoke-XPathQuery -QueryMethod SelectNodes -Node $approvedIpAddressNode -Query "descendant::ipAddress") | where-object { $_.'#Text' -eq $ip }) {
                         write-warning "Not adding duplicate IP Address $ip as it is already added."
                     }
                     else {
@@ -10483,8 +10466,8 @@ function Revoke-NsxSpoofguardNicApproval {
                 #$IPAddress is mandatory...
                 foreach ( $ip in $ipAddress ) {
 
-                    $currentApprovedIpNode = $approvedIpCollection | ? { $_.'#Text' -eq $ip }
-                    $currentPublishedIpNode = $publishedIpCollection | ? { $_.'#Text' -eq $ip }
+                    $currentApprovedIpNode = $approvedIpCollection | where-object { $_.'#Text' -eq $ip }
+                    $currentPublishedIpNode = $publishedIpCollection | where-object { $_.'#Text' -eq $ip }
 
                     if ( -not $currentApprovedIpNode ) {
                         write-warning "IP Address $ip is not currently approved on Nic $($_SpoofguardNic.NicName)."
@@ -10737,10 +10720,10 @@ function Get-NsxLogicalRouter {
             }
 
             if ( $name ) {
-                $edges | ? { $_.Type -eq 'distributedRouter' } | ? { $_.name -eq $name }
+                $edges | where-object { $_.Type -eq 'distributedRouter' } | where-object { $_.name -eq $name }
 
             } else {
-                $edges | ? { $_.Type -eq 'distributedRouter' }
+                $edges | where-object { $_.Type -eq 'distributedRouter' }
 
             }
 
@@ -10881,7 +10864,7 @@ function New-NsxLogicalRouter {
         $xmlRoot.appendChild($xmlAppliances) | out-null
 
         switch ($psCmdlet.ParameterSetName){
-            "Cluster"  { $ResPoolId = $($cluster | get-resourcepool | ? { $_.parent.id -eq $cluster.id }).extensiondata.moref.value }
+            "Cluster"  { $ResPoolId = $($cluster | get-resourcepool | where-object { $_.parent.id -eq $cluster.id }).extensiondata.moref.value }
             "ResourcePool"  { $ResPoolId = $ResourcePool.extensiondata.moref.value }
         }
 
@@ -11305,7 +11288,7 @@ function Get-NsxLogicalRouterInterface {
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'child::interfaces/interface') {
                 if ( $PsBoundParameters.ContainsKey("name") ) {
-                    $return = $response.interfaces.interface | ? { $_.name -eq $name }
+                    $return = $response.interfaces.interface | where-object { $_.name -eq $name }
                     if ( $return ) {
                         Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "logicalRouterId" -xmlElementText $($LogicalRouter.Id)
                     }
@@ -11831,7 +11814,7 @@ function Set-NsxEdgeInterface {
         $body = $xmlVnics.OuterXml
         $URI = "/api/4.0/edges/$($Interface.edgeId)/vnics/?action=patch"
         Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)."
-        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
         Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($Interface.Index)." -completed
 
         write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
@@ -11973,7 +11956,7 @@ function Get-NsxEdgeInterface {
 
                write-debug "$($MyInvocation.MyCommand.Name) : Getting vNic by Name"
 
-                $return = $response.vnics.vnic | ? { $_.name -eq $name }
+                $return = $response.vnics.vnic | where-object { $_.name -eq $name }
                 if ( $return ) {
                     Add-XmlElement -xmlDoc ([system.xml.xmldocument]$return.OwnerDocument) -xmlRoot $return -xmlElementName "edgeId" -xmlElementText $($Edge.Id)
                 }
@@ -12201,7 +12184,7 @@ function Remove-NsxEdgeSubInterface {
         }
 
         #Get the vnic xml
-        $ParentVnic = $(Get-NsxEdge -connection $connection -objectId $SubInterface.edgeId).vnics.vnic | ? { $_.index -eq $subInterface.vnicId }
+        $ParentVnic = $(Get-NsxEdge -connection $connection -objectId $SubInterface.edgeId).vnics.vnic | where-object { $_.index -eq $subInterface.vnicId }
 
         #Remove the node using xpath query.
         $NodeToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ParentVnic.subInterfaces -Query "descendant::subInterface[index=$($subInterface.Index)]")
@@ -12267,7 +12250,7 @@ function Get-NsxEdgeSubInterface {
 
             if ($PsBoundParameters.ContainsKey("Index")) {
 
-                $subint = $Interface.subInterfaces.subinterface | ? { $_.index -eq $Index }
+                $subint = $Interface.subInterfaces.subinterface | where-object { $_.index -eq $Index }
 
                 if ( $subint ) {
                     $_subint = $subint.CloneNode($true)
@@ -12278,7 +12261,7 @@ function Get-NsxEdgeSubInterface {
             }
             elseif ( $PsBoundParameters.ContainsKey("name")) {
 
-                $subint = $Interface.subInterfaces.subinterface | ? { $_.name -eq $name }
+                $subint = $Interface.subInterfaces.subinterface | where-object { $_.name -eq $name }
                 if ($subint) {
                     $_subint = $subint.CloneNode($true)
                     Add-XmlElement -xmlDoc ([system.xml.xmldocument]$Interface.OwnerDocument) -xmlRoot $_subint -xmlElementName "edgeId" -xmlElementText $($Interface.edgeId)
@@ -12351,7 +12334,7 @@ function Get-NsxEdgeInterfaceAddress {
 
             $GroupCollection = $AddressGroups.addressGroup
             if ( $PsBoundParameters.ContainsKey('PrimaryAddress')) {
-                $GroupCollection = $GroupCollection | ? { $_.primaryAddress -eq $PrimaryAddress }
+                $GroupCollection = $GroupCollection | where-object { $_.primaryAddress -eq $PrimaryAddress }
             }
 
             foreach ( $AddressGroup in $GroupCollection ) {
@@ -12454,7 +12437,7 @@ function Add-NsxEdgeInterfaceAddress {
         $body = $_Interface.OuterXml
         $URI = "/api/4.0/edges/$($edgeId)/vnics/$($_Interface.Index)"
         Write-Progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)."
-        $response = invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxrestmethod -method "put" -uri $URI -body $body -connection $connection
         Write-progress -activity "Updating Edge Services Gateway interface configuration for interface $($_Interface.Index)." -completed
 
         write-debug "$($MyInvocation.MyCommand.Name) : Getting updated interface"
@@ -12542,7 +12525,7 @@ function Remove-NsxEdgeInterfaceAddress {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -12652,10 +12635,10 @@ function Get-NsxEdge {
             }
 
             if ( $name ) {
-                $edges | ? { $_.Type -eq 'gatewayServices' } | ? { $_.name -eq $name }
+                $edges | where-object { $_.Type -eq 'gatewayServices' } | where-object { $_.name -eq $name }
 
             } else {
-                $edges | ? { $_.Type -eq 'gatewayServices' }
+                $edges | where-object { $_.Type -eq 'gatewayServices' }
 
             }
 
@@ -12833,7 +12816,7 @@ function New-NsxEdge {
         $xmlRoot.appendChild($xmlAppliances) | out-null
 
         switch ($psCmdlet.ParameterSetName){
-            "Cluster"  { $ResPoolId = $($cluster | get-resourcepool | ? { $_.parent.id -eq $cluster.id }).extensiondata.moref.value }
+            "Cluster"  { $ResPoolId = $($cluster | get-resourcepool | where-object { $_.parent.id -eq $cluster.id }).extensiondata.moref.value }
             "ResourcePool"  { $ResPoolId = $ResourcePool.extensiondata.moref.value }
         }
 
@@ -13030,7 +13013,7 @@ function Repair-NsxEdge {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Repairing Edge Services Gateway $($Edge.Name)"
-            $response = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "post" -uri $URI -connection $connection
             write-progress -activity "Reparing Edge Services Gateway $($Edge.Name)" -completed
             Get-NsxEdge -objectId $($Edge.Id) -connection $connection
         }
@@ -13115,7 +13098,7 @@ function Set-NsxEdge {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($Edge.Name)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($Edge.Name)" -completed
             Get-NsxEdge -objectId $($Edge.Id) -connection $connection
         }
@@ -13393,7 +13376,7 @@ function Set-NsxEdgeNat {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeNat
         }
@@ -13504,11 +13487,11 @@ function Get-NsxEdgeNatRule {
 
             $RuleCollection = $_EdgeNatRules.natRule
             if ( $PsBoundParameters.ContainsKey('RuleId')) {
-                $RuleCollection = $RuleCollection | ? { $_.ruleId -eq $RuleId }
+                $RuleCollection = $RuleCollection | where-object { $_.ruleId -eq $RuleId }
             }
 
             if ( -not $ShowInternal ) {
-                $RuleCollection = $RuleCollection | ? { $_.ruleType -eq 'user' }
+                $RuleCollection = $RuleCollection | where-object { $_.ruleType -eq 'user' }
             }
 
             foreach ( $Rule in $RuleCollection ) {
@@ -13717,7 +13700,7 @@ function Remove-NsxEdgeNatRule {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $EdgeId"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
         }
     }
@@ -14439,7 +14422,7 @@ function Set-NsxSslVpn {
                 }
 
                 if ( $PsBoundParameters.ContainsKey("Enable_DES_CBC3_SHA") ) {
-                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | ? { $_.'#Text' -eq 'DES-CBC3-SHA'}
+                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | where-object { $_.'#Text' -eq 'DES-CBC3-SHA'}
                     if ( ( -not $cipher ) -and $Enable_DES_CBC3_SHA ) {
                         Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "DES-CBC3-SHA"
                     }
@@ -14450,7 +14433,7 @@ function Set-NsxSslVpn {
 
 
                 if ( $PsBoundParameters.ContainsKey("Enable_AES128_SHA") ) {
-                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | ? { $_.'#Text' -eq 'AES128-SHA'}
+                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | where-object { $_.'#Text' -eq 'AES128-SHA'}
                     if ( ( -not $cipher ) -and $Enable_AES128_SHA ) {
                         Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "AES128-SHA"
                     }
@@ -14460,7 +14443,7 @@ function Set-NsxSslVpn {
                 }
 
                 if ( $PsBoundParameters.ContainsKey("Enable_AES256_SHA") ) {
-                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | ? { $_.'#Text' -eq 'AES256-SHA'}
+                    $cipher = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $cipherList -Query "descendant::cipher") | where-object { $_.'#Text' -eq 'AES256-SHA'}
                     if ( ( -not $cipher ) -and $Enable_AES256_SHA ) {
                         Add-XmlElement -xmlRoot $cipherList -xmlElementName "cipher" -xmlElementText "AES256-SHA"
                     }
@@ -14487,7 +14470,7 @@ function Set-NsxSslVpn {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxSslVpn
         }
@@ -14600,7 +14583,7 @@ function New-NsxSslVpnAuthServer {
         $body = $_EdgeSslVpn.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         #Totally cheating here while we only support local auth server. Will have to augment this later...
@@ -14663,7 +14646,7 @@ function Get-NsxSslVpnAuthServer {
             foreach ( $Server in $PrimaryAuthenticationServers ) {
                 Add-XmlElement -xmlRoot $Server -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
                 if ( $PsBoundParameters.ContainsKey('ServerType')) {
-                    $Server | ? { $_.authServerType -eq $ServerType }
+                    $Server | where-object { $_.authServerType -eq $ServerType }
                 } else {
                     $Server
                 }
@@ -14758,7 +14741,7 @@ function New-NsxSslVpnUser{
         $body = $User.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnUser -UserName $UserName
@@ -14792,7 +14775,7 @@ function Get-NsxSslVpnUser {
             foreach ( $User in $Users ) {
                 Add-XmlElement -xmlRoot $User -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
                 if ( $PsBoundParameters.ContainsKey('UserName')) {
-                    $User | ? { $_.UserId -eq $UserName }
+                    $User | where-object { $_.UserId -eq $UserName }
                 }
                 else {
                     $User
@@ -14842,7 +14825,7 @@ function Remove-NsxSslVpnUser {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Deleting user $($SslVpnUser.UserId) ($($userId)) from edge $edgeId" -completed
         }
     }
@@ -14927,7 +14910,7 @@ function New-NsxSslVpnIpPool {
         $body = $IpAddressPool.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnIpPool -IpRange $IpRange
@@ -14962,7 +14945,7 @@ function Get-NsxSslVpnIpPool {
             foreach ( $IpPool in $IpPools ) {
                 Add-XmlElement -xmlRoot $IpPool -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
                 if ( $PsBoundParameters.ContainsKey('IpRange')) {
-                    $IpPool | ? { $_.ipRange -eq $IpRange }
+                    $IpPool | where-object { $_.ipRange -eq $IpRange }
                 }
                 else {
                     $IpPool
@@ -15012,7 +14995,7 @@ function Remove-NsxSslVpnIpPool {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Deleting pool $($SslVpnIpPool.IpRange) ($($poolId)) from edge $edgeId" -completed
         }
     }
@@ -15090,7 +15073,7 @@ function New-NsxSslVpnPrivateNetwork {
         $body = $PrivateNetwork.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnPrivateNetwork -Network $Network
@@ -15125,7 +15108,7 @@ function Get-NsxSslVpnPrivateNetwork {
             foreach ( $Net in $Networks ) {
                 Add-XmlElement -xmlRoot $Net -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
                 if ( $PsBoundParameters.ContainsKey('Network')) {
-                    $Net | ? { $_.Network -eq $Network }
+                    $Net | where-object { $_.Network -eq $Network }
                 }
                 else {
                     $Net
@@ -15175,7 +15158,7 @@ function Remove-NsxSslVpnPrivateNetwork {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Deleting network $($SslVpnPrivateNetwork.Network) ($($networkId)) from edge $edgeId" -completed
         }
     }
@@ -15295,7 +15278,7 @@ function New-NsxSslVpnClientInstallationPackage {
         $body = $clientInstallPackage.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         Get-NsxEdge -objectId $EdgeId -connection $connection| Get-NsxSslVpn | Get-NsxSslVpnClientInstallationPackage -Name $Name
@@ -15330,7 +15313,7 @@ function Get-NsxSslVpnClientInstallationPackage {
             foreach ( $Package in $Packages ) {
                 Add-XmlElement -xmlRoot $Package -xmlElementName "edgeId" -xmlElementText $SslVpn.EdgeId
                 if ( $PsBoundParameters.ContainsKey('Name')) {
-                    $Package | ? { $_.ProfileName -eq $Name }
+                    $Package | where-object { $_.ProfileName -eq $Name }
                 }
                 else {
                     $Package
@@ -15380,7 +15363,7 @@ function Remove-NsxSslVpnClientInstallationPackage {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Deleting install package $($EdgeSslVpnClientPackage.profileName) ($($packageId)) from edge $edgeId" -completed
         }
     }
@@ -15692,7 +15675,7 @@ function Set-NsxEdgeRouting {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting
         }
@@ -15812,11 +15795,11 @@ function Get-NsxEdgeStaticRoute {
 
             $RouteCollection = $EdgeStaticRoutes.route
             if ( $PsBoundParameters.ContainsKey('Network')) {
-                $RouteCollection = $RouteCollection | ? { $_.network -eq $Network }
+                $RouteCollection = $RouteCollection | Where-Object { $_.network -eq $Network }
             }
 
             if ( $PsBoundParameters.ContainsKey('NextHop')) {
-                $RouteCollection = $RouteCollection | ? { $_.nextHop -eq $NextHop }
+                $RouteCollection = $RouteCollection | Where-Object { $_.nextHop -eq $NextHop }
             }
 
             foreach ( $StaticRoute in $RouteCollection ) {
@@ -15947,7 +15930,7 @@ function New-NsxEdgeStaticRoute {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute -Network $Network -NextHop $NextHop
         }
@@ -15982,11 +15965,11 @@ function Remove-NsxEdgeStaticRoute {
 
     .EXAMPLE
     Remove a route to 1.1.1.0/24 via 10.0.0.100 from ESG Edge01
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | ? { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxEdgeStaticRoute
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxEdgeStaticRoute
 
     .EXAMPLE
     Remove all routes to 1.1.1.0/24 from ESG Edge01
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | ? { $_.network -eq '1.1.1.0/24' } | Remove-NsxEdgeStaticRoute
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' } | Remove-NsxEdgeStaticRoute
 
     #>
 
@@ -16044,7 +16027,7 @@ function Remove-NsxEdgeStaticRoute {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -16128,11 +16111,11 @@ function Get-NsxEdgePrefix {
 
                 $PrefixCollection = $IPPrefixes.ipPrefix
                 if ( $PsBoundParameters.ContainsKey('Network')) {
-                    $PrefixCollection = $PrefixCollection | ? { $_.ipAddress -eq $Network }
+                    $PrefixCollection = $PrefixCollection | where-object { $_.ipAddress -eq $Network }
                 }
 
                 if ( $PsBoundParameters.ContainsKey('Name')) {
-                    $PrefixCollection = $PrefixCollection | ? { $_.name -eq $Name }
+                    $PrefixCollection = $PrefixCollection | where-object { $_.name -eq $Name }
                 }
 
                 foreach ( $Prefix in $PrefixCollection ) {
@@ -16241,7 +16224,7 @@ function New-NsxEdgePrefix {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgePrefix -Network $Network -Name $Name
         }
@@ -16336,7 +16319,7 @@ function Remove-NsxEdgePrefix {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -16560,7 +16543,7 @@ function Set-NsxEdgeBgp {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
         }
@@ -16603,7 +16586,7 @@ function Get-NsxEdgeBgpNeighbour {
     .EXAMPLE
     Get all BGP neighbours with Remote AS 1234 defined on Edge01
 
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour | ? { $_.RemoteAS -eq '1234' }
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour | where-object { $_.RemoteAS -eq '1234' }
 
     #>
 
@@ -16641,11 +16624,11 @@ function Get-NsxEdgeBgpNeighbour {
 
                 $NeighbourCollection = $BgpNeighbours.bgpNeighbour
                 if ( $PsBoundParameters.ContainsKey('IpAddress')) {
-                    $NeighbourCollection = $NeighbourCollection | ? { $_.ipAddress -eq $IpAddress }
+                    $NeighbourCollection = $NeighbourCollection | where-object { $_.ipAddress -eq $IpAddress }
                 }
 
                 if ( $PsBoundParameters.ContainsKey('RemoteAS')) {
-                    $NeighbourCollection = $NeighbourCollection | ? { $_.remoteAS -eq $RemoteAS }
+                    $NeighbourCollection = $NeighbourCollection | where-object { $_.remoteAS -eq $RemoteAS }
                 }
 
                 foreach ( $Neighbour in $NeighbourCollection ) {
@@ -16783,7 +16766,7 @@ function New-NsxEdgeBgpNeighbour {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
                 Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
             }
@@ -16823,7 +16806,7 @@ function Remove-NsxEdgeBgpNeighbour {
     .EXAMPLE
     Remove the BGP neighbour 1.1.1.2 from the the edge Edge01's bgp configuration
 
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour | ? { $_.ipaddress -eq '1.1.1.2' } |  Remove-NsxEdgeBgpNeighbour
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour | where-object { $_.ipaddress -eq '1.1.1.2' } |  Remove-NsxEdgeBgpNeighbour
     #>
 
 
@@ -16888,7 +16871,7 @@ function Remove-NsxEdgeBgpNeighbour {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -17096,7 +17079,7 @@ function Set-NsxEdgeOspf {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
         }
@@ -17161,7 +17144,7 @@ function Get-NsxEdgeOspfArea {
 
                 $AreaCollection = $OspfAreas.ospfArea
                 if ( $PsBoundParameters.ContainsKey('AreaId')) {
-                    $AreaCollection = $AreaCollection | ? { $_.areaId -eq $AreaId }
+                    $AreaCollection = $AreaCollection | where-object { $_.areaId -eq $AreaId }
                 }
 
                 foreach ( $Area in $AreaCollection ) {
@@ -17267,7 +17250,7 @@ function Remove-NsxEdgeOspfArea {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -17409,7 +17392,7 @@ function New-NsxEdgeOspfArea {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
                 Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeOspfArea -AreaId $AreaId
             }
@@ -17486,11 +17469,11 @@ function Get-NsxEdgeOspfInterface {
 
                 $InterfaceCollection = $OspfInterfaces.ospfInterface
                 if ( $PsBoundParameters.ContainsKey('AreaId')) {
-                    $InterfaceCollection = $InterfaceCollection | ? { $_.areaId -eq $AreaId }
+                    $InterfaceCollection = $InterfaceCollection | where-object { $_.areaId -eq $AreaId }
                 }
 
                 if ( $PsBoundParameters.ContainsKey('vNicId')) {
-                    $InterfaceCollection = $InterfaceCollection | ? { $_.vnic -eq $vNicId }
+                    $InterfaceCollection = $InterfaceCollection | where-object { $_.vnic -eq $vNicId }
                 }
 
                 foreach ( $Interface in $InterfaceCollection ) {
@@ -17601,7 +17584,7 @@ function Remove-NsxEdgeOspfInterface {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -17740,7 +17723,7 @@ function New-NsxEdgeOspfInterface {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
                 Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeOspfInterface -AreaId $AreaId
             }
@@ -17822,7 +17805,7 @@ function Get-NsxEdgeRedistributionRule {
                     }
 
                     if ( $PsBoundParameters.ContainsKey('Id')) {
-                        $OspfRuleCollection = $OspfRuleCollection | ? { $_.id -eq $Id }
+                        $OspfRuleCollection = $OspfRuleCollection | where-object { $_.id -eq $Id }
                     }
 
                     $OspfRuleCollection
@@ -17850,7 +17833,7 @@ function Get-NsxEdgeRedistributionRule {
                     }
 
                     if ( $PsBoundParameters.ContainsKey('Id')) {
-                        $BgpRuleCollection = $BgpRuleCollection | ? { $_.id -eq $Id }
+                        $BgpRuleCollection = $BgpRuleCollection | where-object { $_.id -eq $Id }
                     }
                     $BgpRuleCollection
                 }
@@ -17963,7 +17946,7 @@ function Remove-NsxEdgeRedistributionRule {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
             }
         }
@@ -18108,7 +18091,7 @@ function New-NsxEdgeRedistributionRule {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
                 (Get-NsxEdge -objectId $EdgeId  -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -Learner $Learner)[-1]
 
@@ -18457,7 +18440,7 @@ function Set-NsxLogicalRouterRouting {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting
         }
@@ -18571,11 +18554,11 @@ function Get-NsxLogicalRouterStaticRoute {
 
             $RouteCollection = $LogicalRouterStaticRoutes.route
             if ( $PsBoundParameters.ContainsKey('Network')) {
-                $RouteCollection = $RouteCollection | ? { $_.network -eq $Network }
+                $RouteCollection = $RouteCollection | where-object { $_.network -eq $Network }
             }
 
             if ( $PsBoundParameters.ContainsKey('NextHop')) {
-                $RouteCollection = $RouteCollection | ? { $_.nextHop -eq $NextHop }
+                $RouteCollection = $RouteCollection | where-object { $_.nextHop -eq $NextHop }
             }
 
             foreach ( $StaticRoute in $RouteCollection ) {
@@ -18703,7 +18686,7 @@ function New-NsxLogicalRouterStaticRoute {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $Network -NextHop $NextHop
         }
@@ -18735,11 +18718,11 @@ function Remove-NsxLogicalRouterStaticRoute {
 
     .EXAMPLE
     Remove a route to 1.1.1.0/24 via 10.0.0.100 from LogicalRouter LogicalRouter01
-    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute | ? { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxLogicalRouterStaticRoute
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute | where-object { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxLogicalRouterStaticRoute
 
     .EXAMPLE
     Remove all routes to 1.1.1.0/24 from LogicalRouter LogicalRouter01
-    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute | ? { $_.network -eq '1.1.1.0/24' } | Remove-NsxLogicalRouterStaticRoute
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute | where-object { $_.network -eq '1.1.1.0/24' } | Remove-NsxLogicalRouterStaticRoute
 
     #>
 
@@ -18797,7 +18780,7 @@ function Remove-NsxLogicalRouterStaticRoute {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -18878,11 +18861,11 @@ function Get-NsxLogicalRouterPrefix {
 
                 $PrefixCollection = $IPPrefixes.ipPrefix
                 if ( $PsBoundParameters.ContainsKey('Network')) {
-                    $PrefixCollection = $PrefixCollection | ? { $_.ipAddress -eq $Network }
+                    $PrefixCollection = $PrefixCollection | where-object { $_.ipAddress -eq $Network }
                 }
 
                 if ( $PsBoundParameters.ContainsKey('Name')) {
-                    $PrefixCollection = $PrefixCollection | ? { $_.name -eq $Name }
+                    $PrefixCollection = $PrefixCollection | where-object { $_.name -eq $Name }
                 }
 
                 foreach ( $Prefix in $PrefixCollection ) {
@@ -18984,7 +18967,7 @@ function New-NsxLogicalRouterPrefix {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterPrefix -Network $Network -Name $Name
         }
@@ -19072,7 +19055,7 @@ function Remove-NsxLogicalRouterPrefix {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -19290,7 +19273,7 @@ function Set-NsxLogicalRouterBgp {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgp
         }
@@ -19330,7 +19313,7 @@ function Get-NsxLogicalRouterBgpNeighbour {
     .EXAMPLE
     Get all BGP neighbours with Remote AS 1234 defined on LogicalRouter01
 
-    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour | ? { $_.RemoteAS -eq '1234' }
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour | where-object { $_.RemoteAS -eq '1234' }
 
     #>
 
@@ -19368,11 +19351,11 @@ function Get-NsxLogicalRouterBgpNeighbour {
 
                 $NeighbourCollection = $BgpNeighbours.bgpNeighbour
                 if ( $PsBoundParameters.ContainsKey('IpAddress')) {
-                    $NeighbourCollection = $NeighbourCollection | ? { $_.ipAddress -eq $IpAddress }
+                    $NeighbourCollection = $NeighbourCollection | where-object { $_.ipAddress -eq $IpAddress }
                 }
 
                 if ( $PsBoundParameters.ContainsKey('RemoteAS')) {
-                    $NeighbourCollection = $NeighbourCollection | ? { $_.remoteAS -eq $RemoteAS }
+                    $NeighbourCollection = $NeighbourCollection | where-object { $_.remoteAS -eq $RemoteAS }
                 }
 
                 foreach ( $Neighbour in $NeighbourCollection ) {
@@ -19516,7 +19499,7 @@ function New-NsxLogicalRouterBgpNeighbour {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
                 Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $IpAddress -RemoteAS $RemoteAS
             }
@@ -19553,7 +19536,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
     .EXAMPLE
     Remove the BGP neighbour 1.1.1.2 from the the logicalrouter LogicalRouter01's bgp configuration
 
-    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour | ? { $_.ipaddress -eq '1.1.1.2' } |  Remove-NsxLogicalRouterBgpNeighbour
+    PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour | where-object { $_.ipaddress -eq '1.1.1.2' } |  Remove-NsxLogicalRouterBgpNeighbour
     #>
 
 
@@ -19618,7 +19601,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -19857,7 +19840,7 @@ function Set-NsxLogicalRouterOspf {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspf
         }
@@ -19919,7 +19902,7 @@ function Get-NsxLogicalRouterOspfArea {
 
                 $AreaCollection = $OspfAreas.ospfArea
                 if ( $PsBoundParameters.ContainsKey('AreaId')) {
-                    $AreaCollection = $AreaCollection | ? { $_.areaId -eq $AreaId }
+                    $AreaCollection = $AreaCollection | where-object { $_.areaId -eq $AreaId }
                 }
 
                 foreach ( $Area in $AreaCollection ) {
@@ -20022,7 +20005,7 @@ function Remove-NsxLogicalRouterOspfArea {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -20161,7 +20144,7 @@ function New-NsxLogicalRouterOspfArea {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
                 Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfArea -AreaId $AreaId
             }
@@ -20235,11 +20218,11 @@ function Get-NsxLogicalRouterOspfInterface {
 
                 $InterfaceCollection = $OspfInterfaces.ospfInterface
                 if ( $PsBoundParameters.ContainsKey('AreaId')) {
-                    $InterfaceCollection = $InterfaceCollection | ? { $_.areaId -eq $AreaId }
+                    $InterfaceCollection = $InterfaceCollection | where-object { $_.areaId -eq $AreaId }
                 }
 
                 if ( $PsBoundParameters.ContainsKey('vNicId')) {
-                    $InterfaceCollection = $InterfaceCollection | ? { $_.vnic -eq $vNicId }
+                    $InterfaceCollection = $InterfaceCollection | where-object { $_.vnic -eq $vNicId }
                 }
 
                 foreach ( $Interface in $InterfaceCollection ) {
@@ -20347,7 +20330,7 @@ function Remove-NsxLogicalRouterOspfInterface {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -20483,7 +20466,7 @@ function New-NsxLogicalRouterOspfInterface {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
                 Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterOspfInterface -AreaId $AreaId
             }
@@ -20562,7 +20545,7 @@ function Get-NsxLogicalRouterRedistributionRule {
                     }
 
                     if ( $PsBoundParameters.ContainsKey('Id')) {
-                        $OspfRuleCollection = $OspfRuleCollection | ? { $_.id -eq $Id }
+                        $OspfRuleCollection = $OspfRuleCollection | where-object { $_.id -eq $Id }
                     }
 
                     $OspfRuleCollection
@@ -20590,7 +20573,7 @@ function Get-NsxLogicalRouterRedistributionRule {
                     }
 
                     if ( $PsBoundParameters.ContainsKey('Id')) {
-                        $BgpRuleCollection = $BgpRuleCollection | ? { $_.id -eq $Id }
+                        $BgpRuleCollection = $BgpRuleCollection | where-object { $_.id -eq $Id }
                     }
                     $BgpRuleCollection
                 }
@@ -20701,7 +20684,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
             }
         }
@@ -20843,7 +20826,7 @@ function New-NsxLogicalRouterRedistributionRule {
             else { $decision = 0 }
             if ($decision -eq 0) {
                 Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
                 write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
                 (Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner $Learner)[-1]
 
@@ -20934,13 +20917,13 @@ function Get-NsxSecurityGroup {
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/securitygroup')) {
                     if  ( $Name  ) {
-                        $sg = $response.list.securitygroup | ? { $_.name -eq $name }
+                        $sg = $response.list.securitygroup | where-object { $_.name -eq $name }
                     } else {
                         $sg = $response.list.securitygroup
                     }
                     #Filter default if switch not set
                     if ( -not $IncludeSystem ) {
-                        $sg| ? { ( $_.objectId -ne 'securitygroup-1') }
+                        $sg| where-object { ( $_.objectId -ne 'securitygroup-1') }
                     }
                     else {
                         $sg
@@ -20958,7 +20941,7 @@ function Get-NsxSecurityGroup {
             }
             #Filter default if switch not set
             if ( -not $IncludeSystem ) {
-                $sg | ? { ( $_.objectId -ne 'securitygroup-1') }
+                $sg | where-object { ( $_.objectId -ne 'securitygroup-1') }
             }
             else {
                 $sg
@@ -21389,7 +21372,7 @@ function Add-NsxSecurityGroupMember {
             }
             $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
             Write-Progress -activity "Updating membership of Security Group $SecurityGroupId"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
             write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed
         }
         #Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
@@ -21508,7 +21491,7 @@ function Remove-NsxSecurityGroupMember {
             }
             $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
             Write-Progress -activity "Updating membership of Security Group $SecurityGroupId"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
             write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed
         }
         #Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
@@ -21588,7 +21571,7 @@ function New-NsxSecurityTag {
         #Do the post
         $body = $xmlroot.OuterXml
         $URI = "/api/2.0/services/securitytags/tag"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
 
         #Return our shiny new tag...
         Get-NsxSecurityTag -name $Name -connection $connection
@@ -21652,13 +21635,13 @@ function Get-NsxSecurityTag {
             [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTags/securityTag')) {
                 if  ( $PsBoundParameters.ContainsKey('Name')) {
-                    $tags = $response.securitytags.securitytag | ? { $_.name -eq $name }
+                    $tags = $response.securitytags.securitytag | where-object { $_.name -eq $name }
                 } else {
                     $tags = $response.securitytags.securitytag
                 }
 
                 if ( -not $IncludeSystem ) {
-                    $tags | ? { ( $_.systemResource -ne 'true') }
+                    $tags | where-object { ( $_.systemResource -ne 'true') }
                 }
                 else {
                     $tags
@@ -21675,7 +21658,7 @@ function Get-NsxSecurityTag {
             }
 
             if ( -not $IncludeSystem ) {
-                $tags | ? { ( $_.systemResource -ne 'true') }
+                $tags | where-object { ( $_.systemResource -ne 'true') }
             }
             else {
                 $tags
@@ -21784,7 +21767,7 @@ function Get-NsxSecurityTagAssignment {
 
 
     .EXAMPLE
-    Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | Get-NsxSecurityTagAssignment
+    Get-NsxSecurityTag | where-object { $_.name -like "*dmz*" } | Get-NsxSecurityTagAssignment
 
     Retrieve all virtual machines that are assigned a security tag containing 'dmz' in the security tag name
 
@@ -21878,12 +21861,12 @@ function New-NsxSecurityTagAssignment {
     Assign a single security tag to a virtual machine
 
     .EXAMPLE
-    Get-VM Web-01 | New-NsxSecurityTagAssignment -ApplyTag -SecurityTag $( Get-NsxSecurityTag | ? {$_.name -like "*prod*"} )
+    Get-VM Web-01 | New-NsxSecurityTagAssignment -ApplyTag -SecurityTag $( Get-NsxSecurityTag | where-object {$_.name -like "*prod*"} )
 
     Assign all security tags containing "prod" in the name to a virtual machine
 
     .EXAMPLE
-    Get-NsxSecurityTag | ? { $_.name -like "*dmz*" } | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine (Get-VM web01,app01,db01)
+    Get-NsxSecurityTag | where-object { $_.name -like "*dmz*" } | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine (Get-VM web01,app01,db01)
 
     Assign all security tags containing "DMZ" in the name to multiple virtual machines
 
@@ -21924,7 +21907,7 @@ function New-NsxSecurityTagAssignment {
 
                 $URI = "/api/2.0/services/securitytags/tag/$($TagIdentifierString)/vm/$($vmMoid)"
                 Write-Progress -activity "Adding Security Tag $($TagIdentifierString) to Virtual Machine $($vmMoid)"
-                $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
                 Write-Progress -activity "Adding Security Tag $TagIdentifierString to Virtual Machine $($vmMoid)" -completed
             }
         }
@@ -21996,7 +21979,7 @@ function Remove-NsxSecurityTagAssignment {
 
             $URI = "/api/2.0/services/securitytags/tag/$($TagAssignment.SecurityTag.ObjectId)/vm/$($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)"
             Write-Progress -activity "Removing Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             Write-Progress -activity "Adding Security Tag $($TagAssignment.SecurityTag.ObjectId) to Virtual Machine $($TagAssignment.VirtualMachine.ExtensionData.Moref.Value)" -completed
         }
     }
@@ -22105,14 +22088,14 @@ function Get-NsxIpSet {
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/ipset')) {
                     if ( $name ) {
-                        $ipsets = $response.list.ipset | ? { $_.name -eq $name }
+                        $ipsets = $response.list.ipset | where-object { $_.name -eq $name }
                     } else {
                         $ipsets = $response.list.ipset
                     }
                 }
 
                 if ( $ipsets -and ( -not $IncludeReadOnly )) {
-                    $ipsets | ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                    $ipsets | where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                 }
                 elseif ( $ipsets ) {
                     $ipsets
@@ -22129,7 +22112,7 @@ function Get-NsxIpSet {
             }
 
             if ( -not $IncludeReadOnly ) {
-                $ipsets | ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                $ipsets | where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
             }
             else {
                 $ipsets
@@ -22723,14 +22706,14 @@ function Get-NsxMacSet {
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/macset')) {
                     if ( $name ) {
-                        $macsets = $response.list.macset | ? { $_.name -eq $name }
+                        $macsets = $response.list.macset | where-object { $_.name -eq $name }
                     } else {
                         $macsets = $response.list.macset
                     }
 
                     #Filter readonly if switch not set
                     if ( $macsets -and (-not $IncludeReadOnly )) {
-                        $macsets| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                        $macsets| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                     }
                     else {
                         $macsets
@@ -22749,7 +22732,7 @@ function Get-NsxMacSet {
 
             #Filter readonly if switch not set
             if ( -not $IncludeReadOnly ) {
-                $macsets| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                $macsets| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
             }
             else {
                 $macsets
@@ -23039,7 +23022,7 @@ function Get-NsxService {
                     $svcs = $response.application
                     #Filter readonly if switch not set
                     if ( -not $IncludeReadOnly ) {
-                        $svcs| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                        $svcs| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                     }
                     else {
                         $svcs
@@ -23079,7 +23062,7 @@ function Get-NsxService {
                                                 write-debug "$($MyInvocation.MyCommand.Name) : Matched Service $($Application.name)"
                                                 #Filter readonly if switch not set
                                                 if ( -not $IncludeReadOnly ) {
-                                                    $application| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                                                    $application| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                                                 }
                                                 else {
                                                     $application
@@ -23110,13 +23093,13 @@ function Get-NsxService {
                     [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                     if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
                         if  ( $name ) {
-                            $svcs = $response.list.application | ? { $_.name -eq $name }
+                            $svcs = $response.list.application | where-object { $_.name -eq $name }
                         } else {
                             $svcs = $response.list.application
                         }
                         #Filter readonly if switch not set
                         if ( -not $IncludeReadOnly ) {
-                            $svcs| ? { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                            $svcs| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
                         }
                         else {
                             $svcs
@@ -23368,7 +23351,7 @@ Function Get-NsxServiceGroup {
     Retrieves the default NSX Service Group called Heartbeat
 
     .EXAMPLE
-    Get-NsxServiceGroup | ? {$_.name -match ("Exchange")} | select name
+    Get-NsxServiceGroup | where-object {$_.name -match ("Exchange")} | select-object name
 
     Retrieves all Services Groups that have the string "Exchange" in their
     name property
@@ -23448,7 +23431,7 @@ Function Get-NsxServiceGroup {
                     $servicegroup = $response.list.applicationGroup
 
                     if ($PsBoundParameters.ContainsKey("Name")){
-                        $servicegroup | ? {$_.name -eq $name}
+                        $servicegroup | where-object {$_.name -eq $name}
                     }
                     else {
 
@@ -23781,7 +23764,7 @@ function Add-NsxServiceGroupMember {
 
         foreach ($Mem in $Member){
             $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectId)/members/$($Mem.objectId)"
-            $response = invoke-nsxwebrequest -method "PUT" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "PUT" -uri $URI -connection $connection
             Write-Progress -activity "Adding Service or Service Group $($Mem) to Service Group $($ServiceGroup)"
         }
 
@@ -24188,7 +24171,7 @@ function Get-NsxFirewallSection {
             $return = $response.firewallConfiguration.$sectiontype.section
 
             if ($name) {
-                $return | ? {$_.name -eq $name}
+                $return | where-object {$_.name -eq $name}
             }else {
 
                 $return
@@ -24436,9 +24419,7 @@ function Get-NsxFirewallRule {
 
     )
 
-    begin {
-
-    }
+    begin {}
 
     process {
 
@@ -24450,7 +24431,7 @@ function Get-NsxFirewallRule {
             if ( $response | get-member -name Section -Membertype Properties){
                 if ( $response.Section | get-member -name Rule -Membertype Properties ){
                     if ( $PsBoundParameters.ContainsKey("Name") ) {
-                        $response.section.rule | ? { $_.name -eq $Name }
+                        $response.section.rule | where-object { $_.name -eq $Name }
                     }
                     else {
                         $response.section.rule
@@ -24507,7 +24488,7 @@ function Get-NsxFirewallRule {
 
             if ( $response | get-member -name firewallConfiguration -MemberType Properties ){
                 if ( $PsBoundParameters.ContainsKey("Name") ) {
-                    $response.firewallConfiguration.layer3Sections.Section.rule | ? { $_.name -eq $Name }
+                    $response.firewallConfiguration.layer3Sections.Section.rule | where-object { $_.name -eq $Name }
                 }
                 else {
                     $response.firewallConfiguration.layer3Sections.Section.rule
@@ -24516,7 +24497,7 @@ function Get-NsxFirewallRule {
 
             elseif ( $response | get-member -name filteredfirewallConfiguration -MemberType Properties ){
                 if ( $PsBoundParameters.ContainsKey("Name") ) {
-                    $response.filteredfirewallConfiguration.layer3Sections.Section.rule | ? { $_.name -eq $Name }
+                    $response.filteredfirewallConfiguration.layer3Sections.Section.rule | where-object { $_.name -eq $Name }
                 }
                 else {
                     $response.filteredfirewallConfiguration.layer3Sections.Section.rule
@@ -24748,7 +24729,7 @@ function New-NsxFirewallRule  {
             throw "API call to NSX was successful, but was unable to interpret NSX API response as xml."
         }
         if ( $ReturnRule ) {
-            $content.section.rule | where { ( -not ($ExistingIds.Contains($_.id))) }
+            $content.section.rule | where-object { ( -not ($ExistingIds.Contains($_.id))) }
         }
         else {
             $content.section
@@ -24856,7 +24837,7 @@ function Get-NsxFirewallExclusionListMember {
     Retreives the entire contents of the exclusion list
 
     .EXAMPLE
-    Get-NsxFirewallExclusionListMember | ? { $_.name -match 'myvm'}
+    Get-NsxFirewallExclusionListMember | where-object { $_.name -match 'myvm'}
 
     Retreives a specific vm from the exclusion list if it exists.
 
@@ -24922,7 +24903,7 @@ function Add-NsxFirewallExclusionListMember {
 
     Adds the VM myVM to the exclusion list
     .EXAMPLE
-    Get-VM | ? { $_.name -match 'mgt'} | Add-NsxFirewallExclusionListMember
+    Get-VM | where-object { $_.name -match 'mgt'} | Add-NsxFirewallExclusionListMember
 
     Adds all VMs with mgt in their name to the exclusion list.
     #>
@@ -24945,7 +24926,7 @@ function Add-NsxFirewallExclusionListMember {
         $URI = "/api/2.1/app/excludelist/$vmMoid"
 
         try {
-            $response = invoke-nsxrestmethod -method "PUT" -uri $URI -connection $connection
+            $null = invoke-nsxrestmethod -method "PUT" -uri $URI -connection $connection
         }
         catch {
             Throw "Unable to add VM $VirtualMachine to Exclusion list. $_"
@@ -25075,7 +25056,7 @@ function Get-NsxFirewallSavedConfiguration {
                 $Return = $Response
 
                 if ($PsBoundParameters.ContainsKey("Name")){
-                    $Return.firewallDrafts.firewallDraft | ? {$_.name -eq $Name}
+                    $Return.firewallDrafts.firewallDraft | where-object {$_.name -eq $Name}
                 }
                 else {
 
@@ -26024,7 +26005,7 @@ function Set-NsxLoadBalancer {
         $body = $_LoadBalancer.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($edgeId)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
         Get-NsxEdge -objectId $($edgeId)  -connection $connection | Get-NsxLoadBalancer
     }
@@ -26080,10 +26061,10 @@ function Get-NsxLoadBalancerMonitor {
     process {
 
         if ( $Name) {
-            $Monitors = $loadbalancer.monitor | ? { $_.name -eq $Name }
+            $Monitors = $loadbalancer.monitor | where-object { $_.name -eq $Name }
         }
         elseif ( $monitorId ) {
-            $Monitors = $loadbalancer.monitor | ? { $_.monitorId -eq $monitorId }
+            $Monitors = $loadbalancer.monitor | where-object { $_.monitorId -eq $monitorId }
         }
         else {
             $Monitors = $loadbalancer.monitor
@@ -26301,7 +26282,7 @@ function New-NsxLoadBalancerMonitor {
         $body = $xmlmonitor.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -status "Load Balancer Monitor Config"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
         get-nsxedge -objectId $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -name $Name
@@ -26372,7 +26353,7 @@ function Remove-NsxLoadBalancerMonitor {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Monitor $MonitorId"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
         }
@@ -26436,10 +26417,10 @@ function Get-NsxLoadBalancerApplicationProfile {
 
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query 'descendant::applicationProfile')) {
             if ( $PsBoundParameters.ContainsKey('Name')) {
-                $AppProfiles = $loadbalancer.applicationProfile | ? { $_.name -eq $Name }
+                $AppProfiles = $loadbalancer.applicationProfile | where-object { $_.name -eq $Name }
             }
             elseif ( $PsBoundParameters.ContainsKey('objectId') ) {
-                $AppProfiles = $loadbalancer.applicationProfile | ? { $_.applicationProfileId -eq $objectId }
+                $AppProfiles = $loadbalancer.applicationProfile | where-object { $_.applicationProfileId -eq $objectId }
             }
             else {
                 $AppProfiles = $loadbalancer.applicationProfile
@@ -26595,7 +26576,7 @@ function New-NsxLoadBalancerApplicationProfile {
         write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
 
         #filter output for our newly created app profile - name is safe as it has to be unique.
-        $return = $updatedEdge.features.loadbalancer.applicationProfile | ? { $_.name -eq $name }
+        $return = $updatedEdge.features.loadbalancer.applicationProfile | where-object { $_.name -eq $name }
         Add-XmlElement -xmlroot $return -xmlElementName "edgeId" -xmlElementText $edgeId
         $return
     }
@@ -26669,7 +26650,7 @@ function Remove-NsxLoadBalancerApplicationProfile {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing Application Profile $AppProfileId"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
         }
@@ -26874,11 +26855,11 @@ function New-NsxLoadBalancerPool {
         $body = $_LoadBalancer.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Load Balancer Config"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         $UpdatedEdge = Get-NsxEdge -objectId $($EdgeId) -connection $connection
-        $return = $UpdatedEdge.features.loadBalancer.pool | ? { $_.name -eq $Name }
+        $return = $UpdatedEdge.features.loadBalancer.pool | where-object { $_.name -eq $Name }
         Add-XmlElement -xmlroot $return -xmlElementName "edgeId" -xmlElementText $edgeId
         $return
     }
@@ -26937,10 +26918,10 @@ function Get-NsxLoadBalancerPool {
 
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $loadbalancer -Query 'child::pool')) {
             if ( $PsBoundParameters.ContainsKey('Name')) {
-                $pools = $loadbalancer.pool | ? { $_.name -eq $Name }
+                $pools = $loadbalancer.pool | where-object { $_.name -eq $Name }
             }
             elseif ( $PsBoundParameters.ContainsKey('PoolId')) {
-                $pools = $loadbalancer.pool | ? { $_.poolId -eq $PoolId }
+                $pools = $loadbalancer.pool | where-object { $_.poolId -eq $PoolId }
             }
             else {
                 $pools = $loadbalancer.pool
@@ -27032,7 +27013,7 @@ function Remove-NsxLoadBalancerPool {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Removing pool $poolId"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
             Get-NSxEdge -objectID $edgeId -connection $connection | Get-NsxLoadBalancer
@@ -27089,10 +27070,10 @@ function Get-NsxLoadBalancerPoolMember {
 
 
         if ( $PsBoundParameters.ContainsKey('Name')) {
-            $Members = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancerPool -Query 'descendant::member') | ? { $_.name -eq $Name }
+            $Members = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancerPool -Query 'descendant::member') | where-object { $_.name -eq $Name }
         }
         elseif ( $PsBoundParameters.ContainsKey('MemberId')) {
-            $Members = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancerPool -Query 'descendant::member') | ? { $_.memberId -eq $MemberId }
+            $Members = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancerPool -Query 'descendant::member') | where-object { $_.memberId -eq $MemberId }
         }
         else {
             $Members = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancerPool -Query 'descendant::member')
@@ -27196,7 +27177,7 @@ function Add-NsxLoadBalancerPoolMember {
         $body = $_LoadBalancerPool.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Pool config for $($_LoadBalancerPool.poolId)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         #Get updated pool
@@ -27290,7 +27271,7 @@ function Remove-NsxLoadBalancerPoolMember {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Pool config for $poolId"
-            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
             Get-NSxEdge -objectID $edgeId -connection $connection | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -poolId $poolId
@@ -27345,10 +27326,10 @@ function Get-NsxLoadBalancerVip {
 
 
         if ( $PsBoundParameters.ContainsKey('Name')) {
-            $Vips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancer -Query 'descendant::virtualServer') | ? { $_.name -eq $Name }
+            $Vips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancer -Query 'descendant::virtualServer') | where-object { $_.name -eq $Name }
         }
         elseif ( $PsBoundParameters.ContainsKey('MemberId')) {
-            $Vips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancer -Query 'descendant::virtualServer') | ? { $_.virtualServerId -eq $VirtualServerId }
+            $Vips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancer -Query 'descendant::virtualServer') | where-object { $_.virtualServerId -eq $VirtualServerId }
         }
         else {
             $Vips = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $LoadBalancer -Query 'descendant::virtualServer')
@@ -27482,7 +27463,7 @@ function Add-NsxLoadBalancerVip {
         $body = $_LoadBalancer.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $EdgeId" -status "Load Balancer Config"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
 
         $UpdatedLB = Get-NsxEdge -objectId $EdgeId  -connection $connection | Get-NsxLoadBalancer
@@ -27557,7 +27538,7 @@ function Remove-NsxLoadBalancerVip {
         else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Removing VIP $VipId"
-            $response = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
         }
     }
@@ -27689,7 +27670,7 @@ function Get-NsxLoadBalancerApplicationRule {
         if ( -not ($PsBoundParameters.ContainsKey("ObjectId"))) {
             if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query "child::applicationRule")){
                 if ($PsBoundParameters.ContainsKey("Name")){
-                    $LoadBalancer.applicationRule | ? {$_.name -eq $Name}
+                    $LoadBalancer.applicationRule | where-object {$_.name -eq $Name}
                 }
                 else {
                     $LoadBalancer.applicationRule
@@ -27698,7 +27679,7 @@ function Get-NsxLoadBalancerApplicationRule {
         }
         else {
             if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $LoadBalancer -Query "child::applicationRule/applicationRuleId")){
-                $LoadBalancer.applicationRule | ? {$_.applicationRuleId -eq $ObjectId}
+                $LoadBalancer.applicationRule | where-object {$_.applicationRuleId -eq $ObjectId}
             }
         }
     }
@@ -27839,7 +27820,7 @@ function Get-NsxSecurityPolicy {
             $URI = "/api/2.0/services/policy/securitypolicy/all"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if  ( $Name  ) {
-                $FinalSecPol = $response.securityPolicies.securityPolicy | ? { $_.name -eq $Name }
+                $FinalSecPol = $response.securityPolicies.securityPolicy | where-object { $_.name -eq $Name }
             } else {
                 $FinalSecPol = $response.securityPolicies.securityPolicy
             }
@@ -27856,7 +27837,7 @@ function Get-NsxSecurityPolicy {
         if ( -not $IncludeHidden ) {
             foreach ( $CurrSecPol in $FinalSecPol ) {
                 if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $CurrSecPol -Query 'child::extendedAttributes/extendedAttribute')) {
-                    $hiddenattr = $CurrSecPol.extendedAttributes.extendedAttribute | ? { $_.name -eq 'isHidden'}
+                    $hiddenattr = $CurrSecPol.extendedAttributes.extendedAttribute | where-object { $_.name -eq 'isHidden'}
                     if ( -not ($hiddenAttr.Value -eq 'true')){
                         $CurrSecPol
                     }
@@ -28176,7 +28157,7 @@ function Get-NsxSecurityGroupEffectiveVirtualMachine {
 
     process {
 
-        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes VirtualMachine | Select @{ "n" = "VmName"; "e" = { $_.virtualmachine.vmnode.vmname }}, @{ "n" = "VmId"; "e" = { $_.virtualmachine.vmnode.VmId }}
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes VirtualMachine | select-object @{ "n" = "VmName"; "e" = { $_.virtualmachine.vmnode.vmname }}, @{ "n" = "VmId"; "e" = { $_.virtualmachine.vmnode.VmId }}
     }
 
     end {}
@@ -28248,7 +28229,7 @@ function Get-NsxSecurityGroupEffectiveIpAddress {
 
     process {
 
-        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes IpAddress | Select @{ "n" = "IpAddress"; "e" = { $_.ipaddress.ipnode.ipaddresses.string }}
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes IpAddress | select-object @{ "n" = "IpAddress"; "e" = { $_.ipaddress.ipnode.ipaddresses.string }}
     }
 
     end {}
@@ -28313,7 +28294,7 @@ function Get-NsxSecurityGroupEffectiveMacAddress {
 
     process {
 
-        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes MacAddress | Select @{ "n" = "MacAddress"; "e" = { $_.macaddress.macnode.macaddress }}
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes MacAddress | select-object @{ "n" = "MacAddress"; "e" = { $_.macaddress.macnode.macaddress }}
     }
 
     end {}
@@ -28385,7 +28366,7 @@ function Get-NsxSecurityGroupEffectiveVnic {
 
     process {
 
-        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes Vnic | Select @{ "n" = "Uuid"; "e" = { $_.Vnic.vnicnode.uuid }}, @{ "n" = "IpAddresses"; "e" = { $_.Vnic.vnicnode.IpAddresses.string }}, @{ "n" = "MacAddress"; "e" = { $_.Vnic.vnicnode.MacAddress }}
+        Get-NsxSecurityGroupEffectiveMember @PSBoundParameters -ReturnTypes Vnic | select-object @{ "n" = "Uuid"; "e" = { $_.Vnic.vnicnode.uuid }}, @{ "n" = "IpAddresses"; "e" = { $_.Vnic.vnicnode.IpAddresses.string }}, @{ "n" = "MacAddress"; "e" = { $_.Vnic.vnicnode.MacAddress }}
     }
 
     end {}
@@ -28892,7 +28873,7 @@ function Copy-NsxEdge{
         }
 
         #Appliances element
-        $FirstAppliance = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "descendant::appliances/appliance") | ? { $_.highAvailabilityIndex -eq "0" }
+        $FirstAppliance = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query "descendant::appliances/appliance") | where-object { $_.highAvailabilityIndex -eq "0" }
         switch ($psCmdlet.ParameterSetName){
             "Default"  {
                 write-debug "$($MyInvocation.MyCommand.Name) : Invoked with Default ParameterSet"
@@ -28903,7 +28884,7 @@ function Copy-NsxEdge{
             }
             "Cluster"  {
                 write-debug "$($MyInvocation.MyCommand.Name) : Invoked with Cluster ParameterSet"
-                $ResPoolId = $($cluster | get-resourcepool | ? { $_.parent.id -eq $cluster.id }).extensiondata.moref.value
+                $ResPoolId = $($cluster | get-resourcepool | where-object { $_.parent.id -eq $cluster.id }).extensiondata.moref.value
             }
             "ResourcePool"  {
                 write-debug "$($MyInvocation.MyCommand.Name) : Invoked with ResourcePool ParameterSet"
@@ -28983,7 +28964,7 @@ function Copy-NsxEdge{
         foreach ($node in $pskNodes) {
 
             #just invent a random 8 char (lower/upper/int) string and set the PSK to it.
-            $randomString = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 8 | % {[char]$_})
+            $randomString = -join ((48..57) + (65..90) + (97..122) | Get-Random -Count 8 | foreach-object {[char]$_})
             $node."#text" = $randomString
             Write-Warning "IPSec PSK for site $($node.ParentNode.tostring()) set to $randomString.  Please update manually as required."
         }
@@ -29188,7 +29169,7 @@ function Copy-NsxEdge{
             if ( $PsBoundParameters.ContainsKey("Interface")) {
 
                 #have they specified one for this specific vnic?
-                $UserVnic = $Interface | ? { $_.index -eq $Vnic.Index }
+                $UserVnic = $Interface | where-object { $_.index -eq $Vnic.Index }
                 If ( $UserVnic ) {
 
                     #If so, we have to validate to ensure its valid.
@@ -29268,7 +29249,6 @@ function Copy-NsxEdge{
                     #Only process if there is already addressing information...
                     write-debug "$($MyInvocation.MyCommand.Name) : No user defined vnic spec for this vnic has been specified. Prompting user for details"
                     foreach ( $addressGroup in $Vnic.addressGroups.addressGroup ) {
-                        $removedAddressGroup = $False
                         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $addressGroup -Query "primaryAddress")) {
                             $ExistingPrimaryAddress = $addressGroup.primaryAddress
                             $AddressGroupNetMask = $addressGroup.subnetMask
@@ -29458,9 +29438,9 @@ function Copy-NsxEdge{
             #Services:
             #Local Object fixups
             #Locally scoped objects like ipsets and services/servicegroups can exist on the edge.  If FW rules and other (LB only?) config are using them, they have to be recreated.
-            $LocalServices = Get-NsxService -scopeId $_Edge.id -connection $Connection | ? { $_.scope.id -eq $_Edge.id } #getting by scope id includes inherited services from globalscope-0, we need to filter for services explicitly defined on this edge too :(
-            $LocalServiceGroups = Get-NsxServiceGroup -scopeId $_Edge.id -connection $Connection | ? { $_.scope.id -eq $_Edge.id }
-            $LocalIpSets = Get-NsxIpSet -scopeId $_Edge.id -connection $Connection | ? { $_.scope.id -eq $_Edge.id }
+            $LocalServices = Get-NsxService -scopeId $_Edge.id -connection $Connection | where-object { $_.scope.id -eq $_Edge.id } #getting by scope id includes inherited services from globalscope-0, we need to filter for services explicitly defined on this edge too :(
+            $LocalServiceGroups = Get-NsxServiceGroup -scopeId $_Edge.id -connection $Connection | where-object { $_.scope.id -eq $_Edge.id }
+            $LocalIpSets = Get-NsxIpSet -scopeId $_Edge.id -connection $Connection | where-object { $_.scope.id -eq $_Edge.id }
 
             $UpdatedServices = @{}
             foreach ( $Service in $LocalServices ) {
@@ -29612,9 +29592,9 @@ function Copy-NsxEdge{
                 foreach ( $cert in $SSCertificates ) {
                     #Recreate SS Certs on destination edge.
                     $subject = $cert.x509Certificate.subject -split ","
-                    $org = ($subject | ? { $_ -match 'O='}) -replace '^O=',''
-                    $ou = ($subject | ? { $_ -match 'OU='}) -replace '^OU=',''
-                    $c = ($subject | ? { $_ -match 'C='}) -replace '^C=',''
+                    $org = ($subject | where-object { $_ -match 'O='}) -replace '^O=',''
+                    $ou = ($subject | where-object { $_ -match 'OU='}) -replace '^OU=',''
+                    $c = ($subject | where-object { $_ -match 'C='}) -replace '^C=',''
                     if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $cert -Query "child::description") ) {
                         $desc = $cert.description
                     }
