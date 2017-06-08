@@ -34,6 +34,7 @@ Describe "Logical Routing" {
         $script:RemoteAS = "2345"
         $script:PrefixName = "pester_lr_prefix"
         $script:PrefixNetwork = "1.2.3.0/24"
+        $script:TenantName = "pester_tenant"
         $tz = get-nsxtransportzone -LocalOnly | select -first 1
         $script:lswitches = @()
         $script:lswitches += $tz | new-nsxlogicalswitch $ls1_name
@@ -87,7 +88,15 @@ Describe "Logical Routing" {
 
     it "Can create a logical router" {
         New-NsxLogicalRouter -Name $name -ManagementPortGroup $lswitches[4] -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds
-        Get-NsxLogicalRouter $name | should not be $null
+        $lr | should not be $null
+        $lr.tenant | should be "default"
+    }
+
+    it "Can create a logical router with a tenant name" {
+        New-NsxLogicalRouter -Tenant $TenantName -Name $name -ManagementPortGroup $lswitches[4] -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds
+        $lr = Get-NsxLogicalRouter $name
+        $lr | should not be $null
+        $lr.tenant | should be $TenantName
     }
 
     it "Can create a universal logical router with Local Egress enabled" {
