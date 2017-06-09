@@ -3050,7 +3050,7 @@ function Export-NsxObject {
     $ImportedEdge.
 
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] #Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] #Cant remove without breaking backward compatibility
     Param(
         [Parameter (Mandatory=$true, ValueFromPipeline=$True)]
             #PowerNSX Object to be exported
@@ -3184,7 +3184,7 @@ function Invoke-InternalWebRequest {
     #>
 
     [CmdletBinding()]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] #Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] #Cant remove without breaking backward compatibility
     param
     (
         [parameter(Mandatory = $true)]
@@ -3941,7 +3941,7 @@ function Connect-NsxServer {
     #>
 
     [CmdletBinding(DefaultParameterSetName="Legacy")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
 
     param (
         [Parameter (Mandatory=$true, Position=1, ParameterSetName="Legacy")]
@@ -5210,7 +5210,7 @@ function New-NsxManager{
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
 
     param (
 
@@ -5503,8 +5503,8 @@ function Set-NsxManager {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] #Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] #Cant remove without breaking backward compatibility
     Param (
 
         [Parameter (Mandatory=$True, ParameterSetName="Syslog")]
@@ -6610,7 +6610,7 @@ function Add-NsxSecondaryManager {
 
     #>
     [CmdletBinding(DefaultParameterSetName="Credential")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
 
     param (
 
@@ -6806,7 +6806,7 @@ function Remove-NsxSecondaryManager {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] #Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] #Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$True, ValueFromPipeline=$true)]
@@ -6989,8 +6989,8 @@ function New-NsxController {
     New-NsxController -ipPool $ippool -cluster $ControllerCluster -datastore $ControllerDatastore -PortGroup $ControllerPortGroup -connection $Connection -confirm:$false
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$False)]
@@ -7207,7 +7207,7 @@ function Remove-NsxController {
     #>
 
     [CmdletBinding(DefaultParameterSetName="Object")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true,Position=1, ParameterSetName="Object")]
@@ -7619,7 +7619,7 @@ function Remove-NsxVdsContext {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -7949,7 +7949,7 @@ function Remove-NsxCluster {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
@@ -8086,7 +8086,7 @@ function Remove-NsxClusterVxlanConfig {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
@@ -8343,7 +8343,7 @@ function Remove-NsxSegmentIdRange {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -8662,7 +8662,7 @@ function Add-NsxTransportZoneMember {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
      param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -8765,7 +8765,7 @@ function Remove-NsxTransportZoneMember {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
      param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -8864,7 +8864,7 @@ function Remove-NsxTransportZone {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -9289,7 +9289,7 @@ function Remove-NsxLogicalSwitch {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -9461,7 +9461,7 @@ function Disconnect-NsxLogicalSwitch {
 
     #>
     [CmdLetBinding(DefaultParameterSetName="VM")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param(
         [Parameter(Mandatory=$true, ParameterSetName="VM", ValueFromPipeline=$true)]
             #VM or collection of VMs to attach to specified logical switch.
@@ -9857,7 +9857,7 @@ function Remove-NsxSpoofguardPolicy {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -9938,8 +9938,8 @@ function Publish-NsxSpoofguardPolicy {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -10153,7 +10153,7 @@ function Grant-NsxSpoofguardNicApproval {
     #>
 
     [CmdLetBinding(DefaultParameterSetName="ipAddress")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
@@ -10314,7 +10314,7 @@ function Revoke-NsxSpoofguardNicApproval {
 
     #>
     [CmdLetBinding(DefaultParameterSetName="IpList")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
@@ -10456,7 +10456,7 @@ function New-NsxLogicalRouterInterfaceSpec {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
      param (
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
@@ -10846,7 +10846,7 @@ function Remove-NsxLogicalRouter {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -10910,7 +10910,7 @@ function Set-NsxLogicalRouterInterface {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateLogicalRouterInterface $_ })]
@@ -11016,7 +11016,7 @@ function New-NsxLogicalRouterInterface {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateLogicalRouter $_ })]
@@ -11104,7 +11104,7 @@ function Remove-NsxLogicalRouterInterface {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateLogicalRouterInterface $_ })]
@@ -11359,7 +11359,7 @@ function New-NsxEdgeInterfaceSpec {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true)]
             [ValidateRange(0,9)]
@@ -11481,7 +11481,7 @@ function New-NsxEdgeSubInterfaceSpec {
     #>
 
     [CmdLetBinding(DefaultParameterSetName="None")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true)]
             [string]$Name,
@@ -11604,7 +11604,7 @@ function Set-NsxEdgeInterface {
     #>
 
     [CmdLetBinding(DefaultParameterSetName="DirectAddress")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$true,ValueFromPipeline=$true, ParameterSetName="AddressGroupSpec")]
@@ -11753,7 +11753,7 @@ function Clear-NsxEdgeInterface {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateEdgeInterface $_ })]
@@ -11924,7 +11924,7 @@ function New-NsxEdgeSubInterface {
     #>
 
     [CmdLetBinding(DefaultParameterSetName="None")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateEdgeInterface $_ })]
@@ -12050,7 +12050,7 @@ function Remove-NsxEdgeSubInterface {
     #>
 
     [CmdLetBinding(DefaultParameterSetName="None")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateEdgeSubInterface $_ })]
@@ -12367,7 +12367,7 @@ function Remove-NsxEdgeInterfaceAddress {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -12590,8 +12590,8 @@ function New-NsxEdge {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true)]
             #Name of the edge appliance.
@@ -12866,7 +12866,7 @@ function Repair-NsxEdge {
     #>
 
     [CmdletBinding()]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -12948,7 +12948,7 @@ function Set-NsxEdge {
     #>
 
     [CmdletBinding()]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -13022,7 +13022,7 @@ function Remove-NsxEdge {
         -confirm:$false
 
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -13140,7 +13140,7 @@ function Disable-NsxEdgeSsh {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateScript({ ValidateEdge $_ })]
@@ -13213,7 +13213,7 @@ function Set-NsxEdgeNat {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -13420,7 +13420,7 @@ function New-NsxEdgeNatRule {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -13554,7 +13554,7 @@ function Remove-NsxEdgeNatRule {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -13824,7 +13824,7 @@ function Remove-NsxEdgeCsr{
     pipeline to Remove-NsxEdgeCsr.
 
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -14024,7 +14024,7 @@ function Remove-NsxEdgeCertificate{
     passing them on the pipeline to Remove-NsxEdgeCertificate.
 
     #>
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -14124,7 +14124,7 @@ function Set-NsxSslVpn {
 
     #To do, portal customisation, server ip config...
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -14545,8 +14545,8 @@ function Get-NsxSslVpnAuthServer {
 
 function New-NsxSslVpnUser{
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -14668,7 +14668,7 @@ function Get-NsxSslVpnUser {
 }
 
 function Remove-NsxSslVpnUser {
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateEdgeSslVpnUser $_ })]
@@ -14715,7 +14715,7 @@ function Remove-NsxSslVpnUser {
 
 function New-NsxSslVpnIpPool {
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -14838,7 +14838,7 @@ function Get-NsxSslVpnIpPool {
 
 function Remove-NsxSslVpnIpPool {
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateEdgeSslVpnIpPool $_ })]
@@ -14884,7 +14884,7 @@ function Remove-NsxSslVpnIpPool {
 
 function New-NsxSslVpnPrivateNetwork {
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -14999,7 +14999,7 @@ function Get-NsxSslVpnPrivateNetwork {
 
 function Remove-NsxSslVpnPrivateNetwork {
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateEdgeSslVpnPrivateNetwork $_ })]
@@ -15045,7 +15045,7 @@ function Remove-NsxSslVpnPrivateNetwork {
 
 function New-NsxSslVpnClientInstallationPackage {
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -15201,7 +15201,7 @@ function Get-NsxSslVpnClientInstallationPackage {
 
 function Remove-NsxSslVpnClientInstallationPackage {
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -15296,7 +15296,7 @@ function Set-NsxEdgeRouting {
     Disable OSPF Route Redistribution without confirmation.
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -15708,7 +15708,7 @@ function New-NsxEdgeStaticRoute {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateScript({ ValidateEdgeRouting $_ })]
@@ -15836,7 +15836,7 @@ function Remove-NsxEdgeStaticRoute {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -16017,7 +16017,7 @@ function New-NsxEdgePrefix {
     Create a new prefix called test for network 1.1.1.0/24 on ESG Edge01
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -16120,7 +16120,7 @@ function Remove-NsxEdgePrefix {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -16261,7 +16261,7 @@ function Set-NsxEdgeBgp {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -16525,8 +16525,8 @@ function New-NsxEdgeBgpNeighbour {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -16654,7 +16654,7 @@ function Remove-NsxEdgeBgpNeighbour {
     PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgpNeighbour | where-object { $_.ipaddress -eq '1.1.1.2' } |  Remove-NsxEdgeBgpNeighbour
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -16803,7 +16803,7 @@ function Set-NsxEdgeOspf {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -17028,7 +17028,7 @@ function Remove-NsxEdgeOspfArea {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -17127,8 +17127,8 @@ function New-NsxEdgeOspfArea {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -17353,7 +17353,7 @@ function Remove-NsxEdgeOspfInterface {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -17447,7 +17447,7 @@ function New-NsxEdgeOspfInterface {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -17693,7 +17693,7 @@ function Remove-NsxEdgeRedistributionRule {
     Remove all ospf redistribution rules from Edge01
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -17802,7 +17802,7 @@ function New-NsxEdgeRedistributionRule {
     Create a new permit Redistribution Rule for prefix test (note, prefix must already exist, and is case sensistive) for ospf.
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -17962,7 +17962,7 @@ function Set-NsxLogicalRouterRouting {
     Disable OSPF Route Redistribution without confirmation.
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -18402,7 +18402,7 @@ function New-NsxLogicalRouterStaticRoute {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -18528,7 +18528,7 @@ function Remove-NsxLogicalRouterStaticRoute {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -18699,7 +18699,7 @@ function New-NsxLogicalRouterPrefix {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -18794,7 +18794,7 @@ function Remove-NsxLogicalRouterPrefix {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -18928,7 +18928,7 @@ function Set-NsxLogicalRouterBgp {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -19186,8 +19186,8 @@ function New-NsxLogicalRouterBgpNeighbour {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -19320,7 +19320,7 @@ function Remove-NsxLogicalRouterBgpNeighbour {
     PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour | where-object { $_.ipaddress -eq '1.1.1.2' } |  Remove-NsxLogicalRouterBgpNeighbour
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -19463,7 +19463,7 @@ function Set-NsxLogicalRouterOspf {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -19718,7 +19718,7 @@ function Remove-NsxLogicalRouterOspfArea {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -19814,8 +19814,8 @@ function New-NsxLogicalRouterOspfArea {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -20034,7 +20034,7 @@ function Remove-NsxLogicalRouterOspfInterface {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -20125,7 +20125,7 @@ function New-NsxLogicalRouterOspfInterface {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -20367,7 +20367,7 @@ function Remove-NsxLogicalRouterRedistributionRule {
     Remove all ospf redistribution rules from LogicalRouter01
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -20472,7 +20472,7 @@ function New-NsxLogicalRouterRedistributionRule {
     Create a new permit Redistribution Rule for prefix test (note, prefix must already exist, and is case sensistive) for ospf.
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -20877,7 +20877,7 @@ function Remove-NsxSecurityGroup {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -21143,7 +21143,7 @@ function Remove-NsxSecurityGroupMember {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -21426,7 +21426,7 @@ function Remove-NsxSecurityTag {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -21670,7 +21670,7 @@ function Remove-NsxSecurityTagAssignment {
     #>
 
     [CmdLetBinding()]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
             [ValidateScript ({ ValidateTagAssignment $_ })]
@@ -21981,7 +21981,7 @@ function Remove-NsxIpSet {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateNotNullOrEmpty()]
@@ -22295,7 +22295,7 @@ function Remove-NsxIpPool {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             #IPPool object to be removed.
@@ -22589,7 +22589,7 @@ function Remove-NsxMacSet {
     -confirm:$false can be used to avoid being prompted.
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -22985,7 +22985,7 @@ function Remove-NsxService {
     Removes the service TestService
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -23275,7 +23275,7 @@ function Remove-NsxServiceGroup {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateServiceGroup $_ })]
@@ -23988,7 +23988,7 @@ function Remove-NsxFirewallSection {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -24244,7 +24244,7 @@ function New-NsxFirewallRule  {
     #>
 
     [CmdletBinding()]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,ParameterSetName="Section")]
@@ -24454,7 +24454,7 @@ function Remove-NsxFirewallRule {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -25320,7 +25320,7 @@ function Remove-NsxFirewallRuleMember {
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             # DFW rule member as returned by Get-NsxFirewallRuleMember
@@ -25999,7 +25999,7 @@ function Remove-NsxLoadBalancerMonitor {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -26292,7 +26292,7 @@ function Remove-NsxLoadBalancerApplicationProfile {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -26637,7 +26637,7 @@ function Remove-NsxLoadBalancerPool {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -26886,7 +26886,7 @@ function Remove-NsxLoadBalancerPoolMember {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
@@ -27044,7 +27044,7 @@ function Add-NsxLoadBalancerVip {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -27161,7 +27161,7 @@ function Remove-NsxLoadBalancerVip {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateLoadBalancerVip $_ })]
@@ -27528,7 +27528,7 @@ function Remove-NsxSecurityPolicy {
 
     #>
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -28354,8 +28354,8 @@ function Copy-NsxEdge{
     #>
 
     [CmdletBinding(DefaultParameterSetName="Default")]
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
         [Parameter (Mandatory=$true, ValueFromPipeline=$true)]
