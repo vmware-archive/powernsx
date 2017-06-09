@@ -905,7 +905,7 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberVM1}
+            $item = $results | ? {$_.name -eq $MemberVMName1}
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "VirtualMachine"
@@ -915,7 +915,7 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberVM1}
+            $item = $results | ? {$_.name -eq $MemberVMName1}
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "VirtualMachine"
@@ -933,7 +933,7 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberSG1}
+            $item = $results | ? {$_.name -eq $SecGrpMemberName1}
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "SecurityGroup"
@@ -944,7 +944,7 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberSG1}
+            $item = $results | ? {$_.name -eq $SecGrpMemberName1}
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "SecurityGroup"
@@ -1049,7 +1049,7 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberST1}
+            $item = $results | ? {$_.name -eq $MemberSTName1}
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "SecurityTag"
@@ -1060,7 +1060,7 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberST1}
+            $item = $results | ? {$_.name -eq $MemberSTName1}
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "SecurityTag"
