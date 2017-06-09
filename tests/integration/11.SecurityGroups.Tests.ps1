@@ -838,8 +838,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group IPSet applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType IPSet } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType IPSet
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberIpSetName1}
             $item | should not be $null
@@ -849,8 +849,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group IPSet applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType IPSet -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType IPSet
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberIpSetName1}
             $item | should not be $null
@@ -860,8 +860,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group ClusterComputeResource applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType ClusterComputeResource } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType ClusterComputeResource
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource
             $results | should not be $null
             $item = $results | ? {$_.name -eq $cl.name}
             $item | should not be $null
@@ -870,8 +870,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group ClusterComputeResource applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType ClusterComputeResource -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType ClusterComputeResource
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource
             $results | should not be $null
             $item = $results | ? {$_.name -eq $cl.name}
             $item | should not be $null
@@ -880,8 +880,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group VirtualWire applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualWire } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualWire
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberLSName1}
             $item | should not be $null
@@ -891,8 +891,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group VirtualWire applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualWire -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualWire
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberLSName1}
             $item | should not be $null
@@ -902,8 +902,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group VirtualMachine applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualMachine } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualMachine
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberVM1}
             $item | should not be $null
@@ -912,8 +912,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group VirtualMachine applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualMachine -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualMachine
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberVM1}
             $item | should not be $null
@@ -922,16 +922,16 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group DirectoryGroup applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType DirectoryGroup } | should not throw
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup } | should not throw
         }
 
         it "Can retrieve local Security Group DirectoryGroup applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType DirectoryGroup -scopeId GlobalRoot-0 } | should not throw
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup -scopeId GlobalRoot-0 } | should not throw
         }
 
         it "Can retrieve local Security Group SecurityGroup applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityGroup } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityGroup
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberSG1}
             $item | should not be $null
@@ -941,8 +941,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group SecurityGroup applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityGroup
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberSG1}
             $item | should not be $null
@@ -952,16 +952,16 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group VirtualApp applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualApp } | should not throw
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualApp } | should not throw
         }
 
         it "Can retrieve local Security Group VirtualApp applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType VirtualApp -scopeId GlobalRoot-0 } | should not throw
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualApp -scopeId GlobalRoot-0 } | should not throw
         }
 
         it "Can retrieve local Security Group ResourcePool applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType ResourcePool } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType ResourcePool
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberResPool1}
             $item | should not be $null
@@ -970,8 +970,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group ResourcePool applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType ResourcePool -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType ResourcePool
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberResPool1}
             $item | should not be $null
@@ -980,8 +980,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group DistributedVirtualPortgroup applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberVdPortGroup1}
             $item | should not be $null
@@ -990,8 +990,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group DistributedVirtualPortgroup applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberVdPortGroup1}
             $item | should not be $null
@@ -1000,8 +1000,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group Datacenter applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType Datacenter } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType Datacenter
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberDC1}
             $item | should not be $null
@@ -1010,8 +1010,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group Datacenter applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType Datacenter -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType Datacenter
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberDC1}
             $item | should not be $null
@@ -1026,8 +1026,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group Vnic applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType Vnic } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType Vnic
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic
             $results | should not be $null
             $item = $results | select -first 1
             $item | should not be $null
@@ -1036,8 +1036,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group Vnic applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType Vnic -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType Vnic
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic
             $results | should not be $null
             $item = $results | select -first 1
             $item | should not be $null
@@ -1046,8 +1046,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group SecurityTag applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityTag } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityTag
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberST1}
             $item | should not be $null
@@ -1057,8 +1057,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group SecurityTag applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityTag
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberST1}
             $item | should not be $null
@@ -1068,8 +1068,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group MACSet applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType MACSet } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType MACSet
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberMacSetName1}
             $item | should not be $null
@@ -1079,8 +1079,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve local Security Group MACSet applicable members specifying scopeid globalroot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType MACSet -scopeId GlobalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType MACSet
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet
             $results | should not be $null
             $item = $results | ? {$_.name -eq $MemberMacSetName1}
             $item | should not be $null
@@ -1092,8 +1092,8 @@ Describe "SecurityGroups" {
 #Universal Security Group Applicable Members
 
         it "Can retrieve universal Security Group IPSet applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType IPSet -universal } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType IPSet -universal
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -universal } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -universal
             $results | should not be $null
             $item = $results | ? {$_.name -eq $UMemberIpSetName1}
             $item | should not be $null
@@ -1103,8 +1103,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve universal Security Group IPSet applicable members specifying scopeid universalRoot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType IPSet -scopeId universalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType IPSet -scopeId universalRoot-0
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId universalRoot-0
             $results | should not be $null
             $item = $results | ? {$_.name -eq $UMemberIpSetName1}
             $item | should not be $null
@@ -1114,8 +1114,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve universal Security Group SecurityTag applicable members" -skip:(-not $ver_gt_630_universalSyncEnabled ) {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityTag  -universal} | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityTag -universal
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag  -universal} | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -universal
             $results | should not be $null
             $item = $results | ? {$_.name -eq $UMemberSTName1}
             $item | should not be $null
@@ -1125,8 +1125,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve universal Security Group SecurityTag applicable members specifying scopeid universalRoot-0" -skip:(-not $ver_gt_630_universalSyncEnabled ){
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId universalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId universalRoot-0
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId universalRoot-0
             $results | should not be $null
             $item = $results | ? {$_.name -eq $UMemberSTName1}
             $item | should not be $null
@@ -1136,8 +1136,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve universal Security Group MACSet applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType MACSet  -universal} | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType MACSet -universal
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet  -universal} | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -universal
             $results | should not be $null
             $item = $results | ? {$_.name -eq $UMemberMacSetName1}
             $item | should not be $null
@@ -1147,8 +1147,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve universal Security Group MACSet applicable members specifying scopeid universalRoot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType MACSet -scopeId universalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType MACSet -scopeId universalRoot-0
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId universalRoot-0
             $results | should not be $null
             $item = $results | ? {$_.name -eq $UMemberMacSetName1}
             $item | should not be $null
@@ -1158,8 +1158,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve universal Security Group SecurityGroup applicable members" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityGroup  -universal} | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityGroup -universal
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup  -universal} | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -universal
             $results | should not be $null
             $item = $results | ? {$_.name -eq $USecGrpMemberName1}
             $item | should not be $null
@@ -1169,8 +1169,8 @@ Describe "SecurityGroups" {
         }
 
         it "Can retrieve universal Security Group SecurityGroup applicable members specifying scopeid universalRoot-0" {
-            { Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId universalRoot-0 } | should not throw
-            $results = Get-NsxApplicable -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId universalRoot-0
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId universalRoot-0
             $results | should not be $null
             $item = $results | ? {$_.name -eq $USecGrpMemberName1}
             $item | should not be $null
