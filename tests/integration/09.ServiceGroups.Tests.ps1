@@ -332,7 +332,7 @@ Describe "ServiceGroups" {
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "Application"
-            $item.isUniversal | should be "false"
+            $item.isUniversal | should be "true"
         }
 
         it "Can retrieve universal Service Group Service applicable members specifying scopeid universalroot-0" {
@@ -343,7 +343,7 @@ Describe "ServiceGroups" {
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "Application"
-            $item.isUniversal | should be "false"
+            $item.isUniversal | should be "true"
         }
 
         it "Can retrieve universal Service Group service group applicable members" {
@@ -354,7 +354,7 @@ Describe "ServiceGroups" {
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "ApplicationGroup"
-            $item.isUniversal | should be "false"
+            $item.isUniversal | should be "true"
         }
 
         it "Can retrieve universal Service Group service group applicable members specifying scopeid universalroot-0" {
@@ -365,7 +365,7 @@ Describe "ServiceGroups" {
             $item | should not be $null
             @($item | measure).count | should be 1
             $item.objectTypeName | should be "ApplicationGroup"
-            $item.isUniversal | should be "false"
+            $item.isUniversal | should be "true"
         }
     }
 }
