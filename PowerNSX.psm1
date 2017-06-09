@@ -4360,7 +4360,7 @@ function Get-PowerNsxVersion {
     #>
 
     #Updated to take advantage of Manifest info.
-    Get-Module PowerNsx | select-object-object version, path, author, companyName
+    Get-Module PowerNsx | select-object version, path, author, companyName
 }
 
 function Update-PowerNsx {
@@ -5327,7 +5327,7 @@ function New-NsxManager{
 
         # Chose a target host that is not in Maintenance Mode and select based on available memory
         $TargetVMHost = $null
-        $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | select-object-object -first 1
+        $TargetVMHost = Get-Cluster $ClusterName | Get-VMHost | Where-Object {$_.ConnectionState -eq 'Connected'} | Sort-Object MemoryUsageGB | select-object -first 1
 
         # throw an error if there are not any hosts suitable for deployment (ie: all hosts are in maint. mode)
         if ($targetVmHost -eq $null) {
@@ -9791,7 +9791,7 @@ function New-NsxSpoofguardPolicy {
                     #You also dont seem to be able to do a get-view on it :|
                     #So, I have get a hasthtable of all morefs that represent VSS based PGs and search it for the name of the PG the user specified.  Im fairly (not 100%) sure this is safe as networkname should be unique at least within VSS portgroups...
 
-                    $StandardPgHash = Get-View -ViewType Network -Property Name | where-object { $_.Moref.Type -match 'Network' } | select-object-object name, moref | Sort-Object -Property Name -Unique | Group-Object -AsHashTable -Property Name
+                    $StandardPgHash = Get-View -ViewType Network -Property Name | where-object { $_.Moref.Type -match 'Network' } | select-object name, moref | Sort-Object -Property Name -Unique | Group-Object -AsHashTable -Property Name
 
                     $Item = $StandardPgHash.Item($_.name)
                     if ( -not $item ) { throw "PortGroup $($_.name) not found." }
