@@ -61,6 +61,15 @@ Describe "SecurityGroups" {
         else {
             $universalSyncEnabled = $false
         }
+
+        # Set flag for greater the 6.3.0 AND universal sync enabled
+        # Initial use case is for Universal Security Tags introduced in 6.3.0
+        if ( ($ver_gt_630) -and ($universalSyncEnabled) ) {
+            $ver_gt_630_universalSyncEnabled = $true
+        }
+        else {
+            $ver_gt_630_universalSyncEnabled = $false
+        }
     }
 
     AfterAll {
@@ -688,6 +697,496 @@ Describe "SecurityGroups" {
             $secGrpName = "$sgPrefix-sg-universal-no-active_standby"
             $SecGrpDesc = "PowerNSX Pester Test Universal SecurityGroup without Active-Standby flag"
             {New-nsxsecuritygroup -Name $secGrpName -Description $SecGrpDesc -Universal -IncludeMember $UST} | should throw
+        }
+    }
+
+    Context "Applicable Members" {
+
+        BeforeAll {
+
+            #Appliceable Member stuff definitions...
+            #SGs
+            $SecGrpMemberName1 = "$sgPrefix-member1"
+            $USecGrpMemberName1 = "$sgPrefix-member1-universal"
+
+            #VirtualWire
+            $script:MemberLSName1 = "pester_member_ls1"
+
+            #VMs
+            $script:MemberVMName1 = "pester_member_vm1"
+            $vmhost = $cl | get-vmhost | select -first 1
+            $folder = get-folder -type VM -name vm
+            $vmsplat = @{
+                "VMHost" = $vmhost
+                "Location" = $folder
+                "ResourcePool" = $cl
+                "Datastore" = $ds
+                "DiskGB" = 1
+                "DiskStorageFormat" = "Thin"
+                "NumCpu" = 1
+                "Floppy" = $false
+                "CD" = $false
+                "GuestId" = "other26xLinuxGuest"
+                "MemoryMB" = 512
+            }
+
+            #IPSet
+            $script:testIPs = "1.1.1.1,2.2.2.2"
+            $script:MemberIpSetName1 = "pester_member_ipset1"
+            $script:UMemberIpSetName1 = "pester_member_ipset1_universal"
+            $script:MemberIpSetDesc1 = "Pester member IP Set 1"
+
+            #ResourcePool
+            $Script:MemberResPoolName1 = "pester_member_respool1"
+
+            #DistributedVirtualPortgroup
+            $script:MemberVdPortGroupName1 = "pester_member_vdportgroup1"
+
+            #Datacenter
+            $script:MemberDcName1 = "pester_member_dc1"
+
+            #SecurityTag
+            $Script:MemberSTName1 = "pester_member_sectag1"
+            $Script:UMemberSTName1 = "pester_member_sectag1"
+            $Script:MemberSTDesc1 = "Pester Member Security Tag 1"
+
+            #MACSet
+            $script:MemberMacSetName1 = "pester_member_macset1"
+            $script:UMemberMacSetName1 = "pester_member_macset1_universal"
+            $script:MemberMac1 = "00:50:56:00:00:00"
+
+
+            #Removal of any previously created...
+            Get-NsxMacSet $MemberMacSetName1 | Remove-NsxMacSet -confirm:$false
+            Get-NsxMacSet $UMemberMacSetName1 | Remove-NsxMacSet -confirm:$false
+
+            Get-NsxSecurityTag $MemberSTName1 | Remove-NsxSecurityTag -Confirm:$false
+            Get-NsxSecurityTag $UMemberSTName1 | Remove-NsxSecurityTag -Confirm:$false
+
+            Get-Datacenter $MemberDCName1 -ErrorAction SilentlyContinue | Remove-Datacenter -Confirm:$false
+
+            Get-VDPortgroup $MemberVdPortGroupName1 -ErrorAction SilentlyContinue | Remove-VDPortGroup -Confirm:$false
+
+            Get-ResourcePool $MemberResPoolName1 -ErrorAction SilentlyContinue | Remove-ResourcePool -Confirm:$false
+
+            Get-NsxIpSet $MemberIPSetName1  | Remove-NsxIpSet -Confirm:$false
+            Get-NsxIpSet $UMemberIPSetName1  | Remove-NsxIpSet -Confirm:$false
+
+            Get-Vm $MemberVmName1 -ErrorAction SilentlyContinue | Remove-VM -DeletePermanently -Confirm:$false
+
+            Get-NsxLogicalSwitch $MemberLSName1 | Remove-NsxLogicalSwitch -Confirm:$false
+
+            Get-NsxSecurityGroup $SecGrpMemberName1 | Remove-NsxSecurityGroup -Confirm:$false
+            Get-NsxSecurityGroup $USecGrpMemberName1 | Remove-NsxSecurityGroup -Confirm:$false
+
+            #Creation
+
+            $script:MemberSG1 = New-NsxSecurityGroup -Name $SecGrpMemberName1 -Description $SecGrpMemberDesc1
+            $script:UMemberSG1 = New-NsxSecurityGroup -Name $USecGrpMemberName1 -Description $SecGrpMemberDesc1 -universal
+
+            $script:MemberLS1 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $MemberLSName1
+
+            $script:MemberVM1 = new-vm -name $MemberVMName1 @vmsplat
+            $MemberVM1 | Connect-NsxLogicalSwitch -LogicalSwitch $MemberLS1
+
+            $script:MemberIpSet1 = New-NsxIpSet -Name $MemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddresses $testIPs
+            $script:UMemberIpSet1 = New-NsxIpSet -Name $UMemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddresses $testIPs -Universal
+
+            $script:MemberResPool1 = Get-cluster | select -First 1 | New-ResourcePool -Name $MemberResPoolName1
+
+            $script:MemberVdPortGroup1 = Get-VDSwitch | Select -first 1 | New-VDPortgroup -Name $MemberVdPortGroupName1
+
+            $script:MemberDC1 = get-folder Datacenters | New-Datacenter -Name $MemberDcName1
+
+            $Script:MemberVnic1 = $MemberVM1 | Get-NetworkAdapter
+
+            $Script:MemberST1 = New-NsxSecurityTag -Name $MemberSTName1 -Description $MemberSTDesc1
+
+            $script:MemberMacSet1 = New-NsxMacSet -Name $MemberMacSetName1 -Description "Pester member MAC Set1" -MacAddresses "$MemberMac1"
+            $script:UMemberMacSet1 = New-NsxMacSet -Name $UMemberMacSetName1 -Description "Pester member MAC Set1 Universal" -MacAddresses "$MemberMac1" -Universal
+
+            if ( $ver_gt_630 ) {
+                # $script:UST = New-NsxSecurityTag -Universal -Name $sgPrefix-sectag-universal -Description "PowerNSX Pester Test Universal SecurityTag"
+                $Script:UMemberST1 = New-NsxSecurityTag -Name $UMemberSTName1 -Description $MemberSTDesc1 -universal
+            }
+
+        }
+
+        AfterAll {
+            #Removal of any previously created...
+            Get-NsxMacSet $MemberMacSetName1 | Remove-NsxMacSet -confirm:$false
+            Get-NsxMacSet $UMemberMacSetName1 | Remove-NsxMacSet -confirm:$false
+
+            Get-NsxSecurityTag $MemberSTName1 | Remove-NsxSecurityTag -Confirm:$false
+            Get-NsxSecurityTag $UMemberSTName1 | Remove-NsxSecurityTag -Confirm:$false
+
+            Get-Datacenter $MemberDCName1 -ErrorAction SilentlyContinue | Remove-Datacenter -Confirm:$false
+
+            Get-VDPortgroup $MemberVdPortGroupName1 -ErrorAction SilentlyContinue | Remove-VDPortGroup -Confirm:$false
+
+            Get-ResourcePool $MemberResPoolName1 -ErrorAction SilentlyContinue | Remove-ResourcePool -Confirm:$false
+
+            Get-NsxIpSet $MemberIPSetName1  | Remove-NsxIpSet -Confirm:$false
+            Get-NsxIpSet $UMemberIPSetName1  | Remove-NsxIpSet -Confirm:$false
+
+            Get-Vm $MemberVmName1 -ErrorAction SilentlyContinue | Remove-VM -DeletePermanently -Confirm:$false
+
+            Get-NsxLogicalSwitch $MemberLSName1 | Remove-NsxLogicalSwitch -Confirm:$false
+
+            Get-NsxSecurityGroup $SecGrpMemberName1 | Remove-NsxSecurityGroup -Confirm:$false
+            Get-NsxSecurityGroup $USecGrpMemberName1 | Remove-NsxSecurityGroup -Confirm:$false
+        }
+
+        it "Can retrieve local Security Group IPSet applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberIpSetName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "IPSet"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group IPSet applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberIpSetName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "IPSet"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group ClusterComputeResource applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $cl.name}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "ClusterComputeResource"
+        }
+
+        it "Can retrieve local Security Group ClusterComputeResource applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $cl.name}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "ClusterComputeResource"
+        }
+
+        it "Can retrieve local Security Group VirtualWire applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberLSName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "VirtualWire"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group VirtualWire applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberLSName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "VirtualWire"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group VirtualMachine applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberVMName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "VirtualMachine"
+        }
+
+        it "Can retrieve local Security Group VirtualMachine applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberVMName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "VirtualMachine"
+        }
+
+        it "Can retrieve local Security Group DirectoryGroup applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup } | should not throw
+        }
+
+        it "Can retrieve local Security Group DirectoryGroup applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup -scopeId GlobalRoot-0 } | should not throw
+        }
+
+        it "Can retrieve local Security Group SecurityGroup applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $SecGrpMemberName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "SecurityGroup"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group SecurityGroup applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $SecGrpMemberName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "SecurityGroup"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group VirtualApp applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualApp } | should not throw
+        }
+
+        it "Can retrieve local Security Group VirtualApp applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualApp -scopeId GlobalRoot-0 } | should not throw
+        }
+
+        it "Can retrieve local Security Group ResourcePool applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberResPool1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "ResourcePool"
+        }
+
+        it "Can retrieve local Security Group ResourcePool applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberResPool1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "ResourcePool"
+        }
+
+        it "Can retrieve local Security Group DistributedVirtualPortgroup applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberVdPortGroup1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "DistributedVirtualPortgroup"
+        }
+
+        it "Can retrieve local Security Group DistributedVirtualPortgroup applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberVdPortGroup1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "DistributedVirtualPortgroup"
+        }
+
+        it "Can retrieve local Security Group Datacenter applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberDC1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "Datacenter"
+        }
+
+        it "Can retrieve local Security Group Datacenter applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberDC1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "Datacenter"
+        }
+
+        it "Can retrieve local Security Group Network applicable members" {
+        }
+
+        it "Can retrieve local Security Group Network applicable members specifying scopeid globalroot-0" {
+        }
+
+        it "Can retrieve local Security Group Vnic applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic
+            $results | should not be $null
+            $item = $results | select -first 1
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "Vnic"
+        }
+
+        it "Can retrieve local Security Group Vnic applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | select -first 1
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "Vnic"
+        }
+
+        it "Can retrieve local Security Group SecurityTag applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberSTName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "SecurityTag"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group SecurityTag applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberSTName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "SecurityTag"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group MACSet applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberMacSetName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "MACSet"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Security Group MACSet applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $MemberMacSetName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "MACSet"
+            $item.isUniversal | should be "false"
+        }
+
+#Universal Security Group Applicable Members
+
+        it "Can retrieve universal Security Group IPSet applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -universal } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -universal
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UMemberIpSetName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "IPSet"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Security Group IPSet applicable members specifying scopeid universalRoot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId universalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UMemberIpSetName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "IPSet"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Security Group SecurityTag applicable members" -skip:(-not $ver_gt_630_universalSyncEnabled ) {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag  -universal} | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -universal
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UMemberSTName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "SecurityTag"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Security Group SecurityTag applicable members specifying scopeid universalRoot-0" -skip:(-not $ver_gt_630_universalSyncEnabled ){
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId universalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UMemberSTName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "SecurityTag"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Security Group MACSet applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet  -universal} | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -universal
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UMemberMacSetName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "MACSet"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Security Group MACSet applicable members specifying scopeid universalRoot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId universalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UMemberMacSetName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "MACSet"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Security Group SecurityGroup applicable members" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup  -universal} | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -universal
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $USecGrpMemberName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "SecurityGroup"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Security Group SecurityGroup applicable members specifying scopeid universalRoot-0" {
+            { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId universalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $USecGrpMemberName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "SecurityGroup"
+            $item.isUniversal | should be "true"
+        }
+
+#ScopeId of an Edge
+        it "Can retrieve local Security Group IPSet applicable members specifying scopeid of an edge" {
+        }
+
+        it "Can retrieve local Security Group MACSet applicable members specifying scopeid of an edge" {
+        }
+
+        it "Can retrieve local Security Group SecurityGroup applicable members specifying scopeid of an edge" {
         }
     }
 }
