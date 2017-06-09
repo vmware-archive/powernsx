@@ -790,7 +790,7 @@ Describe "SecurityGroups" {
             $MemberVM1 | Connect-NsxLogicalSwitch -LogicalSwitch $MemberLS1
 
             $script:MemberIpSet1 = New-NsxIpSet -Name $MemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddresses $testIPs
-            $script:UMemberIpSet1 = New-NsxIpSet -Name $UMemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddresses $testIPs
+            $script:UMemberIpSet1 = New-NsxIpSet -Name $UMemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddresses $testIPs -Universal
 
             $script:MemberResPool1 = Get-cluster | select -First 1 | New-ResourcePool -Name $MemberResPoolName1
 
@@ -802,8 +802,8 @@ Describe "SecurityGroups" {
 
             $Script:MemberST1 = New-NsxSecurityTag -Name $MemberSTName1 -Description $MemberSTDesc1
 
-            $script:MemberMacSet1 = New-NsxMacSet -Name $MemberMacSetName1 -Description "Pester member MAC Set1" -MacAddresses "$MemberMac1,$MemberMac2"
-            $script:UMemberMacSet1 = New-NsxMacSet -Name $UMemberMacSetName1 -Description "Pester member MAC Set1 Universal" -MacAddresses "$MemberMac1,$MemberMac2"
+            $script:MemberMacSet1 = New-NsxMacSet -Name $MemberMacSetName1 -Description "Pester member MAC Set1" -MacAddresses "$MemberMac1"
+            $script:UMemberMacSet1 = New-NsxMacSet -Name $UMemberMacSetName1 -Description "Pester member MAC Set1 Universal" -MacAddresses "$MemberMac1" -Universal
 
             if ( $ver_gt_630 ) {
                 # $script:UST = New-NsxSecurityTag -Universal -Name $sgPrefix-sectag-universal -Description "PowerNSX Pester Test Universal SecurityTag"
