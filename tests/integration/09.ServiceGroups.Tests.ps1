@@ -250,4 +250,122 @@ Describe "ServiceGroups" {
         }
 
     }
+
+    Context "Applicable Members" {
+
+        BeforeAll {
+            #Service Group
+            $svcgrpName1 = "$svcPrefix-testgroup-1"
+            $UsvcgrpName1 = "$svcPrefix-testgroup-1-Universal"
+
+            #Service
+            $svcName1 = "$svcPrefix-testservice-1"
+            $UsvcName1 = "$svcPrefix-testservice-1-Universal"
+
+            # Remove any previosuly created ones
+            Get-NsxServiceGroup | ? { $_.name -match $svcPrefix } | Remove-NsxServiceGroup -Confirm:$false
+            Get-NsxService | ? { $_.name -match $svcPrefix } | Remove-NsxService -Confirm:$false
+
+            # Create stuff
+            $script:MemberSvcGrp1 = New-NsxServiceGroup -Name $svcgrpName1
+            $script:UMemberSvcGrp1 = New-NsxServiceGroup -Name $UsvcgrpName1 -universal
+
+            $script:MemberSvc1 = New-NsxService -Name $svcName1 -Protocol TCP -Port 80
+            $script:UMemberSvc1 = New-NsxService -Name $UsvcName1 -Protocol TCP -Port 80 -Universal
+        }
+
+        AfterAll {
+            Get-NsxServiceGroup | ? { $_.name -match $svcPrefix } | Remove-NsxServiceGroup -Confirm:$false
+            Get-NsxService | ? { $_.name -match $svcPrefix } | Remove-NsxService -Confirm:$false
+        }
+
+        it "Can retrieve local Service Group Service applicable members" {
+            { Get-NsxApplicableMember -ServiceGroupApplicableMembers } | should not throw
+            $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $svcName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "Application"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Service Group Service applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $svcName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "Application"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Service Group service group applicable members" {
+            { Get-NsxApplicableMember -ServiceGroupApplicableMembers } | should not throw
+            $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $svcgrpName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "ApplicationGroup"
+            $item.isUniversal | should be "false"
+        }
+
+        it "Can retrieve local Service Group service group applicable members specifying scopeid globalroot-0" {
+            { Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId GlobalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId GlobalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $svcgrpName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "ApplicationGroup"
+            $item.isUniversal | should be "false"
+        }
+
+# Universal Applicable Members
+        it "Can retrieve universal Service Group Service applicable members" {
+            { Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal } | should not throw
+            $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UsvcName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "Application"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Service Group Service applicable members specifying scopeid universalroot-0" {
+            { Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId universalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UsvcName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "Application"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Service Group service group applicable members" {
+            { Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal } | should not throw
+            $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UsvcgrpName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "ApplicationGroup"
+            $item.isUniversal | should be "true"
+        }
+
+        it "Can retrieve universal Service Group service group applicable members specifying scopeid universalroot-0" {
+            { Get-NsxApplicableMember -ServiceGroupApplicableMembers  -scopeId universalRoot-0 } | should not throw
+            $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId universalRoot-0
+            $results | should not be $null
+            $item = $results | ? {$_.name -eq $UsvcgrpName1}
+            $item | should not be $null
+            @($item | measure).count | should be 1
+            $item.objectTypeName | should be "ApplicationGroup"
+            $item.isUniversal | should be "true"
+        }
+    }
 }
