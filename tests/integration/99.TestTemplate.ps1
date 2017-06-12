@@ -31,7 +31,7 @@ Describe "Logical Thingy" {
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefMgrCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefMgrCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | select -first 1
         write-warning "Using cluster $cl for clustery stuff"
         $script:ds = $cl | get-datastore | select -first 1

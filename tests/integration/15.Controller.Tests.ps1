@@ -10,7 +10,7 @@ Describe "Controller" {
         #BeforeAll block runs _once_ at invocation regardless of number of tests/contexts/describes.
         #We load the mod and establish connection to NSX Manager here.
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:ctrl = Get-NsxController
         if ( @($ctrl).count -ne 1) {
             $script:SkipCtrlTest = $True

@@ -16,7 +16,7 @@ Describe "NSXManager" {
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred
         $script:adminConnection = Connect-NsxServer -NsxServer $DefaultNsxConnection.Server -Credential $PNSXTestDefMgrCred -DefaultConnection:$false
 
 
@@ -37,7 +37,7 @@ Describe "NSXManager" {
 
         #Test if required test SSO account exists in VC
         try {
-            $dummyconn = Connect-VIServer $PNSXTestVC -NotDefault -username $TestSSOAccount -Password $TestSSOPassword -ErrorAction Stop
+            $dummyconn = Connect-VIServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -NotDefault -username $TestSSOAccount -Password $TestSSOPassword -ErrorAction Stop
             $Global:SkipSSOTests = $false
         }
         catch {
@@ -111,7 +111,7 @@ Describe "NSXManager" {
             #make test user auditor
             $result = Invoke-NsxRestMethod -method post -uri "/api/2.0/services/usermgmt/role/$TestSSOAccount" -body $ace.outerxml -connection $adminConnection
 
-            $testconn = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -DefaultConnection:$false
+            $testconn = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -DefaultConnection:$false
 
             $testConn | should not be $null
             $testConn.version | should not be $null

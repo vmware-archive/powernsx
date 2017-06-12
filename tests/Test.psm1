@@ -17,8 +17,6 @@ $there = Split-Path -Parent $MyInvocation.MyCommand.Path | split-path -parent
 $sut = "PowerNSX.psd1"
 $pnsxmodule = "$there\$sut"
 
-
-
 function Start-Test {
     #Sets up credentials and performs other stuff before invoking pester
     param (
@@ -34,6 +32,7 @@ function Start-Test {
         write-warning "No saved connection details found, prompting user."
         # $PNSXTestNSXManager = read-host "NSX Manager Ip/Name"
         $PNSXTestVC = read-host "vCenter Server Ip/Name"
+        $PNSXTestNSX = read-host "NSX Server (If NSX is behind NAT, enter the NATed address here)"
         $PNSXTestDefMgrUsername = "admin"
         $PNSXTestDefMgrPassword = read-host "NSX Manager admin password"
 
@@ -56,7 +55,7 @@ function Start-Test {
         if ( $decision -eq 0 ) {
             [pscustomobject]$export = @{
                 "vc" = $PNSXTestVC;
-
+                "nsx" = $PNSXTestNSX;
 
                 ###
                 #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
@@ -87,11 +86,12 @@ function Start-Test {
             $_
         }
 
-        if ( -not ( $import.vc -and $import.nsxuser -and $import.nsxpwd -and $import.viuser -and $import.vipwd )) {
+        if ( -not ( $import.vc -and $import.nsx -and $import.nsxuser -and $import.nsxpwd -and $import.viuser -and $import.vipwd )) {
             throw "Import file does not contain required connection information.  Delete existing file and try again."
         }
 
         $PNSXTestVC = $import.vc
+        $PNSXTestNSX = $import.nsx
 
         ###
         #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
