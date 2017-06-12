@@ -11228,6 +11228,83 @@ function Get-NsxLogicalRouterInterface {
     end {}
 }
 
+function Set-NsxLogicalRouter {
+
+    <#
+    .SYNOPSIS
+    Configures an existing NSX Logical Router Raw configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Use the Set-NsxLogicalRotuer to perform updates to the Raw XML config for an DLR
+    to enable basic support for manipulating DLR features that arent supported
+    by specific PowerNSX cmdlets.
+
+    .EXAMPLE
+    $dlr = Get-NsxLogicalRouter Dlr01
+    PS C:\>$dlr.features.firewall.enabled = "false"
+    PS C:\>$dlr | Set-NsxLogicalRouter
+
+    Disable the DLR Firewall on DLR Dlr01
+    #>
+
+    [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ ValidateLogicalRouter $_ })]
+            [System.Xml.XmlElement]$LogicalRouter,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        #Clone the LogicalRouter Element so we can modify without barfing up the source object.
+        $_LogicalRouter = $LogicalRouter.CloneNode($true)
+
+        #Remove EdgeSummary...
+        $edgeSummary = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouter -Query 'descendant::edgeSummary')
+        if ( $edgeSummary ) {
+            $_LogicalRouter.RemoveChild($edgeSummary) | out-null
+        }
+
+        $URI = "/api/4.0/edges/$($_LogicalRouter.Id)"
+        $body = $_LogicalRouter.OuterXml
+
+        if ( $confirm ) {
+            $message  = "Logical Router update will modify existing Logical Router configuration."
+            $question = "Proceed with Update of Logical Router $($LogicalRouter.Name)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Logical Router $($LogicalRouter.Name)"
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            write-progress -activity "Update Logical Router $($LogicalRouter.Name)" -completed
+            Get-NsxLogicalRouter -objectId $($LogicalRouter.Id) -connection $connection
+        }
+    }
+
+    end {}
+}
+
 ########
 ########
 # ESG related functions
