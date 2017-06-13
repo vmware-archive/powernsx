@@ -3,11 +3,9 @@
 
 # Must load via manifest file otherwise dep module loads dont occur properly
 # Must have separate test manifest for core now :(
-
-
 #We can drop a connection file that allows future non interactive invocation
+
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$cxnfile = "$here\Test.cxn"
 
 $ynchoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
 $ynchoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -20,11 +18,21 @@ $pnsxmodule = "$there\$sut"
 function Start-Test {
     #Sets up credentials and performs other stuff before invoking pester
     param (
-        $testname
+        #Optional subset Test context to execute
+        $testname,
+        #Absolute path to alternative connection file.  Defaults to tests/Text.cxn
+        $ConnectionFile
     )
 
     get-module PowerNSX | remove-module
     Import-Module $pnsxmodule -ErrorAction Stop -global
+
+    if ( $ConnectionFile ) {
+        $cxnfile = $ConnectionFile
+    }
+    else {
+        $cxnfile = "$here\Test.cxn"
+    }
 
     if ( -not (test-path $cxnfile )) {
 
