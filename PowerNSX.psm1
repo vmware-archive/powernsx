@@ -171,10 +171,9 @@ https://github.com/vmware/powernsx/issues
             public internalWebResponse() {
                 this.Headers = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
             }
-	    public override string ToString()
-	    {
-		return this.Content;
-	    }
+            public override string ToString() {
+                return this.Content;
+            }
         }
 
         public class InternalWebRequestException: Exception
@@ -22330,7 +22329,7 @@ function Remove-NsxIpPool {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-				$URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=$($force.tostring().tolower())"
+                $URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=$($force.tostring().tolower())"
                 Write-Progress -activity "Remove IP Pool $($IPPool.Name)"
                 invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
                 write-progress -activity "Remove IP Pool $($IPPool.Name)" -completed
