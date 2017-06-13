@@ -26,6 +26,7 @@ Describe "Controller" {
             $script:pool = Get-NSxIpPool | ? { $_.name -match "controller" }
             write-warning "Using existing controller ds, portgroup and resourcepool config for additional controller deployment"
             $script:SkipCtrlTest = $False
+            $script:CtrlPass = "VMware1!VMware1!"
         }
     }
 
@@ -65,7 +66,7 @@ Describe "Controller" {
         #We kill the connection to NSX Manager here.
         if ( -not $SkipCtrlTest ) {
             #Redeploy the first controller.
-            $null = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait -Confirm:$false
+            $null = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait -Password $CtrlPass -Confirm:$false
         }
         disconnect-nsxserver
 
