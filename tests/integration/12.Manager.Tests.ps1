@@ -37,7 +37,7 @@ Describe "NSXManager" {
 
         #Test if required test SSO account exists in VC
         try {
-            $dummyconn = Connect-VIServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -NotDefault -username $TestSSOAccount -Password $TestSSOPassword -ErrorAction Stop
+            $dummyconn = Connect-VIServer $PNSXTestVC -NotDefault -username $TestSSOAccount -Password $TestSSOPassword -ErrorAction Stop
             $Global:SkipSSOTests = $false
         }
         catch {
@@ -60,7 +60,7 @@ Describe "NSXManager" {
         #Connect-NsxServer tests
         it "Can connect directly to NSX server using admin account - legacy mode" {
             $NSXManager = $DefaultNsxConnection.Server
-            $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefMgrCred -VICred $PNSXTestDefViCred -ViWarningAction "Ignore" -DefaultConnection:$false
+            $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefMgrCred -ViWarningAction "Ignore" -DefaultConnection:$false -DisableViAutoConnect
             $DirectConn | should not be $null
             $DirectConn.Version | should not be $null
             $DirectConn.BuildNumber | should not be $null
@@ -69,7 +69,7 @@ Describe "NSXManager" {
 
         it "Can connect directly to NSX server using Ent_Admin SSO account" {
             $NSXManager = $DefaultNsxConnection.Server
-            $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefViCred -ViWarningAction "Ignore" -DefaultConnection:$false
+            $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefViCred -ViWarningAction "Ignore" -DefaultConnection:$false -DisableViAutoConnect
             $DirectConn | should not be $null
             $DirectConn.Version | should be $null
             $DirectConn.BuildNumber | should be $null
