@@ -7,7 +7,7 @@ Describe "Environment" -Tags "Environment" {
 
     it "Establishes a default PowerNSX Connection" {
         # Using VI based SSO connection now.
-        $global:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
+        $global:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
     }
 
     it "Can find a VI cluster to deploy to" {

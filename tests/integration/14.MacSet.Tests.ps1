@@ -31,7 +31,7 @@ Describe "MacSets" {
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred
         #Put any script scope variables you need to reference in your tests.
         #For naming items that will be created in NSX, use a unique prefix
         #pester_<testabbreviation>_<objecttype><uid>.  example:

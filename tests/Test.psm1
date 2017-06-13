@@ -3,11 +3,9 @@
 
 # Must load via manifest file otherwise dep module loads dont occur properly
 # Must have separate test manifest for core now :(
-
-
 #We can drop a connection file that allows future non interactive invocation
+
 $here = Split-Path -Parent $MyInvocation.MyCommand.Path
-$cxnfile = "$here\Test.cxn"
 
 $ynchoices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
 $ynchoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
@@ -17,16 +15,24 @@ $there = Split-Path -Parent $MyInvocation.MyCommand.Path | split-path -parent
 $sut = "PowerNSX.psd1"
 $pnsxmodule = "$there\$sut"
 
-
-
 function Start-Test {
     #Sets up credentials and performs other stuff before invoking pester
     param (
-        $testname
+        #Optional subset Test context to execute
+        $testname,
+        #Absolute path to alternative connection file.  Defaults to tests/Text.cxn
+        $ConnectionFile
     )
 
     get-module PowerNSX | remove-module
     Import-Module $pnsxmodule -ErrorAction Stop -global
+
+    if ( $ConnectionFile ) {
+        $cxnfile = $ConnectionFile
+    }
+    else {
+        $cxnfile = "$here\Test.cxn"
+    }
 
     if ( -not (test-path $cxnfile )) {
 
@@ -34,6 +40,7 @@ function Start-Test {
         write-warning "No saved connection details found, prompting user."
         # $PNSXTestNSXManager = read-host "NSX Manager Ip/Name"
         $PNSXTestVC = read-host "vCenter Server Ip/Name"
+        $PNSXTestNSX = read-host "NSX Server (If NSX is behind NAT, enter the NATed address here)"
         $PNSXTestDefMgrUsername = "admin"
         $PNSXTestDefMgrPassword = read-host "NSX Manager admin password"
 
@@ -56,7 +63,7 @@ function Start-Test {
         if ( $decision -eq 0 ) {
             [pscustomobject]$export = @{
                 "vc" = $PNSXTestVC;
-
+                "nsx" = $PNSXTestNSX;
 
                 ###
                 #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
@@ -87,11 +94,12 @@ function Start-Test {
             $_
         }
 
-        if ( -not ( $import.vc -and $import.nsxuser -and $import.nsxpwd -and $import.viuser -and $import.vipwd )) {
+        if ( -not ( $import.vc -and $import.nsx -and $import.nsxuser -and $import.nsxpwd -and $import.viuser -and $import.vipwd )) {
             throw "Import file does not contain required connection information.  Delete existing file and try again."
         }
 
         $PNSXTestVC = $import.vc
+        $PNSXTestNSX = $import.nsx
 
         ###
         #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
@@ -105,11 +113,15 @@ function Start-Test {
     }
 
     #Do the needful after testing and validating that the env is suitable for running tests testing.
-    $result = invoke-pester -PassThru -Tag "Environment"
+
+    write-host -foregroundcolor Green "Executing tests against VC $PNSXTestVC and NSX $PNSXTestNSX from connection file : $cxnfile"
+
+    $result = invoke-pester -PassThru -Tag "Environment" -EnableExit
     if ( $result.failedcount -eq 0) {
         $pestersplat = @{
             "testname" = $testname
             "ExcludeTag" = "Environment"
+            "EnableExit" = $true
         }
         invoke-pester @pestersplat
     }

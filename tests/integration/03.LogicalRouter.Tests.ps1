@@ -11,7 +11,7 @@ Describe "Logical Routing" {
         #We load the mod, establish connection to NSX Manager and do any local variable definitions here
 
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | select -first 1
         write-warning "Using cluster $cl for logical router appliance deployment"
 

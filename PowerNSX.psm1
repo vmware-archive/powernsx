@@ -3956,6 +3956,10 @@ function Connect-NsxServer {
             #vCenter Server address or FQDN (not NSX Manager!).  Used to determine NSX Server endpoint and authenticate using SSO credentials.  Recommended method.
             [ValidateNotNullOrEmpty()]
             [string]$vCenterServer,
+        [Parameter (Mandatory=$true, ParameterSetName="vCenterServer", DontShow)]
+            #NSX Manager address used to override that registered in vCenter.  Used for scenarios where NSX manager is behind a NAT device.
+            [ValidateNotNullOrEmpty()]
+            [string]$NsxServerHint,
         [Parameter (Mandatory=$false)]
             #TCP Port to connect to on -Server
             [ValidateRange(1,65535)]
@@ -4281,7 +4285,12 @@ function Connect-NsxServer {
                 throw "Server information for the registered NSX solution could not be retreived.  Raw endpoint URL $($NSXExtension.Client.Url)"
             }
 
-            $NsxServer = $ServerCol[0]
+            if ( $PSBoundParameters.ContainsKey("NsxServerHint")) {
+                $NsxServer = $NsxServerHint
+            }
+            else {
+                $NsxServer = $ServerCol[0]
+            }
             $Port = $ServerCol[1]
 
             $ProtocolCol = $EndpointCol[0] -split ":"

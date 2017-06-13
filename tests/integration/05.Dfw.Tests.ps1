@@ -17,7 +17,7 @@ Describe "DFW" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         write-host -ForegroundColor Green "Performing setup tasks for DFW tests"
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | select -first 1
         write-warning "Using cluster $cl for edge appliance deployment"
         $script:ds = $cl | get-datastore | select -first 1
@@ -90,7 +90,7 @@ Describe "DFW" {
         $script:testvm1 = new-vm -name $testVMName1 @vmsplat
         $script:testvm2 = new-vm -name $testVMName2 @vmsplat
         $script:testvm3 = new-vm -name $testVMName3 @vmsplat
-        
+
         #Create Groupings
         $script:TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Pester dfw Test IP Set" -IpAddresses $testIPs
         $script:TestIpSet2 = New-NsxIpSet -Name $testIPSetName2 -Description "Pester dfw Test IP Set2" -IpAddresses $testIPs2
@@ -615,7 +615,7 @@ Describe "DFW" {
 
         it "Can create an l3 rule with a vnic based source" {
             # Update PowerNSX to get nics fix to arrays
-            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
+            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -source $vm1vnic -action allow
             $rule.sources.source.type | should be "Vnic"
             $rule.destinations.destination | should be $null
@@ -813,7 +813,7 @@ Describe "DFW" {
         }
 
         it "Can create an l3 rule with a vnic based destination" {
-            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
+            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -destination $vm1vnic -action allow
             $rule.sources.source | should be $null
             $rule.destinations.destination.type | should be "Vnic"
@@ -917,7 +917,7 @@ Describe "DFW" {
         }
 
         it "Can create an l3 rule with a vnic based applied to" {
-            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter 
+            $vm1vnic = Get-Vm $testVMName1 | Get-NetworkAdapter
             $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -AppliedTo $vm1vnic -action allow
             $rule.sources.source | should be $null
             $rule.destinations.destination | should be $null
