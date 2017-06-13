@@ -64,7 +64,7 @@ Describe "NSXManager" {
             $DirectConn | should not be $null
             $DirectConn.Version | should not be $null
             $DirectConn.BuildNumber | should not be $null
-            $DirectConn.ViConnection | should not be $null
+            $DirectConn.ViConnection | should be $null
         }
 
         it "Can connect directly to NSX server using Ent_Admin SSO account" {
