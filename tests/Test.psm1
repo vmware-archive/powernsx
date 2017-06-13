@@ -116,11 +116,12 @@ function Start-Test {
 
     write-host -foregroundcolor Green "Executing tests against VC $PNSXTestVC and NSX $PNSXTestNSX from connection file : $cxnfile"
 
-    $result = invoke-pester -PassThru -Tag "Environment"
+    $result = invoke-pester -PassThru -Tag "Environment" -EnableExit
     if ( $result.failedcount -eq 0) {
         $pestersplat = @{
             "testname" = $testname
             "ExcludeTag" = "Environment"
+            "EnableExit" = $true
         }
         invoke-pester @pestersplat
     }
