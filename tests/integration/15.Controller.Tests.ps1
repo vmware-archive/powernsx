@@ -52,12 +52,21 @@ Describe "Controller" {
         }
     }
 
+    It "Can remove the last controller" -Skip:$SkipCtrlTest {
+        $ctrlToRemove = Get-NSxController | ? { $_.id -eq $ctrl.id }
+        {$CtrlToRemove | Remove-NsxController -Wait -Confirm:$false -Force} | should not throw
+        Get-NsxController | should be $null
+    }
+
 
     AfterAll {
 
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #We kill the connection to NSX Manager here.
-
+        if ( -not $SkipCtrlTest ) {
+            #Redeploy the first controller.
+            $null = New-NsxController -IpPool $pool -ControllerName pester_test_ctrl_1 -ResourcePool $rp -Datastore $ds -PortGroup $pg -wait -Confirm:$false
+        }
         disconnect-nsxserver
 
     }
