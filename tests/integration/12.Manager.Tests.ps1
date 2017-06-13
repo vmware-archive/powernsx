@@ -17,7 +17,7 @@ Describe "NSXManager" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred
-        $script:adminConnection = Connect-NsxServer -NsxServer $DefaultNsxConnection.Server -Credential $PNSXTestDefMgrCred -DefaultConnection:$false
+        $script:adminConnection = Connect-NsxServer -NsxServer $DefaultNsxConnection.Server -Credential $PNSXTestDefMgrCred -DefaultConnection:$false -DisableViAutoConnect
 
 
         #Put any script scope variables you need to reference in your tests.
