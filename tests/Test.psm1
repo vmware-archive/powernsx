@@ -114,7 +114,7 @@ function Start-Test {
 
     #Do the needful after testing and validating that the env is suitable for running tests testing.
 
-    write-host -foregroundcolor Green "Executing tests against VC $PNSXTestVC and NSX $PNSXTestNSX"
+    write-host -foregroundcolor Green "Executing tests against VC $PNSXTestVC and NSX $PNSXTestNSX from connection file : $cxnfile"
 
     $result = invoke-pester -PassThru -Tag "Environment"
     if ( $result.failedcount -eq 0) {
