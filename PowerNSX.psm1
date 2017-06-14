@@ -27655,6 +27655,166 @@ function Remove-NsxSecurityPolicy {
     end {}
 }
 
+function Add-NsxSecurityPolicyFwRule   {
+
+    <#
+    .SYNOPSIS
+    Create a Firewall Rule for a Security Policy.
+
+    .DESCRIPTION
+    Add rules that define the traffic to be allowed to, from, or within the security group.
+    
+    The -DefaultRule parameter uses the default settings from the GUI when creating a firewall rule. When prompted provide a name for the rule and it will be created. 
+    
+    The order is implied by the index in the list. i.e. FW1 = Rule 1, FW2 = Rule 2, FW3 = Rule 3
+
+    .EXAMPLE
+    Add-NsxSecurityPolicyFwRule -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -FirewallRule $FW3, $FW4
+    
+    Description
+    -----------
+
+    Create Firewall Rule with predefined hashtable for the -FirewallRule parameter
+   
+    Predefined Firewall Rule hashtables:
+    ------------------------------------
+
+        $FW3 = @{
+    'Name' = "Rule1"
+    'Description' = "Rule2 Description"
+    'Enabled' = $true
+    'securityGroup' = (Get-NsxSecurityGroup -Name SG-016)
+    'service' = (Get-NsxService -Name DNS)
+    'Logging' = $false
+    'Action' = "allow"
+    'Direction' = "outbound"
+    }
+
+    $FW4 = @{
+    'Name' = "Rule2"
+    'Description' = "Rule2 Description"
+    'Enabled' = $true
+    'securityGroup' = (Get-NsxSecurityGroup -Name SG-017)
+    'service' = (Get-NsxService -Name SSH)
+    'Logging' = $true
+    'Action' = "allow"
+    'Direction' = "inbound"
+    }
+
+    .EXAMPLE
+    Add-NsxSecurityPolicyFwRule -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -DefaultRule
+    
+    Description
+    -----------
+
+    Create default firewall rule for Security Policy SP-001. 
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SP-001 |
+    Add-NsxSecurityPolicyFwRule -DefaultRule
+    
+    Description
+    -----------
+
+    Create default firewall rule for Security Policy SP-001 using pipeline input. 
+    
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="FirewallRule")]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$false,
+                    ParameterSetName="FirewallRule")]
+            [hashtable[]]$FirewallRule,
+        [Parameter (Mandatory=$false,
+                    ParameterSetName="DefaultRule")]
+            [switch]$DefaultRule,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+
+    process {
+        
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
+              
+        #Creating the XML Document for SP Firewall Rule
+        if ($FirewallRule){
+            foreach ($rule in $FirewallRule){
+                $xmlRule = New-NSXSecurityPolicyFirewallRuleSpec @rule
+            
+                if (-not ($SecurityPolicy.SelectNodes("securityPolicy") | get-member -Name actionsByCategory -MemberType Property)){
+            
+                    $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
+            
+                }
+                Else{
+                    $SecurityPolicy.securityPolicy.actionsByCategory.InsertAfter($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory.action), $true), $SecurityPolicy.SelectSingleNode("securityPolicy/actionsByCategory/action[position()=last()]")) | Out-Null
+                }         
+        
+            }
+        }
+        Elseif (-not($FirewallRule) -and $DefaultRule) {
+            $DefaultFWRule = @{
+            'Name' = Read-Host -Prompt "Name for Firewall Rule"
+            'Enabled' = $true
+            'Logging' = $false
+            'Action' = "allow"
+            'Direction' = "Outbound"
+            }
+
+            $xmlRule = New-NSXSecurityPolicyFirewallRuleSpec @DefaultFWRule
+
+            if (-not ($SecurityPolicy.SelectNodes("securityPolicy") | get-member -Name actionsByCategory -MemberType Property)){
+            
+                $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
+            
+            }
+            Else{
+                $SecurityPolicy.securityPolicy.actionsByCategory.InsertAfter($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory.action), $true), $SecurityPolicy.SelectSingleNode("securityPolicy/actionsByCategory/action[position()=last()]")) | Out-Null
+            }    
+
+        }
+        Else{
+            Throw "Parameters -FirewallRule or -DefaultRule must be used!"
+        }
+        #Creating the XML Document for GIS Rule
+        foreach ($rule in $GuestIntrospectionService){
+            $xmlRule = New-NsxSecurityPolicyGISSpec @rule
+            $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
+        }
+             
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        
+        if ($response.StatusCode -eq "200"){
+            [xml]$response = $response.content
+            
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.securityPolicy.objectId -connection $connection
+            }
+        }
+    }
+    end {} 
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
