@@ -23605,6 +23605,68 @@ function Get-NsxApplicableMember {
     end{}
 }
 
+function Get-NsxApplicablePolicy {
+
+    <#
+    .SYNOPSIS
+    Query Security Policies Mapped to a Security Group
+
+    .DESCRIPTION
+    You can retrieve the security policies mapped to a security group. The list is sorted based on the precedence
+    of security policy precedence in descending order. The security policy with the highest precedence (highest
+    numeric value) is the first entry (index = 0) in the list.
+
+    .EXAMPLE
+    PS C:\> Get-NsxApplicablePolicy -SecurityGroup (Get-NsxSecurityGroup -name "SG_GenesysSstormAccp_JAX").objectId 
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
+
+    param (
+
+        [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
+            #Query SecurityGroup by objectId
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        
+        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
+            $URI = "/api/2.0/services/policy/securitygroup/$($SecurityGroup.objectId)/securitypolicies"
+        }
+        try {
+            $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+        }
+        catch {
+            throw "Failed retreiving applicable polcies.  $_"
+        }
+        if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityPolicies").IsEmpty ) {
+            try {
+                if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityPolicies" ) {
+                    $response.securityPolicies.securityPolicy
+                }
+            }
+            catch {
+                throw "Content returned from NSX API could not be parsed as an applicable policy XML."
+            }
+        }
+        else {
+            throw "No Content returned from NSX API call."
+        }
+    }
+
+    end {}
+}
+
 #########
 #########
 # Firewall related functions
