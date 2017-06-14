@@ -25664,6 +25664,36 @@ function Set-NsxLoadBalancer {
     avoiding overload. NSX Edge provides load balancing up to Layer 7.
 
     This cmdlet sets the basic LoadBalancer configuration of an NSX Load Balancer.
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled
+
+    Enabled the LoadBalancer feature on Edge.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled:$false
+
+    Disabled the LoadBalancer feature on Edge.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Set-NsxLoadBalancer -EnableAcceleration
+
+    Enabled the Acceleration feature (uses the faster L4 LB engine rather than L7 LB engine) on Load Balancer.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Set-NsxLoadBalancer -EnableLogging
+
+    Enabled Load Balancer collects traffic logs.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Set-NsxLoadBalancer -LogLevel debug
+
+    Choose the log level (emergency, alert, critical, error, warning, notice, info, debug)
+    of Load Balancer traffic logs.
 
     #>
 
