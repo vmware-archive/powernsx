@@ -27654,6 +27654,118 @@ function Remove-NsxSecurityPolicy {
 
     end {}
 }
+function Edit-NsxSecurityPolicyFwRule   {
+
+     <#
+    .SYNOPSIS
+    Edit an existing NSX Security Policy.
+
+    .DESCRIPTION
+    Edit existing rules in a given Security Policy. The associated propteries for the FirewallRule parameter are as follows:
+          
+    The service and securityGroup properties can be modified using their respective cmdlets.
+        
+    Service:
+    --------
+    Add-NsxServiceToSPFwRule
+    
+    Remove-NsxServiceFromSPFwRule
+
+    SecurityGroup:
+    --------------
+    Add-NsxSGToSPFwRule
+    
+    Remove-NsxSGFromSPFwRule
+
+    .EXAMPLE
+    Edit-NsxSecurityPolicyFwRule -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -FirewallRule $FW -ExecutionOrder 2
+    
+    Description
+    -----------
+
+    Edit Security Policy Rule 2 with predefined hashtable for the -FirewallRule parameter.
+    
+    Modified Rule
+    -------------
+
+    $FW = @{
+    'Name' = "Rule1 - Edited with Edit-NsxSecurityPolicyFwRule"
+    'Description' = "Edited with Edit-NsxSecurityPolicyFwRule"
+    'Enabled' = $false
+    'Logging' = $true
+    'Action' = "allow"
+    'Direction' = "outbound"
+    }
+  
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$false)]
+            [hashtable[]]$FirewallRule,
+        [Parameter (Mandatory=$true)]
+            [Int]$ExecutionOrder,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+
+    process {
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
+                 
+        #Creating the XML Document for SP Firewall Rule
+        foreach ($Rule in $FirewallRule){
+            $NewRule_XML = New-NsxSecurityPolicyFirewallRuleSpec @Rule
+            $NewRule_XML = $NewRule_XML.actionsByCategory.action
+            }
+
+            #Edit firwall Rule for Security Policy
+            foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']")){
+                    
+                     $ExistingRule.Name = $NewRule_XML.Name
+                     $ExistingRule.description = $NewRule_XML.description
+                     $ExistingRule.isEnabled = $NewRule_XML.isEnabled
+                     $ExistingRule.logged = $NewRule_XML.logged
+                     $ExistingRule.action = $NewRule_XML.action
+                     $ExistingRule.direction = $NewRule_XML.direction
+                 
+            }  
+
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        
+        if ($response.StatusCode -eq "200"){
+            
+            [xml]$response = $response.content
+
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+                $response.securityPolicy.actionsByCategory.action.objectId
+            }
+            else {
+                Get-NsxSecurityPolicy -objectId  ($response.securityPolicy.objectId) -connection $connection
+               (Get-NsxSecurityPolicy -objectId  ($response.securityPolicy.objectId) -connection $connection).actionsByCategory.action
+            }
+        }
+    }
+    end {} 
+}
 
 ########
 ########
