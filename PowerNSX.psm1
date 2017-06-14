@@ -27655,6 +27655,139 @@ function Remove-NsxSecurityPolicy {
     end {}
 }
 
+function Add-NsxServiceToSPFwRule   {
+
+    <#
+    .SYNOPSIS
+    Add Service(s) to the specified Firewall Rule.
+
+    .DESCRIPTION
+    A service is a protocol-port combination.
+    
+    .EXAMPLE
+    Add-NsxServiceToSPFwRule -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -Service (Get-NsxService HTTPS) -ExecutionOrder 3 
+    
+    Description
+    -----------
+
+    Adds Service HTTPS to Security Policy SP-001 to Rule 3. 
+
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SP-001 |
+    Add-NsxServiceToSPFwRule -Service (Get-NSXService tcp_8282 | Where-Object name -cmatch "tcp") -ExecutionOrder 4
+    
+    Description
+    -----------
+
+    Adds Service tcp_8282 to Rule 4 using pipeline input.
+
+    Note: The -cmatch allows us to filter out duplicate services i.e. tcp_8282, TCP_8282
+   
+    .EXAMPLE
+    New-NsxSecurityPolicy SP-005 |
+    Add-NsxSecurityPolicyFwRule -DefaultRule |
+    Add-NsxServiceToSPFwRule -Service (Get-NsxService FTP) -ExecutionOrder 1 | 
+    Add-NsxServiceToSPFwRule -Service (Get-NSXService SMTP) -ExecutionOrder 1
+    
+    Description
+    -----------
+
+    Creates a new Security Policy SP-005, adds 1 Single Firewall Rule with default settings. Applies FTP and SMTP to Rule 1 using pipeline input. 
+
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$true)]
+            [System.Xml.XmlElement[]]$Service,
+        [Parameter (Mandatory=$true)]
+            [Int]$ExecutionOrder,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+        
+    process {
+
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
+        
+        #Create Applications tag and Application tag if no services exists (any)
+        $count = 1
+        foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']")){
+
+            if (-not ($SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']") | get-member -Name applications -MemberType Property)){    
+                Write-Host "No Application(s) exists creating the necessary XML tags:" -ForegroundColor Magenta
+                
+                Add-XmlElement -xmlRoot $ExistingRule -xmlElementName "applications" | Out-Null
+
+                #Iterates through the Services one member at a time
+                foreach ( $Member in $Service) {
+                    
+                    Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications") -xmlElementName "application" | Out-Null
+                                   
+                    #This is probably not safe - need to review all possible input types to confirm.
+                    if ($Member -is [System.Xml.XmlElement] ) {
+                        Write-Host "Adding Application Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow    
+                        Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
+                    } 
+                    else {
+                        Write-Host "Adding Application Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow   
+                        Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
+                    }
+                    $count++
+                }
+            }
+            Else{
+                #Applications tag already exists meaning at least one service is applied
+                Write-Host "Application(s) exist adding additional members:" -ForegroundColor Magenta
+                
+                #The Security Policy Rule nust match the Firewall Execution Number
+                foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[category='firewall']") | Where-Object {$_.executionOrder -eq $ExecutionOrder}){
+                    
+                    #Iterates through the Services one member at a time
+                    foreach ($member in $Service){
+                        Write-Host "Adding Application Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow   
+                        $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder and category='firewall']/applications ").AppendChild($SecurityPolicy.ImportNode($member, $true)) | Out-Null
+                    }
+                }  
+            }
+        }
+
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        
+        if ($response.StatusCode -eq "200"){
+            [xml]$response = $response.content
+            
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.securityPolicy.objectId -connection $connection
+            }
+        }
+    }
+    end {} 
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
