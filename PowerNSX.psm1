@@ -8413,6 +8413,17 @@ function Get-NsxTransportZone {
     .EXAMPLE
     PS C:\> Get-NsxTransportZone -name TestTZ
 
+    Get the NSX Transport Zone named "TestTZ"
+
+    .EXAMPLE
+    PS C:\> Get-NsxTransportZone -LocalOnly
+
+    Get all Local NSX Transport Zones configured
+
+    .EXAMPLE
+    PS C:\> Get-NsxTransportZone -UniversalOnly
+
+    Get all Universal NSX Transport Zones configured
     #>
 
  [CmdLetBinding(DefaultParameterSetName="Default")]
