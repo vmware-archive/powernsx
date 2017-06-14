@@ -27655,6 +27655,82 @@ function Remove-NsxSecurityPolicy {
     end {}
 }
 
+function Remove-NsxSecurityPolicyFwRule   {
+
+    <#
+    .SYNOPSIS
+    Removes a Firewall Rule for a Security Policy.
+
+    .DESCRIPTION
+    Remove rules that define the traffic to be allowed to, from, or within the security group.
+
+    .EXAMPLE
+    Remove-NsxSecurityPolicyFwRule -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -ExecutionOrder 1,2
+    
+    Description
+    -----------
+
+    Remove Firewall Rule(s) using the Order number
+
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$false)]
+            [int[]]$ExecutionOrder,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+
+    process {
+        
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
+              
+        #Creating the XML Document for SP Firewall Rule
+        
+        foreach ($Number in $ExecutionOrder){
+        
+            foreach ($existingnode in $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$Number] ")){
+                        
+                $SecurityPolicy.securityPolicy.actionsByCategory.RemoveChild($existingnode) 
+
+            }
+        }     
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        
+        if ($response.StatusCode -eq "200"){
+            [xml]$response = $response.content
+            
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.securityPolicy.objectId -connection $connection
+            }
+        }
+    }
+    end {} 
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
