@@ -1,0 +1,1 @@
+write-host "Please use NSXBuildFromScratch script at github.com/vmware/powernsx/Examples/NSXBuildFromScratch.ps1"
