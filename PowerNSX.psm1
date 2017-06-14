@@ -27578,6 +27578,383 @@ function Get-NsxSecurityPolicy {
     end {}
 }
 
+
+function New-NsxSecurityPolicyFirewallRuleSpec {
+    <#
+    .SYNOPSIS
+    An internal function that creates Security Policy Firewall Rules in the appropriate XML format.
+
+    .DESCRIPTION
+    This cmdlet has serveral parameters that are required to successfully create a firewall rule in a Security Policy. The information passed into the function are then processed to generate a proper XML variable which is then passed to the New-NsxSecurityPolicy function.
+
+    .EXAMPLE
+    C:\> New-NsxSecurityPolicyFirewallRuleSpec -Name "Block Web to Demo VM" -Description "Block Inbound Web traffic" -Service (Get-NsxService HTTP), (Get-NsxService HTTPS) -securityGroup (Get-NsxSecurityGroup | ?{$_.name -eq "SG App Servers"}) -Direction inbound -Enabled $true -Logging $true -Action block | Format-XML
+    
+    <actionsByCategory>
+        <category>firewall</category>
+        <action class="firewallSecurityAction">
+            <name>Block Web to Demo VM</name>
+            <description>Block Inbound Web traffic</description>
+            <category>firewall</category>
+            <isEnabled>True</isEnabled>
+            <applications>
+                <application>
+                <objectId>application-212</objectId>
+                </application>
+                <application>
+                <objectId>application-67</objectId>
+                </application>
+            </applications>
+            <logged>True</logged>
+            <action>block</action>
+            <direction>inbound</direction>
+        </action>
+    </actionsByCategory>
+    #>
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$false,
+                    DontShow)]
+        [ValidateSet("firewall")]
+            [string]$Category="firewall",
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNull()]
+            [string]$Description,
+        [Parameter (Mandatory=$false)]
+        [ValidateSet("true","false")]
+            [boolean]$Enabled = "true",
+        [Parameter (Mandatory=$false)]
+            [object[]]$SecurityGroup,
+        [Parameter (Mandatory=$false)]
+            [object[]]$Service,
+        [Parameter (Mandatory=$false)]
+        [ValidateSet("true","false")]
+            [boolean]$Logging = "false",
+        [Parameter (Mandatory=$false)]
+        [ValidateSet("allow","block", "reject")]
+            [string]$Action = "allow",
+        [Parameter (Mandatory=$false)]
+        [ValidateSet("inbound","outbound", "intra")]
+            [string]$Direction
+    )
+
+    begin {}
+    
+    process {    
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("actionsByCategory")
+         $xmlDoc.appendChild($xmlRoot) | out-null
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "category" -xmlElementText $Category
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "action"
+            (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//actionsByCategory/action").SetAttribute("class", "firewallSecurityAction")
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "name" -xmlElementText $Name
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "description" -xmlElementText $Description
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "category" -xmlElementText $Category
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled
+                
+
+
+                if ( $SecurityGroup ) {
+                       $count = 1
+                       foreach ( $Member in $SecurityGroup) {
+
+                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "secondarySecurityGroup"
+                                   
+                            #This is probably not safe - need to review all possible input types to confirm.
+                            if ($Member -is [System.Xml.XmlElement] ) {
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                            } else {
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                      
+                            }
+                            $count++
+                        }
+                }
+    
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action")  -xmlElementName "applications"
+
+                if ( $service ) {
+                       $count = 1
+                       foreach ( $Member in $service) {
+
+                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/applications") -xmlElementName "application"
+                                   
+                            #This is probably not safe - need to review all possible input types to confirm.
+                            if ($Member -is [System.Xml.XmlElement] ) {
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                            } else {
+                                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action/applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId
+                      
+                            }
+                            $count++
+                        }
+                }
+               
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "logged" -xmlElementText $Logging
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "action" -xmlElementText $Action
+                Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "direction" -xmlElementText $Direction
+
+            $xmlDoc
+        }
+    end {}
+}
+
+function New-NsxSecurityPolicyGISSpec {
+    <#
+    .SYNOPSIS
+    An internal function that creates Security Policy Guest Introspection Service Rules in the appropriate XML format.
+    
+    .DESCRIPTION
+    This cmdlet has serveral parameters that are required to successfully create a guest introspection service rule in a Security Policy. 
+    The information passed into the function are then processed to generate a proper XML variable which
+    is then passed on to the New-NsxSecurityPolicy function 
+
+    .EXAMPLE
+
+    #>
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$false)]
+        [ValidateSet("endpoint")]
+            [string]$Category="endpoint",
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNull()]
+            [string]$Description,
+        [Parameter (Mandatory=$false)]
+            [string]$Order,
+        [Parameter (Mandatory=$false)]
+        [ValidateSet("true","false")]
+            [string]$Enabled = "true",
+        [Parameter (Mandatory=$false)]
+        [ValidateSet("true","false")]
+            [string]$Enforced,
+        [Parameter (Mandatory=$false)]
+        [ValidateSet("ANTI_VIRUS","VULNERABILITY_MGMT", "FIM", "DATA_SECURITY")]
+            [string]$actionType
+    )
+
+    begin {
+    # If user inputed lower case convert to upper case.
+    if ($actionType){$actionType = $actionType.ToUpper()}
+    }
+
+    process {    
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("actionsByCategory")
+         $xmlDoc.appendChild($xmlRoot) | out-null
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "category" -xmlElementText $Category
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "action"
+            (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//actionsByCategory/action").SetAttribute("class", "endpointSecurityAction")
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "name" -xmlElementText $Name
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "description" -xmlElementText $Description
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "category" -xmlElementText $Category
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "executionOrder" -xmlElementText $Order
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "actionType" -xmlElementText $actionType 
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled     
+                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "isActionEnforced" -xmlElementText $Enforced
+
+            $xmlDoc
+
+        }
+
+    end {}
+}
+
+function New-NsxSecurityPolicy   {
+
+    <#
+    .SYNOPSIS
+    Create a new NSX Security Policy.
+
+    .DESCRIPTION
+    A security policy is a group of network and security services.
+    
+    The following network and security services can be grouped into a security policy:
+    
+    - Endpoint services - data security, anti-virus, and vulnerability management
+    - Distributed Firewall rules
+    - Network introspection services - network IPS and network forensics
+
+    This cmdlet creates a new NSX Security Policy. 
+
+    A valid PowerCLI session is required to pass certain types of objects supported by the IncludeMember and ExcludeMember parameters.
+    
+    .EXAMPLE
+    New-NsxSecurityPolicy -Name SP-001 -Description "Provide a description" 
+    
+    Description
+    -----------
+
+    Creates an empty Security Policy
+        
+    .EXAMPLE
+    New-NsxSecurityPolicy -Name SP-002 -Description "Provide a description" -FirewallRule $FW1, $FW2
+
+    Description
+    -----------
+
+    Creates new Security Policy with Firewall Rule using a hashtable:
+
+    Firewall Hashtables:
+    --------------------
+
+    $FW1 = @{
+    'Name' = "Rule1"
+    'Description' = "Rule1 Description"
+    'Enabled' = $true
+    'securityGroup' = (Get-NsxSecurityGroup -Name SG-014)
+    'service' = (Get-NsxService -Name FTP), (Get-NsxService -Name SNMP)
+    'Logging' = $false
+    'Action' = "allow"
+    'Direction' = "outbound"
+    }
+
+    $FW2 = @{
+    'Name' = "Rule2"
+    'Description' = "Rule2 Description"
+    'Enabled' = $true
+    'securityGroup' = (Get-NsxSecurityGroup -Name SG-015)
+    'service' = (Get-NsxService -Name SMTP), (Get-NsxService -Name MySQL)
+    'Logging' = $false
+    'Action' = "allow"
+    'Direction' = "inbound"
+    }
+
+    .EXAMPLE
+    New-NsxSecurityPolicy -Name SP-003 -Description "Provide a description" |
+    Add-NsxSecurityPolicyFirewallRule -FirewallRule $FW1, $FW2
+
+    Description
+    -----------
+
+    Creates new Security Policy with Firewall Rule using a hashtable piping to Add-NsxSecurityPolicyFirewallRule:
+
+    Firewall Hashtables:
+    --------------------
+
+    $FW1 = @{
+    'Name' = "Rule1"
+    'Description' = "Rule1 Description"
+    'Enabled' = $true
+    'securityGroup' = (Get-NsxSecurityGroup -Name SG-14)
+    'service' = (Get-NsxService -Name FTP), (Get-NsxService -Name SNMP)
+    'Logging' = $false
+    'Action' = "allow"
+    'Direction' = "outbound"
+    }
+
+    $FW2 = @{
+    'Name' = "Rule2"
+    'Description' = "Rule2 Description"
+    'Enabled' = $true
+    'securityGroup' = (Get-NsxSecurityGroup -Name SG-14)
+    'service' = (Get-NsxService -Name SMTP), (Get-NsxService -Name MySQL)
+    'Logging' = $false
+    'Action' = "allow"
+    'Direction' = "inbound"
+    }
+
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNull()]
+            [string]$Description = "",
+        [Parameter (Mandatory=$false)]
+            [hashtable[]]$FirewallRule,
+        [Parameter (Mandatory=$false)]
+            [hashtable[]]$GuestIntrospectionService,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {
+        #Check to see if a SP exists if not use default value of 4300 else use recent SP and add 1000
+        if (!(Get-NsxSecurityPolicy)){
+            [string]$Precedence = "4300"
+        }
+        elseif ((Get-NsxSecurityPolicy) -isnot [array]){
+            [string]$Precedence=([string](([int](Get-NsxSecurityPolicy).precedence) + 1000))
+        }
+        else {[string]$Precedence=([string](([int](Get-NsxSecurityPolicy)[0].precedence) + 1000))
+        }
+
+    }
+
+    process {
+
+        #Creating the XML Document for Security Policy
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("securityPolicy")
+        $xmlDoc.appendChild($xmlRoot) | out-null
+        
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "precedence" -xmlElementText $Precedence
+        
+        $SecurityPolicy = $xmlDoc
+                 
+        #Creating the XML Document for SP Firewall Rule
+        foreach ($rule in $FirewallRule){
+            $xmlRule = New-NSXSecurityPolicyFirewallRuleSpec @rule
+            
+            if (-not ($SecurityPolicy.SelectNodes("securityPolicy") | get-member -Name actionsByCategory -MemberType Property)){
+            
+                $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
+            
+            }
+            Else{
+                $SecurityPolicy.securityPolicy.actionsByCategory.InsertAfter($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory.action), $true), $SecurityPolicy.SelectSingleNode("securityPolicy/actionsByCategory/action[position()=last()]")) | Out-Null
+            }
+        }
+
+        #Creating the XML Document for GIS Rule
+        foreach ($rule in $GuestIntrospectionService){
+            $xmlRule = New-NsxSecurityPolicyGISSpec @rule
+            $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
+        }
+             
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        
+        if ($response.StatusCode -eq "201"){
+              
+            if ($ReturnObjectIdOnly) {
+                $response.content
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.content -connection $connection
+            }
+        }
+    }
+    end {} 
+}
+
+
 function Remove-NsxSecurityPolicy {
 
     <#
