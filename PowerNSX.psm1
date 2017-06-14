@@ -27655,6 +27655,106 @@ function Remove-NsxSecurityPolicy {
     end {}
 }
 
+function Remove-NsxServiceFromSPFwRule   {
+
+    <#
+    .SYNOPSIS
+    Remove Service(s) to the specified Firewall Rule.
+
+    .DESCRIPTION
+    A service is a protocol-port combination.
+    
+    .EXAMPLE
+    Get-NsxSecurityPolicy SP-001 |
+    Remove-NsxServiceFromSPFwRule -Service (Get-NsxService HTTPS) -ExecutionOrder 1 |
+    Remove-NsxServiceFromSPFwRule -Service (Get-NSXService tcp_8282) -ExecutionOrder 2
+
+
+    
+    Description
+    -----------
+
+    Remove Service HTTPS & tcp_8282 from thier repsective rules in Security Policy SP-001 using pipeline input.
+   
+   
+    .EXAMPLE
+    Remove-NsxServiceFromSPFwRule -SecurityPolicy (Get-NsxSecurityPolicy SP-003) -Service (Get-NsxService FTP), (Get-NSXService SNMP) -ExecutionOrder 1 
+
+    
+    Description
+    -----------
+
+    Remove Services FTP & SMTP from Security Policy SP-003, Rule 1. 
+
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$true)]
+            [System.Xml.XmlElement[]]$Service,
+        [Parameter (Mandatory=$true)]
+            [Int]$ExecutionOrder,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+
+    process {
+
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml       
+        
+        #The Security Policy Rule nust match the Firewall Execution Number  
+        foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']")){
+            Write-Verbose "1st foreach loop for existing Firewall Rule"
+
+            #Iterates through the Application(s) one member at a time     
+            foreach ($existingnode in $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder]/applications/application ")){
+                Write-Verbose "2nd foreach loop for existing Application(s)"
+
+                #Ensures the Application matches that of the existing Application
+                if ($Service.name -eq $existingnode.name){
+
+                    Write-Host "Removing Application Member: $($existingnode.name) from Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow  
+                    $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder and category='firewall']/applications ").RemoveChild($existingnode) | Out-Null
+
+                }
+            } 
+        }  
+           
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        
+        if ($response.StatusCode -eq "200"){
+            [xml]$response = $response.content
+            
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.securityPolicy.objectId -connection $connection
+            }
+        }
+    } 
+    end {} 
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
