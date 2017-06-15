@@ -3,7 +3,7 @@ If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
 }
 
-Describe "Logical Switching" {
+Describe "LogicalSwitching" {
 
     BeforeAll {
 
@@ -37,33 +37,35 @@ Describe "Logical Switching" {
 
     }
 
-    it "Can create a logical switch" {
-        Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
-        get-nsxlogicalswitch $ls1_name | should not be $null
-    }
+    Context "Logical Switches" {
+        it "Can create a logical switch" {
+            Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
+            get-nsxlogicalswitch $ls1_name | should not be $null
+        }
 
-    it "Can remove a logical switch"{
-        Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
-        get-nsxlogicalswitch $ls1_name | Remove-NsxLogicalSwitch -Confirm:$false
-        get-nsxlogicalswitch $ls1_name | should be $null
-    }
+        it "Can remove a logical switch"{
+            Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
+            get-nsxlogicalswitch $ls1_name | Remove-NsxLogicalSwitch -Confirm:$false
+            get-nsxlogicalswitch $ls1_name | should be $null
+        }
 
-     it "Can retrive logical switches from a specific transport zone via pipeline" {
-        $ls1 = $tz | new-nsxlogicalswitch $ls1_name
-        $ls2 = $tz2 | New-NsxLogicalSwitch $ls2_name
-        $ls = $tz2 | Get-NsxLogicalSwitch
-        $ls | should not be $null
-        @($ls).count | should be 1
-        $ls.name | should be $ls2_name
-    }
+        it "Can retrive logical switches from a specific transport zone via pipeline" {
+            $ls1 = $tz | new-nsxlogicalswitch $ls1_name
+            $ls2 = $tz2 | New-NsxLogicalSwitch $ls2_name
+            $ls = $tz2 | Get-NsxLogicalSwitch
+            $ls | should not be $null
+            @($ls).count | should be 1
+            $ls.name | should be $ls2_name
+        }
 
-    it "Can retrive logical switches from a specific transport zone via vdnscope parameter" {
-        $ls1 = $tz | new-nsxlogicalswitch $ls1_name
-        $ls2 = $tz2 | New-NsxLogicalSwitch $ls2_name
-        $ls = Get-NsxLogicalSwitch -vdnscope $tz2
-        $ls | should not be $null
-        @($ls).count | should be 1
-        $ls.name | should be $ls2_name
+        it "Can retrive logical switches from a specific transport zone via vdnscope parameter" {
+            $ls1 = $tz | new-nsxlogicalswitch $ls1_name
+            $ls2 = $tz2 | New-NsxLogicalSwitch $ls2_name
+            $ls = Get-NsxLogicalSwitch -vdnscope $tz2
+            $ls | should not be $null
+            @($ls).count | should be 1
+            $ls.name | should be $ls2_name
+        }
     }
 
     Context "Transport Zones" {
@@ -95,13 +97,13 @@ Describe "Logical Switching" {
 
         it "Can remove a transportzone cluster" -skip:$SkipTzMember {
             $tz2 | Remove-NsxTransportZoneMember -Cluster $cl
-            $updatedtz = Get-NsxTransportZone -objectId $tz.objectId
+            $updatedtz = Get-NsxTransportZone -objectId $tz2.objectId
             $updatedtz.clusters.cluster.cluster.name -contains $cl.name | should be $false
         }
 
         it "Can add a transportzone cluster" -skip:$SkipTzMember {
             $tz2 | Add-NsxTransportZoneMember -Cluster $cl
-            $updatedtz = Get-NsxTransportZone -objectId $tz.objectId
+            $updatedtz = Get-NsxTransportZone -objectId $tz2.objectId
             $updatedtz.clusters.cluster.cluster.name -contains $cl.name | should be $true
         }
     }
