@@ -21,7 +21,9 @@ function Start-Test {
         #Optional subset Test context to execute
         $testname,
         #Absolute path to alternative connection file.  Defaults to tests/Text.cxn
-        $ConnectionFile
+        $ConnectionFile,
+        #Pester Tags for tests to Exclude.  Use 'slow' etc...
+        [string[]]$ExcludeTag
     )
 
     get-module PowerNSX | remove-module
@@ -118,9 +120,11 @@ function Start-Test {
 
     $result = invoke-pester -PassThru -Tag "Environment" -EnableExit
     if ( $result.failedcount -eq 0) {
+        #exclude env tests, plus any user specified on param.
+        $ExcludeTag += "Environment"
         $pestersplat = @{
             "testname" = $testname
-            "ExcludeTag" = "Environment"
+            "ExcludeTag" = $ExcludeTag
             "EnableExit" = $true
         }
         invoke-pester @pestersplat

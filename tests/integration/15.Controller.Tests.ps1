@@ -3,7 +3,7 @@ If ( -not $PNSXTestVC ) {
     Throw "Tests must be invoked via Start-Test function from the Test module.  Import the Test module and run Start-Test"
 }
 
-Describe "Controller" {
+Describe -Tag 'Slow' "Controller" {
 
     BeforeAll {
 
