@@ -123,7 +123,7 @@ function Start-Test {
 
     write-host -foregroundcolor Green "Executing tests against VC $PNSXTestVC and NSX $PNSXTestNSX from connection file : $cxnfile"
 
-    $result = invoke-pester -PassThru -Tag "Environment" -EnableExit
+    $result = invoke-pester -PassThru -Tag "Environment" -EnableExit:$EnableExit
     if ( $result.failedcount -eq 0) {
         #exclude env tests, plus any user specified on param.
         $ExcludeTag += "Environment"
@@ -136,6 +136,7 @@ function Start-Test {
             $pestersplat.Add("OutputFormat", "NUnitXML")
             $pestersplat.Add("OutputFile", "TestReport.xml")
         }
+        write-verbose "Calling pester with args $Pestersplat"
         invoke-pester @pestersplat
     }
     else {
