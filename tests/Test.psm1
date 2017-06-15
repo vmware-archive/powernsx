@@ -23,7 +23,9 @@ function Start-Test {
         #Absolute path to alternative connection file.  Defaults to tests/Text.cxn
         $ConnectionFile,
         #Pester Tags for tests to Exclude.  Use 'slow' etc...
-        [string[]]$ExcludeTag
+        [string[]]$ExcludeTag,
+        #Enable NuUnitXML format output results - see https://github.com/pester/Pester/wiki/Invoke-Pester
+        [switch]$EnableResultsFile
     )
 
     get-module PowerNSX | remove-module
@@ -126,6 +128,10 @@ function Start-Test {
             "testname" = $testname
             "ExcludeTag" = $ExcludeTag
             "EnableExit" = $true
+        }
+        if ( $EnableResultsFile ) {
+            $pestersplat.Add("OutputFormat", "NUnitXML")
+            $pestersplat.Add("OutputFile", "TestReport.xml")
         }
         invoke-pester @pestersplat
     }
