@@ -136,14 +136,16 @@ Describe "NSXManager" {
 
         }
 
-        it "Can clear existing NTP configuration" {
+        #Skipping due to broken behaviour on 622.
+        it "Can clear existing NTP configuration" -skip {
             $TimeConfig = Clear-NsxManagerTimeSettings -connection $adminConnection
             $TimeConfig | should be $null
             $GetTimeConfig = Get-NsxManagerTimeSettings -connection $adminConnection
             $GetTimeConfig.NtpServer | should be $null
         }
 
-        it "Can configure NTP servers" {
+        #Skipping due to broken behaviour on 622.
+        it "Can configure NTP servers" -skip {
             $TimeConfig = Set-NsxManagerTimeSettings -NtpServer $NTPServer1, $NTPServer2 -connection $adminConnection
             $TimeConfig.ntpserver | should not be $null
             $GetTimeConfig = Get-NsxManagerTimeSettings -connection $adminConnection
@@ -151,7 +153,8 @@ Describe "NSXManager" {
             $GetTimeConfig.ntpserver.string -contains $NTPServer2 | should be $true
         }
 
-        it "Can configure timezone configuration" {
+        #Skipping due to broken behaviour on 622.
+        it "Can configure timezone configuration" -skip {
             $TimeConfig = Set-NsxManagerTimeSettings -TimeZone $TimeZone -connection $adminConnection
             $TimeConfig.timezone | should be $Timezone
             $GetTimeConfig = Get-NsxManagerTimeSettings -connection $adminConnection
@@ -163,7 +166,8 @@ Describe "NSXManager" {
 
         #Group related tests together.
 
-        it "Can get configured SSL Certificates" {
+        #Skipping due to broken behaviour on 622.
+        it "Can get configured SSL Certificates" -skip {
             $certificates = Get-NsxManagerCertificate -connection $adminConnection
             $( $certificates | measure ).count | should BeGreaterThan 0
             $certificates | should not be $null

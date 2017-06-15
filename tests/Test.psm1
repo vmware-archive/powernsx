@@ -21,7 +21,14 @@ function Start-Test {
         #Optional subset Test context to execute
         $testname,
         #Absolute path to alternative connection file.  Defaults to tests/Text.cxn
-        $ConnectionFile
+        $ConnectionFile,
+        #Pester Tags for tests to Exclude.  Use 'slow' etc...
+        [string[]]$ExcludeTag,
+        #Enable NuUnitXML format output results - see https://github.com/pester/Pester/wiki/Invoke-Pester
+        [switch]$EnableResultsFile,
+        #Terminate the hosting powershell.exe process with a return code = to the number of failed tests.  Used for CI integration.
+        [switch]$EnableExit
+
     )
 
     get-module PowerNSX | remove-module
@@ -116,12 +123,18 @@ function Start-Test {
 
     write-host -foregroundcolor Green "Executing tests against VC $PNSXTestVC and NSX $PNSXTestNSX from connection file : $cxnfile"
 
-    $result = invoke-pester -PassThru -Tag "Environment" -EnableExit
+    $result = invoke-pester -PassThru -Tag "Environment" -EnableExit:$EnableExit
     if ( $result.failedcount -eq 0) {
+        #exclude env tests, plus any user specified on param.
+        $ExcludeTag += "Environment"
         $pestersplat = @{
             "testname" = $testname
-            "ExcludeTag" = "Environment"
-            "EnableExit" = $true
+            "ExcludeTag" = $ExcludeTag
+            "EnableExit" = $EnableExit
+        }
+        if ( $EnableResultsFile ) {
+            $pestersplat.Add("OutputFormat", "NUnitXML")
+            $pestersplat.Add("OutputFile", "TestReport.xml")
         }
         invoke-pester @pestersplat
     }
