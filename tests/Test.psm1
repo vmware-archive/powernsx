@@ -136,7 +136,6 @@ function Start-Test {
             $pestersplat.Add("OutputFormat", "NUnitXML")
             $pestersplat.Add("OutputFile", "TestReport.xml")
         }
-        write-verbose "Calling pester with args $Pestersplat"
         invoke-pester @pestersplat
     }
     else {
