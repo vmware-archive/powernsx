@@ -25,7 +25,10 @@ function Start-Test {
         #Pester Tags for tests to Exclude.  Use 'slow' etc...
         [string[]]$ExcludeTag,
         #Enable NuUnitXML format output results - see https://github.com/pester/Pester/wiki/Invoke-Pester
-        [switch]$EnableResultsFile
+        [switch]$EnableResultsFile,
+        #Terminate the hosting powershell.exe process with a return code = to the number of failed tests.  Used for CI integration.
+        [switch]$EnableExit
+
     )
 
     get-module PowerNSX | remove-module
@@ -127,7 +130,7 @@ function Start-Test {
         $pestersplat = @{
             "testname" = $testname
             "ExcludeTag" = $ExcludeTag
-            "EnableExit" = $true
+            "EnableExit" = $EnableExit
         }
         if ( $EnableResultsFile ) {
             $pestersplat.Add("OutputFormat", "NUnitXML")
