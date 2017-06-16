@@ -757,6 +757,8 @@ Describe "SecurityGroups" {
 
 
             #Removal of any previously created...
+            Get-Vm $MemberVmName1 -ErrorAction SilentlyContinue | Remove-VM -DeletePermanently -Confirm:$false
+
             Get-NsxMacSet $MemberMacSetName1 | Remove-NsxMacSet -confirm:$false
             Get-NsxMacSet $UMemberMacSetName1 | Remove-NsxMacSet -confirm:$false
 
@@ -771,8 +773,6 @@ Describe "SecurityGroups" {
 
             Get-NsxIpSet $MemberIPSetName1  | Remove-NsxIpSet -Confirm:$false
             Get-NsxIpSet $UMemberIPSetName1  | Remove-NsxIpSet -Confirm:$false
-
-            Get-Vm $MemberVmName1 -ErrorAction SilentlyContinue | Remove-VM -DeletePermanently -Confirm:$false
 
             Get-NsxLogicalSwitch $MemberLSName1 | Remove-NsxLogicalSwitch -Confirm:$false
 
@@ -814,6 +814,8 @@ Describe "SecurityGroups" {
 
         AfterAll {
             #Removal of any previously created...
+            Get-Vm $MemberVmName1 -ErrorAction SilentlyContinue | Remove-VM -DeletePermanently -Confirm:$false
+
             Get-NsxMacSet $MemberMacSetName1 | Remove-NsxMacSet -confirm:$false
             Get-NsxMacSet $UMemberMacSetName1 | Remove-NsxMacSet -confirm:$false
 
@@ -828,8 +830,6 @@ Describe "SecurityGroups" {
 
             Get-NsxIpSet $MemberIPSetName1  | Remove-NsxIpSet -Confirm:$false
             Get-NsxIpSet $UMemberIPSetName1  | Remove-NsxIpSet -Confirm:$false
-
-            Get-Vm $MemberVmName1 -ErrorAction SilentlyContinue | Remove-VM -DeletePermanently -Confirm:$false
 
             Get-NsxLogicalSwitch $MemberLSName1 | Remove-NsxLogicalSwitch -Confirm:$false
 
