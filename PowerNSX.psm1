@@ -11238,7 +11238,7 @@ function Set-NsxLogicalRouter {
     An NSX Logical Router is a distributed routing function implemented within
     the ESXi kernel, and optimised for east west routing.
 
-    Use the Set-NsxLogicalRotuer to perform updates to the Raw XML config for a DLR
+    Use the Set-NsxLogicalRouter to perform updates to the Raw XML config for a DLR
     to enable basic support for manipulating DLR features that arent supported
     by specific PowerNSX cmdlets.
 
