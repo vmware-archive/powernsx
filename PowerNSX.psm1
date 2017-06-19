@@ -16943,7 +16943,7 @@ function Set-NsxEdgeOspf {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
             $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
             write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeOspf
         }
     }
 

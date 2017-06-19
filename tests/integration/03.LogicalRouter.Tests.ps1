@@ -211,6 +211,24 @@ Describe "Logical Routing" {
             $area | should be $null
         }
 
+        it "Can disable Graceful Restart" {
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg | should not be $null
+            $rtg.ospf.gracefulRestart | should be true
+            $rtg | Set-NsxLogicalRouterOspf -GracefulRestart:$false -confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.ospf.gracefulRestart | should be false
+        }
+
+        it "Can enable Default Originate" {
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg | should not be $null
+            $rtg.ospf.defaultOriginate | should be false
+            $rtg | Set-NsxLogicalRouterOspf -DefaultOriginate -confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.ospf.defaultOriginate | should be true
+        }
+
         it "Can disable OSPF" {
             Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -EnableOspf:$false -Confirm:$false -RouterId $routerId -LocalAS $LocalAS -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2"
             $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
@@ -250,6 +268,24 @@ Describe "Logical Routing" {
         it "Can remove a BGP Neighbour" {
             Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs | Remove-NsxLogicalRouterBgpNeighbour -confirm:$false
             Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs | should be $null
+        }
+
+        it "Can disable Graceful Restart" {
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg | should not be $null
+            $rtg.bgp.gracefulRestart | should be true
+            $rtg | Set-NsxLogicalRouterBgp -GracefulRestart:$false -confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.bgp.gracefulRestart | should be false
+        }
+
+        it "Can enable Default Originate" {
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg | should not be $null
+            $rtg.bgp.defaultOriginate | should be false
+            $rtg | Set-NsxLogicalRouterBgp -DefaultOriginate -confirm:$false
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg.bgp.defaultOriginate | should be false
         }
 
         it "Can disable BGP" {
