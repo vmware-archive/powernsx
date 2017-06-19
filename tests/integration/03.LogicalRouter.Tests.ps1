@@ -285,7 +285,7 @@ Describe "Logical Routing" {
             $rtg.bgp.defaultOriginate | should be false
             $rtg | Set-NsxLogicalRouterBgp -DefaultOriginate -confirm:$false
             $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
-            $rtg.bgp.defaultOriginate | should be false
+            $rtg.bgp.defaultOriginate | should be true
         }
 
         it "Can disable BGP" {
