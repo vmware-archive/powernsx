@@ -21251,7 +21251,7 @@ function New-NsxDynamicCriteriaSpec {
 
     .EXAMPLE
 
-    $criteriaSpec11 = Add-NsxDynamicCriteria -key VM.name -operator AND
+    $criteriaSpec11 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria contains -value "VM"
 
     Match all VMs where the VM name contains the string "VM"
@@ -21268,7 +21268,7 @@ function New-NsxDynamicCriteriaSpec {
 
     .EXAMPLE
 
-    $criteriaSpec12 = Add-NsxDynamicCriteria -key VM.name -operator AND
+    $criteriaSpec12 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria equals -value "Test-VM-01"
 
     Match all VMs where the VM name is equal to the string "Test-VM-01"
@@ -21285,7 +21285,7 @@ function New-NsxDynamicCriteriaSpec {
 
     .EXAMPLE
 
-    $criteriaSpec13 = Add-NsxDynamicCriteria -key VM.name -operator AND
+    $criteriaSpec13 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria notequals -value "Test-VM-01"
 
     Match all VMs where the VM name is NOT equal to the string "Test-VM-01"
@@ -21302,7 +21302,7 @@ function New-NsxDynamicCriteriaSpec {
 
     .EXAMPLE
 
-    $criteriaSpec14 = Add-NsxDynamicCriteria -key VM.name -operator AND
+    $criteriaSpec14 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria starts_with -value "Test"
 
     Match all VMs where the VM name starts with the string "Test".
@@ -21319,7 +21319,7 @@ function New-NsxDynamicCriteriaSpec {
 
     .EXAMPLE
 
-    $criteriaSpec15 = Add-NsxDynamicCriteria -key VM.name -operator AND
+    $criteriaSpec15 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria ends_with -value "01"
 
     Match all VMs where the VM name ends with the string "01".
@@ -21336,7 +21336,7 @@ function New-NsxDynamicCriteriaSpec {
 
     .EXAMPLE
 
-    $criteriaSpec16 = Add-NsxDynamicCriteria -key VM.name -operator AND
+    $criteriaSpec16 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria regex -value "^Test-VM-[0-9]{2}$"
 
     Match all VMs where the VM name matches the supplied regular expression.
@@ -21353,7 +21353,7 @@ function New-NsxDynamicCriteriaSpec {
 
     .EXAMPLE
 
-    $criteriaSpec21 = Add-NsxDynamicCriteria -operator OR
+    $criteriaSpec21 = New-NsxDynamicCriteriaSpec -operator OR
         -entity $(Get-NsxLogicalSwitch DMZ-LS-1)
 
     Statically specify the NSX Logcal Switch called DMZ-LS-1 to be included as
@@ -21361,7 +21361,7 @@ function New-NsxDynamicCriteriaSpec {
 
     .EXAMPLE
 
-    $criteriaSpec22 = Add-NsxDynamicCriteria -operator AND
+    $criteriaSpec22 = New-NsxDynamicCriteriaSpec -operator AND
         -entity $(Get-NsxSecurityGroup SG-PCI-Machines)
 
     Statically specify the NSX Security Group called SG-PCI-Machines to be
