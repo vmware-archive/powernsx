@@ -250,7 +250,7 @@ FunctionsToExport = @(
     'Add-NsxSecurityGroupMember',
     'Remove-NsxSecurityGroupMember',
     'New-NsxDynamicCriteriaSpec',
-    'Add-NsxDymanicMemberSet',
+    'Add-NsxDynamicMemberSet',
     'New-NsxSecurityTag',
     'Get-NsxSecurityTag',
     'Remove-NsxSecurityTag',

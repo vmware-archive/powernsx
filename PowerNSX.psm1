@@ -21250,7 +21250,6 @@ function New-NsxDynamicCriteriaSpec {
     when specifying an entity.
 
     .EXAMPLE
-
     $criteriaSpec11 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria contains -value "VM"
 
@@ -21267,7 +21266,6 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-
     $criteriaSpec12 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria equals -value "Test-VM-01"
 
@@ -21284,7 +21282,6 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-
     $criteriaSpec13 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria notequals -value "Test-VM-01"
 
@@ -21301,7 +21298,6 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           Yes
 
     .EXAMPLE
-
     $criteriaSpec14 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria starts_with -value "Test"
 
@@ -21318,7 +21314,6 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-
     $criteriaSpec15 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria ends_with -value "01"
 
@@ -21335,7 +21330,6 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           Yes
 
     .EXAMPLE
-
     $criteriaSpec16 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
         -criteria regex -value "^Test-VM-[0-9]{2}$"
 
@@ -21352,15 +21346,13 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-
     $criteriaSpec21 = New-NsxDynamicCriteriaSpec -operator OR
-        -entity $(Get-NsxLogicalSwitch DMZ-LS-1)
+        -entity (Get-NsxLogicalSwitch DMZ-LS-1)
 
-    Statically specify the NSX Logcal Switch called DMZ-LS-1 to be included as
+    Statically specify the NSX Logical Switch called DMZ-LS-1 to be included as
     part of the dynamic criteria
 
     .EXAMPLE
-
     $criteriaSpec22 = New-NsxDynamicCriteriaSpec -operator AND
         -entity $(Get-NsxSecurityGroup SG-PCI-Machines)
 
@@ -21391,7 +21383,6 @@ function New-NsxDynamicCriteriaSpec {
     )
 
     begin {
-
         switch ( $criteria ) {
 
             "equals" {
@@ -21405,7 +21396,6 @@ function New-NsxDynamicCriteriaSpec {
             "regex" {
                 [string]$criteria = "similar_to"
             }
-
         }
 
         #Populate the global membertype cache if not already done
@@ -21420,7 +21410,6 @@ function New-NsxDynamicCriteriaSpec {
         if ( $entityCount -ne 1 ) {
             throw "Multiple ($entityCount) entities specified . Only 1 is allowed."
         }
-
     }
 
     process {
@@ -21428,7 +21417,6 @@ function New-NsxDynamicCriteriaSpec {
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
         [System.XML.XMLElement]$xmlDynamicCriteria = $XMLDoc.CreateElement("dynamicCriteria")
         $xmlDoc.appendChild($xmlDynamicCriteria) | out-null
-
         Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "operator" -xmlElementText $operator.ToUpper()
 
         if ($PSCmdlet.ParameterSetName -eq "entity") {
@@ -21452,7 +21440,6 @@ function New-NsxDynamicCriteriaSpec {
                 #how to construct NIC id.
                 $vmUuid = ($entity.parent | get-view).config.instanceuuid
                 $EntityObjectId = "$vmUuid.$($entity.id.substring($entity.id.length-3))"
-
             }
             elseif (( $entity -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $entity.ExtensionData.MoRef.Type)) {
                 $EntityObjectId = $entity.ExtensionData.MoRef.Value
@@ -21471,15 +21458,13 @@ function New-NsxDynamicCriteriaSpec {
             Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "criteria" -xmlElementText $criteria.ToLower()
             Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "value" -xmlElementText $value
         }
-
         $xmlDynamicCriteria
-
     }
 
     end{}
 }
 
-function Add-NsxDymanicMemberSet {
+function Add-NsxDynamicMemberSet {
 
     <#
     .SYNOPSIS
@@ -21505,39 +21490,31 @@ function Add-NsxDymanicMemberSet {
     multiple dynamic criteria in an AND/OR arrangement.
 
     .EXAMPLE
-
     $criteria1Spec = New-NsxDynamicCriteriaSpec -key VM.name -operator AND -criteria contains -value "PROD"
-
     $criteria2Spec = New-NsxDynamicCriteriaSpec -key VM.GUEST_OS_FULL_NAME -operator AND -criteria contains -value "Win"
 
     $sg1 = New-NsxSecurityGroup -Name "SG-Production-Windows"
 
-    Get-NsxSecurityGroup "SG-Production-Windows" | Add-NsxDymanicMemberSet -operator OR -DynamicCriteriaSpec $criteria1Spec,$criteria2Spec
+    Get-NsxSecurityGroup "SG-Production-Windows" | Add-NsxDynamicMemberSet -operator OR -DynamicCriteriaSpec $criteria1Spec,$criteria2Spec
 
     .EXAMPLE
-
     $criteria3Spec = New-NsxDynamicCriteriaSpec -key VM.SECURITY_TAG -operator AND -criteria starts_with -value "ST_PCI"
-
     $criteria4Spec = New-NsxDynamicCriteriaSpec -entity $(Get-Cluster DMZ) -operator AND
 
     $sg2 = New-NsxSecurityGroup -Name "SG-DMZ-PCI"
 
-    Get-NsxSecurityGroup "SG-DMZ-PCI" | Add-NsxDymanicMemberSet -operator AND -DynamicCriteriaSpec $criteria3Spec,$criteria4Spec
+    Get-NsxSecurityGroup "SG-DMZ-PCI" | Add-NsxDynamicMemberSet -operator AND -DynamicCriteriaSpec $criteria3Spec,$criteria4Spec
 
     .EXAMPLE
-
     $criteria5Spec = New-NsxDynamicCriteriaSpec -key VM.SECURITY_TAG -operator AND -criteria starts_with -value "ST_Backup"
-
     $criteria6Spec = New-NsxDynamicCriteriaSpec -entity $(Get-Cluster Dev-CL-01) -operator AND
-
     $criteria7Spec = New-NsxDynamicCriteriaSpec -entity $(Get-NsxLogicalSwitch LS-Backup-Net) -operator AND
-
     $criteria8Spec = New-NsxDynamicCriteriaSpec -key VM.NAME -operator AND -criteria contains -value "PROD"
 
     $sg3 = New-NsxSecurityGroup -Name "SG-Backup-Clients"
 
-    $sg3.objectid | Add-NsxDymanicMemberSet -operator OR -DynamicCriteriaSpec $criteria5Spec,$criteria6Spec
-    $sg3.objectid | Add-NsxDymanicMemberSet -operator OR -DynamicCriteriaSpec $criteria7Spec,$criteria8Spec
+    $sg3.objectid | Add-NsxDynamicMemberSet -operator OR -DynamicCriteriaSpec $criteria5Spec,$criteria6Spec
+    $sg3.objectid | Add-NsxDynamicMemberSet -operator OR -DynamicCriteriaSpec $criteria7Spec,$criteria8Spec
 
     #>
 
@@ -21565,7 +21542,7 @@ function Add-NsxDymanicMemberSet {
     }
 
     process {
-        # Get our internal SG object and id.  The internal obejct is used later
+        # Get our internal SG object and id.  The internal object is used later
         # to modify and put for bulk update.
         if ( $SecurityGroup -is [System.Xml.XmlElement] ) {
             $SecurityGroupId = $securityGroup.objectId
@@ -21604,14 +21581,12 @@ function Add-NsxDymanicMemberSet {
 
             $dynamicSetImport = $xmlDynamicMemberDefinition.ownerDocument.ImportNode(($xmlRoot), $true)
             $xmlDynamicMemberDefinition.appendChild($dynamicSetImport) | out-null
-
         }
 
         #Do the post
         $body = $_SecurityGroup.OuterXml
         $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
         $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-
     }
 
     end{}
