@@ -21565,23 +21565,21 @@ function Add-NsxDynamicMemberSet {
 
         # Now lets add the dynamic criteria (DynamicSets)
         # TODO: Will need to put some input validation on the DynamicCriteriaSpec parameter to make sure what is being specified is actually a Dynamic Criteria Spec
-        if ( $PsBoundParameters.ContainsKey('DynamicCriteriaSpec') ) {
-            [System.Xml.XmlElement]$xmlDynamicMemberDefinition = invoke-xpathquery -QueryMethod SelectSingleNode -node $_SecurityGroup -query "child::dynamicMemberDefinition"
+        [System.Xml.XmlElement]$xmlDynamicMemberDefinition = invoke-xpathquery -QueryMethod SelectSingleNode -node $_SecurityGroup -query "child::dynamicMemberDefinition"
 
-            #Create the XMLRoot
-            [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-            [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("dynamicSet")
+        #Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("dynamicSet")
 
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "operator" -xmlElementText $operator
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "operator" -xmlElementText $operator
 
-            foreach ( $spec in $DynamicCriteriaSpec) {
-                $specImport = $xmlRoot.ownerDocument.ImportNode($spec, $true)
-                $xmlRoot.appendChild($specImport) | out-null
-            }
-
-            $dynamicSetImport = $xmlDynamicMemberDefinition.ownerDocument.ImportNode(($xmlRoot), $true)
-            $xmlDynamicMemberDefinition.appendChild($dynamicSetImport) | out-null
+        foreach ( $spec in $DynamicCriteriaSpec) {
+            $specImport = $xmlRoot.ownerDocument.ImportNode($spec, $true)
+            $xmlRoot.appendChild($specImport) | out-null
         }
+
+        $dynamicSetImport = $xmlDynamicMemberDefinition.ownerDocument.ImportNode(($xmlRoot), $true)
+        $xmlDynamicMemberDefinition.appendChild($dynamicSetImport) | out-null
 
         #Do the post
         $body = $_SecurityGroup.OuterXml
