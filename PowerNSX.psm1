@@ -21560,7 +21560,6 @@ function Add-NsxDynamicMemberSet {
         # pipeline already has the dynamicMemberDefinition element created. If
         # not, then create the required XML structure
         $dynamicMemberDefinitionElement = Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -Query 'child::dynamicMemberDefinition'
-        # if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -Query 'child::dynamicMemberDefinition') ) {
         if ( -not $dynamicMemberDefinitionElement ) {
             Add-XmlElement -xmlRoot $_SecurityGroup -xmlElementName "dynamicMemberDefinition"
             $dynamicMemberDefinitionElement = Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -Query 'child::dynamicMemberDefinition'
@@ -21568,7 +21567,6 @@ function Add-NsxDynamicMemberSet {
 
         # Now lets add the dynamic criteria (DynamicSets)
         # TODO: Will need to put some input validation on the DynamicCriteriaSpec parameter to make sure what is being specified is actually a Dynamic Criteria Spec
-        # [System.Xml.XmlElement]$xmlDynamicMemberDefinition = invoke-xpathquery -QueryMethod SelectSingleNode -node $_SecurityGroup -query "child::dynamicMemberDefinition"
         [System.Xml.XmlElement]$xmlDynamicMemberDefinition = $dynamicMemberDefinitionElement
 
         #Create the XMLRoot
