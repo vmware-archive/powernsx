@@ -11549,7 +11549,8 @@ function Set-NsxEdgeInterface {
     $add1 = New-NsxAddressSpec -PrimaryAddress 11.11.11.11 -SubnetPrefixLength 24 -SecondaryAddresses 11.11.11.12, 11.11.11.13
     $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
 
-    Get-NsxEdge testesg | Get-NsxEdgeInterface -index 5 | Set-NSxEdgeInterface -ConnectedTo $ls4 -AddressSpec $add1,$add2
+    Get-NsxEdge testesg | Get-NsxEdgeInterface -index 5 | Set-NsxEdgeInterface -ConnectedTo $ls4 -AddressSpec $add1,$add2
+    -name "New Edge with Spec" -type internal
 
     Adds two addresses, precreated via New-AddressSpec to ESG testesg vnic 5
 
