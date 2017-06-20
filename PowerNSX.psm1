@@ -21594,10 +21594,7 @@ function Add-NsxDynamicMemberSet {
 
         # Now lets add the dynamic criteria (DynamicSets)
         [System.Xml.XmlElement]$xmlDynamicMemberDefinition = $dynamicMemberDefinitionElement
-
-        #Create the XMLRoot
-        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-        [System.XML.XMLElement]$xmlRoot = $xmlDoc.CreateElement("dynamicSet")
+        [System.XML.XMLElement]$xmlRoot = $xmlDynamicMemberDefinition.ownerDocument.CreateElement("dynamicSet")
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "operator" -xmlElementText $operator
 
@@ -21606,8 +21603,7 @@ function Add-NsxDynamicMemberSet {
             $xmlRoot.appendChild($specImport) | out-null
         }
 
-        $dynamicSetImport = $xmlDynamicMemberDefinition.ownerDocument.ImportNode(($xmlRoot), $true)
-        $xmlDynamicMemberDefinition.appendChild($dynamicSetImport) | out-null
+        $xmlDynamicMemberDefinition.appendChild($xmlRoot) | out-null
 
         #Do the post
         $body = $_SecurityGroup.OuterXml
