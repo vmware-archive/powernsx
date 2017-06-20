@@ -84,6 +84,11 @@ Describe "Logical Routing" {
         $script:uvnics2 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic1 -ConnectedTo $ulswitches2[1] -PrimaryAddress 2.2.2.1 -SubnetPrefixLength 24
         $script:uvnics2 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic2 -ConnectedTo $ulswitches2[2] -PrimaryAddress 3.3.3.1 -SubnetPrefixLength 24
 
+        if ($script:DefaultNsxConnection.version -ge [version]"6.3.0") {
+            # This flag is used  as some functions deprecated in NSX 6.3.0 or higher.
+            $script:NSX630OrLaterVersion = $True
+        }
+
     }
 
     it "Can create a logical router" {
@@ -220,7 +225,13 @@ Describe "Logical Routing" {
             $rtg.ospf.gracefulRestart | should be false
         }
 
-        it "Can enable Default Originate" {
+        it "Cannot enable Default Originate in NSX 6.3.0 or later" -Skip:$NSX630OrLaterVersion {
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg | should not be $null
+            {$rtg | Set-NsxLogicalRouterOspf -DefaultOriginate -confirm:$false} | should throw "Setting defaultOriginate on a logical router is not supported NSX 6.3.0 or later."
+        }
+
+        it "Can enable Default Originate in earlier version than 6.3.0" -Skip:$(-not $NSX630OrLaterVersion) {
             $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
             $rtg | should not be $null
             $rtg.ospf.defaultOriginate | should be false
@@ -279,7 +290,13 @@ Describe "Logical Routing" {
             $rtg.bgp.gracefulRestart | should be false
         }
 
-        it "Can enable Default Originate" {
+        it "Cannot enable Default Originate in NSX 6.3.0 or later" -Skip:$NSX630OrLaterVersion {
+            $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
+            $rtg | should not be $null
+            {$rtg | Set-NsxLogicalRouterBgp -DefaultOriginate -confirm:$false} | should throw "Setting defaultOriginate on a logical router is not supported NSX 6.3.0 or later."
+        }
+
+        it "Can enable Default Originate in earlier version than 6.3.0" -Skip:$(-not $NSX630OrLaterVersion) {
             $rtg = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting
             $rtg | should not be $null
             $rtg.bgp.defaultOriginate | should be false

@@ -18981,10 +18981,10 @@ function Set-NsxLogicalRouterBgp {
     begin {
         if ( $DefaultOriginate ) {
             if ( -not $connection.version ) {
-                write-warning "Setting defaultOriginate on an logical router is not supported NSX 6.3.0 or later and current NSX version could not be determined."
+                write-warning "Setting defaultOriginate on a logical router is not supported NSX 6.3.0 or later and current NSX version could not be determined."
             }
             elseif ( [version]$connection.version -ge [version]"6.3.0") {
-                throw "Setting defaultOriginate on an logical router is not supported NSX 6.3.0 or later."
+                throw "Setting defaultOriginate on a logical router is not supported NSX 6.3.0 or later."
             }
         }
     }
@@ -19536,10 +19536,10 @@ function Set-NsxLogicalRouterOspf {
     begin {
         if ( $DefaultOriginate ) {
             if ( -not $connection.version ) {
-                write-warning "Setting defaultOriginate on an logical router is not supported NSX 6.3.0 or later and current NSX version could not be determined."
+                write-warning "Setting defaultOriginate on a logical router is not supported NSX 6.3.0 or later and current NSX version could not be determined."
             }
             elseif ( [version]$connection.version -ge [version]"6.3.0") {
-                throw "Setting defaultOriginate on an logical router is not supported NSX 6.3.0 or later."
+                throw "Setting defaultOriginate on a logical router is not supported NSX 6.3.0 or later."
             }
         }
     }
