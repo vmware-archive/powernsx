@@ -340,7 +340,7 @@ Describe "Edge" {
         $edge = Get-NsxEdge $name
         $edge.features.firewall.enabled | should be "false"
     }
-    
+
     it "Can remove an edge" {
         Get-NsxEdge $name | should not be $null
         Get-NsxEdge $name | remove-nsxEdge -confirm:$false
