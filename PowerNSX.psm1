@@ -21239,10 +21239,10 @@ function New-NsxDynamicCriteriaSpec {
 
         Key                     UI Name
         ----------------------- --------
-        VM.GUEST_OS_FULL_NAME   Computer OS Name
-        VM.GUEST_HOST_NAME      Computer Name
-        VM.NAME                 VM Name
-        VM.SECURITY_TAG         Security Tag
+        OSName                  Computer OS Name
+        ComputerName            Computer Name
+        VmName                  VM Name
+        SecurityTag             Security Tag
 
     Each Dynamic Criteria Spec is required to have an operator set. All Dynamic
     Criteria that is specified within the same Dynamic Set should have identical
@@ -21277,7 +21277,7 @@ function New-NsxDynamicCriteriaSpec {
     when specifying an entity.
 
     .EXAMPLE
-    $criteriaSpec11 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
+    $criteriaSpec11 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
         -criteria contains -value "VM"
 
     Match all VMs where the VM name contains the string "VM"
@@ -21293,7 +21293,7 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-    $criteriaSpec12 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
+    $criteriaSpec12 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
         -criteria equals -value "Test-VM-01"
 
     Match all VMs where the VM name is equal to the string "Test-VM-01"
@@ -21309,7 +21309,7 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-    $criteriaSpec13 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
+    $criteriaSpec13 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
         -criteria notequals -value "Test-VM-01"
 
     Match all VMs where the VM name is NOT equal to the string "Test-VM-01"
@@ -21325,7 +21325,7 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           Yes
 
     .EXAMPLE
-    $criteriaSpec14 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
+    $criteriaSpec14 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
         -criteria starts_with -value "Test"
 
     Match all VMs where the VM name starts with the string "Test".
@@ -21341,7 +21341,7 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-    $criteriaSpec15 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
+    $criteriaSpec15 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
         -criteria ends_with -value "01"
 
     Match all VMs where the VM name ends with the string "01".
@@ -21357,7 +21357,7 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           Yes
 
     .EXAMPLE
-    $criteriaSpec16 = New-NsxDynamicCriteriaSpec -key VM.name -operator AND
+    $criteriaSpec16 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
         -criteria regex -value "^Test-VM-[0-9]{2}$"
 
     Match all VMs where the VM name matches the supplied regular expression.
@@ -21392,7 +21392,7 @@ function New-NsxDynamicCriteriaSpec {
 
     param (
         [Parameter(Mandatory=$true, ParameterSetName="search")]
-            [ ValidateSet("VM.NAME", "VM.GUEST_HOST_NAME", "VM.GUEST_OS_FULL_NAME", "VM.SECURITY_TAG", IgnoreCase=$true) ]
+            [ ValidateSet("VmName", "ComputerName", "OsName", "SecurityTag", IgnoreCase=$true) ]
             [String]$key,
         [Parameter(Mandatory=$true, ParameterSetName="search")]
             [ ValidateSet("contains", "ends_with", "starts_with", "equals", "notequals", "regex", IgnoreCase=$true) ]
@@ -21422,6 +21422,25 @@ function New-NsxDynamicCriteriaSpec {
 
             "regex" {
                 [string]$criteria = "similar_to"
+            }
+        }
+
+        switch ( $key ) {
+
+            "OsName" {
+                [string]$key = "VM.GUEST_OS_FULL_NAME"
+            }
+
+            "ComputerName" {
+                [string]$key = "VM.GUEST_HOST_NAME"
+            }
+
+            "VmName" {
+                [string]$key = "VM.NAME"
+            }
+
+            "SecurityTag" {
+                [string]$key = "VM.SECURITY_TAG"
             }
         }
 
