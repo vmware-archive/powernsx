@@ -25904,7 +25904,7 @@ function New-NsxLoadBalancerMonitor {
         $edgeId = $LoadBalancer.edgeId
 
         if ( -not $LoadBalancer.enabled -eq 'true' ) {
-            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId). Use Set-NsxLoadBalancer -Enabled to enable."
         }
 
         [System.XML.XMLElement]$xmlmonitor = $LoadBalancer.OwnerDocument.CreateElement("monitor")
@@ -26207,7 +26207,7 @@ function New-NsxLoadBalancerApplicationProfile {
         $_LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancer -Query 'descendant::edgeId')) ) | out-null
 
         if ( -not $_LoadBalancer.enabled -eq 'true' ) {
-            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -Enabled to enable."
         }
 
         [System.XML.XMLElement]$xmlapplicationProfile = $_LoadBalancer.OwnerDocument.CreateElement("applicationProfile")
@@ -26507,7 +26507,7 @@ function New-NsxLoadBalancerPool {
         $_LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancer -Query 'descendant::edgeId')) ) | out-null
 
         if ( -not $_LoadBalancer.enabled -eq 'true' ) {
-            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId). Use Set-NsxLoadBalancer -Enabled to enable."
         }
 
         [System.XML.XMLElement]$xmlPool = $_LoadBalancer.OwnerDocument.CreateElement("pool")
@@ -27107,7 +27107,7 @@ function Add-NsxLoadBalancerVip {
         $_LoadBalancer.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LoadBalancer -Query 'descendant::edgeId')) ) | out-null
 
         if ( -not $_LoadBalancer.enabled -eq 'true' ) {
-            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId). Use Set-NsxLoadBalancer -Enabled to enable."
         }
 
         [System.XML.XMLElement]$xmlVIip = $_LoadBalancer.OwnerDocument.CreateElement("virtualServer")
