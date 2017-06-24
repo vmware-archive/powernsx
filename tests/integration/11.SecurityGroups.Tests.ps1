@@ -214,6 +214,44 @@ Describe "SecurityGroups" {
             $script:MemberMac1 = "00:50:56:00:00:00"
             $script:MemberMac2 = "00:50:56:00:00:01"
 
+            #DynamicCriteriaKeys
+            $script:DynamicCriteriaKey1 = "VM.NAME"
+            $script:DynamicCriteriaKey2 = "VM.GUEST_OS_FULL_NAME"
+            $script:DynamicCriteriaKey3 = "VM.GUEST_HOST_NAME"
+            $script:DynamicCriteriaKey4 = "VM.SECURITY_TAG"
+            $script:DynamicCriteriaKey5 = "ENTITY"
+
+            $script:DynamicCriteriaKeySubstitute = @{
+                "VmName" = "VM.NAME";
+                "OsName" = "VM.GUEST_OS_FULL_NAME";
+                "ComputerName" = "VM.GUEST_HOST_NAME";
+                "SecurityTag" = "VM.SECURITY_TAG"
+            }
+
+            #DynamicCriteriaOperators
+            $script:DynamicCriteriaOperator1 = "AND"
+            $script:DynamicCriteriaOperator2 = "OR"
+            $script:DynamicCriteriaOperatorList = $DynamicCriteriaOperator1,$DynamicCriteriaOperator2
+
+            #DynamicCriteriaCriteria
+            $script:DynamicCriteriaCriteria1 = "contains"
+            $script:DynamicCriteriaCriteria2 = "ends_with"
+            $script:DynamicCriteriaCriteria3 = "starts_with"
+            $script:DynamicCriteriaCriteria4 = "equals"
+            $script:DynamicCriteriaCriteria5 = "notequals"
+            $script:DynamicCriteriaCriteria6 = "regex"
+
+            $script:DynamicCriteriaSubstitute = @{
+                "contains" = "contains";
+                "ends_with" = "ends_with";
+                "starts_with" = "starts_with";
+                "equals" = "=";
+                "notequals" = "!=";
+                "regex" = "similar_to"
+            }
+
+            #DynamicCriteriaValue
+            $script:DynamicCriteriaValue1 = "Test"
 
             #Removal of any previously created...
             Get-NsxMacSet $MemberMacSetName1 | Remove-NsxMacSet -confirm:$false
@@ -600,6 +638,21 @@ Describe "SecurityGroups" {
 
         }
 
+        foreach ( $key in $DynamicCriteriaKeySubstitute.keys ) {
+            foreach ( $operator in $DynamicCriteriaOperatorList ) {
+                foreach ( $criteria in $DynamicCriteriaSubstitute.keys ) {
+                    it "Can create a new Dynamic Criteria Spec: $key/$operator/$criteria" {
+                        { New-NsxDynamicCriteriaSpec -key $key -operator $operator -criteria $criteria -value $DynamicCriteriaValue1 } | should not throw
+                        $spec = New-NsxDynamicCriteriaSpec -key $key -operator $operator -criteria $criteria -value $DynamicCriteriaValue1
+                        $spec | should not be $null
+                        $spec.key | should be $DynamicCriteriaKeySubstitute[$key]
+                        $spec.operator | should be $operator
+                        $spec.criteria | should be $DynamicCriteriaSubstitute[$criteria]
+                        $spec.value | should be $DynamicCriteriaValue1
+    }
+                }
+            }
+        }
     }
 
     Context "SecurityGroup Deletion" {
