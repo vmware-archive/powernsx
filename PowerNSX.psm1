@@ -16366,7 +16366,7 @@ PS C:\> Get-NsxEdge -Name MyEdge | Invoke-NsxEdgeHaFailover -NewPrimaryNode 1
       $response = invoke-nsxrestmethod -method "PUT" -uri $URI -body $body -connection $connection
     }
     catch {
-      throw "Failed to disable HA on Edge Node $($BringDownNode).  $_"
+      throw "Failed to modify HA Admin State to \"down\" on Edge Node $($BringDownNode).  $_
     }
 
     # wait dead time + 2 (buffer) seconds before restoring the haAdminStatus, so we're sure that the failover happens
@@ -16382,7 +16382,7 @@ PS C:\> Get-NsxEdge -Name MyEdge | Invoke-NsxEdgeHaFailover -NewPrimaryNode 1
       $response = invoke-nsxrestmethod -method "PUT" -uri $URI -body $body -connection $connection
     }
     catch {
-      throw "Failed to enable HA on Edge Node $($BringDownNode).  $_"
+      throw "Failed to modify HA Admin State to \"up\" on Edge Node $($BringDownNode).  $_
     }
 
     $return = $response
