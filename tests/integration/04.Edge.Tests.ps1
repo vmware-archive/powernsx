@@ -317,6 +317,31 @@ Describe "Edge" {
             $rtg.bgp.enabled | should be "false"
         }
     }
+    
+    Context "HighAvailability" {
+      it "Can enable HA" {
+        $esg = Get-NsxEdge $name
+        $esg | should not be $null
+        $esg.features.highAvailability.enabled = "true"
+        $esg | Set-NsxEdge -confirm:$false
+        $esg = Get-NsxEdge $name
+        $esg.features.highAvailability.enabled | should be "true"
+      }
+      it "Can failover between HA pair" {
+        Write-Host " getting nsx edge" 
+        $esg = Get-NsxEdge $name
+        $esg | should not be $null
+        # test the current HA status
+        $esg.features.highAvailability.enabled | should be "true"
+        # get the current active node ID
+        $oldActiveNodeId = $($esg | Get-NsxEdgeStatus).activeVseHaIndex
+        # failover and give it a few seconds
+        Get-NsxEdge $name | Invoke-NsxEdgeHaFailover
+        Start-Sleep 5
+        $newActiveNodeId = $($esg | Get-NsxEdgeStatus).activeVseHaIndex
+        $oldActiveNodeId | should not be $newActiveNodeId
+      }
+    }
 
     it "Can remove an edge" {
         Get-NsxEdge $name | should not be $null
