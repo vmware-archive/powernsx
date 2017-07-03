@@ -27588,7 +27588,7 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
     This cmdlet has serveral parameters that are required to successfully create a firewall rule in a Security Policy. The information passed into the function are then processed to generate a proper XML variable which is then passed to the New-NsxSecurityPolicy function.
 
     .EXAMPLE
-    C:\> New-NsxSecurityPolicyFirewallRuleSpec -Name "Block Web to Demo VM" -Description "Block Inbound Web traffic" -Service (Get-NsxService HTTP), (Get-NsxService HTTPS) -securityGroup (Get-NsxSecurityGroup | ?{$_.name -eq "SG App Servers"}) -Direction inbound -Enabled $true -Logging $true -Action block | Format-XML
+    New-NsxSecurityPolicyFirewallRuleSpec -Name "Block Web to Demo VM" -Description "Block Inbound Web traffic" -Service (Get-NsxService HTTP), (Get-NsxService HTTPS) -securityGroup (Get-NsxSecurityGroup | ?{$_.name -eq "SG App Servers"}) -Direction inbound -Enabled $true -Logging $true -Action block | Format-XML
     
     <actionsByCategory>
         <category>firewall</category>
@@ -27659,7 +27659,7 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
                 
 
 
-                if ( $SecurityGroup ) {
+                if ( $PsBoundParameters.ContainsKey('SecurityGroup') ) {
                        $count = 1
                        foreach ( $Member in $SecurityGroup) {
 
@@ -27676,9 +27676,10 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
                         }
                 }
     
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action")  -xmlElementName "applications"
+                
+                if ( $PsBoundParameters.ContainsKey('Service') ) {
+                       Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action")  -xmlElementName "applications"
 
-                if ( $service ) {
                        $count = 1
                        foreach ( $Member in $service) {
 
@@ -27694,7 +27695,7 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
                             $count++
                         }
                 }
-               
+
                 Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "logged" -xmlElementText $Logging
                 Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "action" -xmlElementText $Action
                 Add-XmlElement (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlRoot -query "//action") -xmlElementName "direction" -xmlElementText $Direction
@@ -27715,7 +27716,19 @@ function New-NsxSecurityPolicyGISSpec {
     is then passed on to the New-NsxSecurityPolicy function 
 
     .EXAMPLE
-
+    New-NSXSecurityPolicyGISSPec -Name "GIS Demo" -Description "GIS Description" -Enabled true -Enforced true -actionType ANTI_VIRUS | Format-XML
+    
+    <actionsByCategory>
+      <category>endpoint</category>
+      <action class="endpointSecurityAction">
+        <name>GIS Demo</name>
+        <description>GIS Description</description>
+        <category>endpoint</category>
+        <actionType>ANTI_VIRUS</actionType>
+        <isEnabled>true</isEnabled>
+        <isActionEnforced>true</isActionEnforced>
+      </action>
+    </actionsByCategory>
     #>
 
     [CmdletBinding()]
@@ -27731,15 +27744,13 @@ function New-NsxSecurityPolicyGISSpec {
             [ValidateNotNull()]
             [string]$Description,
         [Parameter (Mandatory=$false)]
-            [string]$Order,
-        [Parameter (Mandatory=$false)]
         [ValidateSet("true","false")]
             [string]$Enabled = "true",
         [Parameter (Mandatory=$false)]
         [ValidateSet("true","false")]
             [string]$Enforced,
         [Parameter (Mandatory=$false)]
-        [ValidateSet("ANTI_VIRUS","VULNERABILITY_MGMT", "FIM", "DATA_SECURITY")]
+        [ValidateSet("ANTI_VIRUS","VULNERABILITY_MGMT", "FIM")]
             [string]$actionType
     )
 
@@ -27758,7 +27769,6 @@ function New-NsxSecurityPolicyGISSpec {
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "name" -xmlElementText $Name
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "description" -xmlElementText $Description
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "category" -xmlElementText $Category
-                Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "executionOrder" -xmlElementText $Order
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "actionType" -xmlElementText $actionType 
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "isEnabled" -xmlElementText $Enabled     
                 Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $xmlroot -query "//action") -xmlElementName "isActionEnforced" -xmlElementText $Enforced
