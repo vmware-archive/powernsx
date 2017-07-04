@@ -11539,7 +11539,7 @@ function Set-NsxEdgeInterface {
     of an interface.
 
     .EXAMPLE
-    $interface = Get-NsxEdge testesg | Get-NsxEdgeInterface -Index 4
+    $interface = Get-NsxEdge Edge01 | Get-NsxEdgeInterface -Index 4
     $interface | Set-NsxEdgeInterface -Name "vNic4" -Type internal
         -ConnectedTo $ls4 -PrimaryAddress $ip4 -SubnetPrefixLength 24
 
@@ -11549,10 +11549,10 @@ function Set-NsxEdgeInterface {
     $add1 = New-NsxAddressSpec -PrimaryAddress 11.11.11.11 -SubnetPrefixLength 24 -SecondaryAddresses 11.11.11.12, 11.11.11.13
     $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
 
-    Get-NsxEdge testesg | Get-NsxEdgeInterface -index 5 | Set-NsxEdgeInterface -ConnectedTo $ls4 -AddressSpec $add1,$add2
+    Get-NsxEdge Edge01 | Get-NsxEdgeInterface -index 5 | Set-NsxEdgeInterface -ConnectedTo $ls4 -AddressSpec $add1,$add2
     -name "New Edge with Spec" -type internal
 
-    Adds two addresses, precreated via New-AddressSpec to ESG testesg vnic 5
+    Adds two addresses, precreated via New-AddressSpec to ESG Edge01 vnic 5
 
     #>
 
@@ -11769,16 +11769,16 @@ function Get-NsxEdgeInterface {
     Use Get-NsxEdgeInterface to retrieve the configuration of an interface.
 
     .EXAMPLE
-    Get all interface configuration for ESG named EsgTest
-    PS C:\> Get-NsxEdge EsgTest | Get-NsxEdgeInterface
+    Get all interface configuration for ESG named Edge01
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeInterface
 
     .EXAMPLE
-    Get interface configuration for interface named vNic4 on ESG named EsgTest
-    PS C:\> Get-NsxEdge EsgTest | Get-NsxEdgeInterface vNic4
+    Get interface configuration for interface named vNic4 on ESG named Edge01
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeInterface vNic4
 
     .EXAMPLE
-    Get interface configuration for interface number 4 on ESG named EsgTest
-    PS C:\> Get-NsxEdge EsgTest | Get-NsxEdgeInterface -index 4
+    Get interface configuration for interface number 4 on ESG named Edge01
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeInterface -index 4
 
     #>
 
@@ -12072,9 +12072,9 @@ function Get-NsxEdgeSubInterface {
     interface.
 
     .EXAMPLE
-    Get an NSX Subinterface called sub1 from any interface on esg testesg
+    Get an NSX Subinterface called sub1 from any interface on ESG Edge01
 
-    PS C:\> Get-NsxEdge testesg | Get-NsxEdgeInterface |
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeInterface |
         Get-NsxEdgeSubInterface "sub1"
 
     #>
@@ -12151,14 +12151,14 @@ function Get-NsxEdgeInterfaceAddress {
     the specific interface.
 
     .EXAMPLE
-    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress
+    Get-NsxEdge Edge01 | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress
 
-    Retrieves all the address groups defined on vNic 9 of the ESG esgtest.
+    Retrieves all the address groups defined on vNic 9 of the ESG Edge01.
 
     .EXAMPLE
-    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4
+    Get-NsxEdge Edge01 | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4
 
-    Retrieves the address config with primary address 1.2.3.4 defined on vNic 9 of the ESG esgtest.
+    Retrieves the address config with primary address 1.2.3.4 defined on vNic 9 of the ESG Edge01.
 
     #>
 
@@ -12218,17 +12218,17 @@ function Add-NsxEdgeInterfaceAddress {
     existing ESG interface.
 
     .EXAMPLE
-    get-nsxedge esgtest | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -PrimaryAddress 44.44.44.44 -SubnetPrefixLength 24  -SecondaryAddresses 44.44.44.45,44.44.44.46
+    get-nsxedge Edge01 | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -PrimaryAddress 44.44.44.44 -SubnetPrefixLength 24  -SecondaryAddresses 44.44.44.45,44.44.44.46
 
-    Adds a new primary address and multiple secondary addresses to vNic 9 on edge esgtest
+    Adds a new primary address and multiple secondary addresses to vNic 9 on edge Edge01
 
     .EXAMPLE
     $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
     $add3 = New-NsxAddressSpec -PrimaryAddress 33.33.33.33 -SubnetPrefixLength 24 -SecondaryAddresses 33.33.33.34
 
-    get-nsxedge testesg | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -AddressSpec $add2,$add3
+    get-nsxedge Edge01 | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -AddressSpec $add2,$add3
 
-    Adds two new addresses to testesg's vnic9 using address specs.
+    Adds two new addresses to Edge01's vnic9 using address specs.
     #>
 
     param (
@@ -12314,9 +12314,9 @@ function Remove-NsxEdgeInterfaceAddress {
     from the specified interface.
 
     .EXAMPLE
-    Get-NsxEdge esgtest | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4 | Remove-NsxEdgeInterfaceAddress
+    Get-NsxEdge Edge01 | Get-NsxEdgeInterface -Index 9 | Get-NsxEdgeInterfaceAddress -PrimaryAddress 1.2.3.4 | Remove-NsxEdgeInterfaceAddress
 
-    Removes the address group with primary address 1.2.3.4 defined on vNic 9 of the ESG esgtest.
+    Removes the address group with primary address 1.2.3.4 defined on vNic 9 of the ESG Edge01.
 
     #>
 
@@ -12971,7 +12971,7 @@ function Remove-NsxEdge {
     This cmdlet removes the specified ESG.
     .EXAMPLE
 
-    PS C:\> Get-NsxEdge TestESG | Remove-NsxEdge
+    PS C:\> Get-NsxEdge Edge01 | Remove-NsxEdge
         -confirm:$false
 
     #>
@@ -16162,7 +16162,7 @@ function Get-NsxEdgeBgp {
     .EXAMPLE
     Get the BGP configuration for Edge01
 
-    PS C:\> Get-NsxEdge Edg01 | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeBgp
 
     #>
 
@@ -16704,7 +16704,7 @@ function Get-NsxEdgeOspf {
     .EXAMPLE
     Get the OSPF configuration for Edge01
 
-    PS C:\> Get-NsxEdge Edg01 | Get-NsxEdgeRouting | Get-NsxEdgeOspf
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeOspf
 
     #>
 
@@ -25552,7 +25552,7 @@ function Get-NsxLoadBalancer {
     This cmdlet retrieves the LoadBalancer configuration from a specified Edge.
     .EXAMPLE
 
-    PS C:\> Get-NsxEdge TestESG | Get-NsxLoadBalancer
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxLoadBalancer
 
     #>
 
@@ -25798,7 +25798,7 @@ function New-NsxLoadBalancerMonitor {
 
     .EXAMPLE
 
-    PS C:\> Get-NsxEdge LB2 | Get-NsxLoadBalancer | New-NsxLoadBalancerMonitor
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | New-NsxLoadBalancerMonitor
     -Name Web-Monitor -interval 10 -Timeout 10 -MaxRetries 3 -Type
     HTTPS -Method GET -Url "/WAPI/api/status" -Expected "200 OK"
 
@@ -26078,7 +26078,7 @@ function Get-NsxLoadBalancerApplicationProfile {
 
     .EXAMPLE
 
-    PS C:\> Get-NsxEdge LoadBalancer | Get-NsxLoadBalancer |
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxLoadBalancer |
         Get-NsxLoadBalancerApplicationProfile HTTP
 
     #>
@@ -26459,7 +26459,7 @@ function New-NsxLoadBalancerPool {
         -IpAddress 192.168.200.12 -Port 80 -MonitorPort 8080
         -MaximumConnections 100
 
-    PS C:\> $WebPool = $ESG | New-NsxLoadBalancerPool -Name WebPool
+    PS C:\> $WebPool = Get-NsxEdge Edge01 | New-NsxLoadBalancerPool -Name WebPool
         -Description "WebServer Pool" -Transparent:$false -Algorithm round-robin
         -Monitor $monitor -MemberSpec $WebMember1,$WebMember2
 
@@ -27040,7 +27040,7 @@ function Add-NsxLoadBalancerVip {
     .EXAMPLE
     Example1: Need to create member specs for each of the pool members first
 
-    PS C:\> $WebVip = Get-NsxEdge DMZ_Edge_2 |
+    PS C:\> $WebVip = Get-NsxEdge Edge01 |
         New-NsxLoadBalancerVip -Name WebVip -Description "Test Creating a VIP"
         -IpAddress $edge_uplink_ip -Protocol http -Port 80
         -ApplicationProfile $AppProfile -DefaultPool $WebPool
@@ -27365,7 +27365,7 @@ function New-NsxLoadBalancerApplicationRule {
     Applies a new Application Rule across all NSX Edges.
 
     .EXAMPLE
-    Get-NsxEdge PowerNSX | Get-NsxLoadBalancer |
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer |
     New-NsxLoadBalancerApplicationRule -name AR-Redirect-VMware
     -script $script
 
