@@ -159,7 +159,7 @@ https://github.com/vmware/powernsx/issues
         }
     }
 
-    #Custom class required for Core psuedo WebResponse and exception
+    #Custom class required for Core pseudo WebResponse and exception
     $InternalWebResponse = @"
         using System;
         using System.Collections.Generic;
