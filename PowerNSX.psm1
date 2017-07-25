@@ -26162,8 +26162,6 @@ function New-NsxLoadBalancerApplicationProfile {
     sslPassthrough       : true
     template             : HTTPS
     serverSslEnabled     : false
-
-
     #>
 
     param (
@@ -26306,6 +26304,12 @@ function Remove-NsxLoadBalancerApplicationProfile {
     efficient.
 
     This cmdlet removes the specified LoadBalancer Application Profile.
+    
+    .EXAMPLE
+    This forcefully removes an Application Profile on a given NSX Load Balancer.
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerApplicationProfile -Name 
+    $WebAppProfileName | Remove-NsxLoadBalancerApplicationProfile -confirm:$false
 
     #>
 
@@ -26695,7 +26699,22 @@ function Remove-NsxLoadBalancerPool {
 
     This cmdlet removes the specified pool from the Load Balancer pool and returns
     the updated LoadBalancer.
+    
+    .EXAMPLE
+    This removes WebPool01 as a Load Balancer Pool from Edge01.
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool
+    WebPool01  | Remove-NsxLoadBalancerPool
+    
+    Pool removal is permanent.
+    Proceed with removal of Pool pool-2?
+    [Y] Yes  [N] No  [?] Help (default is "N"): y
 
+    enableServiceInsertion : false
+    accelerationEnabled    : false
+    pool                   : {WebPool}
+    monitor                : {default_tcp_monitor, default_http_monitor, default_https_monitor}
+    logging                : logging
+    edgeId                 : edge-16
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -27035,7 +27054,7 @@ function Remove-NsxLoadBalancerPoolMember {
     description : WebServer Pool
     algorithm   : round-robin
     transparent : false
-    member      : {vRA-Iaas-02}
+    member      : {Web-14, Web-33}
     edgeId      : edge-16
     #>
 
