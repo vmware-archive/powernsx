@@ -44,9 +44,30 @@ If ( (-not $Connection) -and ( -not $Connection.ViConnection.IsConnected ) ) {
 Set-StrictMode -Off
 
 #########################
-$TempDir = "$($env:Temp)\VMware\NSXObjectCapture"
+#Define Windows environment stuff
+if ($psversiontable.PSEdition -ne "Core") {
 $ExportPath = "$([system.Environment]::GetFolderPath('MyDocuments'))\VMware\NSXObjectCapture"
 $ExportFile = "$ExportPath\NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
+
+$TempDir = "$($env:Temp)\VMware\NSXObjectCapture"
+}
+#Overwrite if Core is being used.
+if ($psversiontable.PSEdition -eq "Core") {
+    #Cannot write zip file to export directory on Core
+    $ExportPath = "/tmp/VMware/NSXObjectCaptureOutput"
+    #XML output folder
+    $TempDir = "/tmp/VMware/NSXObjectCapture"
+    #Filename for output
+    $filename = "/NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
+    #FullZIP directory
+    $ExportFile = "$ExportPath/NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
+    #Checks if Core directory exists
+    if ( -not ( test-path $ExportPath )) {
+    New-Item -Type Directory $ExportPath | out-null
+    }
+}
+
+#Export
 
 $maxdepth = 5
 $maxCaptures = 10
@@ -62,6 +83,7 @@ if ( -not ( test-path $ExportPath )) {
     New-Item -Type Directory $ExportPath | out-null
 }
 
+
 $LsExportFile = "$TempDir\LsExport.xml"
 $VdPgExportFile = "$TempDir\VdPgExport.xml"
 $StdPgExportFile = "$TempDir\StdPgExport.xml"
@@ -70,7 +92,12 @@ $EdgeExportFile = "$TempDir\EdgeExport.xml"
 $VmExportFile = "$TempDir\VmExport.xml"
 $CtrlExportFile = "$TempDir\CtrlExport.xml"
 $MacAddressExportFile = "$TempDir\MacExport.xml"
-
+$IpSetExportFile = "$TempDir\IpSetExport.xml"
+$ServicesExportFile = "$TempDir\ServicesExport.xml"
+$ServiceGroupExportFile = "$TempDir\ServiceGroupExport.xml"
+$SecurityGroupExportFile = "$TempDir\SecurityGroupExport.xml"
+$SecurityTagExportFile = "$TempDir\SecurityTagExport.xml"
+$DfwRuleExportFile = "$TempDir\DfwRuleExport.xml"
 
 $LsHash = @{}
 $VdPortGroupHash = @{}
@@ -80,6 +107,12 @@ $EdgeHash = @{}
 $VmHash = @{}
 $CtrlHash = @{}
 $MacHash = @{}
+$IpSetHash = @{}
+$ServiceHash = @{}
+$ServiceGroupHash = @{}
+$SecurityGroupHash = @{}
+$SecurityTagHash = @{}
+$DfwRuleHash = @{}
 
 write-host -ForeGroundColor Green "PowerNSX Object Capture Script"
 
@@ -203,6 +236,36 @@ Get-NsxSpoofguardPolicy -connection $connection | Get-NsxSpoofguardNic -connecti
     }
 }
 
+write-host "  Getting configured IP Set objects"
+Get-NsxIpSet -connection $connection | % {
+    $IpSetHash.Add($_.objectid, $_.outerxml)
+}
+
+write-host "  Getting configured Services"
+Get-NsxService -connection $connection | % {
+    $ServiceHash.Add($_.objectid, $_.outerxml)
+}
+
+write-host "  Getting configured Service groups"
+Get-NsxServiceGroup -connection $connection | % {
+    $ServiceGroupHash.Add($_.objectid, $_.outerxml)
+}
+
+write-host "  Getting configured Security groups"
+Get-NsxSecurityGroup -connection $connection | % {
+    $SecurityGroupHash.Add($_.objectid, $_.outerxml)
+}
+
+write-host "  Getting configured Security tags"
+Get-NsxSecurityTag -connection $connection | % {
+    $SecurityTagHash.Add($_.objectid, $_.outerxml)
+}
+
+write-host "  Getting configured DFW Rules"
+Get-NsxFirewallSection | Get-NsxFirewallRule -connection $connection | % {
+    $DfwRuleHash.Add($_.id, $_.outerxml)
+}
+
 
 write-host  -ForeGroundColor Green "`nCreating Object Export Bundle"
 
@@ -215,9 +278,23 @@ $EdgeHash | export-clixml -depth $maxdepth $EdgeExportFile
 $VmHash | export-clixml -depth $maxdepth $VmExportFile
 $CtrlHash | export-clixml -depth $maxdepth $CtrlExportFile
 $MacHash | export-clixml -depth $maxdepth $MacAddressExportFile
+$IpSethash | export-clixml -depth $maxdepth $IpSetExportFile
+$ServiceHash | export-clixml -depth $maxdepth $ServicesExportFile
+$ServiceGroupHash | export-clixml -depth $maxdepth $ServiceGroupExportFile
+$SecurityGroupHash | export-clixml -depth $maxdepth $SecurityGroupExportFile
+$SecurityTagHash | export-clixml -depth $maxdepth $SecurityTagExportFile
+$DfwRulesHash | export-clixml -depth $maxdepth $DfwRuleExportFile
 
-Add-Type -assembly "system.io.compression.filesystem"
-[io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
+#Desktop extract to zip
+if ($psversiontable.PSEdition -ne "Core"){
+    Add-Type -assembly "system.io.compression.filesystem"
+    [io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
+}
+#Core Extract to ZIP
+if ($psversiontable.PSEdition -eq "Core") {
+    [system.io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
+}
+#Clean up stale captures
 $Captures = Get-ChildItem $ExportPath -filter 'NSX-ObjectCapture-*.zip'
 while ( ( $Captures | measure ).count -ge $maxCaptures ) {
 
