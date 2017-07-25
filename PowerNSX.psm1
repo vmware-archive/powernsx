@@ -26149,6 +26149,20 @@ function New-NsxLoadBalancerApplicationProfile {
 
     This cmdlet creates a new LoadBalancer Application Profile on a specified
     Load Balancer
+    
+    .EXAMPLE
+    This creates an Application Profile on a given NSX Load Balancer.
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    New-NsxLoadBalancerApplicationProfile -Name 
+    $WebAppProfileName  -Type $VipProtocol –SslPassthrough
+
+    applicationProfileId : applicationProfile-1
+    name                 : AP-Web
+    insertXForwardedFor  : false
+    sslPassthrough       : true
+    template             : HTTPS
+    serverSslEnabled     : false
+
 
     #>
 
@@ -26569,10 +26583,54 @@ function Get-NsxLoadBalancerPool {
     This cmdlet retrieves LoadBalancer pools from the specified LoadBalancer.
 
     .EXAMPLE
+    Retrieves all configured Load Balancer pools.
+    
+    PS PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerPool
 
-    PS C:\> Get-NsxEdge | Get-NsxLoadBalancer |
-        Get-NsxLoadBalancerPool
+    poolId      : pool-2
+    name        : WebPool01
+    description : WebServer Pool
+    algorithm   : round-robin
+    transparent : false
+    member      : {Web-11, Web-10}
+    edgeId      : edge-16
+    
+    poolId      : pool-4
+    name        : AppPool01
+    description : AppServer Pool
+    algorithm   : round-robin
+    transparent : false
+    member      : {App-03, App-06}
+    edgeId      : edge-16
+   
+    .EXAMPLE
+    Retrieves Load Balancer pool by name
+    
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerPool -Name WebPool01
 
+    poolId      : pool-2
+    name        : WebPool01
+    description : WebServer Pool
+    algorithm   : round-robin
+    transparent : false
+    member      : {Web-11, Web-10}
+    edgeId      : edge-16
+    
+    .EXAMPLE
+    Retrieves Load Balancer pool by poolId
+    
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerPool -PoolId pool-2
+
+    poolId      : pool-2
+    name        : WebPool01
+    description : WebServer Pool
+    algorithm   : round-robin
+    transparent : false
+    member      : {Web-11, Web-10}
+    edgeId      : edge-16
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
@@ -26723,6 +26781,73 @@ function Get-NsxLoadBalancerPoolMember {
 
     This cmdlet retrieves the members of the specified LoadBalancer Pool.
 
+    .EXAMPLE
+    Retrieves all members from WebPool01
+    
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool 
+    WebPool01 | Get-NsxLoadBalancerPoolMember
+
+    memberId    : member-2
+    ipAddress   : 172.16.101.4
+    weight      : 1
+    monitorPort : 443
+    port        : 443
+    maxConn     : 0
+    minConn     : 0
+    condition   : enabled
+    name        : Web-03
+    edgeId      : edge-16
+    poolId      : pool-2
+
+    memberId    : member-3
+    ipAddress   : 192.168.200.13
+    weight      : 15
+    monitorPort : 80
+    port        : 80
+    maxConn     : 3000
+    minConn     : 10
+    condition   : enabled
+    name        : Web-10
+    edgeId      : edge-16
+    poolId      : pool-2
+    
+    .EXAMPLE
+    Retrieves specific member by name from WebPool01
+    
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool 
+    WebPool01 | Get-NsxLoadBalancerPoolMember -Name Web-10
+
+
+    memberId    : member-3
+    ipAddress   : 192.168.200.13
+    weight      : 15
+    monitorPort : 80
+    port        : 80
+    maxConn     : 3000
+    minConn     : 10
+    condition   : enabled
+    name        : Web-10
+    edgeId      : edge-16
+    poolId      : pool-2
+
+    .EXAMPLE
+    Retrieves specific member by memberId from WebPool01
+    
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | 
+    Get-NsxLoadBalancerPool WebPool01 
+    | Get-NsxLoadBalancerPoolMember -MemberId member-3
+
+    memberId    : member-3
+    ipAddress   : 192.168.200.13
+    weight      : 15
+    monitorPort : 80
+    port        : 80
+    maxConn     : 3000
+    minConn     : 10
+    condition   : enabled
+    name        : Web-10
+    edgeId      : edge-16
+    poolId      : pool-2
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
@@ -26788,6 +26913,18 @@ function Add-NsxLoadBalancerPoolMember {
     This cmdlet adds a new member to the specified LoadBalancer Pool and
     returns the updated Pool.
 
+    .EXAMPLE
+    Adds a Pool Member to Load Balanver Pool WebPool01 on Edge01
+    PS /> Get-nsxedge Edge01 | Get-NsxLoadBalancer |
+    Get-NsxLoadBalancerPool WebPool01 | Add-NsxLoadBalancerPoolMember -
+    name Web-10 -IpAddress 192.168.200.13 -Port 80 -Weight 15 
+    -MinimumConnections 10 -MaximumConnections 3000
+                                                                                                                                                                                                                                  poolId      : pool-2                                                                                             name        : WebPool01
+    description : WebServer Pool
+    algorithm   : round-robin
+    transparent : false
+    member      : {Web-09, Web-07, Web-01, Web-10}
+    edgeId      : edge-16
     #>
 
     param (
@@ -26886,7 +27023,20 @@ function Remove-NsxLoadBalancerPoolMember {
 
     This cmdlet removes the specified member from the specified pool and returns
      the updated Pool.
+    .EXAMPLE
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool
+    WebPool01 | Get-NsxLoadBalancerPoolMember Web-10 | 
+    Remove-NsxLoadBalancerPoolMember
 
+    Pool Member removal is permanent.
+    Proceed with removal of Pool Member member-3?
+    [Y] Yes  [N] No  [?] Help (default is "N"): Y
+    
+    description : WebServer Pool
+    algorithm   : round-robin
+    transparent : false
+    member      : {vRA-Iaas-02}
+    edgeId      : edge-16
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -26974,6 +27124,24 @@ function Get-NsxLoadBalancerVip {
 
     This cmdlet retrieves the configured Virtual Servers from the specified Load
     Balancer.
+
+    .EXAMPLE 
+    This example creates a Virtual Server or VIP to an NSX Edge Load Balancer.
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip
+    -name $WebVipName -Description $WebVipName -ipaddress 
+    $EdgeUplinkSecondaryAddress -Protocol $VipProtocol -Port $HttpPort 
+    -ApplicationProfile $WebAppProfile -DefaultPool $WebPool -AccelerationEnabled 
+    -enabled
+                                                                                                                                                                version                : 9                                                      enabled                : true
+    enableServiceInsertion : false
+    accelerationEnabled    : false
+    virtualServer          : virtualServer
+    pool                   : pool
+    applicationProfile     : applicationProfile
+    monitor                : {default_tcp_monitor, default_http_monitor,
+                            default_https_monitor}
+    logging                : logging
+    edgeId                 : edge-3
 
     #>
 
@@ -27161,7 +27329,15 @@ function Remove-NsxLoadBalancerVip {
     Application Profile.
 
     This cmdlet remove a VIP from the specified Load Balancer.
+    
+    .EXAMPLE
+    This removes a specified Virtual Server or VIP from an NSX Load Balancer.
+    PS /> Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Get-NsxLoadBalancerVip
+    –name Web_VIP | Remove-NsxLoadBalancerVip
 
+    VIP removal is permanent.
+    Proceed with removal of VIP virtualServer-1 on Edge edge-3?
+    [Y] Yes  [N] No  [?] Help (default is "N"): Y    
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
