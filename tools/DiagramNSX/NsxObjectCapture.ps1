@@ -45,22 +45,24 @@ Set-StrictMode -Off
 
 #########################
 #Define Windows environment stuff
+$filename = "NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
+
 if ($psversiontable.PSEdition -ne "Core") {
-$ExportPath = "$([system.Environment]::GetFolderPath('MyDocuments'))\VMware\NSXObjectCapture"
-$ExportFile = "$ExportPath\NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
+$ExportPath = "$([system.Environment]::GetFolderPath('MyDocuments'))\VMware\NSXObjectCapture\"
+$ExportFile = "$ExportPath $filename"
 
 $TempDir = "$($env:Temp)\VMware\NSXObjectCapture"
 }
 #Overwrite if Core is being used.
-if ($psversiontable.PSEdition -eq "Core") {
+else {
     #Cannot write zip file to export directory on Core
-    $ExportPath = "/tmp/VMware/NSXObjectCaptureOutput"
+    $ExportPath = "/tmp/VMware/NSXObjectCaptureOutput/"
     #XML output folder
-    $TempDir = "/tmp/VMware/NSXObjectCapture"
+    $TempDir = "/tmp/VMware/NSXObjectCapture/"
     #Filename for output
-    $filename = "/NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
+    
     #FullZIP directory
-    $ExportFile = "$ExportPath/NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
+    $ExportFile = "$ExportPath$filename"
     #Checks if Core directory exists
     if ( -not ( test-path $ExportPath )) {
     New-Item -Type Directory $ExportPath | out-null
@@ -291,7 +293,7 @@ if ($psversiontable.PSEdition -ne "Core"){
     [io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
 }
 #Core Extract to ZIP
-if ($psversiontable.PSEdition -eq "Core") {
+else {
     [system.io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
 }
 #Clean up stale captures
