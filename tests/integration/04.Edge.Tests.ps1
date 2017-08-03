@@ -13,9 +13,9 @@ Describe "Edge" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
-        $script:cl = get-cluster | select -first 1
+        $script:cl = get-cluster | select-object -first 1
         write-warning "Using cluster $cl for edge appliance deployment"
-        $script:ds = $cl | get-datastore | select -first 1
+        $script:ds = $cl | get-datastore | select-object -first 1
         write-warning "Using datastore $ds for edge appliance deployment"
 
         #Put any script scope variables you need to reference in your tests.
@@ -48,19 +48,22 @@ Describe "Edge" {
         $script:PrefixNetwork = "1.2.3.0/24"
         $script:Password = "VMware1!VMware1!"
         $script:tenant = "pester_e_tenant1"
-        $tz = get-nsxtransportzone -LocalOnly | select -first 1
+        $tz = get-nsxtransportzone -LocalOnly | select-object -first 1
         $script:lswitches = @()
         $script:lswitches += $tz | new-nsxlogicalswitch $ls1_name
         $script:lswitches += $tz | new-nsxlogicalswitch $ls2_name
         $script:lswitches += $tz | new-nsxlogicalswitch $ls3_name
         $script:lswitches += $tz | new-nsxlogicalswitch $ls4_name
         $script:lswitches += $tz | new-nsxlogicalswitch $ls5_name
-        $script:pg1 = $cl | get-vmhost | Get-VDSwitch | Select -first 1 |  New-VDPortgroup -name $pg1_name
+        $script:pg1 = $cl | get-vmhost | Get-VDSwitch | select-object -first 1 |  New-VDPortgroup -name $pg1_name
         $script:vnics = @()
         $script:vnics += New-NsxEdgeInterfaceSpec -index 1 -Type uplink -Name "vNic1" -ConnectedTo $lswitches[0] -PrimaryAddress $ip1 -SubnetPrefixLength 24
         $script:vnics += New-NsxEdgeInterfaceSpec -index 2 -Type internal -Name "vNic2" -ConnectedTo $lswitches[1] -PrimaryAddress $ip2 -SubnetPrefixLength 24
         $script:vnics += New-NsxEdgeInterfaceSpec -index 3 -Type trunk -Name "vNic3" -ConnectedTo $pg1
-
+        $script:preexistingrulename = "pester_e_testrule1"
+        $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+        $edge | get-nsxedgefirewall | new-nsxedgefirewallrule -name $preexistingrulename -action accept
+        $script:scopedservice = New-NsxService -scope $edge.id -Name "pester_e_scopedservice" -Protocol "TCP" -port "1234"
     }
 
     AfterAll {
@@ -79,14 +82,14 @@ Describe "Edge" {
         disconnect-nsxserver
     }
 
-    it "Can deploy a new edge" {
-        #hostname is important - otherwise we default to the vm name, and _ arent supported
-        $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
-        $edge | should not be $null
-        get-nsxedge $name | should not be $null
-    }
-
     Context "Interfaces" {
+
+        BeforeAll{
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+            }
+        }
+
         it "Can add an edge vnic" {
             $nic = Get-NsxEdge $name | Get-NsxEdgeInterface -Index 4 | Set-NsxEdgeInterface -Name "vNic4" -Type internal -ConnectedTo $lswitches[3] -PrimaryAddress $ip4 -SubnetPrefixLength 24
             $nic = Get-NsxEdge $name | Get-NsxEdgeInterface -Index 4
@@ -135,6 +138,13 @@ Describe "Edge" {
     }
 
     Context "Static Routing" {
+
+        BeforeAll{
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+            }
+        }
+
         It "Can configure the default route" {
             Get-NsxEdge $name | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayVnic 1 -DefaultGatewayAddress $dgaddress -Confirm:$false
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
@@ -161,6 +171,12 @@ Describe "Edge" {
 
     Context "Route Prefixes" {
 
+        BeforeAll{
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+            }
+        }
+
         it "Can create a route prefix" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
@@ -178,6 +194,11 @@ Describe "Edge" {
 
     Context "OSPF" {
 
+        BeforeAll{
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+            }
+        }
         It "Can enable OSPF and define router id" {
             Get-NsxEdge $Name | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableOspf -RouterId $routerId -Confirm:$false
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
@@ -211,7 +232,7 @@ Describe "Edge" {
             $rtg | New-NsxEdgePrefix -Name $ospfPrefixName -Network $PrefixNetwork -confirm:$false
             Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgePrefix -name $ospfPrefixName | should not be $null
             Get-NsxEdge $Name | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName $ospfPrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
-            $rule = Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner ospf  | ? { $_.prefixName -eq $ospfPrefixName }
+            $rule = Get-NsxEdge $Name | Get-NsxEdgeRouting | Get-NsxEdgeRedistributionRule -learner ospf  | where-object { $_.prefixName -eq $ospfPrefixName }
             $rule.from.connected | should be "true"
             $rule.from.static | should be "true"
         }
@@ -251,9 +272,14 @@ Describe "Edge" {
         }
     }
 
-
-
     Context "BGP" {
+
+        BeforeAll{
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+            }
+        }
+
         it "Can enable BGP" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
@@ -320,6 +346,12 @@ Describe "Edge" {
 
     Context "Grouping Objects" {
 
+        BeforeAll{
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+            }
+        }
+
         it "Can retrieve locally created IP Sets" {
         }
 
@@ -327,6 +359,244 @@ Describe "Edge" {
         }
 
         it "Can remove local IP Sets" {
+        }
+    }
+
+    Context "Edge Firewall" {
+
+        it "Can retrieve edge firewall rules" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule $preexistingrulename
+            $rule | should not be $null
+            $rule.name | should be $preexistingrulename
+        }
+
+        It "Can add a simple edge firewall rule" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule1" -comment "testrule1" -action accept
+            $rule | should not be $null
+            $rule.name | should be "testrule1"
+            $rule.description | should be "testrule1"
+        }
+
+        It "Can add an edge firewall rule with service by existing nsx service object" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule2" -comment "testrule2" -service $scopedservice -action accept
+            $rule | should not be $null
+            $rule.application.applicationId -contains $scopedservice.objectid | should be $true
+        }
+
+        It "Can add an edge firewall rule with service by protocol and port" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule3" -comment "testrule3" -service tcp/4321 -action accept
+            $rule | should not be $null
+            $rule.application.service.protocol -contains "tcp" | should be $true
+            $rule.application.service.port -contains "4321" | should be $true
+        }
+
+        It "Can add an edge firewall rule with service by protocol only" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule4" -comment "testrule4" -service tcp -action accept
+            $rule | should not be $null
+            $rule.application.service.protocol -contains "tcp" | should be $true
+            # $rule.application.service.port -contains "any" | should be $true
+        }
+
+        It "Can remove an edge firewall rule" {
+            $removerulename = "test_removerule1"
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name $removerulename -comment $removerulename -service tcp -action accept
+            $rule | should not be $null
+            { $rule | Remove-NsxEdgeFirewallRule -NoConfirm } | should not throw
+            $getrule = Get-NsxEdge $name | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -name $removerulename
+            $getrule | should be $null
+        }
+
+        It "Can add an edge firewall rule with logging enabled" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule5" -comment "testrule5" -enablelogging -action accept
+            $rule | should not be $null
+            $rule.loggingEnabled | should be "true"
+        }
+
+        It "Can add an edge firewall rule with multiple source members" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule6" -comment "testrule6" -source "1.2.3.4","4.3.2.1" -action accept
+            $rule | should not be $null
+            $rule.source.ipaddress -contains "1.2.3.4" | should be "true"
+            $rule.source.ipaddress -contains "4.3.2.1" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with multiple destination members" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule7" -comment "testrule7" -destination "1.2.3.4","4.3.2.1" -action accept
+            $rule | should not be $null
+            $rule.destination.ipaddress -contains "1.2.3.4" | should be "true"
+            $rule.destination.ipaddress -contains "4.3.2.1" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with negated sources" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule8" -comment "testrule8" -source "1.2.3.4" -negateSource -action accept
+            $rule | should not be $null
+            $rule.source.ipaddress -contains "1.2.3.4" | should be "true"
+            $rule.source.exclude | should be "true"
+        }
+
+        It "Can add an edge firewall rule with negated destination" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule8" -comment "testrule8" -destination "1.2.3.4" -negateDestination -action accept
+            $rule | should not be $null
+            $rule.destination.ipaddress -contains "1.2.3.4" | should be "true"
+            $rule.destination.exclude | should be "true"
+        }
+
+        It "Can add an edge firewall rule with specific nic source" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule9" -comment "testrule9" -sourceVnic 0 -action accept
+            $rule | should not be $null
+            $rule.source.vnicGroupId -contains "vnic-index-0" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with internal nic source" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule10" -comment "testrule10" -sourceVnic internal -action accept
+            $rule | should not be $null
+            $rule.source.vnicGroupId -contains "internal" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with external nic source" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule11" -comment "testrule11" -sourceVnic external -action accept
+            $rule | should not be $null
+            $rule.source.vnicGroupId -contains "external" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with vse nic source" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule12" -comment "testrule12" -sourceVnic vse -action accept
+            $rule | should not be $null
+            $rule.source.vnicGroupId -contains "vse" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with specific nic destination" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule13" -comment "testrule13" -destinationVnic 1 -action accept
+            $rule | should not be $null
+            $rule.destination.vnicGroupId -contains "vnic-index-1" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with internal nic destination" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule14" -comment "testrule14" -destinationVnic internal -action accept
+            $rule | should not be $null
+            $rule.destination.vnicGroupId -contains "internal" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with external nic destination" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule15" -comment "testrule15" -destinationVnic external -action accept
+            $rule | should not be $null
+            $rule.destination.vnicGroupId -contains "external" | should be "true"
+        }
+
+        It "Can add an edge firewall rule with vse nic destination" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule16" -comment "testrule16" -destinationVnic vse -action accept
+            $rule | should not be $null
+            $rule.destination.vnicGroupId -contains "vse" | should be "true"
+        }
+
+        It "Can add an edge firewall rule above an existing rule" {
+            $existingrule = Get-NsxEdge $name | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule $preexistingrulename
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule17" -comment "testrule17" -aboveRuleId $existingRule.id -action accept
+            $rule | should not be $null
+            $fw = Get-NsxEdge $name | Get-NsxEdgeFirewall
+            ($fw.firewallRules.firewallRule | where-object { $_.ruleType -eq 'user' } | select-object -first 1).id | should be $rule.id
+        }
+
+        It "Can add an edge firewall rule with deny action" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule18" -comment "testrule16"  -action deny
+            $rule | should not be $null
+            $rule.action | should be "deny"
+        }
+
+        It "Can add an edge firewall rule with reject action" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule19" -comment "testrule16" -action reject
+            $rule | should not be $null
+            $rule.action | should be "reject"
+        }
+
+        It "Can disable the edge firewall" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -Enabled:$false -NoConfirm
+            $config.enabled | should be "false"
+        }
+
+        It "Can set edge default rule action" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -DefaultRuleAction "accept" -NoConfirm
+            $config.defaultPolicy.action | should be "accept"
+
+        }
+
+        It "Can disable edge default rule logging" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -DefaultRuleLoggingEnabled:$false -NoConfirm
+            $config.defaultPolicy.loggingEnabled | should be "false"
+        }
+
+        It "Can set edge globalConfig option tcpPickOngoingConnections" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -tcpPickOngoingConnections -NoConfirm
+            $config.globalConfig.tcpPickOngoingConnections | should be "true"
+        }
+
+        It "Can set edge globalConfig option tcpAllowOutOfWindowPackets" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -tcpAllowOutOfWindowPackets -NoConfirm
+            $config.globalConfig.tcpAllowOutOfWindowPackets | should be "true"
+        }
+
+        It "Can set edge globalConfig option tcpSendResetForClosedVsePorts" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -tcpSendResetForClosedVsePorts:$false -NoConfirm
+            $config.globalConfig.tcpSendResetForClosedVsePorts | should be "false"
+        }
+
+        It "Can set edge globalConfig option dropInvalidTraffic" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -dropInvalidTraffic:$false -NoConfirm
+            $config.globalConfig.dropInvalidTraffic | should be "false"
+        }
+
+        It "Can set edge globalConfig option logInvalidTraffic" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -logInvalidTraffic -NoConfirm
+            $config.globalConfig.logInvalidTraffic | should be "true"
+        }
+
+        It "Can set edge globalConfig option tcpTimeoutOpen" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -tcpTimeoutOpen 40 -NoConfirm
+            $config.globalConfig.tcpTimeoutOpen | should be "40"
+        }
+
+        It "Can set edge globalConfig option tcpTimeoutEstablished" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -tcpTimeoutEstablished 45200 -NoConfirm
+            $config.globalConfig.tcpTimeoutEstablished | should be "45200"
+        }
+
+        It "Can set edge globalConfig option tcpTimeoutClose" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -tcpTimeoutClose 40 -NoConfirm
+            $config.globalConfig.tcpTimeoutClose | should be "40"
+        }
+
+        It "Can set edge globalConfig option udpTimeout" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -udpTimeout 70 -NoConfirm
+            $config.globalConfig.udpTimeout | should be "70"
+        }
+
+        It "Can set edge globalConfig option icmpTimeout" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -icmpTimeout 20 -NoConfirm
+            $config.globalConfig.icmpTimeout | should be "20"
+        }
+
+        It "Can set edge globalConfig option icmp6Timeout" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -icmp6Timeout 20 -NoConfirm
+            $config.globalConfig.icmp6Timeout | should be "20"
+        }
+
+        It "Can set edge globalConfig option ipGenericTimeout" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -ipGenericTimeout 130 -NoConfirm
+            $config.globalConfig.ipGenericTimeout | should be "130"
+        }
+
+        It "Can set edge globalConfig option enableSynFloodProtection" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -enableSynFloodProtection -NoConfirm
+            $config.globalConfig.enableSynFloodProtection | should be "true"
+        }
+
+        It "Can set edge globalConfig option logIcmpErrors" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -logIcmpErrors -NoConfirm
+            $config.globalConfig.logIcmpErrors | should be "true"
+        }
+
+        It "Can set edge globalConfig option dropIcmpReplays" {
+            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -dropIcmpReplays -NoConfirm
+            $config.globalConfig.dropIcmpReplays | should be "true"
         }
     }
 
