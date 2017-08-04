@@ -2762,9 +2762,10 @@ Function ValidateLoadBalancerPoolMember {
         if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) {
             throw "XML Element specified does not contain an edgeId property."
         }
-        if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) {
-            throw "XML Element specified does not contain an ipAddress property."
-        }
+        #Disable check because it can be also a groupingObjectId...
+        #if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) {
+        #    throw "XML Element specified does not contain an ipAddress property."
+        #}
         if ( -not ( $argument | get-member -name name -Membertype Properties)) {
             throw "XML Element specified does not contain a name property."
         }
