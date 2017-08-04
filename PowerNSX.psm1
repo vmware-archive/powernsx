@@ -1842,7 +1842,7 @@ Function ValidateEdgeNat {
         $true
     }
     else {
-        throw "Specify a valid LoadBalancer object."
+        throw "Specify a valid EdgeNat object."
     }
 }
 
@@ -1857,30 +1857,88 @@ Function ValidateEdgeNatRule {
     if ($argument -is [System.Xml.XmlElement] ) {
 
         if ( -not ( $argument | get-member -name ruleId -Membertype Properties)) {
-            throw "XML Element specified does not contain a ruleId property."
+            throw "XML Element specified does not contain a ruleId property. Specify a valid EdgeNatRule object."
         }
         if ( -not ( $argument | get-member -name ruleType -Membertype Properties)) {
-            throw "XML Element specified does not contain a ruleType property."
+            throw "XML Element specified does not contain a ruleType property. Specify a valid EdgeNatRule object."
         }
         if ( -not ( $argument | get-member -name action -Membertype Properties)) {
-            throw "XML Element specified does not contain an action property."
+            throw "XML Element specified does not contain an action property. Specify a valid EdgeNatRule object."
         }
         if ( -not ( $argument | get-member -name vnic -Membertype Properties)) {
-            throw "XML Element specified does not contain a vnic property."
+            throw "XML Element specified does not contain a vnic property. Specify a valid EdgeNatRule object."
         }
         if ( -not ( $argument | get-member -name translatedAddress -Membertype Properties)) {
-            throw "XML Element specified does not contain a translatedAddress property."
+            throw "XML Element specified does not contain a translatedAddress property. Specify a valid EdgeNatRule object."
         }
         if ( -not ( $argument | get-member -name originalAddress -Membertype Properties)) {
-            throw "XML Element specified does not contain an originalAddress property."
+            throw "XML Element specified does not contain an originalAddress property. Specify a valid EdgeNatRule object."
         }
         if ( -not ( $argument | get-member -name enabled -Membertype Properties)) {
-            throw "XML Element specified does not contain an enabled property."
+            throw "XML Element specified does not contain an enabled property. Specify a valid EdgeNatRule object."
         }
         $true
     }
     else {
-        throw "Specify a valid LoadBalancer object."
+        throw "Specify a valid EdgeNatRule object."
+    }
+}
+
+Function ValidateEdgeFw {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an EdgeFW element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) {
+            throw "XML Element specified does not contain an enabled property.  Specify a valid Edge Firewall object."
+        }
+        if ( -not ( $argument | get-member -name globalConfig -Membertype Properties)) {
+            throw "XML Element specified does not contain a globalConfig property.  Specify a valid Edge Firewall object."
+        }
+        if ( -not ( $argument | get-member -name defaultPolicy -Membertype Properties)) {
+            throw "XML Element specified does not contain a defaultPolicy property.  Specify a valid Edge Firewall object."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) {
+            throw "XML Element specified does not contain an edgeId property.  Specify a valid Edge Firewall object."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Edge Firewall object."
+    }
+}
+
+Function ValidateEdgeFwRule {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an EdgeFWRule element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name id -Membertype Properties)) {
+            throw "XML Element specified does not contain an id property.  Specify a valid Edge FirewallRule object."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) {
+            throw "XML Element specified does not contain an EdgeId property.  Specify a valid Edge FirewallRule object."
+        }
+        if ( -not ( $argument | get-member -name ruleType -Membertype Properties)) {
+            throw "XML Element specified does not contain a ruleType property.  Specify a valid Edge FirewallRule object."
+        }
+        if ( -not ( $argument | get-member -name action -Membertype Properties)) {
+            throw "XML Element specified does not contain an action property.  Specify a valid Edge FirewallRule object."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Edge FirewallRule object."
     }
 }
 
@@ -2414,6 +2472,56 @@ Function ValidateFirewallRuleService {
         }
     }
 }
+
+Function ValidateEdgeFirewallRuleService {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    switch ($argument) {
+        # Testing to see if a raw protocol/port has been provided.
+        { $argument -is [string]} {
+
+            ## NB : Need to populate AllValidEdgeServices, and I havent yet found how to get this list.
+            ## In mean time, we will rely on the API pushing back in event of invalid service being specified by user.
+
+            # Now we check to see that the protocol provided is valid.
+            # if ($argument -match "/") {
+            #     $exploded = $argument -split "/"
+            #     if ( -not ($Script:AllValidEdgeServices -contains $exploded[0] ) ) {
+            #         throw "Invalid protocol specified"
+            #     }
+            # } elseif ( $Script:AllValidEdgeServices -notcontains $argument ) {
+            #     throw "Invalid protocol specified"
+            # }
+            $true
+            break
+        }
+        # If an single xml element object or a collection of objects have been provide,
+        # then we run it through validation to stop doing stupid stuff like trying to pass
+        # a logical switch or IP Set through to here.
+        { ($argument -is [System.Xml.XmlElement]) -or ($argument -is [System.Object])} {
+            foreach ( $item in $argument ) {
+                try {
+                    ValidateService -argument $item
+                }
+                catch {
+                    try {
+                        ValidateServiceGroup -argument $item
+                    }
+                    catch {
+                        throw "Invalid Service or Service Group specified"
+                    }
+                }
+            }
+            $true
+            break
+        }
+    }
+}
+
 
 Function ValidateFirewallAppliedTo {
 
@@ -13555,6 +13663,639 @@ function Remove-NsxEdgeNatRule {
 
 #########
 #########
+# Edge FW related functions
+
+function Set-NsxEdgeFirewall {
+
+    <#
+    .SYNOPSIS
+    Configures global Firewall configuration of an existing NSX Edge Services
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The NSX Edge provides layer 3/4 firewall services to protect connected
+    networks.  the Edge firewall is separate, and can be used to complement the
+    NSX distributed firewall
+
+    The Set-NsxEdgeFirewall cmdlet configures the global FW configuration of
+    the specified Edge Services Gateway.
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateEdgeFw $_ })]
+            [System.Xml.XmlElement]$EdgeFirewall,
+        [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            #Enable / Disable Edge Firewall
+            [switch]$Enabled,
+        [Parameter (Mandatory=$False)]
+            #Default rule action
+            [ValidateSet("accept","deny","reject", IgnoreCase=$False)]
+            [string]$DefaultRuleAction,
+        [Parameter (Mandatory=$False)]
+            #Default rule logging configuration
+            [switch]$DefaultRuleLoggingEnabled,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [switch]$tcpPickOngoingConnections,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [switch]$tcpAllowOutOfWindowPackets,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [switch]$tcpSendResetForClosedVsePorts,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [switch]$dropInvalidTraffic,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [switch]$logInvalidTraffic,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [int]$tcpTimeoutOpen,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [int]$tcpTimeoutEstablished,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [int]$tcpTimeoutClose,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [int]$udpTimeout,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [int]$icmpTimeout,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [int]$icmp6Timeout,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [int]$ipGenericTimeout,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [switch]$enableSynFloodProtection,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [switch]$logIcmpErrors,
+        [Parameter (Mandatory=$False)]
+            #Edge Firewall global config option
+            [switch]$dropIcmpReplays,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
+    }
+
+    process {
+
+        #Create private xml element
+        $_EdgeFirewall = $EdgeFirewall.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $EdgeFirewall.edgeId
+        $_EdgeFirewall.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeFirewall -Query 'descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled') ) {
+            $_EdgeFirewall.enabled = $enabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('DefaultRuleAction') ) {
+            $_EdgeFirewall.defaultPolicy.action = $DefaultRuleAction.ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('DefaultRuleLoggingEnabled') ) {
+            $_EdgeFirewall.defaultPolicy.loggingEnabled = $DefaultRuleLoggingEnabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('tcpPickOngoingConnections') ) {
+            $_EdgeFirewall.globalConfig.tcpPickOngoingConnections = $tcpPickOngoingConnections.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('tcpAllowOutOfWindowPackets') ) {
+            $_EdgeFirewall.globalConfig.tcpAllowOutOfWindowPackets = $tcpAllowOutOfWindowPackets.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('tcpSendResetForClosedVsePorts') ) {
+            $_EdgeFirewall.globalConfig.tcpSendResetForClosedVsePorts = $tcpSendResetForClosedVsePorts.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('dropInvalidTraffic') ) {
+            $_EdgeFirewall.globalConfig.dropInvalidTraffic = $dropInvalidTraffic.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('logInvalidTraffic') ) {
+            $_EdgeFirewall.globalConfig.logInvalidTraffic = $logInvalidTraffic.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('tcpTimeoutOpen') ) {
+            $_EdgeFirewall.globalConfig.tcpTimeoutOpen = $tcpTimeoutOpen.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('tcpTimeoutEstablished') ) {
+            $_EdgeFirewall.globalConfig.tcpTimeoutEstablished = $tcpTimeoutEstablished.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('tcpTimeoutClose') ) {
+            $_EdgeFirewall.globalConfig.tcpTimeoutClose = $tcpTimeoutClose.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('udpTimeout') ) {
+            $_EdgeFirewall.globalConfig.udpTimeout = $udpTimeout.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('icmpTimeout') ) {
+            $_EdgeFirewall.globalConfig.icmpTimeout = $icmpTimeout.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('icmp6Timeout') ) {
+            $_EdgeFirewall.globalConfig.icmp6Timeout = $icmp6Timeout.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('ipGenericTimeout') ) {
+            $_EdgeFirewall.globalConfig.ipGenericTimeout = $ipGenericTimeout.ToString()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('enableSynFloodProtection') ) {
+            if ( [version]$Connection.Version -lt [version]"6.2.3") {
+                write-warning "The option enableSynFloodProtection requires at least NSX version 6.2.3"
+            }
+            else {
+                $_EdgeFirewall.globalConfig.enableSynFloodProtection = $enableSynFloodProtection.ToString().ToLower()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('logIcmpErrors') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option logIcmpErrors requires at least NSX version 6.3.0"
+            }
+            else {
+                $_EdgeFirewall.globalConfig.logIcmpErrors = $logIcmpErrors.ToString().ToLower()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('dropIcmpReplays') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option dropIcmpReplays requires at least NSX version 6.3.0"
+            }
+            else {
+                $_EdgeFirewall.globalConfig.dropIcmpReplays = $dropIcmpReplays.ToString().ToLower()
+            }
+        }
+
+        $URI = "/api/4.0/edges/$($EdgeId)/firewall/config"
+        $body = $_EdgeFirewall.OuterXml
+
+        if ( -not ( $Noconfirm )) {
+            $message  = "Edge Services Gateway firewall configuration update will modify and existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeFirewall
+        }
+    }
+
+    end {}
+}
+
+function Get-NsxEdgeFirewall {
+
+    <#
+    .SYNOPSIS
+    Gets global Firewall configuration of an existing NSX Edge Services
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The NSX Edge provides layer 3/4 firewall services to protect connected
+    networks.  the Edge firewall is separate from, and can be used to complement
+    the NSX distributed firewall.
+
+    The Get-NsxEdgeFirewall cmdlet retrieves the global FW configuration of
+    the specified Edge Services Gateway.
+
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateEdge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+
+    begin {
+    }
+
+    process {
+
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and
+        #consistent readable output
+
+        $_EdgeFw = $Edge.features.firewall.CloneNode($True)
+        Add-XmlElement -xmlRoot $_EdgeFw -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_EdgeFw
+    }
+
+    end {}
+}
+
+function Get-NsxEdgeFirewallRule {
+
+    <#
+    .SYNOPSIS
+    Retrieves Firewall rules from the spcified NSX Edge Services Gateway Firewall
+    configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The NSX Edge provides layer 3/4 firewall services to protect connected
+    networks.  the Edge firewall is separate from, and can be used to complement
+    the NSX distributed firewall.
+
+    The Get-NsxEdgeFirewallRule cmdlet retrieves configured firewall rules on
+    the specified Edge Services Gateway.
+
+    #>
+    [CmdLetBinding (DefaultParameterSetName="Name")]
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ ValidateEdgeFw $_ })]
+            [System.Xml.XmlElement]$EdgeFirewall,
+        [Parameter (Mandatory=$false, ParameterSetName="RuleId")]
+            [ValidateNotNullorEmpty()]
+            [String]$RuleId,
+        [Parameter (Mandatory=$false, ParameterSetName="Name", Position=1)]
+            [ValidateNotNullorEmpty()]
+            [String]$Name
+    )
+
+    begin {
+    }
+
+    process {
+
+        #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and
+        #consistent readable output
+
+        $_EdgeFirewall = ($EdgeFirewall.CloneNode($True))
+        $_EdgeFirewallRules = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeFirewall -Query 'descendant::firewallRules')
+
+        #Need to use an xpath query here, as dot notation will throw in strict mode if there is not childnode called natRule.
+        If ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeFirewallRules -Query 'descendant::firewallRule')) {
+
+            $RuleCollection = $_EdgeFirewallRules.FirewallRule
+            if ( $PsBoundParameters.ContainsKey('RuleId')) {
+                $RuleCollection = $RuleCollection | where-object { $_.id -eq $RuleId }
+            }
+            elseif ($PsBoundParameters.ContainsKey("Name")) {
+                $RuleCollection = $RuleCollection | where-object { $_.Name -eq $Name }
+            }
+
+            foreach ( $Rule in $RuleCollection ) {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "edgeId" -xmlElementText $EdgeFirewall.EdgeId
+            }
+
+            $RuleCollection
+        }
+    }
+
+    end {}
+}
+
+function New-NsxEdgeFirewallRule {
+
+    <#
+    .SYNOPSIS
+    Creates a new NSX Edge firewall rule on the specified ESG.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The NSX Edge provides layer 3/4 firewall services to protect connected
+    networks.  the Edge firewall is separate from, and can be used to
+    complement the NSX distributed firewall.
+
+    The New-NsxEdgeFirewallRule cmdlet configures new firewall rules on
+    the specified Edge Services Gateway.
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateEdgeFw $_ })]
+            [System.Xml.XmlElement]$EdgeFireWall,
+        [Parameter (Mandatory=$true)]
+            # Name of the new rule
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            # Comment string for the new rule
+            [string]$Comment="",
+        [Parameter (Mandatory=$true)]
+            # Action of the rule - allow, deny or reject.
+            [ValidateSet("accept","deny","reject")]
+            [string]$Action,
+        [Parameter (Mandatory=$false)]
+            # Source(s) of traffic to hit the rule.  IP4/6 members are specified as string, any other member as the appropriate VI or PowerNSX object.
+            [ValidateScript({ ValidateFirewallRuleSourceDest $_ })]
+            [object[]]$Source,
+        [Parameter (Mandatory=$false)]
+            # Source(s) vNics of traffic to hit the rule.  Valid options are 0 - 9, internal, external, vse
+            [ValidateSet("0","1","2","3","4","5","6","7","8","9", "internal", "external", "vse")]
+            [string[]]$SourceVnic,
+        [Parameter (Mandatory=$false)]
+            # Destination(s) vNics of traffic to hit the rule.  Valid options are 0 - 9, internal, external, vse
+            [ValidateSet("0","1","2","3","4","5","6","7","8","9", "internal", "external", "vse")]
+            [string[]]$DestinationVnic,
+        [Parameter (Mandatory=$false)]
+            # Negate the list of sources hit by the rule
+            [ValidateNotNullOrEmpty()]
+            [switch]$NegateSource,
+        [Parameter (Mandatory=$false)]
+            # Destination(s) of traffic to hit the rule.  IP4/6 members are specified as string, any other member as the appropriate VI or PowerNSX object.
+            [ValidateScript({ ValidateFirewallRuleSourceDest $_ })]
+            [object[]]$Destination,
+        [Parameter (Mandatory=$false)]
+            # Negate the list of destinations hit by the rule
+            [ValidateNotNullOrEmpty()]
+            [switch]$NegateDestination,
+        [Parameter (Mandatory=$false)]
+            # Services to hit the rule.  Services must be marked for inheritance in global scope, or defined directly within edge scope.
+            [ValidateScript ({ ValidateEdgeFirewallRuleService $_ })]
+            [object[]]$Service,
+        [Parameter (Mandatory=$false)]
+            # Rule is created as disabled
+            [switch]$Disabled,
+        [Parameter (Mandatory=$false)]
+            # Rule logging is enabled
+            [switch]$EnableLogging,
+        [Parameter (Mandatory=$false)]
+            # Existing RuleId above which to create new rule
+            [int]$AboveRuleId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        function Add-NsxEdgeFirewallSrcDestMembers {
+            param (
+                $memberlist,
+                $SourceDestNode
+            )
+
+            foreach ($member in $memberlist) {
+
+                if ( ( $member -as [ipaddress]) -or ( ValidateIPRange -argument $member ) -or ( ValidateIPPrefix -argument $member ) ) {
+                    #Item is v4 or 6 address
+                    write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $member"
+                    write-debug "$($MyInvocation.MyCommand.Name) : Object $member is an ipaddress"
+                    Add-XmlElement -xmlRoot $SourceDestNode -xmlElementName "ipAddress" -xmlElementText $member
+                }
+                elseif ( $member -is [system.xml.xmlelement] ) {
+                    write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $($member.name)"
+                    write-debug "$($MyInvocation.MyCommand.Name) : Object $($member.name) is specified as xml element"
+                    #XML representation of NSX object passed - ipset, sec group or logical switch
+                    #get appropritate name, value.
+                    Add-XmlElement -xmlRoot $SourceDestNode -xmlElementName "groupingObjectId" -xmlElementText $member.objectId
+                } else {
+                    write-debug "$($MyInvocation.MyCommand.Name) : Building source/dest node for $($member.name)"
+                    write-debug "$($MyInvocation.MyCommand.Name) : Object $($member.name) is specified as supported powercli object"
+                    #Proper PowerCLI Object passed.  We just need to grab details from the moref.
+                    Add-XmlElement -xmlRoot $SourceDestNode -xmlElementName "groupingObjectId" -xmlElementText $member.extensiondata.moref.value
+                }
+            }
+        }
+    }
+
+    process {
+
+        #Get the edgeId
+        $EdgeId = $EdgeFirewall.edgeId
+
+        #Create the new rules + rule element.
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        $Rule = $xmlDoc.CreateElement('firewallRule')
+
+        #Append the mandatory props
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "name" -xmlElementText $Name.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "action" -xmlElementText $Action.ToString()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "loggingEnabled" -xmlElementText $EnableLogging.ToString().tolower()
+        Add-XmlElement -xmlRoot $Rule -xmlElementName "enabled" -xmlElementText ( -not $Disabled ).ToString().tolower()
+
+        if ( $PsBoundParameters.ContainsKey("Comment") ) {
+            Add-XmlElement -xmlRoot $Rule -xmlElementName "description" -xmlElementText $Comment.ToString()
+        }
+
+        #Build Sources Node
+        if ( $PsBoundParameters.ContainsKey("source") -or $PsBoundParameters.ContainsKey("sourcevnic") ) {
+            #Build the Source node and handle negation if necessary
+            $SourceNode = $xmlDoc.CreateElement('source')
+            $null = $Rule.AppendChild($SourceNode)
+            Add-XmlElement -xmlRoot $SourceNode -xmlElementName "exclude" -xmlElementText $NegateSource.ToString().tolower()
+        }
+
+        #Normal Sources
+        if ( $PsBoundParameters.ContainsKey("source")) {
+            Add-NsxEdgeFirewallSrcDestMembers -memberlist $Source -SourceDestNode $SourceNode
+        }
+
+        #Source vNICs
+        if ( $PsBoundParameters.ContainsKey("sourcevnic")) {
+            foreach ( $vnic in $Sourcevnic ) {
+                switch -Regex ($vNic) {
+                    "^\d$" { $vNicSpecifier = "vnic-index-$vnic" }
+                    "^all$" { $vNicSpecifier = "vse" }
+                    default { $vNicSpecifier = $vnic.toLower() }
+                }
+                Add-XmlElement -xmlRoot $SourceNode -xmlElementName "vnicGroupId" -xmlElementText $vNicSpecifier
+            }
+        }
+
+        #Destinations Node
+        if ( $PsBoundParameters.ContainsKey("destination") -or $PsBoundParameters.ContainsKey("destinationvnic") ) {
+            #Build the Destination node and handle negation if necessary
+            $DestNode = $xmlDoc.CreateElement('destination')
+            $null = $Rule.AppendChild($DestNode)
+            Add-XmlElement -xmlRoot $DestNode -xmlElementName "exclude" -xmlElementText $NegateDestination.ToString().tolower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey("destination")) {
+            Add-NsxEdgeFirewallSrcDestMembers -memberlist $Destination -SourceDestNode $DestNode
+        }
+
+        #Destination vNICs
+        if ( $PsBoundParameters.ContainsKey("destinationvnic")) {
+            foreach ( $vnic in $Destinationvnic ) {
+                switch -Regex ($vNic) {
+                    "^\d$" { $vNicSpecifier = "vnic-index-$vnic" }
+                    "^all$" { $vNicSpecifier = "vse" }
+                    default { $vNicSpecifier = $vnic.toLower() }
+                }
+                Add-XmlElement -xmlRoot $DestNode -xmlElementName "vnicGroupId" -xmlElementText $vNicSpecifier
+            }
+        }
+
+        #Services
+        if ( $service ) {
+            New-NsxEdgeServiceNode -itemlist $service -xmlRule $Rule
+        }
+
+        if ( -not $PsBoundParameters.ContainsKey('AboveRuleId') ) {
+            $URI = "/api/4.0/edges/$EdgeId/firewall/config/rules"
+            $Rules = $xmlDoc.CreateElement('firewallRules')
+            $null = $Rules.AppendChild($Rule)
+            $body = $Rules.OuterXml
+        }
+        else {
+            $URI = "/api/4.0/edges/$EdgeId/firewall/config/rules?aboveRuleId=$($AboveRuleId.toString())"
+            $body = $Rule.OuterXml
+        }
+
+
+        Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+        $ruleid = $response.Headers.Location -replace "/api/4.0/edges/$edgeid/firewall/config/rules/",""
+        write-debug "$($MyInvocation.MyCommand.Name) : Retrieving ruleid $ruleid from API for $edgeid"
+        $response = invoke-nsxwebrequest -method "get" -uri "/api/4.0/edges/$EdgeId/firewall/config/rules/$ruleid" -connection $connection
+        [system.xml.xmlDocument]$responserule = $response.content
+        Add-XmlElement -xmlRoot $responserule.firewallRule -xmlElementName "edgeId" -xmlElementText $EdgeId
+        $responserule.firewallRule
+    }
+
+    end {}
+}
+
+function Remove-NsxEdgeFirewallRule {
+
+    <#
+    .SYNOPSIS
+    Removes a Firewall Rule from the specified ESGs FirewallRule configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The NSX Edge provides layer 3/4 firewall services to protect connected
+    networks.  the Edge firewall is separate from, and can be used to
+    complement the NSX distributed firewall.
+
+    The Remove-NsxEdgeFirewallRule cmdlet removes the specified firewall rules
+    from the specified Edge Services Gateway.
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    [CmdletBinding (DefaultParameterSetName="Default")]
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ ValidateEdgeFwRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
+    }
+
+    process {
+
+        #Get the rule config for our Edge
+        $edgeId = $FirewallRule.edgeId
+        $ruleId = $FirewallRule.Id
+
+        $URI = "/api/4.0/edges/$EdgeId/firewall/config/rules/$ruleId"
+
+        if ( -not $noConfirm ) {
+            $message  = "Edge Services Gateway firewall rule update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $EdgeId"
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Update Edge Services Gateway $EdgeId" -completed
+        }
+    }
+
+    end {}
+}
+
+#########
+#########
 # Edge Certificate related functions
 
 function Get-NsxEdgeCsr {
@@ -23687,6 +24428,48 @@ function New-NsxServiceNode {
     }
 
     $xmlReturn
+}
+
+function New-NsxEdgeServiceNode {
+
+    #Internal function - Handles building the Edge fw service xml node for a given object.
+
+    param (
+
+        [Parameter (Mandatory = $true)]
+            [object[]]$itemlist,
+        [Parameter (Mandatory = $true)]
+            [System.XML.XMLElement]$xmlRule
+
+    )
+    $xmlDoc = $xmlRule.OwnerDocument
+    $Application = $XmlDoc.CreateElement("application")
+    $null = $xmlrule.AppendChild($Application)
+
+    foreach ($item in $itemlist) {
+        # Check to see if a protocol AND port are specified
+        if ( ($item -is [string]) -and ($item -match "/") ) {
+            $itemSplit = $item -split "/"
+            $svc = $XMLDoc.CreateElement("service")
+            $null = $Application.AppendChild($svc)
+            Add-XmlElement -xmlRoot $svc -xmlElementName "protocol" -xmlElementText $itemSplit[0].ToUpper()
+            Add-XmlElement -xmlRoot $svc -xmlElementName "port" -xmlElementText $itemSplit[1]
+            write-debug "$($MyInvocation.MyCommand.Name) : Building protocol/port service node for $($item)"
+        }
+        # Otherwise we assume its just a Protocol with no port specified
+        elseif ($item -is [string])  {
+            $svc = $XMLDoc.CreateElement("service")
+            $null = $Application.AppendChild($svc)
+            Add-XmlElement -xmlRoot $svc -xmlElementName "protocol" -xmlElementText $item.ToUpper()
+            write-debug "$($MyInvocation.MyCommand.Name) : Building protocol service node for $($item)"
+        }
+        # or its either an XML object, or a collection of objects (already verified as XML objects through validation script)
+        else {
+
+            Add-XmlElement -xmlRoot $Application -xmlElementName "applicationId" -xmlElementText $item.objectId
+            write-debug "$($MyInvocation.MyCommand.Name) : Building application service node for $($item.name)"
+        }
+    }
 }
 
 function New-NsxAppliedToListNode {

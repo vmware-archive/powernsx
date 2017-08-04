@@ -1,3 +1,4 @@
 issues/*
 .vscode/launch.json
 VSCodeDebug.ps1
+.vscode/settings.json
