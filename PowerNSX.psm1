@@ -13907,15 +13907,30 @@ function Set-NsxEdgeFirewall {
         }
 
         if ( $PsBoundParameters.ContainsKey('enableSynFloodProtection') ) {
-            $_EdgeFirewall.globalConfig.enableSynFloodProtection = $enableSynFloodProtection.ToString().ToLower()
+            if ( [version]$Connection.Version -lt [version]"6.2.3") {
+                write-warning "The option enableSynFloodProtection requires at least NSX version 6.2.3"
+            }
+            else {
+                $_EdgeFirewall.globalConfig.enableSynFloodProtection = $enableSynFloodProtection.ToString().ToLower()
+            }
         }
 
         if ( $PsBoundParameters.ContainsKey('logIcmpErrors') ) {
-            $_EdgeFirewall.globalConfig.logIcmpErrors = $logIcmpErrors.ToString().ToLower()
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option logIcmpErrors requires at least NSX version 6.3.0"
+            }
+            else {
+                $_EdgeFirewall.globalConfig.logIcmpErrors = $logIcmpErrors.ToString().ToLower()
+            }
         }
 
         if ( $PsBoundParameters.ContainsKey('dropIcmpReplays') ) {
-            $_EdgeFirewall.globalConfig.dropIcmpReplays = $dropIcmpReplays.ToString().ToLower()
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option dropIcmpReplays requires at least NSX version 6.3.0"
+            }
+            else {
+                $_EdgeFirewall.globalConfig.dropIcmpReplays = $dropIcmpReplays.ToString().ToLower()
+            }
         }
 
         $URI = "/api/4.0/edges/$($EdgeId)/firewall/config"

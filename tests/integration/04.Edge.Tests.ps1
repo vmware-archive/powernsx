@@ -64,6 +64,8 @@ Describe "Edge" {
         $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
         $edge | get-nsxedgefirewall | new-nsxedgefirewallrule -name $preexistingrulename -action accept
         $script:scopedservice = New-NsxService -scope $edge.id -Name "pester_e_scopedservice" -Protocol "TCP" -port "1234"
+        $script:VersionLessThan623 = [version]$DefaultNsxConnection.Version -lt [version]"6.2.3"
+        $script:VersionLessThan630 = [version]$DefaultNsxConnection.Version -lt [version]"6.3.0"
     }
 
     AfterAll {
@@ -584,19 +586,31 @@ Describe "Edge" {
             $config.globalConfig.ipGenericTimeout | should be "130"
         }
 
-        It "Can set edge globalConfig option enableSynFloodProtection" {
-            $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -enableSynFloodProtection -NoConfirm
+        It "Can set edge globalConfig option enableSynFloodProtection on NSX -ge 6.2.3" -Skip:$VersionLessThan623 {
+            $config =  Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -enableSynFloodProtection -NoConfirm
             $config.globalConfig.enableSynFloodProtection | should be "true"
         }
 
-        It "Can set edge globalConfig option logIcmpErrors" {
+        It "Can set edge globalConfig option logIcmpErrors on NSX -ge 6.3.0" -Skip:$VersionLessThan630 {
             $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -logIcmpErrors -NoConfirm
             $config.globalConfig.logIcmpErrors | should be "true"
         }
 
-        It "Can set edge globalConfig option dropIcmpReplays" {
+        It "Can set edge globalConfig option dropIcmpReplays on NSX -ge 6.3.0" -Skip:$VersionLessThan630 {
             $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -dropIcmpReplays -NoConfirm
             $config.globalConfig.dropIcmpReplays | should be "true"
+        }
+
+        It "Throws a warning when setting edge globalConfig option enableSynFloodProtection on NSX -lt 6.2.3" -Skip:(-not $VersionLessThan623) {
+            (( Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -enableSynFloodProtection -NoConfirm ) 3>&1) -match "The option enableSynFloodProtection requires at least NSX version 6.2.3" | should be $true
+        }
+
+        It "Throws a warning when setting edge globalConfig option logIcmpErrors on NSX -lt 6.3.0" -Skip:(-not $VersionLessThan630) {
+            (( Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -logIcmpErrors -NoConfirm ) 3>&1) -match "The option logIcmpErrors requires at least NSX version 6.3.0" | should be $true
+        }
+
+        It "Throws a warning when setting edge globalConfig option dropIcmpReplays on NSX -lt 6.3.0" -Skip:(-not $VersionLessThan630) {
+            (( Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -dropIcmpReplays -NoConfirm ) 3>&1) -match "The option dropIcmpReplays requires at least NSX version 6.3.0" | should be $true
         }
     }
 
