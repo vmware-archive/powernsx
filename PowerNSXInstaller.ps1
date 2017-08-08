@@ -343,6 +343,7 @@ function install-powercli {
 function check-PowerNSX {
     Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Checking for PowerNSX Module"
 
+
     if (-not ((Test-Path $ModulePath) -and (test-path $ManifestPath )) -or ( $Upgrade )) {
         if ( $confirm -and (-not $upgrade)) {
             $message  = "PowerNSX module not found."
@@ -390,6 +391,12 @@ function check-PowerNSX {
 
             Write-Progress -Activity "Installing PowerNSX for" -Status "check-powernsx" -CurrentOperation "Creating directory $ModuleDir"
             new-item -Type Directory $ModuleDir | out-null
+        }
+        else {
+            #Ensure we arent manually updating a Gallery installed version.
+            if (( Get-ChildItem $ModuleDir | Where-Object { $_.Attributes -eq "Directory" } | Get-ChildItem -Attributes "hidden" -Include PSGetModuleInfo.xml | measure-object ).count -ne 0 ) {
+                throw "WARNING: Module directory contains a PowerNSX version installed via the PowerShell Gallery.  Update Gallery installed modules with Update-Module.  PowerNSX has NOT been updated."
+            }
         }
         Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Installing PowerNSX"
         Download-File $PowerNSXManifest $ManifestPath
@@ -455,11 +462,14 @@ function init {
 
     #UserIntro:
     if ( -not $quiet ) {
-        write-warning "PowerNSX is now distributed via the PowerShell Gallery."
-        write-warning
-        write-warning "Installation via installation script and update using"
-        write-warning "Update-PowerNSX is deprecated and will be removed in a"
-        write-warning "future version."
+        if ( -not ( $PSVersionTable.PsEdition -eq "Core")) {
+            write-host
+            write-warning "PowerNSX is now distributed via the PowerShell Gallery."
+            write-host
+            write-warning "Installation via installation script and update using"
+            write-warning "Update-PowerNSX is deprecated and will be removed in a"
+            write-warning "future version."
+        }
         write-host
         write-host -ForegroundColor Green "`nPowerNSX Installation Tool"
         write-host
