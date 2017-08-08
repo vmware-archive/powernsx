@@ -12,7 +12,7 @@ $ynchoices.Add((New-Object Management.Automation.Host.ChoiceDescription -Argumen
 $ynchoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
 $there = Split-Path -Parent $MyInvocation.MyCommand.Path | split-path -parent
-$sut = "PowerNSX.psd1"
+$sut = "module/PowerNSX.psd1"
 $pnsxmodule = "$there\$sut"
 
 function Start-Test {
