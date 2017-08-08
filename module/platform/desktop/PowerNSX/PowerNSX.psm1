@@ -3952,7 +3952,7 @@ function Connect-NsxServer {
 
     [CmdletBinding(DefaultParameterSetName="Legacy")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
     param (
         [Parameter (Mandatory=$true, Position=1, ParameterSetName="Legacy")]
             #NSX Manager address or FQDN.  Deprecated. Use -vCenterServer with SSO credentials as preferred method, or -NsxServer with appliance admin user if required.
@@ -5522,6 +5522,7 @@ function Set-NsxManager {
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] #Cant remove without breaking backward compatibility
     Param (
 
@@ -6629,6 +6630,7 @@ function Add-NsxSecondaryManager {
     #>
     [CmdletBinding(DefaultParameterSetName="Credential")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
 
     param (
 
@@ -12622,6 +12624,7 @@ function New-NsxEdge {
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.
     param (
         [Parameter (Mandatory=$true)]
             #Name of the edge appliance.
@@ -15024,6 +15027,7 @@ function Set-NsxSslVpn {
 }
 
 function New-NsxSslVpnAuthServer {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Incorrect assertion by ScriptAnalyser.
 
     param (
 
@@ -15208,7 +15212,8 @@ function Get-NsxSslVpnAuthServer {
 
 function New-NsxSslVpnUser{
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
@@ -29111,6 +29116,7 @@ function Copy-NsxEdge{
 
     [CmdletBinding(DefaultParameterSetName="Default")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 

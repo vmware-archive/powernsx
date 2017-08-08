@@ -43,10 +43,10 @@ has its own license that is located in the source code of the respective compone
 param (
     [Parameter (Mandatory=$true)]
     #Required build number that is appended to the version (maj.min) string from include.ps1 to form the full version number.
-    $BuildNumber,
+    [int]$BuildNumber,
     [Parameter (Mandatory=$true)]
     #Required API key to upload to PowershellGallery.
-    $NugetAPIKey
+    [string]$NugetAPIKey
 )
 ##########################
 ##########################
@@ -62,7 +62,7 @@ param (
 . ./Include.ps1
 
 #Append the build number on the version string
-$ModuleVersion = $ModuleVersion + '.' + $BuildNumber
+$ModuleVersion = $ModuleVersion + '.' + $BuildNumber.tostring().trim()
 
 if ( -not ($ModuleVersion -as [version])) { throw "$ModuleVersion is not a valid version.  Check version and build number and try again."}
 
@@ -95,7 +95,6 @@ $Common = @{
     CompanyName = 'VMware'
     Copyright = 'Copyright © 2015 VMware, Inc. All Rights Reserved.'
     Description = $Description
-    PowerShellVersion = '3.0'
     DotNetFrameworkVersion = '4.0'
     FunctionsToExport = $FunctionsToExport
     ModuleVersion = $ModuleVersion
@@ -110,10 +109,10 @@ copy-item -Path "./PowerNSX.psm1" "$DesktopPath/PowerNSX/"
 copy-item -Path "./PowerNSX.psm1" "$CorePath/PowerNSX/"
 copy-item -Path "./PowerNSX.psm1" "$GalleryPath/PowerNSX/"
 
-New-ModuleManifest -Path "$DesktopPath/PowerNSX/PowerNSX.psd1" -RequiredModules $DesktopRequiredModules @Common
-New-ModuleManifest -Path "$CorePath/PowerNSX/PowerNSX.psd1" -RequiredModules $CoreRequiredModules @Common
-New-ModuleManifest -Path "$GalleryPath/PowerNSX/PowerNSX.psd1" -RequiredModules $GalleryRequiredModules -CompatiblePSEditions Desktop @Common
+New-ModuleManifest -Path "$DesktopPath/PowerNSX/PowerNSX.psd1" -RequiredModules $DesktopRequiredModules -PowerShellVersion '3.0' @Common
+New-ModuleManifest -Path "$CorePath/PowerNSX/PowerNSX.psd1" -RequiredModules $CoreRequiredModules -PowerShellVersion '3.0' @Common
+New-ModuleManifest -Path "$GalleryPath/PowerNSX/PowerNSX.psd1" -RequiredModules $GalleryRequiredModules -PowerShellVersion '3.0' @Common
 
-# Publish-Module -NuGetApiKey $NugetAPIKey -Path "$GalleryPath/PowerNSX"
+Publish-Module -NuGetApiKey $NugetAPIKey -Path "$GalleryPath/PowerNSX"
 
 write-host -ForegroundColor Yellow "Version $ModuleVersion is now published to the Powershell Gallery.  You MUST now push these updates back to the git repository."
