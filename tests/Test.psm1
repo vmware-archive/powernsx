@@ -12,8 +12,22 @@ $ynchoices.Add((New-Object Management.Automation.Host.ChoiceDescription -Argumen
 $ynchoices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
 $there = Split-Path -Parent $MyInvocation.MyCommand.Path | split-path -parent
-$sut = "module/PowerNSX.psd1"
+$sut = "PowerNSX.psd1"
 $pnsxmodule = "$there\$sut"
+
+#Have to generate the PSD1 file on the fly now, due to changes in publishing process.
+#Bring in the module generation variables
+. $there/module/Include.ps1
+if ( $PSVersionTable.PSEdition -eq "Core" ) {
+    #Create the module in the root dir.
+    copy-item -Path "./PowerNSX.psm1" "$there/"
+    New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $CoreRequiredModules -PowerShellVersion '3.0' @Common
+}
+else {
+    #Create the module in the root dir.
+    copy-item -Path "./PowerNSX.psm1" "$there/"
+    New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $DesktopRequiredModules -PowerShellVersion '3.0' @Common
+}
 
 function Start-Test {
     #Sets up credentials and performs other stuff before invoking pester

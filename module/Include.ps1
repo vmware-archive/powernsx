@@ -8,6 +8,38 @@ to PowerNSX
 
 #>
 
+# Manifest Description
+$Description = @"
+PowerNSX is a PowerShell module that abstracts the VMware NSX API to a set of easily used PowerShell functions.
+This module is not supported by VMware, and comes with no warranties express or implied. Please test and validate its functionality before using in a production environment.
+It aims to focus on exposing New, Update, Remove and Get operations for all key NSX functions as well as adding additional functionality to extend the capabilities of NSX management beyond the native UI or API.
+It is unlikely that it will ever expose 100% of the NSX API, but feature requests are welcomed if you find a particular function you require to be lacking.
+PowerNSX is currently a work in progress and is not yet feature complete.
+"@
+
+#Manifest settings that are common to all platforms.
+$Common = @{
+    RootModule = 'PowerNSX.psm1'
+    GUID = 'ea3b0bdc-83a3-4cae-9920-7257beae8614'
+    Author = 'Nick Bradford'
+    CompanyName = 'VMware'
+    Copyright = 'Copyright © 2015 VMware, Inc. All Rights Reserved.'
+    Description = $Description
+    DotNetFrameworkVersion = '4.0'
+    FunctionsToExport = $FunctionsToExport
+    ModuleVersion = $ModuleVersion
+    CmdletsToExport = '*'
+    VariablesToExport = '*'
+    AliasesToExport = '*'
+    ProjectUri = 'https://powernsx.github.io/'
+
+}
+
+# Required Modules for respective platforms.  These deps are defined in the resulting platform specific Manifest file.
+$CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
+$DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
+$GalleryRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
+
 #PowerNSX Version string.  The publish script will append a build number, so this should
 #only be a Major.Minor
 $ModuleVersion = "3.0"
