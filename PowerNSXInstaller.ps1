@@ -56,9 +56,9 @@ $PSMinVersion = "3"
 $CorePCLIMinVersion = 1
 $DesktopPCLIMinVersion = 6
 
-#PowerNSX (branch latest)
-$PowerNSXMod = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psm1"
-$PowerNSXManifest = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psd1"
+#PowerNSX module paths
+$PowerNSXPlatformBaseCore = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/module/platform/core/PowerNSX"
+$PowerNSXPlatformBaseDesktop = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/module/platform/desktop/PowerNSX"
 
 
 #Module Path
@@ -455,6 +455,11 @@ function init {
 
     #UserIntro:
     if ( -not $quiet ) {
+        write-warning "PowerNSX is now distributed via the PowerShell Gallery."
+        write-warning
+        write-warning "Installation via installation script and update using"
+        write-warning "Update-PowerNSX is deprecated and will be removed in a"
+        write-warning "future version."
         write-host
         write-host -ForegroundColor Green "`nPowerNSX Installation Tool"
         write-host
@@ -493,6 +498,8 @@ function init {
     else {
 
         If ( $PSVersionTable.PsEdition -eq "Core" ) {
+            $script:PowerNSXManifest = "$PowerNSXPlatformBaseCore/PowerNSX.psd1"
+            $script:PowerNSXMod = "$PowerNSXPlatformBaseCore/PowerNSX.psm1"
             Switch ( $InstallType ) {
                 "CurrentUser" {
                     $ModDir = "$($env:HOME)/.local/share/powershell/Modules"
@@ -514,6 +521,8 @@ function init {
         }
         else {
             #assuming Desktop here.  PSEdition prop doesnt exist pre PoSH 5, so we cant test for it.
+            $script:PowerNSXManifest = "$PowerNSXPlatformBaseDesktop/PowerNSX.psd1"
+            $script:PowerNSXMod = "$PowerNSXPlatformBaseDesktop/PowerNSX.psm1"
             Switch ( $InstallType ) {
                 "CurrentUser" {
                     $ModDir = $env:PSModulePath.split(";") | ? { $_ -like "$($env:HOMEDRIVE)$($env:HOMEPATH)*" } | select -first 1
