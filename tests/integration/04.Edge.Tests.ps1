@@ -264,6 +264,24 @@ Describe "Edge" {
             $rule | should be $null
         }
 
+        it "Can disable Graceful Restart" {
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg | should not be $null
+            $rtg.ospf.gracefulRestart | should be true
+            $rtg | Set-NsxEdgeOspf -GracefulRestart:$false -Confirm:$false
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg.ospf.gracefulRestart | should be false
+        }
+
+        it "Can enable Default Originate" {
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg | should not be $null
+            $rtg.ospf.defaultOriginate | should be false
+            $rtg | Set-NsxEdgeOspf -DefaultOriginate -Confirm:$false
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg.ospf.defaultOriginate | should be true
+        }
+
         it "Can disable OSPF" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
@@ -334,6 +352,24 @@ Describe "Edge" {
             $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
             $rtg | should not be $null
             $rtg | Get-NsxEdgeBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs | should be $null
+        }
+
+        it "Can disable Graceful Restart" {
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg | should not be $null
+            $rtg.bgp.gracefulRestart | should be true
+            $rtg | Set-NsxEdgeBgp -GracefulRestart:$false -Confirm:$false
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg.bgp.gracefulRestart | should be false
+        }
+
+        it "Can enable Default Originate" {
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg | should not be $null
+            $rtg.bgp.defaultOriginate | should be false
+            $rtg | Set-NsxEdgeBgp -DefaultOriginate -Confirm:$false
+            $rtg = Get-NsxEdge $name | Get-NsxEdgeRouting
+            $rtg.bgp.defaultOriginate | should be true
         }
 
         it "Can disable BGP" {
