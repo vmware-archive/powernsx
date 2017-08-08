@@ -56,9 +56,9 @@ $PSMinVersion = "3"
 $CorePCLIMinVersion = 1
 $DesktopPCLIMinVersion = 6
 
-#PowerNSX (branch latest)
-$PowerNSXMod = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psm1"
-$PowerNSXManifest = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSX.psd1"
+#PowerNSX module paths
+$PowerNSXPlatformBaseCore = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/module/platform/core/PowerNSX"
+$PowerNSXPlatformBaseDesktop = "https://raw.githubusercontent.com/vmware/powernsx/$Branch/module/platform/desktop/PowerNSX"
 
 
 #Module Path
@@ -343,6 +343,7 @@ function install-powercli {
 function check-PowerNSX {
     Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Checking for PowerNSX Module"
 
+
     if (-not ((Test-Path $ModulePath) -and (test-path $ManifestPath )) -or ( $Upgrade )) {
         if ( $confirm -and (-not $upgrade)) {
             $message  = "PowerNSX module not found."
@@ -390,6 +391,12 @@ function check-PowerNSX {
 
             Write-Progress -Activity "Installing PowerNSX for" -Status "check-powernsx" -CurrentOperation "Creating directory $ModuleDir"
             new-item -Type Directory $ModuleDir | out-null
+        }
+        else {
+            #Ensure we arent manually updating a Gallery installed version.
+            if (( Get-ChildItem $ModuleDir | Where-Object { $_.Attributes -eq "Directory" } | Get-ChildItem -Attributes "hidden" -Include PSGetModuleInfo.xml | measure-object ).count -ne 0 ) {
+                throw "WARNING: Module directory contains a PowerNSX version installed via the PowerShell Gallery.  Update Gallery installed modules with Update-Module.  PowerNSX has NOT been updated."
+            }
         }
         Write-Progress -Activity "Installing PowerNSX" -Status "check-powernsx" -CurrentOperation "Installing PowerNSX"
         Download-File $PowerNSXManifest $ManifestPath
@@ -455,6 +462,14 @@ function init {
 
     #UserIntro:
     if ( -not $quiet ) {
+        if ( -not ( $PSVersionTable.PsEdition -eq "Core")) {
+            write-host
+            write-warning "PowerNSX is now distributed via the PowerShell Gallery."
+            write-host
+            write-warning "Installation via installation script and update using"
+            write-warning "Update-PowerNSX is deprecated and will be removed in a"
+            write-warning "future version."
+        }
         write-host
         write-host -ForegroundColor Green "`nPowerNSX Installation Tool"
         write-host
@@ -493,6 +508,8 @@ function init {
     else {
 
         If ( $PSVersionTable.PsEdition -eq "Core" ) {
+            $script:PowerNSXManifest = "$PowerNSXPlatformBaseCore/PowerNSX.psd1"
+            $script:PowerNSXMod = "$PowerNSXPlatformBaseCore/PowerNSX.psm1"
             Switch ( $InstallType ) {
                 "CurrentUser" {
                     $ModDir = "$($env:HOME)/.local/share/powershell/Modules"
@@ -514,6 +531,8 @@ function init {
         }
         else {
             #assuming Desktop here.  PSEdition prop doesnt exist pre PoSH 5, so we cant test for it.
+            $script:PowerNSXManifest = "$PowerNSXPlatformBaseDesktop/PowerNSX.psd1"
+            $script:PowerNSXMod = "$PowerNSXPlatformBaseDesktop/PowerNSX.psm1"
             Switch ( $InstallType ) {
                 "CurrentUser" {
                     $ModDir = $env:PSModulePath.split(";") | ? { $_ -like "$($env:HOMEDRIVE)$($env:HOMEPATH)*" } | select -first 1

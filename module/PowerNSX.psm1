@@ -28,9 +28,6 @@ has its own license that is located in the source code of the respective compone
 $PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
 $ValidBranches = @("master","v2")
 
-$CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
-$DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
-
 $Script:AllValidServices = @("AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
               "BPQ", "CUST", "DEC", "DIAG", "DNA_DL", "DNA_RC", "DNA_RT", "ESP",
               "FR_ARP", "FTP", "GRE", "ICMP", "IEEE_802_1Q", "IGMP", "IPCOMP",
@@ -72,7 +69,6 @@ Function _init {
         $script:PNsxPSTarget = "Desktop"
     }
 
-    [System.Management.Automation.PSModuleInfo[]]$CurrentModules = Get-Module
     if ( $script:PNsxPSTarget -eq "Core" ) {
         ##################WARNING############################
         $WarningString = @"
@@ -94,33 +90,6 @@ https://github.com/vmware/powernsx/issues
                 throw "The PowerShell Core Beta has known issues that cause PowerNSX to fail.  Refusing to load module."
             }
         }
-        #Attempt to load PowerCLI modules required
-        foreach ($Module in $CoreRequiredModules ) {
-            if ( -not $CurrentModules.Name.Contains($Module)) {
-                try {
-                    #Attempt to load the module automatically
-                    Import-Module $module -global -erroraction stop
-                }
-                catch {
-                    throw "Module $module could not be loaded.  Please ensure that PowerCLI is installed on this system."
-                }
-            }
-        }
-    }
-    else {
-        #Attempt to load PowerCLI modules required
-        foreach ($Module in $DesktopRequiredModules ) {
-            if ( -not $CurrentModules.Contains($Module)) {
-                try {
-                    #Attempt to load the module automatically
-                    Import-Module $module -global -erroraction stop
-                }
-                catch {
-                    throw "Module $module could not be loaded.  Please ensure that PowerCLI is installed on this system."
-                }
-            }
-        }
-
     }
 
     ## Define class required for certificate validation override.  Version dependant.
@@ -197,7 +166,7 @@ https://github.com/vmware/powernsx/issues
             public InternalNsxApiException(string message, Exception inner) : base(message, inner) {}
         }
 "@
-    add-type $InternalNsxApiException
+    add-type $InternalNsxApiException -ignorewarnings
 
 }
 
@@ -3983,7 +3952,7 @@ function Connect-NsxServer {
 
     [CmdletBinding(DefaultParameterSetName="Legacy")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
-
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
     param (
         [Parameter (Mandatory=$true, Position=1, ParameterSetName="Legacy")]
             #NSX Manager address or FQDN.  Deprecated. Use -vCenterServer with SSO credentials as preferred method, or -NsxServer with appliance admin user if required.
@@ -4420,7 +4389,7 @@ function Update-PowerNsx {
     Updates PowerNSX to the latest version available in the specified branch.
 
     .EXAMPLE
-    Update-PowerNSX -Branch Dev
+    Update-PowerNSX -Branch master
 
     #>
 
@@ -5553,6 +5522,7 @@ function Set-NsxManager {
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] #Cant remove without breaking backward compatibility
     Param (
 
@@ -6660,6 +6630,7 @@ function Add-NsxSecondaryManager {
     #>
     [CmdletBinding(DefaultParameterSetName="Credential")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
 
     param (
 
@@ -12653,6 +12624,7 @@ function New-NsxEdge {
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.
     param (
         [Parameter (Mandatory=$true)]
             #Name of the edge appliance.
@@ -15055,6 +15027,7 @@ function Set-NsxSslVpn {
 }
 
 function New-NsxSslVpnAuthServer {
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Incorrect assertion by ScriptAnalyser.
 
     param (
 
@@ -15239,7 +15212,8 @@ function Get-NsxSslVpnAuthServer {
 
 function New-NsxSslVpnUser{
 
-    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
@@ -29142,6 +29116,7 @@ function Copy-NsxEdge{
 
     [CmdletBinding(DefaultParameterSetName="Default")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingUserNameAndPassWordParams", "", Scope="Function", Target="*")] # Unable to remove without breaking backward compatibilty.
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
