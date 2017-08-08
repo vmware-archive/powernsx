@@ -91,10 +91,10 @@ When opening a new issue, try to roughly follow the commit message format conven
 
 ## Repository Structure
 
-The PowerNSX Module and Installer are in the root directory.  
+The PowerNSX Module and Installer are in the root directory.
 
 The 'bootstrap' line (the PoSH oneliner that will install the _latest commit of the current branch_) is contained within InstallBootstrapper.ps1
 
 There is a directory for Tests (for the moment, these are not really automatable or consumable by anyone other than the maintainers, but any effort toward converting these toward Pester style tests would be greatly appreciated)
 
-There is a directory for Examples - this is for self contained examples that consume PowerNSX and related functionailty (like PowerCLI).  If you have a fully functional example script that demonstrates a particular caability of PowerNSX, feel free to add it here.
+There is a directory for Examples - this is for self contained examples that consume PowerNSX and related functionality (like PowerCLI).  If you have a fully functional example script that demonstrates a particular capability of PowerNSX, feel free to add it here.
