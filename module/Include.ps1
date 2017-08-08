@@ -8,6 +8,10 @@ to PowerNSX
 
 #>
 
+#PowerNSX Version string.  The publish script will append a build number, so this should
+#only be a Major.Minor
+$ModuleVersion = "3.0"
+
 # Manifest Description
 $Description = @"
 PowerNSX is a PowerShell module that abstracts the VMware NSX API to a set of easily used PowerShell functions.
@@ -40,9 +44,7 @@ $CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
 $DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
 $GalleryRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
 
-#PowerNSX Version string.  The publish script will append a build number, so this should
-#only be a Major.Minor
-$ModuleVersion = "3.0"
+
 
 $FunctionsToExport = @(
     'Add-XmlElement',
