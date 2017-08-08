@@ -15,6 +15,21 @@ $there = Split-Path -Parent $MyInvocation.MyCommand.Path | split-path -parent
 $sut = "PowerNSX.psd1"
 $pnsxmodule = "$there\$sut"
 
+#Have to generate the PSD1 file on the fly now, due to changes in publishing process.
+#Create the module in the root dir.
+copy-item -Path "$there/module/PowerNSX.psm1" "$there/"
+
+#Bring in the module generation variables
+. $there/module/Include.ps1
+
+#Create the manifest
+if ( $PSVersionTable.PSEdition -eq "Core" ) {
+    New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $CoreRequiredModules -PowerShellVersion '3.0' @Common
+}
+else {
+    New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $DesktopRequiredModules -PowerShellVersion '3.0' @Common
+}
+
 function Start-Test {
     #Sets up credentials and performs other stuff before invoking pester
     param (
