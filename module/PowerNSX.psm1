@@ -16972,53 +16972,55 @@ function Set-NsxEdgeBgp {
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
-	$bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::bgp')
-	if ( -not $bgp ) {
-	    #bgp node does not exist.
-	    [System.XML.XMLElement]$bgp = $_EdgeRouting.ownerDocument.CreateElement("bgp")
-	    $_EdgeRouting.appendChild($bgp) | out-null
-	}
+        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::bgp')
+        if ( -not $bgp ) {
+            #bgp node does not exist.
+            [System.XML.XMLElement]$bgp = $_EdgeRouting.ownerDocument.CreateElement("bgp")
+            $_EdgeRouting.appendChild($bgp) | out-null
+        }
 
-	# Check bgp enablemant
-        if ($PsBoundParameters.ContainsKey('EnableBGP')) {
-	    # BGP option is specified
-	    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
-		#Enabled element exists.  Update it.
-		$bgp.enabled = $EnableBGP.ToString().ToLower()
-	    }
-	    else {
-		#Enabled element does not exist...
-		Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
-	    }
-	}
-	elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled') {
-	    # BGP option is not specified but enabled
+        # Check bgp enablement
+            if ($PsBoundParameters.ContainsKey('EnableBGP')) {
+                # BGP option is specified
+                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
+                #Enabled element exists.  Update it.
+                $bgp.enabled = $EnableBGP.ToString().ToLower()
+            }
+            else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
+            }
+        }
+        elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled') {
+            # BGP option is not specified but enabled
             if ( $bgp.enabled -eq 'true' ) {
-		# Assume bgp is already enabled.
-	    } else {
-		throw "EnableBGP is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableBGP"
-	    }
-	} else {
-	    throw "EnableBGP is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableBGP"
-	}
+                # Assume bgp is already enabled.
+            }
+            else {
+                throw "EnableBGP is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableBGP"
+            }
+        }
+        else {
+            throw "EnableBGP is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableBGP"
+        }
 
         $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
         $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'descendant::routerId')
 
-	if ( $EnableBGP ) {
-	    if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
-		#Existing config missing and no new value set...
-		throw "RouterId must be configured to enable dynamic routing"
-	    }
+        if ( $EnableBGP ) {
+            if ( -not ($xmlRouterId -or $PsBoundParameters.ContainsKey("RouterId"))) {
+                #Existing config missing and no new value set...
+                throw "RouterId must be configured to enable dynamic routing"
+            }
 
-	    if ($PsBoundParameters.ContainsKey("RouterId")) {
-		#Set Routerid...
-		if ($xmlRouterId) {
-		    $xmlRouterId = $RouterId.IPAddresstoString
-		}
-		else{
-		    Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
-		}
+            if ($PsBoundParameters.ContainsKey("RouterId")) {
+            #Set Routerid...
+            if ($xmlRouterId) {
+                $xmlRouterId = $RouterId.IPAddresstoString
+            }
+            else{
+                Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+            }
 	    }
 	}
 
@@ -17530,9 +17532,9 @@ function Set-NsxEdgeOspf {
             $_EdgeRouting.appendChild($ospf) | out-null
         }
 
-	# Check ospf enablemant
+	    # Check ospf enablemant
         if ($PsBoundParameters.ContainsKey('EnableOSPF')) {
-	    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled')) {
+	        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled')) {
                 #Enabled element exists.  Update it.
                 $ospf.enabled = $EnableOSPF.ToString().ToLower()
             }
@@ -17540,17 +17542,18 @@ function Set-NsxEdgeOspf {
                 #Enabled element does not exist...
                 Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
             }
-	}
-	elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled') {
-	    # OSPF option is not specified but enabled
-            if ( $ospf.enabled -eq 'true' ) {
-		# Assume ospf is already enabled.
-	    } else {
-		throw "EnableOSPF is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableOSPF"
 	    }
-	} else {
-	    throw "EnableOSPF is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableOSFP"
-	}
+	    elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled') {
+	        # OSPF option is not specified but enabled
+            if ( $ospf.enabled -eq 'true' ) {
+		        # Assume ospf is already enabled.
+	        } else {
+		        throw "EnableOSPF is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableOSPF"
+	        }
+        }
+        else {
+	        throw "EnableOSPF is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableOSFP"
+	    }
 
         $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
         $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'descendant::routerId')
@@ -17592,7 +17595,6 @@ function Set-NsxEdgeOspf {
                 Add-XmlElement -xmlRoot $ospf -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
             }
         }
-
 
         $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
         $body = $_EdgeRouting.OuterXml
@@ -19675,28 +19677,29 @@ function Set-NsxLogicalRouterBgp {
             $_LogicalRouterRouting.appendChild($bgp) | out-null
         }
 
-	# Check bgp enablemant
+	    # Check bgp enablement
         if ($PsBoundParameters.ContainsKey('EnableBGP')) {
-	    # BGP option is specified
-	    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
-		#Enabled element exists.  Update it.
-		$bgp.enabled = $EnableBGP.ToString().ToLower()
+	        # BGP option is specified
+	        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
+		        #Enabled element exists.  Update it.
+		        $bgp.enabled = $EnableBGP.ToString().ToLower()
+	        }
+	        else {
+                #Enabled element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
+            }
 	    }
-	    else {
-		#Enabled element does not exist...
-		Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
-	    }
-	}
-	elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled') {
-	    # BGP option is not specified but enabled
+	    elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled') {
+	        # BGP option is not specified but enabled
             if ( $bgp.enabled -eq 'true' ) {
-		# Assume bgp is already enabled.
-	    } else {
-		throw "EnableBGP is not specified or BGP is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableBGP"
-	    }
-	} else {
+            # Assume bgp is already enabled.
+            } else {
+                throw "EnableBGP is not specified or BGP is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableBGP"
+	        }
+        }
+        else {
             throw "EnableBGP is not specified or BGP is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableBGP"
-	}
+	    }
         $xmlGlobalConfig = $_LogicalRouterRouting.routingGlobalConfig
         $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'child::routerId')
         if ( $EnableBGP ) {
@@ -19751,7 +19754,6 @@ function Set-NsxLogicalRouterBgp {
                 Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
             }
         }
-
 
         $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
         $body = $_LogicalRouterRouting.OuterXml
