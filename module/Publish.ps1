@@ -65,6 +65,7 @@ param (
 $ModuleVersion = $ModuleVersion + '.' + $BuildNumber.tostring().trim()
 
 if ( -not ($ModuleVersion -as [version])) { throw "$ModuleVersion is not a valid version.  Check version and build number and try again."}
+$Common.Add("ModuleVersion", $ModuleVersion)
 
 # The path the Installation script uses on Desktop
 $DesktopPath = "./platform/desktop"

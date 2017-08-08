@@ -31,7 +31,6 @@ $Common = @{
     Description = $Description
     DotNetFrameworkVersion = '4.0'
     FunctionsToExport = $FunctionsToExport
-    ModuleVersion = $ModuleVersion
     CmdletsToExport = '*'
     VariablesToExport = '*'
     AliasesToExport = '*'
