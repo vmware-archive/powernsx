@@ -1,9 +1,9 @@
-#PowerNSX Module Manifest README.
+# PowerNSX Module Manifest README.
 
 Manifest Generation is now automated via the Publish.ps1 script as different
 manifests are required for different distribution mechanisms.
 
-##Instructions
+## Instructions
 
 The publish script is intended to automate whatever process is required now and
 in the future to make publishing updates to PowerNSX easy.
@@ -11,7 +11,7 @@ in the future to make publishing updates to PowerNSX easy.
 The publish script is to be run when a new version of PowerNSX needs to be
 made available.
 
-##Contributors to PowerNSX
+## Contributors to PowerNSX
 
 Individual contributors to PowerNSX should do as follows:
 
@@ -23,9 +23,9 @@ PowerNSX module itself, you must also edit the Include.ps1 file and make the
 appropriate changes to the FunctionsToExport array as you would previously have
 done directly in the manifest (.psd1 file) itself.
 
-###Do NOT edit the .psd1 manifest files directly!
+### Do NOT edit the .psd1 manifest files directly!
 
-##Publishing process
+## Publishing process
 
 PowerNSX maintainers will perform the following when PowerNSX is updated.
 
@@ -40,7 +40,7 @@ automated as part of our CI/CD) which :
     * Publishes the updated module to the PowerShell gallery.
     * Push the updated module to the PowerNSX repository
 
-##Copyright
+## Copyright
 Copyright © 2015 VMware, Inc. All Rights Reserved.
 
 This program is free software: you can redistribute it and/or modify it under
