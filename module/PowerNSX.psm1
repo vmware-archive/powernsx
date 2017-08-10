@@ -27192,14 +27192,19 @@ function New-NsxLoadBalancerMemberSpec {
 
     #>
 
-     param (
+    [CmdLetBinding(DefaultParameterSetName="IpAddress")]
+
+    param (
 
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="IpAddress")]
             [ValidateNotNullOrEmpty()]
             [IpAddress]$IpAddress,
+        [Parameter (Mandatory=$true, ParameterSetName="GroupingObject")]
+            [ValidateScript( { ValidateSecurityGroupMember $_ })]
+            [object]$Member,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [int]$Weight=1,
@@ -27225,7 +27230,41 @@ function New-NsxLoadBalancerMemberSpec {
         $xmlDoc.appendChild($xmlMember) | out-null
 
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
+        if ( $PSCmdlet.ParameterSetName -eq "ipaddress" ) {
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
+        }
+        else {
+
+            if ($Member -is [System.Xml.XmlElement] ) {
+                $MemberMoref = $Member.objectId
+            }
+            elseif ( ($Member -is [string]) -and ($Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                $MemberMoref = $Member
+            }
+            elseif ( ($Member -is [string] ) -and ( [guid]::tryparse(($Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
+                $MemberMoref = $Member
+            }
+            elseif (( $Member -is [string]) -and ( $NsxMemberTypes -contains ($Member -replace "-\d+$") ) ) {
+                $MemberMoref = $Member
+            }
+            elseif ( $Member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+                #See NSX API guide 'Attach or Detach a Virtual Machine from a Logical Switch' for
+                #how to construct NIC id.
+                $vmUuid = ($Member.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($Member.id.substring($Member.id.length-3))"
+
+            }
+            elseif (( $Member -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $Member.ExtensionData.MoRef.Type)) {
+                $MemberMoref = $Member.ExtensionData.MoRef.Value
+            }
+            else {
+                throw "Invalid member specified $($Member)"
+            }
+
+            #Create a new member node
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "groupingObjectId" -xmlElementText $MemberMoref
+
+        }
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $Port
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $MonitorPort
@@ -27604,7 +27643,7 @@ function Add-NsxLoadBalancerPoolMember {
     returns the updated Pool.
 
     #>
-
+    [CmdLetBinding(DefaultParameterSetName="IpAddress")]
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -27613,9 +27652,12 @@ function Add-NsxLoadBalancerPoolMember {
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="IpAddress")]
             [ValidateNotNullOrEmpty()]
             [IpAddress]$IpAddress,
+        [Parameter (Mandatory=$true, ParameterSetName="Member")]
+            [ValidateScript( { ValidateSecurityGroupMember $_ })]
+            [object]$Member,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [int]$Weight=1,
@@ -27651,7 +27693,43 @@ function Add-NsxLoadBalancerPoolMember {
         $_LoadBalancerPool.appendChild($xmlMember) | out-null
 
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
+
+        if ( $PSCmdlet.ParameterSetName -eq "ipaddress" ) {
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
+        }
+        else {
+
+            if ($Member -is [System.Xml.XmlElement] ) {
+                $MemberMoref = $Member.objectId
+            }
+            elseif ( ($Member -is [string]) -and ($Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                $MemberMoref = $Member
+            }
+            elseif ( ($Member -is [string] ) -and ( [guid]::tryparse(($Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
+                $MemberMoref = $Member
+            }
+            elseif (( $Member -is [string]) -and ( $NsxMemberTypes -contains ($Member -replace "-\d+$") ) ) {
+                $MemberMoref = $Member
+            }
+            elseif ( $Member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+                #See NSX API guide 'Attach or Detach a Virtual Machine from a Logical Switch' for
+                #how to construct NIC id.
+                $vmUuid = ($Member.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($Member.id.substring($Member.id.length-3))"
+
+            }
+            elseif (( $Member -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $Member.ExtensionData.MoRef.Type)) {
+                $MemberMoref = $Member.ExtensionData.MoRef.Value
+            }
+            else {
+                throw "Invalid member specified $($Member)"
+            }
+
+            #Create a new member node
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "groupingObjectId" -xmlElementText $MemberMoref
+
+        }
+
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $port
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $port
