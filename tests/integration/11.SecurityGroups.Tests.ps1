@@ -146,7 +146,13 @@ Describe "SecurityGroups" {
             $id | should BeOfType System.String
             $id | should match "^securitygroup-\d*$"
 
-         }
+        }
+
+        It "Creates only a single securityGroup when used as the first part of a pipeline (#347)" {
+            New-NsxSecurityGroup -Name "$sgPrefix-test-347"
+            $sg = Get-NsxSecurityGroup "$sgPrefix-test-347" | ForEach-Object { New-NsxSecurityGroup -Name $_.name -Universal}
+            ($sg | measure).count | should be 1
+        }
     }
 
     Context "SecurityGroup Modification" {
@@ -599,7 +605,6 @@ Describe "SecurityGroups" {
             $get.member.objectId | should be $MemberMacSet1.objectId
 
         }
-
     }
 
     Context "SecurityGroup Deletion" {

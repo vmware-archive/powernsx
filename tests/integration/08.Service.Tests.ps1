@@ -289,8 +289,13 @@ Describe "Services" {
             $get.element.protocol | should be $svc.element.protocol
             $get.inheritanceAllowed | should be "false"
             $get.isUniversal | should be "true"
-         }
+        }
 
+        It "Creates only a single service when used as the first part of a pipeline (#347)" {
+            New-NsxService -Name "$SvcPrefix-test-347" -protocol tcp -port 1234
+            $Svc = Get-NsxService "$SvcPrefix-test-347" | ForEach-Object { New-NsxService -Name $_.name -Protocol $_.element.applicationProtocol -port $_.element.value -Universal}
+            ($Svc | measure).count | should be 1
+        }
     }
 
     Context "Unsuccessful Service Creation" {

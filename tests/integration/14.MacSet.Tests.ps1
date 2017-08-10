@@ -172,6 +172,12 @@ Describe "MacSets" {
             $get.inheritanceAllowed | should be "true"
 
         }
+
+        It "Creates only a single macse when used as the first part of a pipeline (#347)" {
+            New-NsxMacSet -Name "$macsetPrefix-test-347"
+            $MacSet = Get-NsxMacSet "$macsetPrefix-test-347" | ForEach-Object { New-NsxMacSet -Name $_.name -Universal}
+            ($MacSet | measure).count | should be 1
+        }
     }
 
     Context "Unsuccessful macset Creation" {

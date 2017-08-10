@@ -182,7 +182,13 @@ Describe "IPSets" {
             $id = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses -ReturnObjectIdOnly
             $id | should BeOfType System.String
             $id | should match "^ipset-\d*$"
-         }
+        }
+
+        It "Creates only a single ipset when used as the first part of a pipeline (#347)" {
+            New-NsxIpSet -Name "$IpSetPrefix-test-347"
+            $IpSet = Get-NsxIpSet "$IpSetPrefix-test-347" | ForEach-Object { New-NsxIpSet -Name $_.name -Universal}
+            ($IpSet | measure).count | should be 1
+        }
     }
 
     Context "Unsuccessful IpSet Creation" {

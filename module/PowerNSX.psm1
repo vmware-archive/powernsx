@@ -21384,24 +21384,25 @@ function Get-NsxSecurityGroup {
     process {
 
         if ( -not $objectId ) {
+            $sg = @()
             foreach ($scope in $scopeid ) {
                 #All Security Groups
                 $URI = "/api/2.0/services/securitygroup/scope/$scope"
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/securitygroup')) {
                     if  ( $Name  ) {
-                        $sg = $response.list.securitygroup | where-object { $_.name -eq $name }
+                        $sg += $response.list.securitygroup | where-object { $_.name -eq $name }
                     } else {
-                        $sg = $response.list.securitygroup
-                    }
-                    #Filter default if switch not set
-                    if ( -not $IncludeSystem ) {
-                        $sg| where-object { ( $_.objectId -ne 'securitygroup-1') }
-                    }
-                    else {
-                        $sg
+                        $sg += $response.list.securitygroup
                     }
                 }
+            }
+            #Filter default if switch not set
+            if ( -not $IncludeSystem ) {
+                $sg| where-object { ( $_.objectId -ne 'securitygroup-1') }
+            }
+            else {
+                $sg
             }
         }
         else {
@@ -22530,25 +22531,25 @@ function Get-NsxIpSet {
     process {
 
         if ( -not $objectID ) {
+            $ipsets = @()
             foreach ($scope in $scopeid ) {
-                $ipsets = $null
                 #All IPSets
                 $URI = "/api/2.0/services/ipset/scope/$scope"
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/ipset')) {
                     if ( $name ) {
-                        $ipsets = $response.list.ipset | where-object { $_.name -eq $name }
+                        $ipsets += $response.list.ipset | where-object { $_.name -eq $name }
                     } else {
-                        $ipsets = $response.list.ipset
+                        $ipsets += $response.list.ipset
                     }
                 }
+            }
 
-                if ( $ipsets -and ( -not $IncludeReadOnly )) {
-                    $ipsets | where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
-                }
-                elseif ( $ipsets ) {
-                    $ipsets
-                }
+            if ( $ipsets -and ( -not $IncludeReadOnly )) {
+                $ipsets | where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+            }
+            elseif ( $ipsets ) {
+                $ipsets
             }
         }
         else {
@@ -23143,26 +23144,26 @@ function Get-NsxMacSet {
     process {
 
         if ( -not $objectID ) {
+            $MacSets = @()
             foreach ($scope in $scopeid ) {
-                $MacSets = $null
                 #All IPSets
                 $URI = "/api/2.0/services/macset/scope/$scope"
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                 if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/macset')) {
                     if ( $name ) {
-                        $macsets = $response.list.macset | where-object { $_.name -eq $name }
+                        $macsets += $response.list.macset | where-object { $_.name -eq $name }
                     } else {
-                        $macsets = $response.list.macset
-                    }
-
-                    #Filter readonly if switch not set
-                    if ( $macsets -and (-not $IncludeReadOnly )) {
-                        $macsets| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
-                    }
-                    else {
-                        $macsets
+                        $macsets += $response.list.macset
                     }
                 }
+            }
+
+            #Filter readonly if switch not set
+            if ( $macsets -and (-not $IncludeReadOnly )) {
+                $macsets| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+            }
+            else {
+                $macsets
             }
         }
         else {
@@ -23528,28 +23529,28 @@ function Get-NsxService {
             }
 
             Default {
+                $svcs = @()
                 foreach ($scope in $scopeid ) {
-                    $svcs = $null
                     #All Services
                     $URI = "/api/2.0/services/application/scope/$scope"
                     [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
                     if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/application')) {
                         if  ( $name ) {
-                            $svcs = $response.list.application | where-object { $_.name -eq $name }
+                            $svcs += $response.list.application | where-object { $_.name -eq $name }
                         } else {
-                            $svcs = $response.list.application
-                        }
-                        #Filter readonly if switch not set
-                        if ( -not $IncludeReadOnly ) {
-                            $svcs| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
-                        }
-                        else {
-                            $svcs
+                            $svcs += $response.list.application
                         }
                     }
                 }
-            }
 
+                #Filter readonly if switch not set
+                if ( -not $IncludeReadOnly ) {
+                    $svcs| where-object { -not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_ -Query "descendant::extendedAttributes/extendedAttribute[name=`"isReadOnly`" and value=`"true`"]")) }
+                }
+                else {
+                    $svcs
+                }
+            }
         }
     }
 
@@ -23859,23 +23860,22 @@ Function Get-NsxServiceGroup {
 
         if ( -not $objectId ) {
             #All Sections
+            $servicegroup = @()
 
             foreach ($scope in $scopeid ) {
-                $servicegroup = $null
                 $URI = "/api/2.0/services/applicationgroup/scope/$scope"
                 [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
                 if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::list/applicationGroup")){
-                    $servicegroup = $response.list.applicationGroup
-
-                    if ($PsBoundParameters.ContainsKey("Name")){
-                        $servicegroup | where-object {$_.name -eq $name}
-                    }
-                    else {
-
-                        $servicegroup
-                    }
+                    $servicegroup += $response.list.applicationGroup
                 }
+            }
+
+            if ($PsBoundParameters.ContainsKey("Name")){
+                $servicegroup | where-object {$_.name -eq $name}
+            }
+            else {
+                $servicegroup
             }
         }
         else {

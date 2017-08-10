@@ -207,7 +207,13 @@ Describe "ServiceGroups" {
             $id | should BeOfType System.String
             $id | should match "^applicationgroup-\d*$"
 
-         }
+        }
+
+        It "Creates only a single servicegroup when used as the first part of a pipeline (#347)" {
+            New-NsxServiceGroup -Name "$SvcPrefix-test-347"
+            $SvcGrp = Get-NsxServiceGroup "$SvcPrefix-test-347" | ForEach-Object { New-NsxServiceGroup -Name $_.name -Universal}
+            ($SvcGrp | measure).count | should be 1
+        }
 
     }
 
