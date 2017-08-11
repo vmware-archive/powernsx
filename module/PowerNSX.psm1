@@ -13367,7 +13367,7 @@ function Get-NsxEdgeNatRule {
 
     <#
     .SYNOPSIS
-    Retreives NAT rules from the spcified NSX Edge Services Gateway NAT
+    Retreives NAT rules from the specified NSX Edge Services Gateway NAT
     configuration.
 
     .DESCRIPTION
@@ -13914,7 +13914,7 @@ function Get-NsxEdgeFirewallRule {
 
     <#
     .SYNOPSIS
-    Retrieves Firewall rules from the spcified NSX Edge Services Gateway Firewall
+    Retrieves Firewall rules from the specified NSX Edge Services Gateway Firewall
     configuration.
 
     .DESCRIPTION
@@ -16226,7 +16226,7 @@ function Get-NsxEdgeRouting {
 
     <#
     .SYNOPSIS
-    Retreives routing configuration for the spcified NSX Edge Services Gateway.
+    Retreives routing configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -16278,7 +16278,7 @@ function Get-NsxEdgeStaticRoute {
 
     <#
     .SYNOPSIS
-    Retreives Static Routes from the spcified NSX Edge Services Gateway Routing
+    Retreives Static Routes from the specified NSX Edge Services Gateway Routing
     configuration.
 
     .DESCRIPTION
@@ -16575,7 +16575,7 @@ function Get-NsxEdgePrefix {
 
     <#
     .SYNOPSIS
-    Retreives IP Prefixes from the spcified NSX Edge Services Gateway Routing
+    Retreives IP Prefixes from the specified NSX Edge Services Gateway Routing
     configuration.
 
     .DESCRIPTION
@@ -16859,7 +16859,7 @@ function Get-NsxEdgeBgp {
 
     <#
     .SYNOPSIS
-    Retreives BGP configuration for the spcified NSX Edge Services Gateway.
+    Retreives BGP configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -17088,7 +17088,7 @@ function Get-NsxEdgeBgpNeighbour {
 
     <#
     .SYNOPSIS
-    Returns BGP neighbours from the spcified NSX Edge Services Gateway BGP
+    Returns BGP neighbours from the specified NSX Edge Services Gateway BGP
     configuration.
 
     .DESCRIPTION
@@ -17415,7 +17415,7 @@ function Get-NsxEdgeOspf {
 
     <#
     .SYNOPSIS
-    Retreives OSPF configuration for the spcified NSX Edge Services Gateway.
+    Retreives OSPF configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -17624,7 +17624,7 @@ function Get-NsxEdgeOspfArea {
 
     <#
     .SYNOPSIS
-    Returns OSPF Areas defined in the spcified NSX Edge Services Gateway OSPF
+    Returns OSPF Areas defined in the specified NSX Edge Services Gateway OSPF
     configuration.
 
     .DESCRIPTION
@@ -17932,7 +17932,7 @@ function Get-NsxEdgeOspfInterface {
 
     <#
     .SYNOPSIS
-    Returns OSPF Interface mappings defined in the spcified NSX Edge Services
+    Returns OSPF Interface mappings defined in the specified NSX Edge Services
     Gateway OSPF configuration.
 
     .DESCRIPTION
@@ -18256,7 +18256,7 @@ function Get-NsxEdgeRedistributionRule {
 
     <#
     .SYNOPSIS
-    Returns dynamic route redistribution rules defined in the spcified NSX Edge
+    Returns dynamic route redistribution rules defined in the specified NSX Edge
     Services Gateway routing configuration.
 
     .DESCRIPTION
@@ -18954,7 +18954,7 @@ function Get-NsxLogicalRouterRouting {
 
     <#
     .SYNOPSIS
-    Retreives routing configuration for the spcified NSX LogicalRouter.
+    Retreives routing configuration for the specified NSX LogicalRouter.
 
     .DESCRIPTION
     An NSX Logical Router is a distributed routing function implemented within
@@ -19003,7 +19003,7 @@ function Get-NsxLogicalRouterStaticRoute {
 
     <#
     .SYNOPSIS
-    Retreives Static Routes from the spcified NSX LogicalRouter Routing
+    Retreives Static Routes from the specified NSX LogicalRouter Routing
     configuration.
 
     .DESCRIPTION
@@ -19292,7 +19292,7 @@ function Get-NsxLogicalRouterPrefix {
 
     <#
     .SYNOPSIS
-    Retreives IP Prefixes from the spcified NSX LogicalRouter Routing
+    Retreives IP Prefixes from the specified NSX LogicalRouter Routing
     configuration.
 
     .DESCRIPTION
@@ -19783,7 +19783,7 @@ function Get-NsxLogicalRouterBgpNeighbour {
 
     <#
     .SYNOPSIS
-    Returns BGP neighbours from the spcified NSX LogicalRouter BGP
+    Returns BGP neighbours from the specified NSX LogicalRouter BGP
     configuration.
 
     .DESCRIPTION
@@ -20109,7 +20109,7 @@ function Get-NsxLogicalRouterOspf {
 
     <#
     .SYNOPSIS
-    Retreives OSPF configuration for the spcified NSX LogicalRouter.
+    Retreives OSPF configuration for the specified NSX LogicalRouter.
 
     .DESCRIPTION
     An NSX Logical Router is a distributed routing function implemented within
@@ -20352,7 +20352,7 @@ function Get-NsxLogicalRouterOspfArea {
 
     <#
     .SYNOPSIS
-    Returns OSPF Areas defined in the spcified NSX LogicalRouter OSPF
+    Returns OSPF Areas defined in the specified NSX LogicalRouter OSPF
     configuration.
 
     .DESCRIPTION
@@ -20651,7 +20651,7 @@ function Get-NsxLogicalRouterOspfInterface {
 
     <#
     .SYNOPSIS
-    Returns OSPF Interface mappings defined in the spcified NSX LogicalRouter
+    Returns OSPF Interface mappings defined in the specified NSX LogicalRouter
     OSPF configuration.
 
     .DESCRIPTION
@@ -20966,7 +20966,7 @@ function Get-NsxLogicalRouterRedistributionRule {
 
     <#
     .SYNOPSIS
-    Returns dynamic route redistribution rules defined in the spcified NSX
+    Returns dynamic route redistribution rules defined in the specified NSX
     LogicalRouter routing configuration.
 
     .DESCRIPTION
