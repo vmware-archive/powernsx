@@ -22930,58 +22930,54 @@ function Remove-NsxIpSetMember  {
     process {
 
         $_ipset = $ipset.clonenode($true)
-        if ( -not (invoke-xpathquery -QueryMethod SelectSingleNode -Node $_ipset -query "child::value")) {
-            throw "IPSet $($ipset.name) has no members."
-        }
-
-        if ( $_ipset.value -eq "" ) {
-            throw "IPSet $($ipset.name) has no members."
-        }
-
-        [system.collections.arraylist]$ValCollection = $_ipset.value -split ","
         $modified = $false
-        foreach ( $value in $IPAddress ) {
-            # An IPSET allows the users to enter a host as either 1.1.1.1 or
-            # 1.1.1.1/32. So if the users specifies that they want to remove
-            # 1.1.1.1 we need to look for both 1.1.1.1 AND 1.1.1.1/32 to remove.
-            if ( ValidateIPHost $value ) {
-                if ( $value -as [ipaddress] ) {
-                    if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$($value)/32" ) ) ) {
-                        write-warning "$Value not a member of IPSet $($ipset.name)"
+        if ( ( $_ipset.value -eq "" ) -or ( -not (invoke-xpathquery -QueryMethod SelectSingleNode -Node $_ipset -query "child::value")) ) {
+            write-warning "IPSet $($ipset.name) ($($ipset.objectid)): No members found."
+        } else {
+            [system.collections.arraylist]$ValCollection = $_ipset.value -split ","
+            foreach ( $value in $IPAddress ) {
+                # An IPSET allows the users to enter a host as either 1.1.1.1 or
+                # 1.1.1.1/32. So if the users specifies that they want to remove
+                # 1.1.1.1 we need to look for both 1.1.1.1 AND 1.1.1.1/32 to remove.
+                if ( ValidateIPHost $value ) {
+                    if ( $value -as [ipaddress] ) {
+                        if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$($value)/32" ) ) ) {
+                            write-warning "IPSet $($ipset.name) ($($ipset.objectid)): $Value is not a member of IPSet"
+                        }
+                        else {
+                            $modified = $true
+                            $ValCollection.Remove($value)
+                            $ValCollection.Remove("$($value)/32")
+                        }
+                    }
+                    else {
+                        if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$(($value -split "/")[0])" ) ) ) {
+                            write-warning "IPSet $($ipset.name) ($($ipset.objectid)): $Value is not a member of IPSet"
+                        }
+                        else {
+                            $modified = $true
+                            $ValCollection.Remove($value)
+                            $ValCollection.Remove("$(($value -split "/")[0])")
+                        }
+                    }
+                }
+                else {
+                    if ( ( -not ( $valcollection -contains $value ) ) ) {
+                        write-warning "IPSet $($ipset.name) ($($ipset.objectid)): $Value is not a member of IPSet"
                     }
                     else {
                         $modified = $true
                         $ValCollection.Remove($value)
-                        $ValCollection.Remove("$($value)/32")
-                    }
-                }
-                else {
-                    if ( ( -not ( $valcollection -contains $value ) ) -and ( -not ( $valcollection -contains "$(($value -split "/")[0])" ) ) ) {
-                        write-warning "$Value not a member of IPSet $($ipset.name)"
-                    }
-                    else {
-                        $modified = $true
-                        $ValCollection.Remove($value)
-                        $ValCollection.Remove("$(($value -split "/")[0])")
                     }
                 }
             }
-            else {
-                if ( ( -not ( $valcollection -contains $value ) ) ) {
-                    write-warning "$Value not a member of IPSet $($ipset.name)"
-                }
-                else {
-                    $modified = $true
-                    $ValCollection.Remove($value)
-                }
-            }
-        }
 
-        # Aparently the API chucks a wobbly and returns a 400 error if you
-        # try to remove the last IP Address from an IP Set resulting in a blank
-        # value. But it will allow you to create one with no value set... go figure.
-        if ( $ValCollection.count -eq 0 ) {
-            throw "Operation will result in an empty IP Set and the API will throw a 400 error."
+            # Aparently the API chucks a wobbly and returns a 400 error if you
+            # try to remove the last IP Address from an IP Set resulting in a blank
+            # value. But it will allow you to create one with no value set... go figure.
+            if ( $ValCollection.count -eq 0 ) {
+                throw "IPSet $($ipset.name) ($($ipset.objectid)): Operation not executed as it will result in an empty IP Set and the API will throw a 400 error."
+            }
         }
 
         if ( $modified ) {
