@@ -2732,7 +2732,9 @@ Function ValidateLoadBalancerPoolMember {
             throw "XML Element specified does not contain an edgeId property."
         }
         if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) {
-            throw "XML Element specified does not contain an ipAddress property."
+            if ( -not ( $argument | get-member -name groupingObjectId -MemberType Properties ) ) {
+                throw "XML Element specified does not contain an ipAddress property."
+            }
         }
         if ( -not ( $argument | get-member -name name -Membertype Properties)) {
             throw "XML Element specified does not contain a name property."
@@ -27182,24 +27184,45 @@ function New-NsxLoadBalancerMemberSpec {
     This cmdlet creates a new LoadBalancer Pool Member specification.
 
     .EXAMPLE
-
-    PS C:\> $WebMember1 = New-NsxLoadBalancerMemberSpec -name Web01
+    $WebMember1 = New-NsxLoadBalancerMemberSpec -name Web01
         -IpAddress 192.168.200.11 -Port 80
 
-    PS C:\> $WebMember2 = New-NsxLoadBalancerMemberSpec -name Web02
-        -IpAddress 192.168.200.12 -Port 80 -MonitorPort 8080
-        -MaximumConnections 100
+    Creates a new member spec for a member called Web01, ipaddress 192.168.200.11
+    and port 80
+
+    .EXAMPLE
+    $WebMember2 = New-NsxLoadBalancerMemberSpec -name Web02 -IpAddress
+        192.168.200.12 -Port 80 -MonitorPort 8080 -MaximumConnections 100
+
+    Creates a new member spec with an alternate MonitorPort.
+
+    .EXAMPLE
+    $WebMember3 = New-NsxLoadBalancerMemberSpec -Name Web03 -Member (Get-VM Web03)
+        -port 80
+
+    Creates a new member spec based on VM object for Web03.
+
+    .EXAMPLE
+    $WebMember3 = New-NsxLoadBalancerMemberSpec -Name Web03 -Member (Get-NsxLogicalSwitch WebLS)
+        -port 80
+
+    Creates a new member spec based on NSX Logical Switch.
 
     #>
 
-     param (
+    [CmdLetBinding(DefaultParameterSetName="IpAddress")]
+
+    param (
 
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="IpAddress")]
             [ValidateNotNullOrEmpty()]
             [IpAddress]$IpAddress,
+        [Parameter (Mandatory=$true, ParameterSetName="GroupingObject")]
+            [ValidateScript( { ValidateSecurityGroupMember $_ })]
+            [object]$Member,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [int]$Weight=1,
@@ -27225,7 +27248,48 @@ function New-NsxLoadBalancerMemberSpec {
         $xmlDoc.appendChild($xmlMember) | out-null
 
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
+        if ( $PSCmdlet.ParameterSetName -eq "ipaddress" ) {
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
+        }
+        else {
+
+            if ($Member -is [System.Xml.XmlElement] ) {
+                $MemberMoref = $Member.objectId
+                $MemberName = $Member.name
+            }
+            elseif ( ($Member -is [string]) -and ($Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                $MemberMoref = $Member
+                $MemberName = $Member
+            }
+            elseif ( ($Member -is [string] ) -and ( [guid]::tryparse(($Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
+                $MemberMoref = $Member
+                $MemberName = $Member
+            }
+            elseif (( $Member -is [string]) -and ( $NsxMemberTypes -contains ($Member -replace "-\d+$") ) ) {
+                $MemberMoref = $Member
+                $MemberName = $Member
+            }
+            elseif ( $Member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+                #See NSX API guide 'Attach or Detach a Virtual Machine from a Logical Switch' for
+                #how to construct NIC id.
+                $vmUuid = ($Member.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($Member.id.substring($Member.id.length-3))"
+                $MemberName = $Member.Name
+
+            }
+            elseif (( $Member -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $Member.ExtensionData.MoRef.Type)) {
+                $MemberMoref = $Member.ExtensionData.MoRef.Value
+                $MemberName = $Member.Name
+            }
+            else {
+                throw "Invalid member specified $($Member)"
+            }
+
+            #Create a new member node
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "groupingObjectId" -xmlElementText $MemberMoref
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "groupingObjectName" -xmlElementText $MemberName
+
+        }
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $Port
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $MonitorPort
@@ -27603,8 +27667,26 @@ function Add-NsxLoadBalancerPoolMember {
     This cmdlet adds a new member to the specified LoadBalancer Pool and
     returns the updated Pool.
 
-    #>
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | get-nsxloadbalancerpool pool1
+        | Add-NsxLoadBalancerPoolMember -Name test -ipaddress 1.2.3.4 -Port 80
 
+    Adds the ipaddress to LB pool1 on edge Edge01
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | get-nsxloadbalancerpool pool1
+        | Add-NsxLoadBalancerPoolMember -Name test -Member (get-vm web01) -Port 80
+
+    Adds the vm object web01 to LB pool1 on edge Edge01
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | get-nsxloadbalancerpool pool1
+        | Add-NsxLoadBalancerPoolMember -Name test -Member (get-logicalswitch WebLS) -Port 80
+
+    Adds the NSX object WebLS LB pool1 on edge Edge01
+
+    #>
+    [CmdLetBinding(DefaultParameterSetName="IpAddress")]
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
@@ -27613,9 +27695,12 @@ function Add-NsxLoadBalancerPoolMember {
         [Parameter (Mandatory=$true)]
             [ValidateNotNullOrEmpty()]
             [string]$Name,
-        [Parameter (Mandatory=$true)]
+        [Parameter (Mandatory=$true, ParameterSetName="IpAddress")]
             [ValidateNotNullOrEmpty()]
             [IpAddress]$IpAddress,
+        [Parameter (Mandatory=$true, ParameterSetName="Member")]
+            [ValidateScript( { ValidateSecurityGroupMember $_ })]
+            [object]$Member,
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [int]$Weight=1,
@@ -27651,7 +27736,48 @@ function Add-NsxLoadBalancerPoolMember {
         $_LoadBalancerPool.appendChild($xmlMember) | out-null
 
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
+
+        if ( $PSCmdlet.ParameterSetName -eq "ipaddress" ) {
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "ipAddress" -xmlElementText $IpAddress
+        }
+        else {
+
+            if ($Member -is [System.Xml.XmlElement] ) {
+                $MemberMoref = $Member.objectId
+                $MemberName = $Member.name
+            }
+            elseif ( ($Member -is [string]) -and ($Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                $MemberMoref = $Member
+                $MemberName = $Member
+            }
+            elseif ( ($Member -is [string] ) -and ( [guid]::tryparse(($Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
+                $MemberMoref = $Member
+                $MemberName = $Member
+            }
+            elseif (( $Member -is [string]) -and ( $NsxMemberTypes -contains ($Member -replace "-\d+$") ) ) {
+                $MemberMoref = $Member
+                $MemberName = $Member
+            }
+            elseif ( $Member -is [VMware.VimAutomation.ViCore.Interop.V1.VirtualDevice.NetworkAdapterInterop] ) {
+                #See NSX API guide 'Attach or Detach a Virtual Machine from a Logical Switch' for
+                #how to construct NIC id.
+                $vmUuid = ($Member.parent | get-view).config.instanceuuid
+                $MemberMoref = "$vmUuid.$($Member.id.substring($Member.id.length-3))"
+                $MemberName = $Member
+            }
+            elseif (( $Member -is [VMware.VimAutomation.ViCore.Interop.V1.VIObjectInterop]) -and ( $NsxMemberTypes -contains $Member.ExtensionData.MoRef.Type)) {
+                $MemberMoref = $Member.ExtensionData.MoRef.Value
+                $MemberName = $Member.name
+            }
+            else {
+                throw "Invalid member specified $($Member)"
+            }
+
+            #Create a new member node
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "groupingObjectId" -xmlElementText $MemberMoref
+            Add-XmlElement -xmlRoot $xmlMember -xmlElementName "groupingObjectName" -xmlElementText $MemberName
+        }
+
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $port
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $port
