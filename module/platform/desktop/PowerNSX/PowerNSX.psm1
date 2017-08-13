@@ -27667,6 +27667,33 @@ function Set-NsxLoadBalancerPoolMember {
 
     This cmdlet configures the state of the specified LoadBalancer Pool Member.
 
+    .EXAMPLE
+    Get-NsxEdge testedge | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pool1 |
+        Get-NsxLoadBalancerPoolMember web01 |
+        Set-NsxLoadBalancerPoolMember -state disabled
+
+    Disable member web01 of pool1 on edge testedge
+
+    .EXAMPLE
+    Get-NsxEdge testedge | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pool1 |
+        Get-NsxLoadBalancerPoolMember web01 |
+        Set-NsxLoadBalancerPoolMember -state enabled
+
+    Enable member web01 of pool1 on edge testedge
+
+    .EXAMPLE
+    Get-NsxEdge testedge | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pool1 |
+        Get-NsxLoadBalancerPoolMember web01 |
+        Set-NsxLoadBalancerPoolMember -state drain
+
+    Drain member web01 of pool1 on edge testedge (Supported only on NSX 6.3.0 and above)
+
+    .EXAMPLE
+    Get-NsxEdge testedge | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool |
+        Get-NsxLoadBalancerPoolMember |
+        Set-NsxLoadBalancerPoolMember -Weight 10
+
+    Set all members of all pools on edge testedge for weight 10
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Default")]
