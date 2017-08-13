@@ -2,3 +2,8 @@ issues/*
 .vscode/launch.json
 VSCodeDebug.ps1
 .vscode/settings.json
+# Ignoring manually generate manifest in the module root.
+module/PowerNSX.psd1
+# Ignore legacy path for module and manifest
+PowerNSX.psd1
+PowerNSX.psm1
