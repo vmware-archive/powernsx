@@ -21,6 +21,8 @@ copy-item -Path "$there/module/PowerNSX.psm1" "$there/"
 
 #Bring in the module generation variables
 . $there/module/Include.ps1
+#Pre PoSH 5 new-modmanifest barfs if the following exists...We dont need it to run tests....
+$common.Remove("ProjectURI")
 
 #Create the manifest
 if ( $PSVersionTable.PSEdition -eq "Core" ) {
