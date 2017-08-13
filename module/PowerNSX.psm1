@@ -27643,6 +27643,120 @@ function Get-NsxLoadBalancerPoolMember {
     end{ }
 }
 
+function Set-NsxLoadBalancerPoolMember {
+
+    <#
+    .SYNOPSIS
+    Configures the state of the specified LoadBalancer Pool Member.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    The NSX Edge load balancer enables network traffic to follow multiple paths
+    to a specific destination. It distributes incoming service requests evenly
+    among multiple servers in such a way that the load distribution is
+    transparent to users. Load balancing thus helps in achieving optimal
+    resource utilization, maximizing throughput, minimizing response time, and
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+
+    A pool manages load balancer distribution methods and has a service monitor
+    attached to it for health check parameters.  Each Pool has one or more
+    members.  Prior to creating or updating a pool to add a member, a member
+    spec describing the member needs to be created.
+
+    This cmdlet configures the state of the specified LoadBalancer Pool Member.
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Default")]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #Pool member to be configured
+            [ValidateScript({ ValidateLoadBalancerPoolMember $_ })]
+            [System.Xml.XmlElement]$LoadBalancerPoolMember,
+            [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("enabled","disabled","drain")]
+            [string]$state,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [int]$Weight,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65535)]
+            [int]$Port,
+        [Parameter (Mandatory=$false)]
+            [ValidateRange(1,65535)]
+            [int]$MonitorPort,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [int]$MinimumConnections,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [int]$MaximumConnections,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
+        if ($PSBoundParameters.ContainsKey("state") -and ($state -eq "drain") -and ([version]$Connection.version -lt [version]"6.3.0")){
+            throw "Setting a member state to drain requires NSX 6.3.0 or above."
+        }
+    }
+
+    process {
+
+        $edgeid = $LoadBalancerPoolMember.edgeId
+        $poolid = $loadBalancerPoolMember.poolId
+        $memberId = $LoadBalancerPoolMember.memberId
+        $response = Invoke-NsxWebRequest -Method "get" -Uri "/api/4.0/edges/$edgeid/loadbalancer/config/pools/$poolid"
+
+        [xml]$pool = $response.Content
+        $member = Invoke-XpathQuery -QueryMethod SelectSingleNode -Query "child::member[memberId=`"$memberId`"]" -Node $pool.pool
+
+        if ($PSBoundParameters.ContainsKey("state")) {
+            $member.condition = $state.toLower()
+        }
+        if ($PSBoundParameters.ContainsKey("weight")) {
+            $member.weight = $weight.toString()
+        }
+        if ($PSBoundParameters.ContainsKey("port")) {
+            $member.port = $port.toString()
+        }
+        if ($PSBoundParameters.ContainsKey("monitorPort")) {
+            $member.monitorPort = $monitorPort.toString()
+        }
+        if ($PSBoundParameters.ContainsKey("MinimumConnections")) {
+            $member.minConn = $MinimumConnections.ToString()
+        }
+        if ($PSBoundParameters.ContainsKey("MaximumConnections")) {
+            $member.maxConn = $MaximumConnections.ToString()
+        }
+
+        $response = Invoke-NsxWebRequest -method "put" -uri "/api/4.0/edges/$edgeid/loadbalancer/config/pools/$poolid" -body $pool.outerxml
+        $response = Invoke-NsxWebRequest -Method "get" -Uri "/api/4.0/edges/$edgeid/loadbalancer/config/pools/$poolid"
+
+        [xml]$pool = $response.Content
+        $member = Invoke-XpathQuery -QueryMethod SelectSingleNode -Query "child::member[memberId=`"$memberId`"]" -Node $pool.pool
+        $member
+    }
+
+    end{ }
+}
+
 function Add-NsxLoadBalancerPoolMember {
 
     <#
