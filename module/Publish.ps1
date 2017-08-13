@@ -67,20 +67,34 @@ $ModuleVersion = $ModuleVersion + '.' + $BuildNumber.tostring().trim()
 if ( -not ($ModuleVersion -as [version])) { throw "$ModuleVersion is not a valid version.  Check version and build number and try again."}
 $Common.Add("ModuleVersion", $ModuleVersion)
 
+#Get current working directory - required for writeAllLines method later.
+$pwd = split-path $MyInvocation.MyCommand.Path
+write-host $pwd
 # The path the Installation script uses on Desktop
-$DesktopPath = "./platform/desktop"
+$DesktopPath = "$pwd/platform/desktop"
 # The path the Installation script uses on Core
-$CorePath = "./platform/core"
+$CorePath = "$pwd/platform/core"
 # The path this script uses for the Gallery distro upload
-$GalleryPath = "./platform/gallery"
+$GalleryPath = "$pwd/platform/gallery"
 
 copy-item -Path "./PowerNSX.psm1" "$DesktopPath/PowerNSX/"
 copy-item -Path "./PowerNSX.psm1" "$CorePath/PowerNSX/"
 copy-item -Path "./PowerNSX.psm1" "$GalleryPath/PowerNSX/"
 
 New-ModuleManifest -Path "$DesktopPath/PowerNSX/PowerNSX.psd1" -RequiredModules $DesktopRequiredModules -PowerShellVersion '3.0' @Common
+#Convert to UTF8NoBOM
+$content = Get-Content "$DesktopPath/PowerNSX/PowerNSX.psd1"
+[System.IO.File]::WriteAllLines("$DesktopPath/PowerNSX/PowerNSX.psd1", $content)
+
 New-ModuleManifest -Path "$CorePath/PowerNSX/PowerNSX.psd1" -RequiredModules $CoreRequiredModules -PowerShellVersion '3.0' @Common
+#Convert to UTF8NoBOM
+$content = Get-Content "$CorePath/PowerNSX/PowerNSX.psd1"
+[System.IO.File]::WriteAllLines("$CorePath/PowerNSX/PowerNSX.psd1", $content)
+
 New-ModuleManifest -Path "$GalleryPath/PowerNSX/PowerNSX.psd1" -RequiredModules $GalleryRequiredModules -PowerShellVersion '3.0' @Common
+#Convert to UTF8NoBOM
+$content = Get-Content "$GalleryPath/PowerNSX/PowerNSX.psd1"
+[System.IO.File]::WriteAllLines("$GalleryPath/PowerNSX/PowerNSX.psd1", $content)
 
 Publish-Module -NuGetApiKey $NugetAPIKey -Path "$GalleryPath/PowerNSX"
 
