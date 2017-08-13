@@ -69,7 +69,7 @@ $Common.Add("ModuleVersion", $ModuleVersion)
 
 #Get current working directory - required for writeAllLines method later.
 $pwd = split-path $MyInvocation.MyCommand.Path
-write-host $pwd
+
 # The path the Installation script uses on Desktop
 $DesktopPath = "$pwd/platform/desktop"
 # The path the Installation script uses on Core
