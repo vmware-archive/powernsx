@@ -48,24 +48,22 @@ Set-StrictMode -Off
 $filename = "NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
 
 if ($psversiontable.PSEdition -ne "Core") {
-$ExportPath = "$([system.Environment]::GetFolderPath('MyDocuments'))\VMware\NSXObjectCapture\"
-$ExportFile = "$ExportPath $filename"
+    $ExportPath = "$([system.Environment]::GetFolderPath('MyDocuments'))\VMware\NSXObjectCapture"
+    $ExportFile = "$ExportPath\$filename"
 
-$TempDir = "$($env:Temp)\VMware\NSXObjectCapture"
+    $TempDir = "$($env:Temp)\VMware\NSXObjectCapture"
 }
-#Overwrite if Core is being used.
 else {
-    #Cannot write zip file to export directory on Core
-    $ExportPath = "/tmp/VMware/NSXObjectCaptureOutput/"
+    #zip output path
+    $ExportPath = "/tmp/VMware/NSXObjectCaptureOutput"
+    $ExportFile = "$ExportPath/$filename"
+
     #XML output folder
     $TempDir = "/tmp/VMware/NSXObjectCapture/"
-    #Filename for output
-    
-    #FullZIP directory
-    $ExportFile = "$ExportPath$filename"
-    #Checks if Core directory exists
+
+    #Create core dir if required
     if ( -not ( test-path $ExportPath )) {
-    New-Item -Type Directory $ExportPath | out-null
+        New-Item -Type Directory $ExportPath | out-null
     }
 }
 
@@ -290,12 +288,10 @@ $DfwRulesHash | export-clixml -depth $maxdepth $DfwRuleExportFile
 #Desktop extract to zip
 if ($psversiontable.PSEdition -ne "Core"){
     Add-Type -assembly "system.io.compression.filesystem"
-    [io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
 }
-#Core Extract to ZIP
-else {
-    [system.io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
-}
+
+[system.io.compression.zipfile]::CreateFromDirectory($TempDir, $ExportFile)
+
 #Clean up stale captures
 $Captures = Get-ChildItem $ExportPath -filter 'NSX-ObjectCapture-*.zip'
 while ( ( $Captures | measure ).count -ge $maxCaptures ) {
