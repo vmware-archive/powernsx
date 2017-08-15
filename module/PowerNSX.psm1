@@ -166,7 +166,7 @@ https://github.com/vmware/powernsx/issues
             public InternalNsxApiException(string message, Exception inner) : base(message, inner) {}
         }
 "@
-    add-type $InternalNsxApiException -ignorewarnings
+    add-type $InternalNsxApiException -IgnoreWarnings -warningaction "SilentlyContinue"
 
 }
 
