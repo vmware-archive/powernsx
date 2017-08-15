@@ -26,7 +26,7 @@ has its own license that is located in the source code of the respective compone
 
 #My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
 $PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
-$ValidBranches = @("master","v2")
+$ValidBranches = @("master","v2", "v3")
 
 $Script:AllValidServices = @("AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
               "BPQ", "CUST", "DEC", "DIAG", "DNA_DL", "DNA_RC", "DNA_RT", "ESP",
@@ -70,19 +70,6 @@ Function _init {
     }
 
     if ( $script:PNsxPSTarget -eq "Core" ) {
-        ##################WARNING############################
-        $WarningString = @"
-###################################WARNING######################################
-PowerNSX support for Powershell Core is still experimental.
-
-Please see the PowerNSX github site for current list of known issues.
-
-If you encounter an issue using PowerNSX, please raise it at
-https://github.com/vmware/powernsx/issues
-###################################WARNING######################################
-
-"@
-        write-host -ForegroundColor Yellow $WarningString
 
         if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
             write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
