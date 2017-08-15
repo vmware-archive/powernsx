@@ -31,7 +31,7 @@ param (
     )
 
 #Control which branch is installed.  Latest commit in this branch is used.
-$Branch = "v3"
+$Branch = "master"
 
 #PowerCLI 6.0 R3
 $PowerCLI_Download="https://my.vmware.com/group/vmware/details?downloadGroup=PCLI650R1&productId=615"
