@@ -19,14 +19,19 @@ Note that not all PowerNSX functions have been tested, and there are known issue
 
 ## Installing PowerNSX
 
-The quickest way of installing PowerNSX is as simple as running the oneliner below in a PowerShell Window. This will execute the PowerNSX installation script which will guide you through the installation of the latest stable release of PowerNSX.
+PowerNSX is available from the PowerShell Gallery.  Installation of PowerNSX from the PowerShell Gallery is performed as follows:
 
 ```
-$Branch="v2";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { $wc = new-object Net.WebClient;$scr = try { $wc.DownloadString($url)} catch { if ( $_.exception.innerexception -match "(407)") { $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"; $wc.DownloadString($url) } else { throw $_ }}; $scr | iex } catch { throw $_ }
+Find-Module PowerNSX | Install-Module -scope CurrentUser
 ```
 
-PowerNSX now has experimental PowerShell Core support available in the master (development) branch.
-Note that not all PowerNSX functions have been tested, and there are known issues (Remember, PowerShell Core and PowerCLI Core are both pre-release products as well.).  See the [PowerNSX Core](https://powernsx.github.io/powernsxcore/) section for details.
+If your system doesn't have PowerShell Gallery support, or you want to use the PowerNSX installation script, you can do so by running the oneliner below in a PowerShell Window. This will execute the PowerNSX installation script which will guide you through the installation of the latest stable release of PowerNSX.
+
+```
+$Branch="v3";$url="https://raw.githubusercontent.com/vmware/powernsx/$Branch/PowerNSXInstaller.ps1"; try { $wc = new-object Net.WebClient;$scr = try { $wc.DownloadString($url)} catch { if ( $_.exception.innerexception -match "(407)") { $wc.proxy.credentials = Get-Credential -Message "Proxy Authentication Required"; $wc.DownloadString($url) } else { throw $_ }}; $scr | iex } catch { throw $_ }
+```
+
+PowerNSX can also be installed on PowerShell Core.   See [PowerNSX Core](https://powernsx.github.io/powernsxcore/) for details.
 
 More install options for PowerNSX including Linux and OSX installation can be found here under [Installing PowerNSX](https://powernsx.github.io/install/)
 
