@@ -26,7 +26,7 @@ has its own license that is located in the source code of the respective compone
 
 #My installer home and valid PNSX branches (releases) (used in Update-Powernsx.)
 $PNsxUrlBase = "https://raw.githubusercontent.com/vmware/powernsx"
-$ValidBranches = @("master","v2")
+$ValidBranches = @("master","v2", "v3")
 
 $Script:AllValidServices = @("AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
               "BPQ", "CUST", "DEC", "DIAG", "DNA_DL", "DNA_RC", "DNA_RT", "ESP",
@@ -70,19 +70,6 @@ Function _init {
     }
 
     if ( $script:PNsxPSTarget -eq "Core" ) {
-        ##################WARNING############################
-        $WarningString = @"
-###################################WARNING######################################
-PowerNSX support for Powershell Core is still experimental.
-
-Please see the PowerNSX github site for current list of known issues.
-
-If you encounter an issue using PowerNSX, please raise it at
-https://github.com/vmware/powernsx/issues
-###################################WARNING######################################
-
-"@
-        write-host -ForegroundColor Yellow $WarningString
 
         if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
             write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
@@ -166,7 +153,7 @@ https://github.com/vmware/powernsx/issues
             public InternalNsxApiException(string message, Exception inner) : base(message, inner) {}
         }
 "@
-    add-type $InternalNsxApiException -ignorewarnings
+    add-type $InternalNsxApiException -IgnoreWarnings -warningaction "SilentlyContinue"
 
 }
 
@@ -13369,7 +13356,7 @@ function Get-NsxEdgeNatRule {
 
     <#
     .SYNOPSIS
-    Retreives NAT rules from the spcified NSX Edge Services Gateway NAT
+    Retreives NAT rules from the specified NSX Edge Services Gateway NAT
     configuration.
 
     .DESCRIPTION
@@ -13916,7 +13903,7 @@ function Get-NsxEdgeFirewallRule {
 
     <#
     .SYNOPSIS
-    Retrieves Firewall rules from the spcified NSX Edge Services Gateway Firewall
+    Retrieves Firewall rules from the specified NSX Edge Services Gateway Firewall
     configuration.
 
     .DESCRIPTION
@@ -16228,7 +16215,7 @@ function Get-NsxEdgeRouting {
 
     <#
     .SYNOPSIS
-    Retreives routing configuration for the spcified NSX Edge Services Gateway.
+    Retreives routing configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -16280,7 +16267,7 @@ function Get-NsxEdgeStaticRoute {
 
     <#
     .SYNOPSIS
-    Retreives Static Routes from the spcified NSX Edge Services Gateway Routing
+    Retreives Static Routes from the specified NSX Edge Services Gateway Routing
     configuration.
 
     .DESCRIPTION
@@ -16577,7 +16564,7 @@ function Get-NsxEdgePrefix {
 
     <#
     .SYNOPSIS
-    Retreives IP Prefixes from the spcified NSX Edge Services Gateway Routing
+    Retreives IP Prefixes from the specified NSX Edge Services Gateway Routing
     configuration.
 
     .DESCRIPTION
@@ -16861,7 +16848,7 @@ function Get-NsxEdgeBgp {
 
     <#
     .SYNOPSIS
-    Retreives BGP configuration for the spcified NSX Edge Services Gateway.
+    Retreives BGP configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -17090,7 +17077,7 @@ function Get-NsxEdgeBgpNeighbour {
 
     <#
     .SYNOPSIS
-    Returns BGP neighbours from the spcified NSX Edge Services Gateway BGP
+    Returns BGP neighbours from the specified NSX Edge Services Gateway BGP
     configuration.
 
     .DESCRIPTION
@@ -17417,7 +17404,7 @@ function Get-NsxEdgeOspf {
 
     <#
     .SYNOPSIS
-    Retreives OSPF configuration for the spcified NSX Edge Services Gateway.
+    Retreives OSPF configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -17626,7 +17613,7 @@ function Get-NsxEdgeOspfArea {
 
     <#
     .SYNOPSIS
-    Returns OSPF Areas defined in the spcified NSX Edge Services Gateway OSPF
+    Returns OSPF Areas defined in the specified NSX Edge Services Gateway OSPF
     configuration.
 
     .DESCRIPTION
@@ -17934,7 +17921,7 @@ function Get-NsxEdgeOspfInterface {
 
     <#
     .SYNOPSIS
-    Returns OSPF Interface mappings defined in the spcified NSX Edge Services
+    Returns OSPF Interface mappings defined in the specified NSX Edge Services
     Gateway OSPF configuration.
 
     .DESCRIPTION
@@ -18258,7 +18245,7 @@ function Get-NsxEdgeRedistributionRule {
 
     <#
     .SYNOPSIS
-    Returns dynamic route redistribution rules defined in the spcified NSX Edge
+    Returns dynamic route redistribution rules defined in the specified NSX Edge
     Services Gateway routing configuration.
 
     .DESCRIPTION
@@ -18956,7 +18943,7 @@ function Get-NsxLogicalRouterRouting {
 
     <#
     .SYNOPSIS
-    Retreives routing configuration for the spcified NSX LogicalRouter.
+    Retreives routing configuration for the specified NSX LogicalRouter.
 
     .DESCRIPTION
     An NSX Logical Router is a distributed routing function implemented within
@@ -19005,7 +18992,7 @@ function Get-NsxLogicalRouterStaticRoute {
 
     <#
     .SYNOPSIS
-    Retreives Static Routes from the spcified NSX LogicalRouter Routing
+    Retreives Static Routes from the specified NSX LogicalRouter Routing
     configuration.
 
     .DESCRIPTION
@@ -19294,7 +19281,7 @@ function Get-NsxLogicalRouterPrefix {
 
     <#
     .SYNOPSIS
-    Retreives IP Prefixes from the spcified NSX LogicalRouter Routing
+    Retreives IP Prefixes from the specified NSX LogicalRouter Routing
     configuration.
 
     .DESCRIPTION
@@ -19785,7 +19772,7 @@ function Get-NsxLogicalRouterBgpNeighbour {
 
     <#
     .SYNOPSIS
-    Returns BGP neighbours from the spcified NSX LogicalRouter BGP
+    Returns BGP neighbours from the specified NSX LogicalRouter BGP
     configuration.
 
     .DESCRIPTION
@@ -20111,7 +20098,7 @@ function Get-NsxLogicalRouterOspf {
 
     <#
     .SYNOPSIS
-    Retreives OSPF configuration for the spcified NSX LogicalRouter.
+    Retreives OSPF configuration for the specified NSX LogicalRouter.
 
     .DESCRIPTION
     An NSX Logical Router is a distributed routing function implemented within
@@ -20354,7 +20341,7 @@ function Get-NsxLogicalRouterOspfArea {
 
     <#
     .SYNOPSIS
-    Returns OSPF Areas defined in the spcified NSX LogicalRouter OSPF
+    Returns OSPF Areas defined in the specified NSX LogicalRouter OSPF
     configuration.
 
     .DESCRIPTION
@@ -20653,7 +20640,7 @@ function Get-NsxLogicalRouterOspfInterface {
 
     <#
     .SYNOPSIS
-    Returns OSPF Interface mappings defined in the spcified NSX LogicalRouter
+    Returns OSPF Interface mappings defined in the specified NSX LogicalRouter
     OSPF configuration.
 
     .DESCRIPTION
@@ -20968,7 +20955,7 @@ function Get-NsxLogicalRouterRedistributionRule {
 
     <#
     .SYNOPSIS
-    Returns dynamic route redistribution rules defined in the spcified NSX
+    Returns dynamic route redistribution rules defined in the specified NSX
     LogicalRouter routing configuration.
 
     .DESCRIPTION
