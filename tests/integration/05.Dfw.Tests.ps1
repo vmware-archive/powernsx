@@ -2112,4 +2112,13 @@ Describe "DFW" {
         }
     }
 
+    Context "Miscellaneous"  {
+        It "Can get publish status" {
+            $publish = Get-NsxFirewallPublishStatus
+            $publish | should not be $null
+            $publish.starttime | should not be $null
+            $publish.status | should not be $null
+        }
+    }
+
 }

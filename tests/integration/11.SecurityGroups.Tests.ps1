@@ -70,6 +70,28 @@ Describe "SecurityGroups" {
         else {
             $ver_gt_630_universalSyncEnabled = $false
         }
+
+        # Create test VM to test VM membership
+        $script:testVMName1 = "pester_sg_vm1"
+        if ( get-vm $testVMName1) {
+            remove-vm $testVMName1 -DeletePermanently -Confirm:$false
+        }
+        $vmhost = $cl | get-vmhost | select -first 1
+        $folder = get-folder -type VM -name vm
+        $vmsplat = @{
+            "VMHost" = $vmhost
+            "Location" = $folder
+            "ResourcePool" = $cl
+            "Datastore" = $ds
+            "DiskGB" = 1
+            "DiskStorageFormat" = "Thin"
+            "NumCpu" = 1
+            "Floppy" = $false
+            "CD" = $false
+            "GuestId" = "other26xLinuxGuest"
+            "MemoryMB" = 512
+        }
+        $script:testvm1 = new-vm -name $testVMName1 @vmsplat
     }
 
     AfterAll {
@@ -78,7 +100,7 @@ Describe "SecurityGroups" {
         #We kill the connection to NSX Manager here.
 
         get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
-
+        Get-vm | ? { $_.name -eq $testVMName1 } | Remove-vm -DeletePermanently -Confirm:$false
         disconnect-nsxserver
     }
 
@@ -86,7 +108,7 @@ Describe "SecurityGroups" {
         BeforeAll {
             $script:secGrpName = "$sgPrefix-get"
             $SecGrpDesc = "PowerNSX Pester Test get SecurityGroup"
-            $script:get = New-nsxsecuritygroup -Name $secGrpName -Description $SecGrpDesc
+            $script:get = New-nsxsecuritygroup -Name $secGrpName -Description $SecGrpDesc -IncludeMember $testvm1
 
         }
 
@@ -115,6 +137,13 @@ Describe "SecurityGroups" {
             $secGrp = Get-nsxsecuritygroup -scopeid globalroot-0
             ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
             ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+        }
+
+        It "Can retrieve securitygroups by virtual machine" {
+            $sg = $testvm1 | Get-NsxSecurityGroup
+            $sg | should not be $null
+            ($sg | measure).count | should be 1
+            $sg.name | should be $secGrpName
         }
 
     }
@@ -1183,6 +1212,7 @@ Describe "SecurityGroups" {
             $item.objectTypeName | should be "SecurityGroup"
             $item.isUniversal | should be "true"
         }
+
 
 #ScopeId of an Edge
         it "Can retrieve local Security Group IPSet applicable members specifying scopeid of an edge" {
