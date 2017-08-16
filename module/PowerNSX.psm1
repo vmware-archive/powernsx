@@ -21341,6 +21341,9 @@ function Get-NsxSecurityGroup {
         [Parameter (Mandatory=$true, ParameterSetName="LocalOnly")]
             #Return only Locally scoped objects
             [switch]$LocalOnly,
+        [Parameter (Mandatory=$true, ParameterSetName="VirtualMachine", ValueFromPipeLine=$true)]
+            #Virtual Machine to check for group membership
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
         [Parameter (Mandatory=$false)]
             #Include default system security group
             [switch]$IncludeSystem=$false,
@@ -21372,7 +21375,16 @@ function Get-NsxSecurityGroup {
 
     process {
 
-        if ( -not $objectId ) {
+        if ( $PSBoundParameters.ContainsKey("VirtualMachine")) {
+            $VMMoRef = $VirtualMachine.ExtensionData.Moref.Value
+            $uri = "/api/2.0/services/securitygroup/lookup/virtualmachine/$VMMoRef"
+
+            [system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securitygroup')) {
+                $response.securitygroups.securityGroups.securityGroup
+            }
+        }
+        elseif ( -not $objectId ) {
             $sg = @()
             foreach ($scope in $scopeid ) {
                 #All Security Groups
@@ -21388,7 +21400,7 @@ function Get-NsxSecurityGroup {
             }
             #Filter default if switch not set
             if ( -not $IncludeSystem ) {
-                $sg| where-object { ( $_.objectId -ne 'securitygroup-1') }
+                $sg | where-object { ( $_.objectId -ne 'securitygroup-1') }
             }
             else {
                 $sg
