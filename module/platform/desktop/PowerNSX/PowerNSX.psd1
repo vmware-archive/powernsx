@@ -12,7 +12,7 @@
 RootModule = 'PowerNSX.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.0.1010'
+ModuleVersion = '3.0.1012'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()
@@ -201,7 +201,7 @@ FunctionsToExport = 'Add-XmlElement', 'Format-Xml', 'Invoke-NsxRestMethod',
                'Remove-NsxIpSetMember', 'Get-NsxUserRole', 'Invoke-XpathQuery', 
                'Get-NsxFirewallRuleMember', 'Add-NsxFirewallRuleMember', 
                'Remove-NsxFirewallRuleMember', 'Wait-NsxGenericJob', 
-               'Remove-NsxController'
+               'Remove-NsxController', 'Get-NsxFirewallPublishStatus'
 
 # Cmdlets to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no cmdlets to export.
 CmdletsToExport = '*'
