@@ -283,7 +283,8 @@ $FunctionsToExport = @(
     'Add-NsxFirewallRuleMember',
     'Remove-NsxFirewallRuleMember',
     'Wait-NsxGenericJob',
-    'Remove-NsxController'
+    'Remove-NsxController',
+    'Get-NsxFirewallPublishStatus'
 )
 
 #Manifest settings that are common to all platforms.

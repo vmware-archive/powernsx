@@ -26331,6 +26331,52 @@ function Set-NsxFirewallGlobalConfiguration {
     end {}
 }
 
+function Get-NsxFirewallPublishStatus {
+
+    <#
+    .SYNOPSIS
+    Retrieves the Distributed Firewall publish status showing per cluster
+    generation number and status.
+
+    .DESCRIPTION
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
+
+    The Get-NsxFirewallPublishStatus cmdet retreives the current publishign
+    status for each DFW enabled cluster.
+
+    .EXAMPLE
+    Get-NsxFirewallPublishStatus
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process {
+
+        $URI = "/api/4.0/firewall/globalroot-0/status"
+
+        $response = invoke-nsxwebrequest -method "get" -uri $URI -connection $connection
+        [system.xml.xmldocument]$Content = $response.content
+
+        if ( Invoke-XPathQuery -Node $content -QueryMethod SelectSingleNode -query "child::firewallStatus" ){
+            $Content.firewallStatus
+        }
+    }
+
+    end{}
+}
+
+
 ########
 ########
 # Load Balancing
