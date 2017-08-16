@@ -345,7 +345,7 @@ Describe "IPSets" {
             get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
             $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc
             $remove | Should not be $null
-            $remove.value | should throw
+            {$remove | Get-Member -MemberType Property -Name value} | should be $null
             $ipset = $remove | Remove-NsxIpSetMember -IpAddress $dummyIpAddress -WarningVariable warning
             $warning | Should match ": No members found"
         }
