@@ -3955,7 +3955,7 @@ function Connect-NsxServer {
             #vCenter Server address or FQDN (not NSX Manager!).  Used to determine NSX Server endpoint and authenticate using SSO credentials.  Recommended method.
             [ValidateNotNullOrEmpty()]
             [string]$vCenterServer,
-        [Parameter (Mandatory=$false, ParameterSetName="vCenterServer", DontShow)]
+        [Parameter (Mandatory=$false, ParameterSetName="vCenterServer")]
             #NSX Manager address used to override that registered in vCenter.  Used for scenarios where NSX manager is behind a NAT device.
             [ValidateNotNullOrEmpty()]
             [string]$NsxServerHint,
