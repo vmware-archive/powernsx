@@ -284,7 +284,12 @@ $FunctionsToExport = @(
     'Remove-NsxFirewallRuleMember',
     'Wait-NsxGenericJob',
     'Remove-NsxController',
-    'Get-NsxFirewallPublishStatus'
+    'Get-NsxFirewallPublishStatus',
+    'Get-NsxLogicalRouterBridging',
+    'Set-NsxLogicalRouterBridging',
+    'New-NsxLogicalRouterBridge',
+    'Get-NsxLogicalRouterBridge',
+    'Remove-NsxLogicalRouterBridge'
 )
 
 #Manifest settings that are common to all platforms.
