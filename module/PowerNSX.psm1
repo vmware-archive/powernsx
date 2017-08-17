@@ -21378,6 +21378,7 @@ function Get-NsxLogicalRouterBridging {
     .EXAMPLE
     Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterBridging
 
+    Retrieve the bridging configuration for LogicalRouter01
     #>
 
     param (
@@ -21518,6 +21519,10 @@ function New-NsxLogicalRouterBridge {
     The New-NsxLogicalRouterBridge cmdlet creates a new bridge instance configured
     via the specifid logical router.
     
+    .EXAMPLE
+    Get-NsxLogicalRouter BridgeRouter | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "bridge1" -PortGroup $bridgepg1 -LogicalSwitch $bridgels1
+
+    Create a bridge between vdportgroup $bridgepg1 and logical switch $bridgels1 on logicalrouter BridgeRouter. 
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -21647,8 +21652,6 @@ function Get-NsxLogicalRouterBridge {
     end {}
 }
 
-
-    
 function Remove-NsxLogicalRouterBridge {
 
     <#
@@ -21670,6 +21673,11 @@ function Remove-NsxLogicalRouterBridge {
     
     The Remove-NsxLogicalRouterBridge cmdlet removes the specified bridge 
     instance from its associated LogicalRouter Bridging Configuration.
+
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterBridging | Get-NSxLogicalRouterBridge -Name Bridge1 | Remove-NsxLogicalRouterBridge
+
+    Remove the bridge Bridge1 on LogicalRouter01
 
     #>
 
@@ -21734,7 +21742,6 @@ function Remove-NsxLogicalRouterBridge {
 
     end {}
 }
-
 
 #########
 #########

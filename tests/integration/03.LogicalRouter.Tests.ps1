@@ -84,6 +84,12 @@ Describe "Logical Routing" {
         $script:uvnics2 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic1 -ConnectedTo $ulswitches2[1] -PrimaryAddress 2.2.2.1 -SubnetPrefixLength 24
         $script:uvnics2 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic2 -ConnectedTo $ulswitches2[2] -PrimaryAddress 3.3.3.1 -SubnetPrefixLength 24
 
+        #bridging setup
+        $script:bridgeportgroup1 = Get-VDSwitch | select -First 1 | New-VDPortgroup -VlanId 1234 -Name "pester_bridge_pg1"
+        $script:bridgels1 = $tz | New-NsxLogicalSwitch -Name "pester_bridge_ls1"
+        $script:bridgeportgroup2 = Get-VDSwitch | select -First 1 | New-VDPortgroup -VlanId 1235 -Name "pester_bridge_pg2"
+        $script:bridgels2 = $tz | New-NsxLogicalSwitch -Name "pester_bridge_ls2"
+
         if ($script:DefaultNsxConnection.version -ge [version]"6.3.0") {
             # This flag is used  as some functions deprecated in NSX 6.3.0 or higher.
             $script:NSX630OrLaterVersion = $True
@@ -161,6 +167,59 @@ Describe "Logical Routing" {
             Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop | Remove-NsxLogicalRouterStaticRoute -Confirm:$false
             Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterStaticRoute -Network $staticroutenet -NextHop $staticroutenexthop | should be $null
         }
+    }
+
+    Context "Bridging"  { 
+
+        AfterEach{
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge | Remove-NSxLogicalRouterBridge -Confirm:$false
+        }
+
+        It "Can enable bridge configuration for a logical router" {
+            $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Set-NsxLogicalRouterBridging -enabled -confirm:$false
+            $bridge | should not be $null
+            $Bridge.enabled | should be "true"
+        }
+
+        It "Can create a bridge instance" {
+            $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_1" -PortGroup $BridgePortGroup1 -LogicalSwitch $bridgels1
+            $bridge | should not be $null
+            $Bridge.Name| should be "pester_bridge_1"
+        }
+
+        It "Can retrieve a bridge instance by name" {
+            $null = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_1" -PortGroup $BridgePortGroup1 -LogicalSwitch $bridgels1
+            $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_2" -PortGroup $BridgePortGroup2 -LogicalSwitch $bridgels2
+            $bridge | should not be $null
+            $GetBridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge -Name "pester_bridge_2"
+            ($GetBridge | measure).count | should be 1
+            $GetBridge.Name| should be "pester_bridge_2"
+        }
+
+        It "Can retrieve a bridge instance by id" {
+            $null = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_1" -PortGroup $BridgePortGroup1 -LogicalSwitch $bridgels1
+            $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_2" -PortGroup $BridgePortGroup2 -LogicalSwitch $bridgels2
+            $bridge | should not be $null
+            $GetBridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge -bridgeId $bridge.bridgeId
+            ($GetBridge | measure).count | should be 1
+            $GetBridge.bridgeId| should be $bridge.bridgeId
+        }
+
+        It "Can remove a bridge instance" {
+            $firstbridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_1" -PortGroup $BridgePortGroup1 -LogicalSwitch $bridgels1
+            $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_2" -PortGroup $BridgePortGroup2 -LogicalSwitch $bridgels2
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge -bridgeId $bridge.bridgeId | Remove-NsxLogicalRouterBridge -Confirm:$false
+            $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge
+            ($bridge | measure).count | should be 1
+            $bridge.bridgeId| should be $firstbridge.bridgeId
+        }
+
+        It "Can disable bridge configuration for a logical router" {
+            $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Set-NsxLogicalRouterBridging -enabled:$false -confirm:$false
+            $bridge | should not be $null
+            $Bridge.enabled | should be "false"
+        }
+
     }
 
     Context "OSPF" {
@@ -355,6 +414,10 @@ Describe "Logical Routing" {
             $ulswitch2 | remove-nsxlogicalswitch -confirm:$false
         }
 
+        $bridgels1 | Remove-NSxLogicalSwitch -Confirm:$false
+        $bridgels2 | Remove-NSxLogicalSwitch -Confirm:$false
+        Get-vdPortGroup pester* | Remove-VDPortGroup -Confirm:$false
+        
         disconnect-nsxserver
     }
 }
