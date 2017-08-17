@@ -1477,6 +1477,29 @@ Function ValidateLogicalRouterRouting {
     }
 }
 
+Function ValidateLogicalRouterBridging {
+    
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an LogicalRouter bridging element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name version -Membertype Properties)) {
+            throw "XML Element specified does not contain a version property."
+        }
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) {
+            throw "XML Element specified does not contain an enabled property."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid LogicalRouter bridging object."
+    }
+}
+
 Function ValidateLogicalRouterStaticRoute {
 
     Param (
@@ -1503,6 +1526,35 @@ Function ValidateLogicalRouterStaticRoute {
     }
     else {
         throw "Specify a valid LogicalRouter Static Route object."
+    }
+}
+
+Function ValidateLogicalRouterBridge {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an LogicalRouter routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name bridgeID -Membertype Properties)) {
+            throw "XML Element specified does not contain a bridgeId property.  Specify a valid LogicalRouter bridge instance"
+        }
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) {
+            throw "XML Element specified does not contain a name property.  Specify a valid LogicalRouter bridge instance"
+        }
+        if ( -not ( $argument | get-member -name virtualWire -Membertype Properties)) {
+            throw "XML Element specified does not contain a virtualWire property.  Specify a valid LogicalRouter bridge instance"
+        }
+        if ( -not ( $argument | get-member -name dvportGroup -Membertype Properties)) {
+            throw "XML Element specified does not contain an dvportGroup property.  Specify a valid LogicalRouter bridge instance"
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid LogicalRouter bridge instance."
     }
 }
 
@@ -21294,6 +21346,397 @@ function New-NsxLogicalRouterRedistributionRule {
                 (Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -Learner $Learner)[-1]
 
             }
+        }
+    }
+
+    end {}
+}
+
+# Bridging
+
+function Get-NsxLogicalRouterBridging {
+    
+    <#
+    .SYNOPSIS
+    Retreives bridging configuration for the specified NSX LogicalRouter.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers act as the configuration entity for enabling layer 2 bridging 
+    within a NSX environment.  Although the Logical Router control VM is not part 
+    of the datapath, it does control which hypervisor is active for a given bridge 
+    instance.  A Bridge is configured between a single VD Port Group and a single 
+    Logical Switch
+
+    Each Logical Router can define the configuration of multiple bridges.
+    
+    The Get-NsxLogicalRouterBridging cmdlet retrieves the bridge configuration of
+    the specified LogicalRouter.
+
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterBridging
+
+    Retrieve the bridging configuration for LogicalRouter01
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateLogicalRouter $_ })]
+            [System.Xml.XmlElement]$LogicalRouter
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        
+        #We append the LogicalRouter-id to the associated Bridging config XML to enable pipeline workflows and
+        #consistent readable output
+
+        $_LogicalRouterBridging = $LogicalRouter.features.bridges.CloneNode($True)
+        Add-XmlElement -xmlRoot $_LogicalRouterBridging -xmlElementName "logicalrouterId" -xmlElementText $LogicalRouter.Id
+        $_LogicalRouterBridging
+    }
+
+    end {}
+}
+
+function Set-NsxLogicalRouterBridging {
+    
+    <#
+    .SYNOPSIS
+    Configures bridging configuration for the specified NSX LogicalRouter.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers act as the configuration entity for enabling layer 2 bridging 
+    within a NSX environment.  Although the Logical Router control VM is not part 
+    of the datapath, it does control which hypervisor is active for a given bridge 
+    instance.  A Bridge is configured between a single VD Port Group and a single 
+    Logical Switch
+
+    Each Logical Router can define the configuration of multiple bridges.
+    
+    The Set-NsxLogicalRouterBridging cmdlet configures the bridge configuration of
+    the specified LogicalRouter.
+
+    .EXAMPLE
+    Get-NsxLogicalRouter BridgeRouter | Get-NsxLogicalRouterBridging | Set-NsxLogicalRouterBridging -Enabled
+
+    Enable bridging on the LogicalRouter called BridgeRouter
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #LogicalRouter Bridging object as retreived by Get-NsxLogicalRouterBridging
+            [ValidateScript({ ValidateLogicalRouterBridging $_ })]
+            [System.Xml.XmlElement]$LogicalRouterBridging,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$True)]
+            #Enable Bridge support.
+            [switch]$Enabled,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterBridging = $LogicalRouterBridging.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterBridging.logicalrouterId
+        $_LogicalRouterBridging.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterBridging -Query 'child::logicalrouterId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled')) {
+            $_LogicalRouterBridging.Enabled = $Enabled.ToString().ToLower()
+        }
+
+        $URI = "/api/4.0/edges/$($LogicalRouterId)/bridging/config"
+        $body = $_LogicalRouterBridging.OuterXml
+
+        if ( $confirm ) {
+            $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+            $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterBridging
+        }
+    }
+
+    end {}
+}
+
+function New-NsxLogicalRouterBridge {
+    
+    <#
+    .SYNOPSIS
+    Creates a new static route and adds it to the specified ESGs routing
+    configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers act as the configuration entity for enabling layer 2 bridging 
+    within a NSX environment.  Although the Logical Router control VM is not part 
+    of the datapath, it does control which hypervisor is active for a given bridge 
+    instance.  A Bridge is configured between a single VD Port Group and a single 
+    Logical Switch
+
+    Each Logical Router can define the configuration of multiple bridges.
+
+    The New-NsxLogicalRouterBridge cmdlet creates a new bridge instance configured
+    via the specifid logical router.
+    
+    .EXAMPLE
+    Get-NsxLogicalRouter BridgeRouter | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "bridge1" -PortGroup $bridgepg1 -LogicalSwitch $bridgels1
+
+    Create a bridge between vdportgroup $bridgepg1 and logical switch $bridgels1 on logicalrouter BridgeRouter. 
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateLogicalRouterBridging $_ })]
+            [System.Xml.XmlElement]$LogicalRouterBridging,
+        [Parameter (Mandatory=$True)]
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$True)]
+            [VMware.VimAutomation.ViCore.Interop.V1.Host.Networking.DistributedPortGroupInterop]$PortGroup,
+        [Parameter (Mandatory=$True)]
+            [ValidateScript({ ValidateLogicalSwitchOrDistributedPortGroup $_ } )]
+            [System.Xml.XmlElement]$LogicalSwitch,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process {
+
+        #Create private xml element
+        $_LogicalRouterBridging = $LogicalRouterBridging.CloneNode($true)
+
+        #Store the logicalrouterId and remove it from the XML as we need to post it...
+        $logicalrouterId = $_LogicalRouterBridging.logicalrouterId
+        $_LogicalRouterBridging.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_LogicalRouterBridging -Query 'child::logicalrouterId')) ) | out-null
+
+        #Create the new bridge element.
+        $Bridge = $_LogicalRouterBridging.ownerDocument.CreateElement('bridge')
+
+        #Need to do an xpath query here rather than use PoSH dot notation to get the static route element,
+        #as it might be empty, and PoSH silently turns an empty element into a string object, which is rather not what we want... :|
+        $_LogicalRouterBridging.AppendChild($Bridge) | Out-Null
+
+        Add-XmlElement -xmlRoot $Bridge -xmlElementName "name" -xmlElementText $Name
+        Add-XmlElement -xmlRoot $Bridge -xmlElementName "virtualWire" -xmlElementText $LogicalSwitch.objectId
+        Add-XmlElement -xmlRoot $Bridge -xmlElementName "dvportGroup" -xmlElementText $PortGroup.ExtensionData.Moref.Value
+
+        $URI = "/api/4.0/edges/$($LogicalRouterId)/bridging/config"
+        $body = $_LogicalRouterBridging.OuterXml
+
+        Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+        Get-NsxLogicalRouter -objectId $LogicalRouterId -connection $connection | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge -Name $Name 
+        
+    }
+
+    end {}
+}
+
+function Get-NsxLogicalRouterBridge {
+    
+    <#
+    .SYNOPSIS
+    Retreives bridge instances from the specified NSX LogicalRouter Bridging 
+    configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers act as the configuration entity for enabling layer 2 bridging 
+    within a NSX environment.  Although the Logical Router control VM is not part 
+    of the datapath, it does control which hypervisor is active for a given bridge 
+    instance.  A Bridge is configured between a single VD Port Group and a single 
+    Logical Switch
+
+    Each Logical Router can define the configuration of multiple bridges.
+    
+    The Get-NsxLogicalRouterBridge cmdlet retrieves the bridge instances configured
+    within the specified LogicalRouter Bridging Configuration.
+
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterBridging | Get-NSxLogicalRouterBridge
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]    
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #Logical Router Bridging Configuration as returned by Get-NsxLogicalRouterBridging
+            [ValidateScript({ ValidateLogicalRouterBridging $_ })]
+            [System.Xml.XmlElement]$LogicalRouterBridging,
+        [Parameter(Mandatory=$False, ParameterSetName="Name")]
+            #Bridge instance name
+            [string]$Name,
+        [Parameter(Mandatory=$False, ParameterSetName="BridgeId")]
+            #Bridge Instance Id
+            [int]$BridgeId
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        $logicalrouterId = $LogicalRouterBridging.logicalrouterId
+        if ( Invoke-XpathQuery -Node $LogicalRouterBridging -Querymethod SelectNodes -Query "child::bridge") { 
+            
+            #Add LogicalRouterId so we can easily retrieve later in a remove pipeline.
+            foreach ( $bridge in $LogicalRouterBridging.bridge ) { 
+                Add-XmlElement -xmlRoot $Bridge -xmlElementName "logicalrouterId" -xmlElementText $logicalrouterId
+            }
+            if ( $PSBoundParameters.ContainsKey("Name")) {
+                $LogicalRouterBridging.bridge | where-object { $_.Name -eq $Name }
+            }
+            elseif ( $PSBoundParameters.ContainsKey("BridgeId")) { 
+                $LogicalRouterBridging.bridge | where-object { $_.bridgeId -eq $BridgeId }                
+            }
+            else { 
+                $LogicalRouterBridging.bridge
+            }
+        }
+    }
+
+    end {}
+}
+
+function Remove-NsxLogicalRouterBridge {
+
+    <#
+    .SYNOPSIS
+    Removes a bridge instances from the specified Logical Routers bridging
+    configuration.
+
+    .DESCRIPTION
+    An NSX Logical Router is a distributed routing function implemented within
+    the ESXi kernel, and optimised for east west routing.
+
+    Logical Routers act as the configuration entity for enabling layer 2 bridging 
+    within a NSX environment.  Although the Logical Router control VM is not part 
+    of the datapath, it does control which hypervisor is active for a given bridge 
+    instance.  A Bridge is configured between a single VD Port Group and a single 
+    Logical Switch
+
+    Each Logical Router can define the configuration of multiple bridges.
+    
+    The Remove-NsxLogicalRouterBridge cmdlet removes the specified bridge 
+    instance from its associated LogicalRouter Bridging Configuration.
+
+    .EXAMPLE
+    Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterBridging | Get-NSxLogicalRouterBridge -Name Bridge1 | Remove-NsxLogicalRouterBridge
+
+    Remove the bridge Bridge1 on LogicalRouter01
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            #The bridge instance to remove as retreived by Get-NsxLogicalRouterBridge.
+            [ValidateScript({ ValidateLogicalRouterBridge $_ })]
+            [System.Xml.XmlElement]$BridgeInstance,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+    }
+
+    process {
+
+        #Get the routing config for our LogicalRouter
+        $logicalrouterId = $BridgeInstance.logicalrouterId
+        $bridging = Get-NsxLogicalRouter -objectId $logicalrouterId -connection $connection | Get-NsxLogicalRouterBridging
+
+        #Remove the logicalrouterId element from the XML as we need to post it...
+        $bridging.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bridging -Query 'child::logicalrouterId')) ) | out-null
+
+        #Need to do an xpath query here to query for a bridge that matches the one passed in.
+        $BridgeToRemove = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bridging -Query "child::bridge[bridgeId=`"$($BridgeInstance.bridgeId)`"]" )
+        if ( $BridgeToRemove ) {
+
+            write-debug "$($MyInvocation.MyCommand.Name) : BridgeToRemove Element is: `n $($BridgeToRemove.OuterXml | format-xml) "
+            $bridging.RemoveChild($BridgeToRemove) | Out-Null
+
+            $URI = "/api/4.0/edges/$($LogicalRouterId)/bridging/config"
+            $body = $bridging.OuterXml
+
+            if ( $confirm ) {
+                $message  = "LogicalRouter routing update will modify existing LogicalRouter configuration."
+                $question = "Proceed with Update of LogicalRouter $($LogicalRouterId)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update LogicalRouter $($LogicalRouterId)"
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                write-progress -activity "Update LogicalRouter $($LogicalRouterId)" -completed
+            }
+        }
+        else {
+            Throw "Bridge $($BridgeInstance.Name) ($($BridgeInstance.BridgeId)) was not found in bridge configuration for LogicalRouter $logicalrouterId"
         }
     }
 
