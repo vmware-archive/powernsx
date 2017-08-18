@@ -15,13 +15,9 @@
 #
 # Go to section "Define Variables for NSX LB AutoScale script" and enter your environment settings
 #
-# Enhancement TODO
-# Drain Option: "Clone_VM drained from the pool" + "pause" + "delete"
 ###
 
 # To allow the launch of that script in Windows Tasks "powershell.exe -file C:\NSXLBAustoScale-v1.0.ps1"
-add-pssnapin VMware.VimAutomation.Core
-
 
 <#
 Copyright © 2017 VMware, Inc. All Rights Reserved.
@@ -53,9 +49,7 @@ $vCenter_Pwd = "VMware1!"
 $Cluster_Compute_Name = "Cluster-CompA"
 
 # NSX_Mgr IP / User / Password
-$NSX_IP = "192.168.10.5"
-$NSX_User = "admin"
-$NSX_Pwd = "vmware"
+# No need thanks to the Single-Sign-On
 
 # Name of the VM template to clone + Prefix Name of the VM Names of LB Pool + Name of Clone VM
 $VM_Template = "Web-Template"
@@ -94,7 +88,8 @@ $clone_vm = $false
 $vm_not_hot = 0
 
 # Connect to vCenter + NSX
-Connect-NsxServer -Server $NSX_IP -Username $NSX_User -Password $NSX_Pwd -VIUserName $vCenter_User -VIPassword $vCenter_Pwd -ViWarningAction "Ignore"
+#Connect-NsxServer -Server $NSX_IP -Username $NSX_User -Password $NSX_Pwd -VIUserName $vCenter_User -VIPassword $vCenter_Pwd -ViWarningAction "Ignore"
+Connect-NsxServer -vCenterServer $vCenter_IP -Username $vCenter_User -Password $vCenter_Pwd
 
 # Print the date in the file
 "##############################################" >> $Output_File
@@ -126,7 +121,7 @@ foreach($vm in $vms_total) {
   if (($vmstat.CPUAvg -gt $CPU_Max) -or ($vmstat.MemAvg -gt $RAM_Max)) {
     $clone_vm = $true
   }
-# If CPU and RAM below $CPU_Min/$RAM_Min, ask to create a new Pool_VM
+# If CPU and RAM below $CPU_Min/$RAM_Min, +1 $vm_not_hot
   if (($vmstat.CPUAvg -lt $CPU_Min) -and ($vmstat.MemAvg -lt $RAM_Min)) {
     $vm_not_hot += 1
   }
@@ -152,8 +147,8 @@ if (($number_vms -lt $VM_Max) -and ($clone_vm -eq $true)) {
   
   # Add Clone_VM to NSX Edge LB Pool
   # Wait for the VMTools to get the IP@ of the Clone_VM
-  write-host -foregroundcolor "Green" "Waiting for VMTools to get new Pool VM IP@..."
-  "Waiting for VMTools to get new Pool VM IP@" >> $Output_File 
+  write-host -foregroundcolor "Green" "Waiting for VMTools to get new Pool VM $new_vm IP@..."
+  "Waiting for VMTools to get new Pool VM $new_vm IP@" >> $Output_File 
   while (!(Get-VM -Name $new_vm).guest.ipaddress) {
     Start-Sleep -s 1
   }
@@ -164,16 +159,21 @@ if (($number_vms -lt $VM_Max) -and ($clone_vm -eq $true)) {
   # Add the Clone_VM in the NSX LB Pool
   $lb_pool = Get-NsxEdge $Edge_Name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name $LB_Pool_Name
   $lb_pool = $lb_pool | Add-NsxLoadBalancerPoolMember -name $new_vm -IpAddress $new_vm_ip -Port $LB_Pool_Port
+
+Add-NsxLoadBalancerPoolMember -Name test -Member (get-vm web01) -Port 80
 }
 
 
-# If more than $VM_Min Pool_VMs AND asked to remove Pool_VM, THEN delete Pool_VM
-if (($number_vms -gt $VM_Min) -and ($number_vms -eq $vm_not_hot)) {
+If "not request to clone" + "# of VM greater than $VM_Min Pool_VMs" + "All VMs are not hot", THEN delete one Clone_VM
+if (($clone_vm -eq $false) -and ($number_vms -gt $VM_Min) -and ($number_vms -eq $vm_not_hot)) {
   $remove_vm = "$VM_Clone_PrefixName$($number_vms-$VM_Min)"
-  # Check if option VM_Drain enabled, and if so Drain Pool_VM for VM_Drain_Timer
+  # Check if option VM_Drain enabled, and if so Drain Pool_VM for $VM_Drain_Timer
   if ($VM_Drain) {
      if ((Get-NsxEdge $Edge_Name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVIP -name $Edge_VIP).accelerationEnabled) {
-       # Add the code for Drain with PowerNSX supports it       
+       write-host -foregroundcolor "Green" "Moving the Clone_VM $remove_vm in NSX Edge $Edge_Name Pool $LB_Pool_Name in Drain mode for $VM_Drain_Timer minute(s)..."
+       "Moving the Clone_VM $remove_vm in NSX Edge $Edge_Name Pool $LB_Pool_Name in Drain mode for $VM_Drain_Timer minute(s)..." >> $Output_File 
+       Get-NsxEdge $Edge_Name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name $LB_Pool_Name | Get-NsxLoadBalancerPoolMember $remove_vm | Set-NsxLoadBalancerPoolMember -state drain
+       Start-Sleep -s (60*$VM_Drain_Timer)
      } else {
        write-host -foregroundcolor "Green" "Did NOT move the Clone_VM $remove_vm to Drain State before removing it from pool, because the VIP is with acceleration enabled."
        "Did NOT move the Clone_VM $remove_vm to Drain State before removing it from pool, because the VIP is with acceleration enabled." >> $Output_File
