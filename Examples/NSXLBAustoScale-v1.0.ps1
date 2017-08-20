@@ -68,10 +68,10 @@ $LB_Pool_Port = 80
 # CPU_Max, RAM_Max, CPU_Min, RAM_Min that will trigger AutoScale (create VM / delete VM)
 $CPU_Max = 80
 $RAM_Max = 80
-$CPU_Min = 20
-$RAM_Min = 20
+$CPU_Min = 50
+$RAM_Min = 50
 # When load decrease, do you want to drain connections before deleting Pool Member and for how long in minute (only available for L4-VIP).
-$VM_Drain = $false
+$VM_Drain = $true
 $VM_Drain_Timer = 1
 
 # File to write the log output
@@ -149,22 +149,30 @@ if (($number_vms -lt $VM_Max) -and ($clone_vm -eq $true)) {
   # Wait for the VMTools to get the IP@ of the Clone_VM
   write-host -foregroundcolor "Green" "Waiting for VMTools to get new Pool VM $new_vm IP@..."
   "Waiting for VMTools to get new Pool VM $new_vm IP@" >> $Output_File 
-  while (!(Get-VM -Name $new_vm).guest.ipaddress) {
+  $timeout = new-timespan -Minutes 10
+  $sw = [diagnostics.stopwatch]::StartNew()
+  while (($sw.elapsed -lt $timeout) -and !((Get-VM -Name $new_vm).guest.ipaddress)){
     Start-Sleep -s 1
   }
-  write-host -foregroundcolor "Green" "Adding new Clone_VM $new_vm in NSX Edge $Edge_Name Pool $LB_Pool_Name..."
-  "Adding new Clone_VM $new_vm in NSX Edge $Edge_Name Pool $LB_Pool_Name..." >> $Output_File 
-  # Get the IP-v4 of the Clone_VM
-  $new_vm_ip = (Get-VM -Name $new_vm).guest.ipaddress[0]
-  # Add the Clone_VM in the NSX LB Pool
-  $lb_pool = Get-NsxEdge $Edge_Name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name $LB_Pool_Name
-  $lb_pool = $lb_pool | Add-NsxLoadBalancerPoolMember -name $new_vm -IpAddress $new_vm_ip -Port $LB_Pool_Port
-
-Add-NsxLoadBalancerPoolMember -Name test -Member (get-vm web01) -Port 80
+  if ((Get-VM -Name $new_vm).guest.ipaddress) {
+    # Get the IP-v4 of the Clone_VM
+    $new_vm_ipv4_address = (Get-VM -Name $new_vm).Guest.IPAddress | where {([IPAddress]$_).AddressFamily -eq [System.Net.Sockets.AddressFamily]::InterNetwork}
+    if (!$new_vm_ipv4_address) {
+      write-host -foregroundcolor "Red" "The new Clone_VM $new_vm does not have an IPv4 address..."
+      "The new Clone_VM $new_vm does not have an IPv4 address..." >> $Output_File 
+    } else {
+      write-host -foregroundcolor "Green" "Adding new Clone_VM $new_vm in NSX Edge $Edge_Name Pool $LB_Pool_Name..."
+      "Adding new Clone_VM $new_vm in NSX Edge $Edge_Name Pool $LB_Pool_Name..." >> $Output_File 
+      # Add the Clone_VM in the NSX LB Pool
+      # Note: Adding VM with option IP@ (-IpAddress) and not Name (-Name) because Name not allowed with Pools in transparent mode when VM has both IPv4 and IPv6.
+      $lb_pool = Get-NsxEdge $Edge_Name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name $LB_Pool_Name
+      $lb_pool = $lb_pool | Add-NsxLoadBalancerPoolMember -name $new_vm -IpAddress $new_vm_ipv4_address -Port $LB_Pool_Port
+    }
+  }
 }
 
 
-If "not request to clone" + "# of VM greater than $VM_Min Pool_VMs" + "All VMs are not hot", THEN delete one Clone_VM
+#If "not request to clone" + "# of VM greater than $VM_Min Pool_VMs" + "All VMs are not hot", THEN delete one Clone_VM
 if (($clone_vm -eq $false) -and ($number_vms -gt $VM_Min) -and ($number_vms -eq $vm_not_hot)) {
   $remove_vm = "$VM_Clone_PrefixName$($number_vms-$VM_Min)"
   # Check if option VM_Drain enabled, and if so Drain Pool_VM for $VM_Drain_Timer
