@@ -5541,11 +5541,6 @@ function Set-NsxManager {
     such as syslog, vCenter registration and SSO configuration.
 
     .EXAMPLE
-    Set-NsxManager -NtpServer 0.pool.ntp.org -Timezone UTC
-
-    Configures NSX Manager NTP Server.
-
-    .EXAMPLE
     Set-NsxManager -SyslogServer syslog.corp.local -SyslogPort 514 -SyslogProtocol tcp
 
     Configures NSX Manager Syslog destination.
@@ -5559,7 +5554,8 @@ function Set-NsxManager {
     Set-NsxManager -vcenterusername administrator@vsphere.local -vcenterpassword VMware1! -vcenterserver vcenter.corp.local
 
     Configures the vCenter registration of NSX Manager.
-
+    .LINK
+    Set-NsxManagerTimeSettings
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidUsingPlainTextForPassword","")] # Unable to remove without breaking backward compatibilty.  Alternate credential parameter exists.
