@@ -23069,9 +23069,9 @@ function New-NsxIpSet {
             [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
-            #Single string of comma separated ipaddresses.
+            #Single string of comma separated ipaddresses, or a collection of ip address strings.
             [Alias ("IPAddresses")]
-            [string]$IPAddress,
+            [string[]]$IPAddress,
         [Parameter (Mandatory=$false)]
             #Scope of object.  For universal object creation, use the -Universal switch.
             [ValidateScript({
@@ -23108,7 +23108,11 @@ function New-NsxIpSet {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         if ( $IPAddress ) {
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText $IPaddress
+            $valcollection = @()
+            foreach ($entry in $IPAddress) {
+                $valcollection += $entry
+            }
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText ($valcollection -join ",")
         }
         if ( ( $EnableInheritance ) -and ( -not ( $universal ) ) ) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "inheritanceAllowed" -xmlElementText "True"
