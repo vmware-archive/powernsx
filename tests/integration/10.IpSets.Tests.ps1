@@ -292,6 +292,7 @@ Describe "IPSets" {
             $iprange = "1.2.3.4-2.3.4.5"
             $cidr = "1.2.3.0/24"
             $hostCidr = "1.2.3.4/32"
+            $dummyIpAddress = "9.9.9.9"
             get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
             $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses "$ipaddress,$iprange,$cidr,$hostCidr"
 
@@ -325,6 +326,31 @@ Describe "IPSets" {
             $ipset.value -split "," -contains $ipaddress | should be $true
             $ipset.value -split "," -contains $iprange | should be $true
             $ipset.value -split "," -contains $hostCidr | should be $true
+        }
+
+        it "Display a warning when when an ip set does not contain an address to be removed" {
+            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $dummyIpAddress -WarningVariable warning
+            $warning | Should Match ": $dummyIpAddress is not a member of IPSet"
+            $ipset | Should be $null
+            $validate = get-nsxipset $ipsetName
+            $validate.value -split "," -contains $ipaddress | should be $true
+            $validate.value -split "," -contains $hostCidr | should be $true
+            $validate.value -split "," -contains $cidr | should be $true
+            $validate.value -split "," -contains $iprange | should be $true
+        }
+
+        it "Display a warning when when an ip set does not contain any memebers" {
+            # Cleanup the existing IP Set as we need to create one with no
+            # IP addresses specified.
+            get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
+            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc
+            $remove | Should not be $null
+            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $dummyIpAddress -WarningVariable warning
+            $warning | Should match ": No members found"
+        }
+
+        it "Fail to remove all addresses from an ip set" {
+            { $remove | Remove-NsxIpSetMember -IpAddress $ipaddress,$hostCidr,$cidr,$iprange } | should throw
         }
 
         it "Can remove multiple values from an ip set" {
