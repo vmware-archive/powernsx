@@ -288,8 +288,8 @@ Describe "SecurityGroups" {
             $MemberVM1 | Connect-NsxLogicalSwitch -LogicalSwitch $MemberLS1
             $MemberVM2 | Connect-NsxLogicalSwitch -LogicalSwitch $MemberLS2
 
-            $script:MemberIpSet1 = New-NsxIpSet -Name $MemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddresses $testIPs
-            $script:MemberIpSet2 = New-NsxIpSet -Name $MemberIpSetName2 -Description $MemberIpSetDesc2 -IpAddresses $testIPs
+            $script:MemberIpSet1 = New-NsxIpSet -Name $MemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddress $testIPs
+            $script:MemberIpSet2 = New-NsxIpSet -Name $MemberIpSetName2 -Description $MemberIpSetDesc2 -IpAddress $testIPs
 
             $script:MemberResPool1 = Get-cluster | select -First 1 | New-ResourcePool -Name $MemberResPoolName1
             $script:MemberResPool2 = Get-cluster | select -First 1 | New-ResourcePool -Name $MemberResPoolName2
@@ -823,8 +823,8 @@ Describe "SecurityGroups" {
             $script:MemberVM1 = new-vm -name $MemberVMName1 @vmsplat
             $MemberVM1 | Connect-NsxLogicalSwitch -LogicalSwitch $MemberLS1
 
-            $script:MemberIpSet1 = New-NsxIpSet -Name $MemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddresses $testIPs
-            $script:UMemberIpSet1 = New-NsxIpSet -Name $UMemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddresses $testIPs -Universal
+            $script:MemberIpSet1 = New-NsxIpSet -Name $MemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddress $testIPs
+            $script:UMemberIpSet1 = New-NsxIpSet -Name $UMemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddress $testIPs -Universal
 
             $script:MemberResPool1 = Get-cluster | select -First 1 | New-ResourcePool -Name $MemberResPoolName1
 
