@@ -23108,11 +23108,7 @@ function New-NsxIpSet {
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
         if ( $IPAddress ) {
-            $valcollection = @()
-            foreach ($entry in $IPAddress) {
-                $valcollection += $entry
-            }
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText ($valcollection -join ",")
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText ($IPAddress -join ",")
         }
         if ( ( $EnableInheritance ) -and ( -not ( $universal ) ) ) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "inheritanceAllowed" -xmlElementText "True"
