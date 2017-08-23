@@ -40,7 +40,7 @@ has its own license that is located in the source code of the respective compone
 
 
 $steps = @(
-    {connect-nsxserver -server "nsx-m-01a.corp.local" -username admin -password VMware1! -viusername administrator@vsphere.local -vipassword VMware1! -ViWarningAction "Ignore"  | out-null },
+    {connect-nsxserver -vCenterServer 192.168.119.134 -username administrator@vsphere.local -password VMware1! | out-null },
     {$tz = Get-NsxTransportZone },
     {$webls = New-NsxLogicalSwitch -TransportZone $tz -Name webls},
     {$appls = New-NsxLogicalSwitch -TransportZone $tz -Name appls},
@@ -79,7 +79,6 @@ $steps = @(
     {get-vm | where { $_.name -match 'web'} | Connect-NsxLogicalSwitch $webls | out-null},
     {get-vm | where { $_.name -match 'app'} | Connect-NsxLogicalSwitch $appls | out-null},
     {get-vm | where { $_.name -match 'db'} | Connect-NsxLogicalSwitch $dbls | out-null}
-
 )
 
 $cleanup = @(
@@ -90,7 +89,43 @@ $cleanup = @(
     {Get-NsxLogicalSwitch | Remove-NsxLogicalSwitch -Confirm:$false}
 )
 
+$removeMicroSeg = @(
 
+    {Get-NsxFirewallSection Bookstore | Remove-NsxFirewallSection -confirm:$false -force},
+    {Get-NsxSecurityGroup | Where-Object { ($_.name -match "book" ) -or ($_.name -match "Env") } | Remove-NsxSecurityGroup -confirm:$false},
+    {Get-NsxIpSet | Where-Object { ( $_.name -match 'LB' ) -or ( $_.name -match 'VIP' )} | Remove-NsxIpSet -confirm:$false},
+    {Get-NsxSecurityTag | Where-Object {$_.name -match "stEnv"} | Remove-NsxSecurityTag -confirm:$false}
+    {Get-NsxService | Where-Object {$_.name -match "Bookstore"} | Remove-NsxService -confirm:$false}
+
+)
+
+$applyMicroSeg = @(
+    {$stProd = New-NsxSecurityTag -Name stEnvProd -Description "Production Workloads"},
+    {$stDev = New-NsxSecurityTag -Name stEnvDev -Description "Development Workloads"},
+    {$stDMZ = New-NsxSecurityTag -Name stEnvDMZ -Description "DMZ Workloads"},
+    'pause',
+    {$sgProd = New-NsxSecurityGroup -Name sgEnvProd -IncludeMember $stProd},
+    {$sgDevd = New-NsxSecurityGroup -Name sgEnvDev -IncludeMember $stDev},
+    {$sgDMZ = New-NsxSecurityGroup -Name sgEnvDMZ -IncludeMember $stDMZ},
+    'pause',
+    {$sgBookstoreWeb = New-NsxSecurityGroup -Name sgBookstoreWeb -IncludeMember (Get-VM | Where-Object { $_.name -match 'web' } )},
+    {$sgBookstoreApp = New-NsxSecurityGroup -Name sgBookstoreApp -IncludeMember (Get-VM | Where-Object { $_.name -match 'app' } )},
+    {$sgBookstoreDb = New-NsxSecurityGroup -Name sgBookstoreDb -IncludeMember (Get-VM | Where-Object { $_.name -match 'db' } )},
+    {$sgBookstore = New-NsxSecurityGroup -Name sgBookstore -IncludeMember $sgBookstoreWeb,$sgBookstoreApp,$sgBookstoreDb},
+    'pause',
+    {$ipsetBookstoreLB = New-NsxIpSet -Name BookstoreLB -IPAddresses '172.16.1.1'},
+    {$ipsetWordpressLB = New-NsxIpSet -Name WordpressLB-VIP -IPAddresses '192.168.119.150,172.16.1.11,172.16.1.2'},
+    {$ipsetOsCommerceLB = New-NsxIpSet -Name OsCommerceLB-VIP -IPAddresses '172.16.1.11,172.16.1.3'},
+    'pause',
+    {$svcBookstoreWeb = new-nsxservice -name Bookstore-WEB -Protocol TCP -port '80,443'},
+    'pause',
+    {$section = New-NsxFirewallSection -Name Bookstore},
+    'pause',
+    {Get-NsxFirewallSection Bookstore | New-NsxFirewallRule -Name 'Bookstore Default Deny' -Action deny -EnableLogging -AppliedTo $sgBookstore -tag 'AppDefaultDeny' | out-null},
+    {Get-NsxFirewallSection Bookstore | New-NsxFirewallRule -Name BookstoreLBMonitor -Action allow -EnableLogging -AppliedTo $sgBookstoreWeb,$sgBookstoreApp -tag Bookstore-LBMonitor -source $ipsetBookstoreLB -destination $sgbookstoreWeb,$sgbookstoreApp -service $svcBookstoreWeb | out-null},
+    {Get-NsxFirewallSection Bookstore | New-NsxFirewallRule -Name BookstoreApp2Db -Action allow -EnableLogging -AppliedTo $sgBookstoreApp,$sgBookstoreDb -tag Bookstore-App2DB -source $sgbookstoreApp -destination $sgbookstoreDb -service (Get-NsxService -localonly | where-object {$_.name -eq 'MySQL'}) | out-null},
+    {Get-NsxFirewallSection Bookstore | New-NsxFirewallRule -Name BookstoreWeb2App -Action allow -EnableLogging -AppliedTo $sgBookstoreWeb -tag Bookstore-Web2App -source $sgbookstoreWeb -destination $ipsetBookstoreLB  -service $svcBookstoreWeb | out-null}
+)
 function ShowTheAwesome {
 
     foreach ( $step in $steps ) {
@@ -117,4 +152,96 @@ function CleanupTheAwesome {
         #execute (dot source) me in global scope
         . $step
     }
+
+}
+
+function LockItDown {
+
+    foreach ( $step in $applyMicroSeg ) {
+
+        if ($step -contains 'pause') {
+            write-host "Press any key to continue..."
+            #wait for a keypress to continue
+            $junk = [console]::ReadKey($true)
+        } else {
+            #Show me first
+            write-host -foregroundcolor yellow ">>> $step"
+            #execute (dot source) me in global scope
+            . $step
+        }
+    }
+
+}
+
+function OpenItUp {
+
+    foreach ( $step in $removeMicroSeg ) {
+
+        #Show me first
+        write-host -foregroundcolor yellow ">>> $step"
+
+        #execute (dot source) me in global scope
+        . $step
+    }
+}
+
+$opsDemoSteps = @(
+    {Get-NsxIpSet | Select Name,Value},
+    {Get-NsxIpSet BookstoreLB},
+    {Get-NsxIpSet BookstoreLB | Add-NsxIpSetMember -IPAddress 172.16.1.2},
+    {Get-NsxIpSet BookstoreLB | Add-NsxIpSetMember -IPAddress 172.16.1.2,10.0.0.0/8,1.1.1.1-1.1.1.5,172.16.1.3/32},
+    {Get-NsxIpSet BookstoreLB | Remove-NsxIpSetMember -IPAddress 10.0.0.0/8},
+    {Get-NsxIpSet | select name, value},
+    {Get-NsxIpSet | Remove-NsxIpSetMember -IPAddress 172.16.1.2,1.1.1.1-1.1.1.5,172.16.1.3,192.168.119.150},
+    {Get-NsxIpSet | select name, value},
+    {Get-NsxIpSet | % {New-NsxIpSet -Name "$($_.name)-universal" -IPAddresses $_.value -universal}},
+    {Get-NsxIpSet | select name,isuniversal,value},
+    {Get-NsxFirewallRule | ft},
+    {get-nsxfirewallsection bookstore | get-nsxfirewallrule | ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App},
+    {get-nsxfirewallrule -name Web},
+    {get-nsxfirewallrule -name BookstoreWeb2App | get-nsxfirewallrulemember |ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App | get-nsxfirewallrulemember -MemberType source |ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App | get-nsxfirewallrulemember -MemberType Destination |ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App | Add-NsxFirewallRuleMember -MemberType Destination -Member (Get-VM Web01) | ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App | Add-NsxFirewallRuleMember -MemberType Destination -Member (Get-NsxLogicalSwitch | ? {$_.name -match "LS"}) | ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App | Add-NsxFirewallRuleMember -MemberType Destination -Member 1.1.1.1,2.2.2.2-2.2.2.254,10.0.0.0/8 | ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App | get-nsxfirewallrulemember -MemberType Destination -Member web01 | remove-nsxfirewallrulemember},
+    {get-nsxfirewallrule -name BookstoreWeb2App | get-nsxfirewallrulemember |ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App | get-nsxfirewallrulemember -MemberType Destination | ? {$_.name -notmatch "BookstoreLB"} | remove-nsxfirewallrulemember},
+    {get-nsxfirewallrule -name BookstoreWeb2App | get-nsxfirewallrulemember |ft},
+    {get-nsxfirewallrule -name BookstoreWeb2App | get-nsxfirewallrulemember -MemberType source | remove-nsxfirewallrulemember},
+    {get-nsxfirewallrule -source 1.1.1.1 | ft},
+    {get-nsxfirewallrule -source (get-vm web01) | ft},
+    {get-nsxfirewallrule -destination (get-vm web01) | ft},
+    {get-nsxfirewallrule -source 172.16.1.1 -destination (get-vm web01) | ft},
+    {get-nsxfirewallrule -source 172.16.1.1 -destination (get-vm web01) -name book| ft},
+    {get-nsxservice -port 443 | select name,isuniversal},
+    {get-nsxservice -port 44000 | select name,isuniversal,@{Name="Protocol"; Expression={$_.element.applicationprotocol}},@{Name="Port"; Expression={$_.element.value}}},
+    {Get-NsxSecurityGroup sgEnvProd},
+    {Get-NsxSecurityGroup sgEnvProd | Get-NsxSecurityGroupEffectiveVirtualMachine},
+    {Get-NsxSecurityTag | select-object name, objectid, description},
+    {get-nsxsecuritytag stenvprod | New-NsxSecurityTagAssignment -ApplyToVm (get-vm web01)},
+    {Get-NsxSecurityGroup sgEnvProd | Get-NsxSecurityGroupEffectiveVirtualMachine},
+    {Get-VM web01 | New-NsxSecurityTagAssignment -ApplyTag (Get-NsxSecurityTag stenvDMZ)},
+    {Get-VM web01 | Get-NsxSecurityGroup | select name, objectid},
+    {@(get-vm web01 | Get-NsxSecurityTagAssignment).securitytag | New-NsxSecurityTagAssignment -ApplyToVm (Get-VM web02)},
+    {Get-VM web02 | Get-NsxSecurityGroup | select name, objectid}
+
+)
+function ShowMeTheMoney {
+
+    foreach ( $step in $opsDemoSteps ) {
+
+        #Show me first
+        write-host -foregroundcolor yellow ">>> $step"
+
+        write-host "Press a key to run the command..."
+        #wait for a keypress to continue
+        $junk = [console]::ReadKey($true)
+
+        #execute (dot source) me in global scope
+        . $step | out-host
+    }
+
 }
