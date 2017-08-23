@@ -23017,7 +23017,7 @@ function Get-NsxIpSet {
     end {}
 }
 
-function New-NsxIpSet  {
+function New-NsxIpSet {
     <#
     .SYNOPSIS
     Creates a new NSX IPSet.
@@ -23030,7 +23030,7 @@ function New-NsxIpSet  {
 
     This cmdlet creates a new IP Set with the specified parameters.
 
-    IPAddresses is a string that can contain 1 or more of the following
+    IPAddress is a string that can contain 1 or more of the following
     separated by commas
     IP address: (eg, 1.2.3.4)
     IP Range: (eg, 1.2.3.4-1.2.3.10)
@@ -23038,21 +23038,21 @@ function New-NsxIpSet  {
 
     .EXAMPLE
     PS C:\> New-NsxIPSet -Name TestIPSet -Description "Testing IP Set Creation"
-        -IPAddresses "1.2.3.4,1.2.3.0/24"
+        -IPAddress "1.2.3.4,1.2.3.0/24"
 
     Creates a new IP Set in the scope globalroot-0.
 
     .EXAMPLE
 
     PS C:\> New-NsxIPSet -Name UniversalIPSet -Description "Testing Universal"
-        -IPAddresses "1.2.3.4,1.2.3.0/24" -Universal
+        -IPAddress "1.2.3.4,1.2.3.0/24" -Universal
 
     Creates a new Universal IP Set.
 
     .EXAMPLE
 
     PS C:\> New-NsxIPSet -Name EdgeIPSet -Description "Testing Edge IP Sets"
-        -IPAddresses "1.2.3.4,1.2.3.0/24" -scopeId edge-1
+        -IPAddress "1.2.3.4,1.2.3.0/24" -scopeId edge-1
 
     Creates a new IP Set on the specified edge..
     #>
@@ -23069,8 +23069,9 @@ function New-NsxIpSet  {
             [ValidateNotNull()]
             [string]$Description = "",
         [Parameter (Mandatory=$false)]
-            #Single string of comma separated ipaddresses.
-            [string]$IPAddresses,
+            #Single string of comma separated ipaddresses, or a collection of ip address strings.
+            [Alias ("IPAddresses")]
+            [string[]]$IPAddress,
         [Parameter (Mandatory=$false)]
             #Scope of object.  For universal object creation, use the -Universal switch.
             [ValidateScript({
@@ -23106,8 +23107,8 @@ function New-NsxIpSet  {
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
-        if ( $IPAddresses ) {
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText $IPaddresses
+        if ( $IPAddress ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "value" -xmlElementText ($IPAddress -join ",")
         }
         if ( ( $EnableInheritance ) -and ( -not ( $universal ) ) ) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "inheritanceAllowed" -xmlElementText "True"
