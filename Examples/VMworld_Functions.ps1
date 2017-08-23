@@ -40,7 +40,7 @@ has its own license that is located in the source code of the respective compone
 
 
 $steps = @(
-    {connect-nsxserver -vCenterServer "nsx-m-01a.corp.local" -username administrator@vsphere.local -password VMware1! | out-null },
+    {connect-nsxserver -vCenterServer 192.168.119.134 -username administrator@vsphere.local -password VMware1! | out-null },
     {$tz = Get-NsxTransportZone },
     {$webls = New-NsxLogicalSwitch -TransportZone $tz -Name webls},
     {$appls = New-NsxLogicalSwitch -TransportZone $tz -Name appls},
@@ -221,11 +221,12 @@ $opsDemoSteps = @(
     {Get-NsxSecurityGroup sgEnvProd},
     {Get-NsxSecurityGroup sgEnvProd | Get-NsxSecurityGroupEffectiveVirtualMachine},
     {Get-NsxSecurityTag | select-object name, objectid, description},
+    {get-nsxsecuritytag stenvprod | New-NsxSecurityTagAssignment -ApplyToVm (get-vm web01)},
+    {Get-NsxSecurityGroup sgEnvProd | Get-NsxSecurityGroupEffectiveVirtualMachine},
+    {Get-VM web01 | New-NsxSecurityTagAssignment -ApplyTag (Get-NsxSecurityTag stenvDMZ)},
     {Get-VM web01 | Get-NsxSecurityGroup | select name, objectid},
-    {get-nsxsecuritytag stenvprod | New-NsxSecurityTagAssignment -ApplyToVm (get-vm web01)}
-    {Get-VM web01 | Get-NsxSecurityGroup | select name, objectid}
-
-
+    {@(get-vm web01 | Get-NsxSecurityTagAssignment).securitytag | New-NsxSecurityTagAssignment -ApplyToVm (Get-VM web02)},
+    {Get-VM web02 | Get-NsxSecurityGroup | select name, objectid}
 
 )
 function ShowMeTheMoney {
