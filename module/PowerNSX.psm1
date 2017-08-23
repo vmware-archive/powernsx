@@ -7730,7 +7730,7 @@ function New-NsxClusterVxlanConfig {
 
     .DESCRIPTION
     VXLAN configuration of a vSphere cluster involves associating the cluster
-    with an NSX prepared VDS, and configuration of VLAN id for the atuomatically
+    with an NSX prepared VDS, and configuration of VLAN id for the automatically
     created VTEP portgroup, VTEP count and VTEP addressing.
 
     If the VDS specified is not configured for VXLAN, then an error is thrown.
