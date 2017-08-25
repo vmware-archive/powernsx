@@ -203,7 +203,7 @@ $opsDemoSteps = @(
     {Get-NsxIpSet | select name, value},
     {Get-NsxIpSet | Remove-NsxIpSetMember -IPAddress 172.16.1.2,1.1.1.1-1.1.1.5,172.16.1.3,192.168.119.150},
     {Get-NsxIpSet | select name, value},
-    {Get-NsxIpSet | ForEach-Object {New-NsxIpSet -Name "$($_.name)-universal" -IPAddresses $_.value -universal}},
+    {Get-NsxIpSet -localonly | ForEach-Object {New-NsxIpSet -Name "$($_.name)-universal" -IPAddresses $_.value -universal}},
     {Get-NsxIpSet | select name,isuniversal,value},
     {Get-NsxFirewallRule | ft},
     {get-nsxfirewallsection bookstore | get-nsxfirewallrule | ft},
