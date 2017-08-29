@@ -73,7 +73,7 @@ Describe "SecurityGroups" {
 
         # Create test VM to test VM membership
         $script:testVMName1 = "pester_sg_vm1"
-        if ( get-vm $testVMName1) {
+        if ( get-vm $testVMName1 -ErrorAction Ignore ) {
             remove-vm $testVMName1 -DeletePermanently -Confirm:$false
         }
         $vmhost = $cl | get-vmhost | select -first 1
@@ -249,6 +249,44 @@ Describe "SecurityGroups" {
             $script:MemberMac1 = "00:50:56:00:00:00"
             $script:MemberMac2 = "00:50:56:00:00:01"
 
+            #DynamicCriteriaKeys
+            $script:DynamicCriteriaKey1 = "VM.NAME"
+            $script:DynamicCriteriaKey2 = "VM.GUEST_OS_FULL_NAME"
+            $script:DynamicCriteriaKey3 = "VM.GUEST_HOST_NAME"
+            $script:DynamicCriteriaKey4 = "VM.SECURITY_TAG"
+            $script:DynamicCriteriaKey5 = "ENTITY"
+
+            $script:DynamicCriteriaKeySubstitute = @{
+                "VmName" = "VM.NAME";
+                "OsName" = "VM.GUEST_OS_FULL_NAME";
+                "ComputerName" = "VM.GUEST_HOST_NAME";
+                "SecurityTag" = "VM.SECURITY_TAG"
+            }
+
+            #DynamicCriteriaOperators
+            $script:DynamicCriteriaOperator1 = "AND"
+            $script:DynamicCriteriaOperator2 = "OR"
+            $script:DynamicCriteriaOperatorList = $DynamicCriteriaOperator1,$DynamicCriteriaOperator2
+
+            #DynamicCriteriaCriteria
+            $script:DynamicCriteriaCriteria1 = "contains"
+            $script:DynamicCriteriaCriteria2 = "ends_with"
+            $script:DynamicCriteriaCriteria3 = "starts_with"
+            $script:DynamicCriteriaCriteria4 = "equals"
+            $script:DynamicCriteriaCriteria5 = "notequals"
+            $script:DynamicCriteriaCriteria6 = "regex"
+
+            $script:DynamicCriteriaConditionSubstitute = @{
+                "contains" = "contains";
+                "ends_with" = "ends_with";
+                "starts_with" = "starts_with";
+                "equals" = "=";
+                "notequals" = "!=";
+                "regex" = "similar_to"
+            }
+
+            #DynamicCriteriaValue
+            $script:DynamicCriteriaValue1 = "Test"
 
             #Removal of any previously created...
             Get-NsxMacSet $MemberMacSetName1 | Remove-NsxMacSet -confirm:$false
@@ -634,6 +672,146 @@ Describe "SecurityGroups" {
             $get.member.objectId | should be $MemberMacSet1.objectId
 
         }
+
+        foreach ( $key in $DynamicCriteriaKeySubstitute.keys ) {
+            foreach ( $condition in $DynamicCriteriaConditionSubstitute.keys ) {
+                it "Can create a new Dynamic Criteria Spec: $key/$condition" {
+                    { New-NsxDynamicCriteriaSpec -key $key -condition $condition -value $DynamicCriteriaValue1 } | should not throw
+                    $spec = New-NsxDynamicCriteriaSpec -key $key -condition $condition -value $DynamicCriteriaValue1
+                    $spec | should not be $null
+                    $spec.key | should be $DynamicCriteriaKeySubstitute[$key]
+                    $spec.criteria | should be $DynamicCriteriaConditionSubstitute[$condition]
+                    $spec.value | should be $DynamicCriteriaValue1
+                }
+            }
+        }
+
+        It "Can add a dynamic member set to an existing security group." { 
+            $val = "$sgprefix-dynamic1"
+            $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val
+            $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
+            $update = Get-NsxSecurityGroup $secGrpName
+            $update.objectId | should be $secGrp.objectId
+            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 1
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["ComputerName"]
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["equals"]
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value | should be $val
+        }
+
+        It "Can add multiple dynamic criteria in a new Dynamic Member Set to an existing security group." { 
+            $val1 = "$sgprefix-dynamic1"
+            $val2 = "$sgprefix-dynamic2"
+            $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
+            $spec2 = New-NsxDynamicCriteriaSpec -key OSName -condition ends_with -value $val2
+            $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1,$spec2
+            $update = Get-NsxSecurityGroup $secGrpName
+            $update.objectId | should be $secGrp.objectId
+            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 2
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["ComputerName"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["equals"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val1 | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["OSName"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["ends_With"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val2 | should be $true
+        }
+
+        It "Can add multiple dynamic member sets to an existing security group." { 
+            $val1 = "$sgprefix-dynamic1"
+            $val2 = "$sgprefix-dynamic2"
+            $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
+            $spec2 = New-NsxDynamicCriteriaSpec -key OSName -condition ends_with -value $val2
+            $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
+            $SecGrp = Get-NsxSecurityGroup $SecGrpName
+            $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -SetOperator AND -DynamicCriteriaSpec $spec2
+            $update = Get-NsxSecurityGroup $secGrpName
+            $update.objectId | should be $secGrp.objectId
+            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 2
+            ($update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet[1].dynamicCriteria | measure).count | should be 1
+            $update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["ComputerName"]
+            $update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["equals"]
+            $update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria.value | should be $val1
+            $update.dynamicMemberDefinition.dynamicSet[1].dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["OSName"]
+            $update.dynamicMemberDefinition.dynamicSet[1].dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["ends_With"]
+            $update.dynamicMemberDefinition.dynamicSet[1].dynamicCriteria.value | should be $val2
+        }
+
+        It "Can add a new dynamic criteria spec to an existing member set." { 
+            $val1 = "$sgprefix-dynamic1"
+            $val2 = "$sgprefix-dynamic2"
+            $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
+            $spec2 = New-NsxDynamicCriteriaSpec -key OSName -condition ends_with -value $val2
+            $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
+            Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Add-NsxDynamicCriteria -DynamicCriteriaSpec $spec2 
+            $update = Get-NsxSecurityGroup $secGrpName
+            $update.objectId | should be $secGrp.objectId
+            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 2
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["ComputerName"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["equals"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val1 | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["OSName"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["ends_With"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val2 | should be $true
+        }
+
+        It "Can add a new dynamic criteria to an existing member set by key/condition/val." { 
+            $val1 = "$sgprefix-dynamic1"
+            $val2 = "$sgprefix-dynamic2"
+            $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
+            $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
+            Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Add-NsxDynamicCriteria -key OSName -condition ends_with -value $val2 
+            $update = Get-NsxSecurityGroup $secGrpName
+            $update.objectId | should be $secGrp.objectId
+            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 2
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["ComputerName"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["equals"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val1 | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["OSName"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["ends_With"] | should be $true
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val2 | should be $true
+        }
+
+        It "Can remove an existing dynamic criteria from a dynamic member set." { 
+            $val1 = "$sgprefix-dynamic1"
+            $val2 = "$sgprefix-dynamic2"
+            $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
+            $spec2 = New-NsxDynamicCriteriaSpec -key OSName -condition ends_with -value $val2
+            $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1,$spec2
+            $secGrp = Get-NsxSecurityGroup $secGrpName
+            $MemberSetToRemove = Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Get-NsxDynamicCriteria | ? { (($_.key -eq 'ComputerName') -AND
+            ($_.condition -eq 'equals') -AND ($_.value -eq $val1)) }
+            $secGrp | Get-NsxDynamicMemberSet -index 1 | Get-NsxDynamicCriteria -index $MemberSetToRemove.index | Remove-NsxDynamicCriteria -Noconfirm
+            $update = Get-NsxSecurityGroup $secGrpName
+            $update.objectId | should be $secGrp.objectId
+            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 1
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["OSName"] 
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["ends_With"]
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value | should be $val2
+        }
+
+        It "Can remove an existing dynamic member set from an existing security group." { 
+            $val1 = "$sgprefix-dynamic1"
+            $val2 = "$sgprefix-dynamic2"
+            $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
+            $spec2 = New-NsxDynamicCriteriaSpec -key OSName -condition ends_with -value $val2
+            $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
+            Get-NsxSecurityGroup $SecGrpName | Add-NsxDynamicMemberSet -CriteriaOperator ANY -SetOperator AND -DynamicCriteriaSpec $spec2
+            $update = Get-NsxSecurityGroup $secGrpName
+            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 2
+            Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Remove-NsxDynamicMemberSet -Noconfirm
+            $update = Get-NsxSecurityGroup $secGrpName
+            $update.objectId | should be $secGrp.objectId
+            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 1
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["OSName"]
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["ends_With"]
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value | should be $val2
+        }       
     }
 
     Context "SecurityGroup Deletion" {
@@ -642,7 +820,6 @@ Describe "SecurityGroups" {
             $secGrpName = "$sgPrefix-delete"
             $SecGrpDesc = "PowerNSX Pester Test delete SecurityGroup"
             $script:delete = New-nsxsecuritygroup -Name $secGrpName -Description $SecGrpDesc
-
         }
 
         it "Can delete a SecurityGroup by object" {
@@ -1123,7 +1300,7 @@ Describe "SecurityGroups" {
             $item.isUniversal | should be "false"
         }
 
-#Universal Security Group Applicable Members
+        #Universal Security Group Applicable Members
 
         it "Can retrieve universal Security Group IPSet applicable members" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -universal } | should not throw
@@ -1214,7 +1391,7 @@ Describe "SecurityGroups" {
         }
 
 
-#ScopeId of an Edge
+        #ScopeId of an Edge
         it "Can retrieve local Security Group IPSet applicable members specifying scopeid of an edge" {
         }
 
