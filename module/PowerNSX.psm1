@@ -23080,7 +23080,7 @@ function Get-NsxDynamicMemberSet {
 
     process {
 
-        if ($SecurityGroup.SelectSingleNode("child::dynamicMemberDefinition/dynamicSet")) { 
+        if (invoke-xpathquery -Node $SecurityGroup -querymethod SelectSingleNode -query "child::dynamicMemberDefinition/dynamicSet") { 
             
             $SetCount = 0
             foreach  ( $CriteriaSet in $SecurityGroup.dynamicMemberDefinition.dynamicSet)  {
@@ -23092,7 +23092,7 @@ function Get-NsxDynamicMemberSet {
                 #Obfustcating it here to a per dynamic criteria set setting aligns
                 #with how the UI operates.
 
-                $CriteriaOperator = ConvertFrom-NsxApiCriteriaOperator $CriteriaSet.SelectSingleNode("child::dynamicCriteria").Operator
+                $CriteriaOperator = ConvertFrom-NsxApiCriteriaOperator (invoke-xpathquery -Node $CriteriaSet -querymethod SelectSingleNode -query "child::dynamicCriteria").Operator
 
                 #Bash together an output string that reflects what the user would see in the UI...
                 $CriteriaString = "Match: $CriteriaOperator"
@@ -23269,7 +23269,7 @@ function Remove-NsxDynamicMemberSet {
         
         #Get the SG XML from our tracking hashtable to search on.
         $SecurityGroup = $SGsToModify[$DynamicMemberSet.SecurityGroup.objectId].SecurityGroup
-        $NodeToRemove = $SecurityGroup.dynamicMemberDefinition.SelectSingleNode("child::dynamicSet[$($DynamicMemberSet.Index)]")
+        $NodeToRemove = invoke-xpathquery -node $SecurityGroup.dynamicMemberDefinition -QueryMethod SelectSingleNode "child::dynamicSet[$($DynamicMemberSet.Index)]"
         if ( -not $NodeToRemove ) { 
             throw "The Dynamic Member Set index $($DynamicMemberSet.Index) does not exist in the security group $($SecurityGroup.Name) ($($SecurityGroup.objectId)).  This should not occur and indicates a fault in PowerNSX.  Please report this bug at github.com/vmware/PowerNSX"
         }
@@ -23708,7 +23708,7 @@ function Remove-NsxDynamicCriteria {
         
         #Get the SG XML from our tracking hashtable to search on.
         $SecurityGroup = $SGsToModify[$DynamicCriteria.SecurityGroup.objectId].SecurityGroup
-        $NodeToRemove = $SecurityGroup.dynamicMemberDefinition.SelectSingleNode("child::dynamicSet[$($DynamicCriteria.MemberSetIndex)]/dynamicCriteria[$($DynamicCriteria.Index)]")
+        $NodeToRemove = invoke-xpathquery -Node $SecurityGroup.dynamicMemberDefinition -querymethod SelectSingleNode -query "child::dynamicSet[$($DynamicCriteria.MemberSetIndex)]/dynamicCriteria[$($DynamicCriteria.Index)]"
         if ( -not $NodeToRemove ) { 
             throw "The Dynamic Criteria index $($DynamicCriteria.Index) within the Dynamic Member set index $($DynamicCriteria.MemberSetIndex) does not exist in the security group $($SecurityGroup.Name) ($($SecurityGroup.objectId)).  This should not occur and indicates a fault in PowerNSX.  Please report this bug at github.com/vmware/PowerNSX"
         }
@@ -23725,7 +23725,7 @@ function Remove-NsxDynamicCriteria {
         #Now we do the actual modification work.
         foreach ( $SGToModify in $SGsToModify.Values) { 
             foreach ( $Node in $SgToModify.NodesToRemove ) {
-                $null = $SecurityGroup.dynamicMemberDefinition.SelectSingleNode("child::dynamicSet[$($Node.MemberSetIndex)]").RemoveChild($Node.NodeToRemove)
+                $null = (invoke-xpathquery -Node $SecurityGroup.dynamicMemberDefinition -querymethod SelectSingleNode -query "child::dynamicSet[$($Node.MemberSetIndex)]").RemoveChild($Node.NodeToRemove)
             }
 
             #Post the updated SG XML.
