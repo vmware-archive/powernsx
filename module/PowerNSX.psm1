@@ -869,6 +869,64 @@ function ParseCentralCliResponse {
     }
 }
 
+function ConvertTo-NsxApiCriteriaOperator { 
+    
+    #Convert the CriteriaOperator to the API AND/OR from the UI/PowerNSX value of ANY/ALL
+    switch ( $args[0] ) { 
+        "any" { "OR"}
+        "all" { "AND"}
+    }
+}
+
+function ConvertFrom-NsxApiCriteriaOperator { 
+    
+    #Convert from the CriteriaOperator of the API AND/OR to the UI/PowerNSX value of ANY/ALL
+    switch ( $args[0] ) { 
+        "or" { "ANY" }
+        "and" { "ALL"}
+    }
+}
+
+function ConvertTo-NsxApiCriteriaCondition { 
+    
+    switch ( $args[0] ) {
+        "equals" { "=" }
+        "notequals" { "!=" }
+        "regex" { "similar_to" }
+        default { $_ }
+    }
+}
+
+function ConvertFrom-NsxApiCriteriaCondition { 
+    
+    switch ( $args[0] ) {
+        "=" { "equals" }
+        "!=" { "notequals" }
+        "similar_to" { "regex" }
+        default { $_ }
+    }
+}
+
+function ConvertTo-NsxApiCriteriaKey { 
+    switch ( $args[0] ) {
+        "OSName" { "VM.GUEST_OS_FULL_NAME" }
+        "ComputerName" { "VM.GUEST_HOST_NAME" }
+        "VMName" { "VM.NAME" }
+        "SecurityTag" { "VM.SECURITY_TAG" }
+        default { $args[0] }
+    }
+}
+
+function ConvertFrom-NsxApiCriteriaKey { 
+    switch ( $args[0] ) {
+        "VM.GUEST_OS_FULL_NAME" { "OSName" }
+        "VM.GUEST_HOST_NAME" { "ComputerName" }
+        "VM.NAME" { "VMName" }
+        "VM.SECURITY_TAG" { "SecurityTag" }
+        default { $args[0] }
+    }
+}
+
 ########
 ########
 # Validation Functions
@@ -2989,17 +3047,14 @@ Function ValidateDynamicCriteriaSpec {
 
     if ($argument -is [System.Xml.XmlElement] ) {
 
-        if ( -not ( $argument | get-member -name operator -Membertype Properties)) {
-            throw "XML Element specified does not contain a operator property."
-        }
         if ( -not ( $argument | get-member -name key -Membertype Properties)) {
-            throw "XML Element specified does not contain a key property."
+            throw "XML Element specified does not contain a key property. Specify a valid Dynamic Criteria Spec."
         }
         if ( -not ( $argument | get-member -name criteria -Membertype Properties)) {
-            throw "XML Element specified does not contain a criteria property."
+            throw "XML Element specified does not contain a criteria property. Specify a valid Dynamic Criteria Spec."
         }
         if ( -not ( $argument | get-member -name value -Membertype Properties)) {
-            throw "XML Element specified does not contain a value property."
+            throw "XML Element specified does not contain a value property. Specify a valid Dynamic Criteria Spec."
         }
         $true
     }
@@ -3007,6 +3062,74 @@ Function ValidateDynamicCriteriaSpec {
         throw "Specify a valid Dynamic Criteria Spec."
     }
 }
+
+Function ValidateDynamicMemberSet {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [PSCustomObject] ) {
+
+        if ( -not ( $argument | get-member -name index -Membertype Properties)) {
+            throw "Object specified does not contain an index property. Specify a valid Dynamic Member Set."
+        }
+        if ( -not ( $argument | get-member -name SecurityGroupName -Membertype Properties)) {
+            throw "Object specified does not contain a SecurityGroup Name property. Specify a valid Dynamic Member Set."
+        }
+        if ( -not ( $argument | get-member -name SecurityGroup -Membertype Properties)) {
+            throw "Object specified does not contain a SecurityGroup property. Specify a valid Dynamic Member Set."
+        }
+        if ( -not ( $argument | get-member -name criteria -Membertype Properties)) {
+            throw "Object specified does not contain a criteria property. Specify a valid Dynamic Member Set."
+        }
+        if ( -not ( $argument | get-member -name SetOperator -Membertype Properties)) {
+            throw "Object specified does not contain a Set Operator property. Specify a valid Dynamic Member Set."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Dynamic Member Set."
+    }
+}
+
+Function ValidateDynamicCriteria {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [PSCustomObject] ) {
+
+        if ( -not ( $argument | get-member -name index -Membertype Properties)) {
+            throw "Object specified does not contain an index property. Specify a valid Dynamic Criteria object."
+        }
+        if ( -not ( $argument | get-member -name MemberSetIndex -Membertype Properties)) {
+            throw "Object specified does not contain an index property. Specify a valid Dynamic Criteria object."
+        }
+        if ( -not ( $argument | get-member -name SecurityGroupName -Membertype Properties)) {
+            throw "Object specified does not contain a SecurityGroup Name property. Specify a valid Dynamic Criteria object."
+        }
+        if ( -not ( $argument | get-member -name SecurityGroup -Membertype Properties)) {
+            throw "Object specified does not contain a SecurityGroup property. Specify a valid Dynamic Criteria object."
+        }
+        if ( -not ( $argument | get-member -name key -Membertype Properties)) {
+            throw "Object specified does not contain a key property. Specify a valid Dynamic Criteria object."
+        }
+        if ( -not ( $argument | get-member -name condition -Membertype Properties)) {
+            throw "Object specified does not contain a condition property. Specify a valid Dynamic Criteria object."
+        }
+        if ( -not ( $argument | get-member -name key -Membertype Properties)) {
+            throw "Object specified does not contain a value property. Specify a valid Dynamic Criteria object."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Dynamic Criteria object."
+    }
+}
+
+
 ##########
 ##########
 # Helper functions
@@ -22436,6 +22559,10 @@ function Remove-NsxSecurityGroupMember {
     end {}
 }
 
+#########
+#########
+# Dynamic Membership
+
 function New-NsxDynamicCriteriaSpec {
 
     <#
@@ -22446,14 +22573,39 @@ function New-NsxDynamicCriteriaSpec {
     NSX Security Groups can have 3 types of membership configured, Dynamic
     Criteria, Static Members and Exclude Members.
 
-    In order to allow the creation of Dynamic Criteria with a aritrary number of
-    criteria (DynamicCriteria), or an arbitrary number of criteria groups
-    (DynamicSets) that contain an arbitrary number of criteria
-    (DynamicCriteria), a unique spec for each criteria (DynamicCriteria)
-    required must first be created.
+    One or more Dynamic Criteria combine to make a Dynamic Member Set, and one 
+    or more Dynamic Member Sets combine to define the Dynamic Membership of a 
+    given security group.  
+    
+    In order to allow the configuration of a security groups Dynamic Membership
+    with an aritrary number of Dynamic Criteria Member Sets that contain an 
+    arbitrary number of Dynamic Criteria in a flexible way, PowerNSX provides
+    the following abstractions.
+    
+    Creation of individual Dynamic Criteria is accomplished with 
+    New-NsxDynamicCriteriaSpec.
 
-    The attribute that is to be evaluated is referred to as the Key. The list of
-    Keys available (along with their UI representation) are as follows:
+    One or more Dynamic Criteria can be added to a Dynamic Member Set at creation 
+    time with Add-NsxDynamicMemberSet and specifying the required Dynamic 
+    Criteria Spec objects at creation time.
+
+    One or more Dynamic Criteria can be added to an existing Dynamic Member Set
+    after the fact with Add-NsxDynamicCriteria or removed with 
+    Remove-NsxDynamicCriteria.
+
+    One or more Dynamic Member sets can be added to a security groups overall 
+    Dynamic Membership definition using Add-NsxDynamicMemberSet or removed using
+    Remove-NsxDynamicMemberSet
+
+    A Security Groups Dynamic Member definition can include multiple Dynamic 
+    Member Sets in an logical AND/OR arrangement, and for each of the Dynamic 
+    Member Sets, a match operator of ALL or ANY can be specified that determines
+    how multiple Dynamic Criteria within the set combine to define a match.
+
+    Dynamic Criteria consist of the following three elements:
+
+    The Key:  This is the attribute that is to be evaluated. The list of Keys 
+    available (along with their UI representation) are as follows:
 
         Key                     UI Name
         ----------------------- --------
@@ -22462,18 +22614,10 @@ function New-NsxDynamicCriteriaSpec {
         VmName                  VM Name
         SecurityTag             Security Tag
 
-    Each Dynamic Criteria Spec is required to have an operator set. All Dynamic
-    Criteria that is specified within the same Dynamic Set should have identical
-    operators. The following are the options available:
-        Operator    UI Name
-        ----------- --------
-        OR          ANY
-        AND         ALL
+    The condition: This is the criteria that will be used to evaluate the 
+    provided value. The possible options for condition are as follows:
 
-    Each Dynamic Criteria Spec will contain a criteria that will be used to
-    match the provided value. The possible options for criteria are as follows:
-
-        Criteria        UI Name
+        Condition       UI Name
         --------------- ---------------------------
         contains        Contains
         ends_with       Ends with
@@ -22482,21 +22626,21 @@ function New-NsxDynamicCriteriaSpec {
         notequals       Not Equals to
         regex           Matches regular expression
 
-    The value specified in the Dynamic Criteria Spec is a string of text that is
-    required to be matched against the Key provided using the criteria
-    specified.
+    The Value:  This is the string of text that is required to be matched 
+    against the Key provided using the condition specified.
 
-    To specify a object to use as part of a Dynamic Criteria Spec, a valid
-    object must be specified using the entity parameter. Using the entity
-    parameter is the equivelant of statically including the object within the
-    Dynamic Criteria Spec.
+    It is also possible to specify an object to use as part of a Dynamic 
+    Criteria Spec.  To do this, a valid PowerCLI or PowerNSX object must be 
+    specified using the entity parameter. Using the entity parameter is the 
+    equivalant of statically including the object within the Dynamic Criteria 
+    Spec.
 
     A valid PowerCLI session is required to pass certain types of objects
     when specifying an entity.
 
     .EXAMPLE
-    $criteriaSpec11 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
-        -criteria contains -value "VM"
+    $criteriaSpec11 = New-NsxDynamicCriteriaSpec -key VmName -condition contains
+     -value "VM"
 
     Match all VMs where the VM name contains the string "VM"
 
@@ -22511,8 +22655,8 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-    $criteriaSpec12 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
-        -criteria equals -value "Test-VM-01"
+    $criteriaSpec12 = New-NsxDynamicCriteriaSpec -key VmName -condition equals 
+    -value "Test-VM-01"
 
     Match all VMs where the VM name is equal to the string "Test-VM-01"
 
@@ -22527,8 +22671,8 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-    $criteriaSpec13 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
-        -criteria notequals -value "Test-VM-01"
+    $criteriaSpec13 = New-NsxDynamicCriteriaSpec -key VmName -condition 
+    notequals -value "Test-VM-01"
 
     Match all VMs where the VM name is NOT equal to the string "Test-VM-01"
 
@@ -22543,8 +22687,8 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           Yes
 
     .EXAMPLE
-    $criteriaSpec14 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
-        -criteria starts_with -value "Test"
+    $criteriaSpec14 = New-NsxDynamicCriteriaSpec -key VmName -condition 
+    starts_with -value "Test"
 
     Match all VMs where the VM name starts with the string "Test".
 
@@ -22559,8 +22703,8 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-    $criteriaSpec15 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
-        -criteria ends_with -value "01"
+    $criteriaSpec15 = New-NsxDynamicCriteriaSpec -key VmName -condition 
+    ends_with -value "01"
 
     Match all VMs where the VM name ends with the string "01".
 
@@ -22575,8 +22719,8 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           Yes
 
     .EXAMPLE
-    $criteriaSpec16 = New-NsxDynamicCriteriaSpec -key VmName -operator AND
-        -criteria regex -value "^Test-VM-[0-9]{2}$"
+    $criteriaSpec16 = New-NsxDynamicCriteriaSpec -key VmName -condition regex 
+    -value "^Test-VM-[0-9]{2}$"
 
     Match all VMs where the VM name matches the supplied regular expression.
 
@@ -22591,8 +22735,8 @@ function New-NsxDynamicCriteriaSpec {
     WIN-DC-01           No
 
     .EXAMPLE
-    $criteriaSpec21 = New-NsxDynamicCriteriaSpec -operator OR
-        -entity (Get-NsxLogicalSwitch DMZ-LS-1)
+    $criteriaSpec21 = New-NsxDynamicCriteriaSpec -entity (Get-NsxLogicalSwitch 
+    DMZ-LS-1)
 
     Statically specify the NSX Logical Switch called DMZ-LS-1 to be included as
     part of the dynamic criteria
@@ -22610,58 +22754,24 @@ function New-NsxDynamicCriteriaSpec {
 
     param (
         [Parameter(Mandatory=$true, ParameterSetName="search")]
-            [ ValidateSet("VmName", "ComputerName", "OsName", "SecurityTag", IgnoreCase=$true) ]
-            [String]$key,
+            [ ValidateSet("VMName", "ComputerName", "OSName", "SecurityTag") ]
+            [String]$Key,
         [Parameter(Mandatory=$true, ParameterSetName="search")]
-            [ ValidateSet("contains", "ends_with", "starts_with", "equals", "notequals", "regex", IgnoreCase=$true) ]
-            [String]$criteria,
+            [ ValidateSet("contains", "ends_with", "starts_with", "equals", "notequals", "regex") ]
+            [String]$Condition,
         [Parameter(Mandatory=$true, ParameterSetName="search")]
             [ ValidateNotNullOrEmpty() ]
-            [String]$value,
-        [Parameter(Mandatory=$true, ParameterSetName="entity")]
-        [Parameter(Mandatory=$true, ParameterSetName="search")]
-            [ ValidateSet("OR", "AND", IgnoreCase=$true) ]
-            [String]$operator,
+            [String]$Value,
         [Parameter(Mandatory=$true, ParameterSetName="entity")]
             [ ValidateNotNullOrEmpty() ]
-            [object]$entity
+            [object]$Entity
     )
 
     begin {
-        switch ( $criteria ) {
 
-            "equals" {
-                [string]$criteria = "="
-            }
-
-            "notequals" {
-                [string]$criteria = "!="
-            }
-
-            "regex" {
-                [string]$criteria = "similar_to"
-            }
-        }
-
-        switch ( $key ) {
-
-            "OsName" {
-                [string]$key = "VM.GUEST_OS_FULL_NAME"
-            }
-
-            "ComputerName" {
-                [string]$key = "VM.GUEST_HOST_NAME"
-            }
-
-            "VmName" {
-                [string]$key = "VM.NAME"
-            }
-
-            "SecurityTag" {
-                [string]$key = "VM.SECURITY_TAG"
-            }
-        }
-
+        $criteria = ConvertTo-NsxApiCriteriaCondition $Condition
+        $_key = ConvertTo-NsxApiCriteriaKey $key
+        
         #Populate the global membertype cache if not already done
         #Using the API rather than hardcoding incase this changes with versions of NSX
         if ( -not (test-path Variable:\NsxMemberTypes) ) {
@@ -22670,6 +22780,8 @@ function New-NsxDynamicCriteriaSpec {
 
         # TODO: [DC] Maybe in the future making the cmdlet aware of a number of
         # entities being and creating the corresponding number of specs for it.
+        # [NB] I would expect the user to loop creation of multiple specs rather than
+        # include in the cmdlet itself.
         $entityCount = @($entity).count
         if ( $entityCount -ne 1 ) {
             throw "Multiple ($entityCount) entities specified . Only 1 is allowed."
@@ -22681,7 +22793,6 @@ function New-NsxDynamicCriteriaSpec {
         [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
         [System.XML.XMLElement]$xmlDynamicCriteria = $XMLDoc.CreateElement("dynamicCriteria")
         $xmlDoc.appendChild($xmlDynamicCriteria) | out-null
-        Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "operator" -xmlElementText $operator.ToUpper()
 
         if ($PSCmdlet.ParameterSetName -eq "entity") {
 
@@ -22692,7 +22803,7 @@ function New-NsxDynamicCriteriaSpec {
             elseif ( ($entity -is [string]) -and ($entity -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
                 $EntityObjectId = $entity
             }
-            # TODO: [DC] As Nick what this is for?
+            # Match NIC identifier specified by user (eg UUID.000)
             elseif ( ($entity -is [string] ) -and ( [guid]::tryparse(($entity -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
                 $EntityObjectId = $entity
             }
@@ -22714,11 +22825,10 @@ function New-NsxDynamicCriteriaSpec {
 
             Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "key" -xmlElementText "ENTITY"
             Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "criteria" -xmlElementText "belongs_to"
-            # Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "value" -xmlElementText $entity.objectId
             Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "value" -xmlElementText $EntityObjectId
         }
         elseif ($PSCmdlet.ParameterSetName -eq "search") {
-            Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "key" -xmlElementText $key.ToUpper()
+            Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "key" -xmlElementText $_key.ToUpper()
             Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "criteria" -xmlElementText $criteria.ToLower()
             Add-XmlElement -xmlRoot $xmlDynamicCriteria -xmlElementName "value" -xmlElementText $value
         }
@@ -22735,50 +22845,67 @@ function Add-NsxDynamicMemberSet {
     Adds a new dynamic member set to an existing NSX Security Group.
 
     .DESCRIPTION
-    An NSX Security Group is a grouping construct that provides a powerful
-    grouping function that can be used in DFW Firewall Rules and the NSX
-    Service Composer.
+    NSX Security Groups can have 3 types of membership configured, Dynamic
+    Criteria, Static Members and Exclude Members.
 
-    This cmdlet adds a new dynamic member set to an existing NSX Security Group.
+    One or more Dynamic Criteria combine to make a Dynamic Member Set, and one 
+    or more Dynamic Member Sets combine to define the Dynamic Membership of a 
+    given security group.  
+    
+    In order to allow the configuration of a security groups Dynamic Membership
+    with an aritrary number of Dynamic Criteria Member Sets that contain an 
+    arbitrary number of Dynamic Criteria in a flexible way, PowerNSX provides
+    the following abstractions.
+    
+    Creation of individual Dynamic Criteria is accomplished with 
+    New-NsxDynamicCriteriaSpec.
 
-    A Security Group can consist of Static Includes and Excludes as well as
-    dynamic matching properties.
+    One or more Dynamic Criteria can be added to a Dynamic Member Set at creation 
+    time with Add-NsxDynamicMemberSet and specifying the required Dynamic 
+    Criteria Spec objects at creation time.
 
-    A dynamic member set defines the criteria that an object must meet for it to
-    be added to the security group. This gives you the ability to include
-    virtual machines by defining a filter criteria with a number of parameters
-    supported to match the search criteria.
+    One or more Dynamic Criteria can be added to an existing Dynamic Member Set
+    after the fact with Add-NsxDynamicCriteria or removed with 
+    Remove-NsxDynamicCriteria.
 
-    A Security Group can have multiple dynamic member sets in an logical AND/OR
-    arrangement, and within each of the dynamic member sets, the set may contain
-    multiple dynamic criteria in an AND/OR arrangement.
+    One or more Dynamic Member sets can be added to a security groups overall 
+    Dynamic Membership definition using Add-NsxDynamicMemberSet or removed using
+    Remove-NsxDynamicMemberSet
+
+    A Security Groups Dynamic Member definition can include multiple Dynamic 
+    Member Sets in an logical AND/OR arrangement, and for each of the Dynamic 
+    Member Sets, a match operator of ALL or ANY can be specified that determines
+    how multiple Dynamic Criteria combine within the set to define a match.
+
+    The Add-NsxDynamicMemberSet cmdlet is used to create a new Dynamic Member 
+    Set and add it to an existing Security Groups Dynamic Member Definition.
 
     .EXAMPLE
-    $criteria1Spec = New-NsxDynamicCriteriaSpec -key VM.name -operator AND -criteria contains -value "PROD"
-    $criteria2Spec = New-NsxDynamicCriteriaSpec -key VM.GUEST_OS_FULL_NAME -operator AND -criteria contains -value "Win"
+    $criteria1Spec = New-NsxDynamicCriteriaSpec -key VM.name -condition contains -value "PROD"
+    $criteria2Spec = New-NsxDynamicCriteriaSpec -key VM.GUEST_OS_FULL_NAME -condition contains -value "Win"
 
     $sg1 = New-NsxSecurityGroup -Name "SG-Production-Windows"
 
-    Get-NsxSecurityGroup "SG-Production-Windows" | Add-NsxDynamicMemberSet -operator OR -DynamicCriteriaSpec $criteria1Spec,$criteria2Spec
+    Get-NsxSecurityGroup "SG-Production-Windows" | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ANY -DynamicCriteriaSpec $criteria1Spec,$criteria2Spec
 
     .EXAMPLE
-    $criteria3Spec = New-NsxDynamicCriteriaSpec -key VM.SECURITY_TAG -operator AND -criteria starts_with -value "ST_PCI"
-    $criteria4Spec = New-NsxDynamicCriteriaSpec -entity $(Get-Cluster DMZ) -operator AND
+    $criteria3Spec = New-NsxDynamicCriteriaSpec -key VM.SECURITY_TAG -condition starts_with -value "ST_PCI"
+    $criteria4Spec = New-NsxDynamicCriteriaSpec -entity $(Get-Cluster DMZ)
 
     $sg2 = New-NsxSecurityGroup -Name "SG-DMZ-PCI"
 
-    Get-NsxSecurityGroup "SG-DMZ-PCI" | Add-NsxDynamicMemberSet -operator AND -DynamicCriteriaSpec $criteria3Spec,$criteria4Spec
+    Get-NsxSecurityGroup "SG-DMZ-PCI" | Add-NsxDynamicMemberSet -SetOperator AND -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3Spec,$criteria4Spec
 
     .EXAMPLE
-    $criteria5Spec = New-NsxDynamicCriteriaSpec -key VM.SECURITY_TAG -operator AND -criteria starts_with -value "ST_Backup"
-    $criteria6Spec = New-NsxDynamicCriteriaSpec -entity $(Get-Cluster Dev-CL-01) -operator AND
-    $criteria7Spec = New-NsxDynamicCriteriaSpec -entity $(Get-NsxLogicalSwitch LS-Backup-Net) -operator AND
-    $criteria8Spec = New-NsxDynamicCriteriaSpec -key VM.NAME -operator AND -criteria contains -value "PROD"
+    $criteria5Spec = New-NsxDynamicCriteriaSpec -key VM.SECURITY_TAG -condition starts_with -value "ST_Backup"
+    $criteria6Spec = New-NsxDynamicCriteriaSpec -entity $(Get-Cluster Dev-CL-01)
+    $criteria7Spec = New-NsxDynamicCriteriaSpec -entity $(Get-NsxLogicalSwitch LS-Backup-Net)
+    $criteria8Spec = New-NsxDynamicCriteriaSpec -key VM.NAME -condition contains -value "PROD"
 
     $sg3 = New-NsxSecurityGroup -Name "SG-Backup-Clients"
 
-    $sg3.objectid | Add-NsxDynamicMemberSet -operator OR -DynamicCriteriaSpec $criteria5Spec,$criteria6Spec
-    $sg3.objectid | Add-NsxDynamicMemberSet -operator OR -DynamicCriteriaSpec $criteria7Spec,$criteria8Spec
+    $sg3.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ANY -DynamicCriteriaSpec $criteria5Spec,$criteria6Spec
+    $sg3.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ANY -DynamicCriteriaSpec $criteria7Spec,$criteria8Spec
 
     #>
 
@@ -22789,9 +22916,15 @@ function Add-NsxDynamicMemberSet {
             # SecurityGroup whose membership is to be modified.
             [ValidateNotNullOrEmpty()]
             [object]$SecurityGroup,
-        [Parameter (Mandatory=$true) ]
-            [ValidateSet("OR", "AND", IgnoreCase=$false)]
-            [String]$operator,
+        [Parameter (Mandatory=$false) ]
+            # Dynamic Criteria Set operator BETWEEN sets.  In the UI, this is the AND/OR drop down displayed between member sets.
+            # This value is ignored if the set being added is the first set being added to the Dynamic Member Definition of a Security Group
+            [ValidateSet("OR", "AND")]
+            [String]$SetOperator,
+        [Parameter (Mandatory=$false) ]
+            # Dynamic Criteria operator for criteria WITHIN the set being added. In the UI, this is the Match: ANY/ALL drop down displayed at the top of each Dynamic Member Set.  
+            [ValidateSet("ANY", "ALL")]
+            [String]$CriteriaOperator,
         [Parameter (Mandatory=$true) ]
             # Dynamic criteria spec/s as generated by New-NsxDynamicCriteriaSpec
             [ValidateScript( { ValidateDynamicCriteriaSpec $_ })]
@@ -22827,16 +22960,35 @@ function Add-NsxDynamicMemberSet {
         if ( -not $dynamicMemberDefinitionElement ) {
             Add-XmlElement -xmlRoot $_SecurityGroup -xmlElementName "dynamicMemberDefinition"
             $dynamicMemberDefinitionElement = Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -Query 'child::dynamicMemberDefinition'
+            
+            #Default the set operator for the first criteria set in a dynamic membership defintion to be 'OR' as the UI does.
+            if ( $PSBoundParameters.ContainsKey("SetOperator")) {
+                write-warning "A Set Operator is not defined for the first dynamic membership set defined on a security group.  The Set Operator value has been ignored."
+            }
+            $SetOperator = "OR"
         }
+        else { 
+
+            #Require that sets added after the initial one have an operator defined.
+            If ( -not $PSBoundParameters.ContainsKey("SetOperator")) { 
+                throw "A Set Operator is required to define additional membership criteria sets."
+            }
+        }
+
+        $_CriteriaOperator = ConvertTo-NsxApiCriteriaOperator $CriteriaOperator
 
         # Now lets add the dynamic criteria (DynamicSets)
         [System.Xml.XmlElement]$xmlDynamicMemberDefinition = $dynamicMemberDefinitionElement
         [System.XML.XMLElement]$xmlRoot = $xmlDynamicMemberDefinition.ownerDocument.CreateElement("dynamicSet")
 
-        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "operator" -xmlElementText $operator
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "operator" -xmlElementText $SetOperator.ToUpper()
 
         foreach ( $spec in $DynamicCriteriaSpec) {
+
             $specImport = $xmlRoot.ownerDocument.ImportNode($spec, $true)
+
+            #Add the criteria operator to the spec elem
+            Add-XmlElement -xmlRoot $specImport -xmlElementName "operator" -xmlElementText $_CriteriaOperator
             $xmlRoot.appendChild($specImport) | out-null
         }
 
@@ -22850,6 +23002,757 @@ function Add-NsxDynamicMemberSet {
 
     end{}
 }
+
+function Get-NsxDynamicMemberSet {
+    
+    <#
+    .SYNOPSIS
+    Retrieves Dynamic Member Sets from the specified security group.
+
+    .DESCRIPTION
+    NSX Security Groups can have 3 types of membership configured, Dynamic
+    Criteria, Static Members and Exclude Members.
+
+    One or more Dynamic Criteria combine to make a Dynamic Member Set, and one 
+    or more Dynamic Member Sets combine to define the Dynamic Membership of a 
+    given security group.  
+    
+    In order to allow the configuration of a security groups Dynamic Membership
+    with an aritrary number of Dynamic Criteria Member Sets that contain an 
+    arbitrary number of Dynamic Criteria in a flexible way, PowerNSX provides
+    the following abstractions.
+    
+    Creation of individual Dynamic Criteria is accomplished with 
+    New-NsxDynamicCriteriaSpec.
+
+    One or more Dynamic Criteria can be added to a Dynamic Member Set at creation 
+    time with Add-NsxDynamicMemberSet and specifying the required Dynamic 
+    Criteria Spec objects at creation time.
+
+    One or more Dynamic Criteria can be added to an existing Dynamic Member Set
+    after the fact with Add-NsxDynamicCriteria or removed with 
+    Remove-NsxDynamicCriteria.
+
+    One or more Dynamic Member sets can be added to a security groups overall 
+    Dynamic Membership definition using Add-NsxDynamicMemberSet or removed using
+    Remove-NsxDynamicMemberSet
+
+    A Security Groups Dynamic Member definition can include multiple Dynamic 
+    Member Sets in an logical AND/OR arrangement, and for each of the Dynamic 
+    Member Sets, a match operator of ALL or ANY can be specified that determines
+    how multiple Dynamic Criteria combine within the set to define a match.
+    
+    This cmdlet returns the existing Dynamic Member Sets from the given security
+    group.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup Prod-WindowsServer | Get-NsxDynamicMemberSet
+
+    Retrieves the Dynamic Member Sets that make up the Dynamic Membership 
+    specification of the security group Prod-WindowsServer
+
+    .EXAMPLE
+    Get-NsxSecurityGroup Prod-WindowsServer | Get-NsxDynamicMemberSet -Index 3 
+
+    Retrieves the third Member Set from the Dynamic Membership specification of
+    the security group Prod-WindowsServer.  This is primarly intended to return 
+    an object suitable to pass to Get-NsxDynamicCriteria or 
+    Add-NsxDynamicCriteria.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, Position=1) ]
+            # SecurityGroup to retrieve Dynamic Sets from.
+            [ValidateNotNullOrEmpty()]
+            [object]$SecurityGroup,
+        [Parameter (Mandatory=$false)]
+            #Get Member Set by index
+            [ValidateNotNullOrEmpty()]
+            [string]$Index,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    process {
+
+        if ($SecurityGroup.SelectSingleNode("child::dynamicMemberDefinition/dynamicSet")) { 
+            
+            $SetCount = 0
+            foreach  ( $CriteriaSet in $SecurityGroup.dynamicMemberDefinition.dynamicSet)  {
+                $ResultObj = @{}
+                $SetCount++
+                #Use the first element in the set to determine the criteria operator
+                #All criteria members of a set MUST have the same operator, despite
+                #the fact that it is defined for each criteria member.
+                #Obfustcating it here to a per dynamic criteria set setting aligns
+                #with how the UI operates.
+
+                $CriteriaOperator = ConvertFrom-NsxApiCriteriaOperator $CriteriaSet.SelectSingleNode("child::dynamicCriteria").Operator
+
+                #Bash together an output string that reflects what the user would see in the UI...
+                $CriteriaString = "Match: $CriteriaOperator"
+                $CriteriaCollection = @()
+                foreach ( $Criteria in $CriteriaSet.dynamicCriteria ) { 
+                    $CriteriaString += ", $(ConvertFrom-NsxApiCriteriaKey $Criteria.Key) $(ConvertFrom-NsxApiCriteriaCondition $Criteria.Criteria) $($Criteria.value)"
+                    $CriteriaObj = [pscustomobject]@{
+                        "Index" = $CriteriaCollection.Length + 1
+                        "Match" = $CriteriaOperator
+                        "Key" = ConvertFrom-NsxApiCriteriaKey $Criteria.Key
+                        "Condition" = ConvertFrom-NsxApiCriteriaCondition $Criteria.Criteria
+                        "Value" = $Criteria.value
+                    }
+                    $CriteriaCollection += $CriteriaObj
+                }    
+
+                #SecurityGroup Name is just useful output for user.
+                $ResultObj.Add("SecurityGroupName", $SecurityGroup.Name)
+
+                #We have to generate an index on the fly so user has easy method to 
+                #select a set to operate on for subsequent modification.
+
+                $ResultObj.Add("Index", $SetCount)
+                #Supress the display of the set operator for the first set to align with 
+                #what the user sees in the UI
+                if ( $SetCount -eq 1) {
+                    $ResultObj.Add("SetOperator", "")
+                }
+                else {
+                    $ResultObj.Add("SetOperator", $CriteriaSet.Operator)                    
+                }
+
+                $ResultObj.Add("CriteriaString", $CriteriaString)
+
+                #SecurityGroup is supressed in output by default, but it is the 
+                #actual xml object that is modified and put back during modification
+                #events like remove/add criteria.
+                $ResultObj.Add("SecurityGroup", $SecurityGroup)
+                
+                #Likewise, CriteriaObj is suppressed, as the String representation of it is more readable, but we use the object in get/remove criteria pipelines
+                $ResultObj.Add("Criteria", $CriteriaCollection)
+                
+                $output = [pscustomobject]$ResultObj    
+
+                #Manipulating which output properties are displayed to supress SecurityGroup
+                [string[]]$DefaultProperties = 'Index', 'SecurityGroupName', 'SetOperator', 'CriteriaString'
+                
+                # Add the PSStandardMembers.DefaultDisplayPropertySet member
+                $ddps = New-Object System.Management.Automation.PSPropertySet DefaultDisplayPropertySet,$DefaultProperties
+                $PSStandardMembers = [System.Management.Automation.PSMemberInfo[]]$ddps 
+                
+                # Attach default display property set and output
+                $output | Add-Member -MemberType MemberSet -Name PSStandardMembers -Value $PSStandardMembers
+
+                if ( $PSBoundParameters.ContainsKey("Index") ) { 
+                    $output | Where-object { $_.index -eq $Index }
+                }
+                else {
+                    $output
+                }
+            }
+        }
+    }
+
+    end {}
+}
+
+function Remove-NsxDynamicMemberSet { 
+    <#
+    .SYNOPSIS
+    Removes the specified Dynamic Member Set from a security groups Dynamic 
+    Membership definition.
+
+    .DESCRIPTION
+    NSX Security Groups can have 3 types of membership configured, Dynamic
+    Criteria, Static Members and Exclude Members.
+
+    One or more Dynamic Criteria combine to make a Dynamic Member Set, and one 
+    or more Dynamic Member Sets combine to define the Dynamic Membership of a 
+    given security group.  
+    
+    In order to allow the configuration of a security groups Dynamic Membership
+    with an aritrary number of Dynamic Criteria Member Sets that contain an 
+    arbitrary number of Dynamic Criteria in a flexible way, PowerNSX provides
+    the following abstractions.
+    
+    Creation of individual Dynamic Criteria is accomplished with 
+    New-NsxDynamicCriteriaSpec.
+
+    One or more Dynamic Criteria can be added to a Dynamic Member Set at creation 
+    time with Add-NsxDynamicMemberSet and specifying the required Dynamic 
+    Criteria Spec objects at creation time.
+
+    One or more Dynamic Criteria can be added to an existing Dynamic Member Set
+    after the fact with Add-NsxDynamicCriteria or removed with 
+    Remove-NsxDynamicCriteria.
+
+    One or more Dynamic Member sets can be added to a security groups overall 
+    Dynamic Membership definition using Add-NsxDynamicMemberSet or removed using
+    Remove-NsxDynamicMemberSet
+
+    A Security Groups Dynamic Member definition can include multiple Dynamic 
+    Member Sets in an logical AND/OR arrangement, and for each of the Dynamic 
+    Member Sets, a match operator of ALL or ANY can be specified that determines
+    how multiple Dynamic Criteria combine within the set to define a match.
+    
+    This cmdlet removes the specified Dynamic Member Set as retreived by 
+    Get-NsxDynamicMemberSet from the Security Group it is defined within.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup Prod-WindowsServer | Get-NsxDynamicMemberSet 
+
+    Index SecurityGroupName SetOperator CriteriaString
+    ----- ----------------- ----------- --------------
+    1     Prod-WindowsServer            Match: ANY, VMName contains Windows, ComputerName regex *win*
+    2     Prod-WindowsServer         OR Match: ANY, OSName contains Win
+
+    PS C:\> Get-NsxSecurityGroup Prod-WindowsServer | Get-NsxDynamicMemberSet -index 1 | Remove-NsxDynamicMemberSet
+
+    Removes the first dynamic member set from the dynamic member definition of the security group Prod-WindowsServer
+    
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility    
+    [CmdletBinding(DefaultParameterSetName="Default")]
+    param (
+        
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, Position=1) ]
+            # Dynamic member set to remove.
+            [ValidateScript({ ValidateDynamicMemberSet $_ })]
+            [object]$DynamicMemberSet,
+        [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    #We cant actually modify the dynamic set list in the process block as normal
+    #as objects come down the pipeline, as the index used to define a set to 
+    #remove is ephemeral and based only on a sets position in the overal definition
+    #and modifying the set on the fly will impact the position of subsequent elements.
+    
+    #So we setup a tracking hashtable per security group in the begin block 
+    #(we are assuming the pipeline could send us more than one SG to modify), 
+    #and use the process block to build a collection of XMLNodes that will be 
+    #removed all at once in the end block prior to the API put to persist the 
+    #actual change.
+
+    Begin {
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
+
+        #Setup tracking hashtable.  key is sg id.  value is pscustomobject with following keys:
+        # - SecurityGroup - the actual SG XML.  This allows us to honour the 
+        #   intent of revisioning to avoid pushing an out of date change.
+        # - NodesToRemove - a collection of XMLNodes added to in the process block.
+        $SGsToModify = @{}
+    }
+
+    Process {
+        
+        if ( -not ($SgsToModify.ContainsKey($DynamicMemberSet.SecurityGroup.objectId))) { 
+            #We havent seen this SG before, add it to our tracking hashtable.  We have to clone the node to avoid modifying the input object compoenent that is XML.
+            $SGsToModify.Add($DynamicMemberSet.SecurityGroup.objectId, [pscustomobject]@{"SecurityGroup"=$DynamicMemberSet.SecurityGroup.CloneNode($True); "NodesToRemove"=@()})
+        }
+        
+        #Get the SG XML from our tracking hashtable to search on.
+        $SecurityGroup = $SGsToModify[$DynamicMemberSet.SecurityGroup.objectId].SecurityGroup
+        $NodeToRemove = $SecurityGroup.dynamicMemberDefinition.SelectSingleNode("child::dynamicSet[$($DynamicMemberSet.Index)]")
+        if ( -not $NodeToRemove ) { 
+            throw "The Dynamic Member Set index $($DynamicMemberSet.Index) does not exist in the security group $($SecurityGroup.Name) ($($SecurityGroup.objectId)).  This should not occur and indicates a fault in PowerNSX.  Please report this bug at github.com/vmware/PowerNSX"
+        }
+
+        #Add the node to remove to the tracking collection for this SG.
+        $SGsToModify[$DynamicMemberSet.SecurityGroup.objectId].NodesToRemove += $NodeToRemove
+
+    }
+
+    End {
+
+        #Now we do the actual modification work.
+        foreach ( $SGToModify in $SGsToModify.Values) { 
+            foreach ( $Node in $SgToModify.NodesToRemove ) {
+                $null = $SgToModify.SecurityGroup.dynamicMemberDefinition.RemoveChild($Node)
+            }
+
+            #Post the updated SG XML.
+            $uri = "/api/2.0/services/securitygroup/bulk/$($SgToModify.SecurityGroup.objectId)"
+            $body = $SgToModify.SecurityGroup.outerXml
+            if ( -not ( $Noconfirm )) {
+                $message  = "Removal of dynamic member sets from Security Group $($SGToModify.SecurityGroup.Name) will result in a change in security posture."
+                $question = "Are you sure you want to proceed with the update of Security Group $($SGToModify.SecurityGroup.Name)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+    
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Security Group $($SGToModify.SecurityGroup.Name)"
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                write-progress -activity "Update Security Group $($SGToModify.SecurityGroup.Name)" -completed
+                
+            }
+        }
+    }
+}
+
+function Add-NsxDynamicCriteria { 
+    <#  
+    .SYNOPSIS
+    Adds a Dynamic Criteria to the specified Dynamic Member Set.
+
+    .DESCRIPTION
+    NSX Security Groups can have 3 types of membership configured, Dynamic
+    Criteria, Static Members and Exclude Members.
+
+    One or more Dynamic Criteria combine to make a Dynamic Member Set, and one 
+    or more Dynamic Member Sets combine to define the Dynamic Membership of a 
+    given security group.  
+    
+    In order to allow the configuration of a security groups Dynamic Membership
+    with an aritrary number of Dynamic Criteria Member Sets that contain an 
+    arbitrary number of Dynamic Criteria in a flexible way, PowerNSX provides
+    the following abstractions.
+    
+    Creation of individual Dynamic Criteria is accomplished with 
+    New-NsxDynamicCriteriaSpec.
+
+    One or more Dynamic Criteria can be added to a Dynamic Member Set at creation 
+    time with Add-NsxDynamicMemberSet and specifying the required Dynamic 
+    Criteria Spec objects at creation time.
+
+    One or more Dynamic Criteria can be added to an existing Dynamic Member Set
+    after the fact with Add-NsxDynamicCriteria or removed with 
+    Remove-NsxDynamicCriteria.
+
+    One or more Dynamic Member sets can be added to a security groups overall 
+    Dynamic Membership definition using Add-NsxDynamicMemberSet or removed using
+    Remove-NsxDynamicMemberSet
+
+    A Security Groups Dynamic Member definition can include multiple Dynamic 
+    Member Sets in an logical AND/OR arrangement, and for each of the Dynamic 
+    Member Sets, a match operator of ALL or ANY can be specified that determines
+    how multiple Dynamic Criteria combine within the set to define a match.
+
+    Add-NsxDynamicCriteria adds a new Dynamic Member Criteria to the specified
+    Dynamic Member Set as retreived by Get-NsxDynamicMemberSet.  You can pass
+    a Dynamic Member Spec as created by New-NsxDynamicMemberSpec, or explicitly
+    specify the key, condition and value of the new Dynamic Criteria.
+    
+    .EXAMPLE
+    Get-NsxSecurityGroup WebApp | Get-NsxDynamicMemberSet -Index 1 | Add-NsxDynamicCriteria -Entity (Get-VM app01)
+
+    Index SecurityGroupName SetOperator CriteriaString
+    ----- ----------------- ----------- --------------
+    1     WebApp                        Match: ANY, VMName contains WebApp, ComputerName regex *webapp*, ENTITY belongs_to vm-1234
+
+    Adds a new Dynamic Criteria for a static inclusion of the VM app01 to the existing first Dynamic Member Set of the Security Group WebApp 
+    
+    .EXAMPLE
+    $spec1 = New-NsxDynamicCriteriaSpec -key SecurityTag -condition equals -value "webapp"
+    PS C:\> Get-NsxSecurityGroup WebApp | Get-NsxDynamicMemberSet -Index 1 | Add-NsxDynamicCriteria -DynamicCriteriaSpec $spec1 
+
+    Index SecurityGroupName SetOperator CriteriaString
+    ----- ----------------- ----------- --------------
+    1     WebApp                        Match: ANY, VMName contains WebApp, ComputerName regex *webapp*, ENTITY belongs_to vm-1234, SecurityTag equals webapp
+
+    Adds a new Dynamic Criteria based on the precreated criteria spec $spec1 to the existing first Dynamic Member Set of the Security Group WebApp 
+    
+    .EXAMPLE
+    Get-NsxSecurityGroup WebApp | Get-NsxDynamicMemberSet -Index 1 | Add-NsxDynamicCriteria -key SecurityTag -condition equals -value "webapp"
+
+    Index SecurityGroupName SetOperator CriteriaString
+    ----- ----------------- ----------- --------------
+    1     WebApp                        Match: ANY, VMName contains WebApp, ComputerName regex *webapp*, ENTITY belongs_to vm-1234, SecurityTag equals webapp
+
+    Adds a new Dynamic Criteria based on the key/condition/value specified to the existing first Dynamic Member Set of the Security Group WebApp 
+    
+    #>
+
+    param (
+        
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, Position=1) ]
+            # SecurityGroup to retrieve Dynamic Sets from.
+            [ValidateScript({ ValidateDynamicMemberSet $_ })]
+            [object]$DynamicMemberSet,
+        [Parameter (Mandatory=$true, ParameterSetName="spec") ]
+            # Dynamic criteria spec/s as generated by New-NsxDynamicCriteriaSpec
+            [ValidateScript( { ValidateDynamicCriteriaSpec $_ })]
+            [System.Xml.XmlElement]$DynamicCriteriaSpec,
+        [Parameter (Mandatory=$true, ParameterSetName="search")]
+            # Dynamic Criteria Key
+            [ ValidateSet("VMName", "ComputerName", "OSName", "SecurityTag") ]
+            [String]$Key,
+        [Parameter (Mandatory=$true, ParameterSetName="search")]
+            # Dynamic Criteria Condition
+            [ ValidateSet("contains", "ends_with", "starts_with", "equals", "notequals", "regex") ]
+            [String]$Condition,
+        [Parameter (Mandatory=$true, ParameterSetName="search")]
+            # Dynamic Criteria Value to be matched against the key using the condition.
+            [ ValidateNotNullOrEmpty() ]
+            [String]$Value,
+        [Parameter (Mandatory=$true, ParameterSetName="entity")]
+            # A specific entity to match against.
+            [ ValidateNotNullOrEmpty() ]
+            [object]$Entity,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {  }
+
+    process { 
+        switch ( $PSCmdlet.ParameterSetName ) { 
+            "search" { 
+                $spec = New-NsxDynamicCriteriaSpec -Key $Key -Condition $Condition -Value $Value
+            }
+            "entity" { 
+                $spec = New-NsxDynamicCriteriaSpec -entity $entity               
+            }
+            "spec" { 
+                $spec = $DynamicCriteriaSpec
+            }
+        }
+
+        # Now lets add the dynamic criteria.  Clone the input node so modifying XML doesnt affect the source.
+        $SecurityGroupXML = $DynamicMemberSet.SecurityGroup.CloneNode($true)
+
+        #Now get the specific set elem user has passed from the contained SG XML elem...
+        $dynamicMemberSetElement = Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $SecurityGroupXML -Query "child::dynamicMemberDefinition/dynamicSet[$($DynamicMemberSet.Index)]"
+        if ( -not $dynamicMemberSetElement ) {
+            #this shouldnt happen if we get a valid Dynamic Member Set
+            throw "The specified Dynamic Member Set is not valid.  This is not expected, please report this issue on the PowerNSX Github issues page - github.com/vmware/powernsx/issues"
+        }
+
+        $specImport = $dynamicMemberSetElement.ownerDocument.ImportNode($spec, $true)
+
+        #Add the criteria operator to the spec elem.  All Criteria must share the same operator, so we just grab the first one and copy it.
+        Add-XmlElement -xmlRoot $specImport -xmlElementName "operator" -xmlElementText (ConvertTo-NsxApiCriteriaOperator $DynamicMemberSet.Criteria[0].Match).ToUpper()
+        $dynamicMemberSetElement.appendChild($specImport) | out-null
+
+        #Do the post
+        $body = $SecurityGroupXML.OuterXml
+        $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupXML.objectId)"
+        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        Get-NsxSecurityGroup -objectId $SecurityGroupXML.objectId -Connection $Connection | Get-NsxDynamicMemberSet -Index $DynamicMemberSet.Index -Connection $Connection
+    }
+
+    end {  }
+
+}
+
+function Get-NsxDynamicCriteria {
+    
+    <#
+    .SYNOPSIS
+    Retrieves Dynamic Member Criteria from the specified Dynamic Member Set.
+
+    .DESCRIPTION
+    NSX Security Groups can have 3 types of membership configured, Dynamic
+    Criteria, Static Members and Exclude Members.
+
+    One or more Dynamic Criteria combine to make a Dynamic Member Set, and one 
+    or more Dynamic Member Sets combine to define the Dynamic Membership of a 
+    given security group.  
+    
+    In order to allow the configuration of a security groups Dynamic Membership
+    with an aritrary number of Dynamic Criteria Member Sets that contain an 
+    arbitrary number of Dynamic Criteria in a flexible way, PowerNSX provides
+    the following abstractions.
+    
+    Creation of individual Dynamic Criteria is accomplished with 
+    New-NsxDynamicCriteriaSpec.
+
+    One or more Dynamic Criteria can be added to a Dynamic Member Set at creation 
+    time with Add-NsxDynamicMemberSet and specifying the required Dynamic 
+    Criteria Spec objects at creation time.
+
+    One or more Dynamic Criteria can be added to an existing Dynamic Member Set
+    after the fact with Add-NsxDynamicCriteria or removed with 
+    Remove-NsxDynamicCriteria.
+
+    One or more Dynamic Member sets can be added to a security groups overall 
+    Dynamic Membership definition using Add-NsxDynamicMemberSet or removed using
+    Remove-NsxDynamicMemberSet
+
+    A Security Groups Dynamic Member definition can include multiple Dynamic 
+    Member Sets in an logical AND/OR arrangement, and for each of the Dynamic 
+    Member Sets, a match operator of ALL or ANY can be specified that determines
+    how multiple Dynamic Criteria combine within the set to define a match.
+
+    Get-NsxDynamicCriteria retrieves Dynamic Member Criteria from the specified
+    Dynamic Member Set as retreived by Get-NsxDynamicMemberSet.  While 
+    Get-NsxDynamicMemberSet displays a text representation of the Dynamic 
+    Criteria that belong to it, this cmdlet outputs individual objects 
+    representing each criteria such that they can be filtered, and passed to 
+    Remove-NsxDynamicCriteria.
+    
+    .EXAMPLE
+    Get-NsxSecurityGroup webapp | Get-NsxDynamicMemberSet | Get-NsxDynamicCriteria | ft
+
+    Index MemberSetIndex SecurityGroupName Key          Condition  Value
+    ----- -------------- ----------------- ---          ---------  -----
+    1                  1 webapp            VMName       contains   webapp
+    2                  1 webapp            SecurityTag  contains   webapp
+    3                  1 webapp            ComputerName contains   webapp
+    1                  2 webapp            ENTITY       belongs_to vm-3964
+    2                  2 webapp            SecurityTag  equals     webapp
+    1                  3 webapp            ENTITY       belongs_to vm-3961
+
+    Retreives all Dynamic Criteria from ALL Dynamic Member Sets of the security group webapp.  This is probably not what you want to do.
+    Output is formatted as a table.
+    .EXAMPLE
+    Get-NsxSecurityGroup webapp | Get-NsxDynamicMemberSet -index 1 | Get-NsxDynamicCriteria | ft
+
+    Index MemberSetIndex SecurityGroupName Key          Condition  Value
+    ----- -------------- ----------------- ---          ---------  -----
+    1                  1 webapp            VMName       contains   webapp
+    2                  1 webapp            SecurityTag  contains   webapp
+    3                  1 webapp            ComputerName contains   webapp
+
+    Retreives all Dynamic Criteria from the first Dynamic Member Set of the security group webapp.  This probably IS what you want to do! :)    
+    Output is formatted as a table.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, Position=1) ]
+            # Dynamic Member Set to retrieve Dynamic Criteria from.
+            [ValidateScript({ ValidateDynamicMemberSet $_ })]
+            [object]$DynamicMemberSet,
+        [Parameter (Mandatory=$false)]
+            #Get Criteria Member by index
+            [ValidateNotNullOrEmpty()]
+            [string]$Index,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    process {
+
+        foreach ( $Criteria in $DynamicMemberSet.Criteria) { 
+        
+            
+            $output = [pscustomobject]@{
+                "Index" = $Criteria.Index
+                "MemberSetIndex" = $DynamicMemberSet.Index
+                "SecurityGroupName" = $DynamicMemberSet."SecurityGroupName"
+                "Key" = $Criteria.Key
+                "Condition" = $Criteria.Condition
+                "Value" = $Criteria.Value
+                "SecurityGroup" = $DynamicMemberSet.SecurityGroup
+            }
+
+            #Manipulating which output properties are displayed to supress SecurityGroup
+            [string[]]$DefaultProperties = "Index", "MemberSetIndex", "SecurityGroupName", "Key", "Condition", "Value"
+            
+            # Add the PSStandardMembers.DefaultDisplayPropertySet member
+            $ddps = New-Object System.Management.Automation.PSPropertySet DefaultDisplayPropertySet,$DefaultProperties
+            $PSStandardMembers = [System.Management.Automation.PSMemberInfo[]]$ddps 
+
+            # Attach default display property set and output
+            $output | Add-Member -MemberType MemberSet -Name PSStandardMembers -Value $PSStandardMembers
+
+            if ( $PSBoundParameters.ContainsKey("Index") ) { 
+                $output | Where-object { $_.index -eq $Index }
+            }
+            else {
+                $output
+            }   
+        }
+    }
+
+    end {}
+}
+
+function Remove-NsxDynamicCriteria { 
+    <#
+    .SYNOPSIS
+    Removes the specified Dynamic Criteria from the specified Dynamic Member Set.
+
+    .DESCRIPTION
+    NSX Security Groups can have 3 types of membership configured, Dynamic
+    Criteria, Static Members and Exclude Members.
+
+    One or more Dynamic Criteria combine to make a Dynamic Member Set, and one 
+    or more Dynamic Member Sets combine to define the Dynamic Membership of a 
+    given security group.  
+    
+    In order to allow the configuration of a security groups Dynamic Membership
+    with an aritrary number of Dynamic Criteria Member Sets that contain an 
+    arbitrary number of Dynamic Criteria in a flexible way, PowerNSX provides
+    the following abstractions.
+    
+    Creation of individual Dynamic Criteria is accomplished with 
+    New-NsxDynamicCriteriaSpec.
+
+    One or more Dynamic Criteria can be added to a Dynamic Member Set at creation 
+    time with Add-NsxDynamicMemberSet and specifying the required Dynamic 
+    Criteria Spec objects at creation time.
+
+    One or more Dynamic Criteria can be added to an existing Dynamic Member Set
+    after the fact with Add-NsxDynamicCriteria or removed with 
+    Remove-NsxDynamicCriteria.
+
+    One or more Dynamic Member sets can be added to a security groups overall 
+    Dynamic Membership definition using Add-NsxDynamicMemberSet or removed using
+    Remove-NsxDynamicMemberSet
+
+    A Security Groups Dynamic Member definition can include multiple Dynamic 
+    Member Sets in an logical AND/OR arrangement, and for each of the Dynamic 
+    Member Sets, a match operator of ALL or ANY can be specified that determines
+    how multiple Dynamic Criteria combine within the set to define a match.
+    
+    This cmdlet removes the specified Dynamic Criteria as retreived by 
+    Get-NsxDynamicCriteria from the given Dymanic Member Set of which it is a 
+    member.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup webapp | Get-NsxDynamicMemberSet | Get-NsxDynamicCriteria -index 1 | Remove-NsxDynamicCriteria
+
+    Index MemberSetIndex SecurityGroupName Key          Condition  Value
+    ----- -------------- ----------------- ---          ---------  -----
+    1                  1 webapp            VMName       contains   webapp
+    2                  1 webapp            SecurityTag  contains   webapp
+    3                  1 webapp            ComputerName contains   webapp
+    1                  2 webapp            ENTITY       belongs_to vm-3964
+    2                  2 webapp            SecurityTag  equals     webapp
+    1                  3 webapp            ENTITY       belongs_to vm-3961
+
+    Removes the first Dynamic Criteria from ALL Dynamic Member Sets of the security group webapp.  This is probably not what you want to do.
+
+    .EXAMPLE
+    Get-NsxSecurityGroup webapp | Get-NsxDynamicMemberSet -index 1 | Get-NsxDynamicCriteria -index 1 | Remove-NsxDynamicCriteria
+
+    Index MemberSetIndex SecurityGroupName Key          Condition  Value
+    ----- -------------- ----------------- ---          ---------  -----
+    1                  1 webapp            VMName       contains   webapp
+    2                  1 webapp            SecurityTag  contains   webapp
+    3                  1 webapp            ComputerName contains   webapp
+
+    Removes the first Dynamic Criteria from the first Dynamic Member Set of the security group webapp.  This probably IS what you want to do! :)    
+
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility    
+    [CmdletBinding(DefaultParameterSetName="Default")]
+    param (
+        
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true, Position=1) ]
+            # SecurityGroup to retrieve Dynamic Sets from.
+            [ValidateScript({ ValidateDynamicCriteria $_ })]
+            [object]$DynamicCriteria,
+        [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    #We cant actually modify the dynamic set list in the process block as normal
+    #as objects come down the pipeline, as the index used to define a set to 
+    #remove is ephemeral and based only on a sets position in the overal definition
+    #and modifying the set on the fly will impact the position of subsequent elements.
+    
+    #So we setup a tracking hashtable per security group in the begin block 
+    #(we are assuming the pipeline could send us more than one SG and/or criteriaset to modify), 
+    #and use the process block to build a collection of XMLNodes that will be 
+    #removed all at once in the end block prior to the API put to persist the 
+    #actual change.
+
+    Begin {
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
+
+        #Setup tracking hashtable.  key is sg id.  value is pscustomobject with following keys:
+        # - SecurityGroup - the actual SG XML.  This allows us to honour the 
+        #   intent of revisioning to avoid pushing an out of date change.
+        # - NodesToRemove - a collection of XMLNodes added to in the process block.
+        $SGsToModify = @{}
+    }
+
+    Process {
+        
+        if ( -not ($SgsToModify.ContainsKey($DynamicCriteria.SecurityGroup.objectId))) { 
+            #We havent seen this SG before, add it to our tracking hashtable.  We have to clone the node to avoid modifying the input object compoenent that is XML.
+            $SGsToModify.Add($DynamicCriteria.SecurityGroup.objectId, [pscustomobject]@{"SecurityGroup"=$DynamicCriteria.SecurityGroup.CloneNode($True); "NodesToRemove"=@()})
+        }
+        
+        #Get the SG XML from our tracking hashtable to search on.
+        $SecurityGroup = $SGsToModify[$DynamicCriteria.SecurityGroup.objectId].SecurityGroup
+        $NodeToRemove = $SecurityGroup.dynamicMemberDefinition.SelectSingleNode("child::dynamicSet[$($DynamicCriteria.MemberSetIndex)]/dynamicCriteria[$($DynamicCriteria.Index)]")
+        if ( -not $NodeToRemove ) { 
+            throw "The Dynamic Criteria index $($DynamicCriteria.Index) within the Dynamic Member set index $($DynamicCriteria.MemberSetIndex) does not exist in the security group $($SecurityGroup.Name) ($($SecurityGroup.objectId)).  This should not occur and indicates a fault in PowerNSX.  Please report this bug at github.com/vmware/PowerNSX"
+        }
+
+        #Add the node to remove to the tracking collection for this SG.  We need to store the memberset index too so we can select it laster during the removal.
+        $SGsToModify[$DynamicCriteria.SecurityGroup.objectId].NodesToRemove += [pscustomobject]@{ 
+            "MemberSetIndex" = $DynamicCriteria.MemberSetIndex
+            "NodeToRemove" = $NodeToRemove
+        }
+    }
+
+    End {
+
+        #Now we do the actual modification work.
+        foreach ( $SGToModify in $SGsToModify.Values) { 
+            foreach ( $Node in $SgToModify.NodesToRemove ) {
+                $null = $SecurityGroup.dynamicMemberDefinition.SelectSingleNode("child::dynamicSet[$($Node.MemberSetIndex)]").RemoveChild($Node.NodeToRemove)
+            }
+
+            #Post the updated SG XML.
+            $uri = "/api/2.0/services/securitygroup/bulk/$($SgToModify.SecurityGroup.objectId)"
+            $body = $SgToModify.SecurityGroup.outerXml
+            if ( -not ( $Noconfirm )) {
+                $message  = "Removal of dynamic criteria from the Dynamic Member set of a Security Group $($SGToModify.SecurityGroup.Name) will result in a change in security posture."
+                $question = "Are you sure you want to proceed with the update of Security Group $($SGToModify.SecurityGroup.Name)?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+    
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                Write-Progress -activity "Update Security Group $($SGToModify.SecurityGroup.Name)"
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                write-progress -activity "Update Security Group $($SGToModify.SecurityGroup.Name)" -completed
+                
+            }
+        }
+    }
+}
+
+
+########
 
 function New-NsxSecurityTag {
 
@@ -28702,6 +29605,8 @@ function Set-NsxLoadBalancerPoolMember {
         if ($PSBoundParameters.ContainsKey("MaximumConnections")) {
             $member.maxConn = $MaximumConnections.ToString()
         }
+
+        #ToDo: Missing Confirm!!!
 
         $response = Invoke-NsxWebRequest -method "put" -uri "/api/4.0/edges/$edgeid/loadbalancer/config/pools/$poolid" -body $pool.outerxml
         $response = Invoke-NsxWebRequest -Method "get" -Uri "/api/4.0/edges/$edgeid/loadbalancer/config/pools/$poolid"
