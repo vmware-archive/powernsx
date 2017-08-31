@@ -298,6 +298,7 @@ Describe "Edge" {
             if ( -not ( Get-NsxEdge $name ) ) {
                 New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
             }
+            # Add ospf/redistribution/rules/rule/from/bgp tree to check if bgp functions work correctly even when routing/ospf xml tree has 'bgp' attribute
             Get-NsxEdge $Name | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableOspf -RouterId $routerId -Confirm:$false
             Get-NsxEdge $Name | Get-NsxEdgeRouting | New-NsxEdgeRedistributionRule -PrefixName $ospfPrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
             Get-NsxEdge $name | Get-NsxEdgeRouting | Set-NsxEdgeRouting -EnableOspf:$false -Confirm:$false
