@@ -63,6 +63,14 @@ Describe "Edge IPsec" {
 
     }
 
+    Context "ipsec" {
+
+        it "Get IPsec stats" {
+            (Get-NsxEdge ipsecedge1name | Get-NsxIPsecStats).timestamp | should not be null
+        }
+
+    }
+
     AfterAll {
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
