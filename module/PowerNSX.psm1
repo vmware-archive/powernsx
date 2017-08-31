@@ -16242,14 +16242,14 @@ function Set-NsxEdgeRouting {
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableOSPF')) {
-            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf')
+            $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::ospf')
             if ( -not $ospf ) {
                 #ospf node does not exist.
                 [System.XML.XMLElement]$ospf = $_EdgeRouting.ownerDocument.CreateElement("ospf")
                 $_EdgeRouting.appendChild($ospf) | out-null
             }
 
-            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::enabled')) {
                 #Enabled element exists.  Update it.
                 $ospf.enabled = $EnableOSPF.ToString().ToLower()
             }
@@ -16262,7 +16262,7 @@ function Set-NsxEdgeRouting {
 
         if ( $PsBoundParameters.ContainsKey('EnableBGP')) {
 
-            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::bgp')
+            $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::bgp')
 
             if ( -not $bgp ) {
                 #bgp node does not exist.
@@ -16270,7 +16270,7 @@ function Set-NsxEdgeRouting {
                 $_EdgeRouting.appendChild($bgp) | out-null
             }
 
-            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::enabled')) {
                 #Enabled element exists.  Update it.
                 $bgp.enabled = $EnableBGP.ToString().ToLower()
             }
@@ -17088,7 +17088,7 @@ function Get-NsxEdgeBgp {
         #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and
         #consistent readable output
 
-        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::bgp')) {
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::bgp')) {
             $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::bgp').CloneNode($True)
             Add-XmlElement -xmlRoot $bgp -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
             $bgp
@@ -17163,7 +17163,7 @@ function Set-NsxEdgeBgp {
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
-        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::bgp')
+        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::bgp')
         if ( -not $bgp ) {
             #bgp node does not exist.
             [System.XML.XMLElement]$bgp = $_EdgeRouting.ownerDocument.CreateElement("bgp")
@@ -17171,9 +17171,9 @@ function Set-NsxEdgeBgp {
         }
 
         # Check bgp enablement
-            if ($PsBoundParameters.ContainsKey('EnableBGP')) {
-                # BGP option is specified
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
+        if ($PsBoundParameters.ContainsKey('EnableBGP')) {
+            # BGP option is specified
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::enabled')) {
                 #Enabled element exists.  Update it.
                 $bgp.enabled = $EnableBGP.ToString().ToLower()
             }
@@ -17182,7 +17182,7 @@ function Set-NsxEdgeBgp {
                 Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
             }
         }
-        elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled') {
+        elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::enabled') {
             # BGP option is not specified but enabled
             if ( $bgp.enabled -eq 'true' ) {
                 # Assume bgp is already enabled.
@@ -17333,7 +17333,7 @@ function Get-NsxEdgeBgpNeighbour {
 
     process {
 
-        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::bgp')
+        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::bgp')
 
         if ( $bgp ) {
 
@@ -17449,7 +17449,7 @@ function New-NsxEdgeBgpNeighbour {
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the bgp element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::bgp')
+        $bgp = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::bgp')
         if ( $bgp ) {
             (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::bgpNeighbours').AppendChild($Neighbour) | Out-Null
 
@@ -17555,7 +17555,7 @@ function Remove-NsxEdgeBgpNeighbour {
         $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::edgeId')) ) | out-null
 
         #Validate the BGP node exists on the edge
-        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::bgp')) { throw "BGP is not enabled on ESG $edgeId.  Enable BGP and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::bgp')) { throw "BGP is not enabled on ESG $edgeId.  Enable BGP and try again." }
 
         #Need to do an xpath query here to query for a bgp neighbour that matches the one passed in.
         #Union of ipaddress and remote AS should be unique (though this is not enforced by the API,
@@ -17644,7 +17644,7 @@ function Get-NsxEdgeOspf {
         #We append the Edge-id to the associated Routing config XML to enable pipeline workflows and
         #consistent readable output
 
-        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::ospf')) {
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::ospf')) {
             $ospf = $EdgeRouting.ospf.CloneNode($True)
             Add-XmlElement -xmlRoot $ospf -xmlElementName "edgeId" -xmlElementText $EdgeRouting.EdgeId
             $ospf
@@ -17716,7 +17716,7 @@ function Set-NsxEdgeOspf {
         #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
-        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::ospf')
         if ( -not $ospf ) {
             #ospf node does not exist.
             [System.XML.XMLElement]$ospf = $_EdgeRouting.ownerDocument.CreateElement("ospf")
@@ -17725,7 +17725,7 @@ function Set-NsxEdgeOspf {
 
 	    # Check ospf enablemant
         if ($PsBoundParameters.ContainsKey('EnableOSPF')) {
-	        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled')) {
+	        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::enabled')) {
                 #Enabled element exists.  Update it.
                 $ospf.enabled = $EnableOSPF.ToString().ToLower()
             }
@@ -17734,7 +17734,7 @@ function Set-NsxEdgeOspf {
                 Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
             }
 	    }
-	    elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled') {
+	    elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::enabled') {
 	        # OSPF option is not specified but enabled
             if ( $ospf.enabled -eq 'true' ) {
 		        # Assume ospf is already enabled.
@@ -17853,7 +17853,7 @@ function Get-NsxEdgeOspfArea {
 
     process {
 
-        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::ospf')
 
         if ( $ospf ) {
 
@@ -17940,7 +17940,7 @@ function Remove-NsxEdgeOspfArea {
         $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::edgeId')) ) | out-null
 
         #Validate the OSPF node exists on the edge
-        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
         if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
 
         $xpathQuery = "//ospfAreas/ospfArea[areaId=`"$($OspfArea.areaId)`"]"
@@ -18056,7 +18056,7 @@ function New-NsxEdgeOspfArea {
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::ospf')
         if ( $ospf ) {
             (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::ospfAreas').AppendChild($Area) | Out-Null
 
@@ -18169,7 +18169,7 @@ function Get-NsxEdgeOspfInterface {
 
     process {
 
-        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $EdgeRouting -Query 'child::ospf')
 
         if ( $ospf ) {
 
@@ -18265,7 +18265,7 @@ function Remove-NsxEdgeOspfInterface {
         $routing.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::edgeId')) ) | out-null
 
         #Validate the OSPF node exists on the edge
-        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'descendant::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
+        if ( -not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $routing -Query 'child::ospf')) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
         if ( -not ($routing.ospf.enabled -eq 'true') ) { throw "OSPF is not enabled on ESG $edgeId.  Enable OSPF and try again." }
 
         $xpathQuery = "//ospfInterfaces/ospfInterface[areaId=`"$($OspfInterface.areaId)`"]"
@@ -18384,7 +18384,7 @@ function New-NsxEdgeOspfInterface {
 
         #Need to do an xpath query here rather than use PoSH dot notation to get the ospf element,
         #as it might not exist which wil cause PoSH to throw in stric mode.
-        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'descendant::ospf')
+        $ospf = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_EdgeRouting -Query 'child::ospf')
         if ( $ospf ) {
             (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::ospfInterfaces').AppendChild($Interface) | Out-Null
 
@@ -19871,7 +19871,7 @@ function Set-NsxLogicalRouterBgp {
 	    # Check bgp enablement
         if ($PsBoundParameters.ContainsKey('EnableBGP')) {
 	        # BGP option is specified
-	        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
+	        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::enabled')) {
 		        #Enabled element exists.  Update it.
 		        $bgp.enabled = $EnableBGP.ToString().ToLower()
 	        }
@@ -19880,7 +19880,7 @@ function Set-NsxLogicalRouterBgp {
                 Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
             }
 	    }
-	    elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled') {
+	    elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'child::enabled') {
 	        # BGP option is not specified but enabled
             if ( $bgp.enabled -eq 'true' ) {
             # Assume bgp is already enabled.
