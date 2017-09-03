@@ -22754,15 +22754,19 @@ function New-NsxDynamicCriteriaSpec {
 
     param (
         [Parameter(Mandatory=$true, ParameterSetName="search")]
+            # The attribute that is to be evaluated. The list of keys is described in the help description. 
             [ ValidateSet("VMName", "ComputerName", "OSName", "SecurityTag") ]
             [String]$Key,
         [Parameter(Mandatory=$true, ParameterSetName="search")]
+            # The condition used to evaluate the criteria value against the its key
             [ ValidateSet("contains", "ends_with", "starts_with", "equals", "notequals", "regex") ]
             [String]$Condition,
         [Parameter(Mandatory=$true, ParameterSetName="search")]
+            # The value of the criteria to be evaluated.
             [ ValidateNotNullOrEmpty() ]
             [String]$Value,
         [Parameter(Mandatory=$true, ParameterSetName="entity")]
+            # The Entity to be matched.  This can be a Valie PowerNSX such as logical switch or PowerCLI object such as VM.
             [ ValidateNotNullOrEmpty() ]
             [object]$Entity
     )
@@ -22921,7 +22925,7 @@ function Add-NsxDynamicMemberSet {
             # This value is ignored if the set being added is the first set being added to the Dynamic Member Definition of a Security Group
             [ValidateSet("OR", "AND")]
             [String]$SetOperator,
-        [Parameter (Mandatory=$false) ]
+        [Parameter (Mandatory=$true) ]
             # Dynamic Criteria operator for criteria WITHIN the set being added. In the UI, this is the Match: ANY/ALL drop down displayed at the top of each Dynamic Member Set.  
             [ValidateSet("ANY", "ALL")]
             [String]$CriteriaOperator,
