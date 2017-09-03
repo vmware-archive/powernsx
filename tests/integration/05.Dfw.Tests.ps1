@@ -297,16 +297,16 @@ Describe "DFW" {
             $section[0].name | should be $l2sectionname
         }
 
-        it "Can create an L3 section at top (insert_top)" {
-            $section = New-NsxFirewallSection $l2sectionname -position top
+        it "Can create an L2 section at top (insert_top)" {
+            $section = New-NsxFirewallSection $l2sectionname -position top -sectionType layer2sections
             $section | should not be $null
             $section = Get-NsxFirewallSection -sectionType layer2sections
             $section | should not be $null
             $section[0].name | should be $l2sectionname
         }
 
-        it "Can create an L3 section at bottom (insert_before_default)" {
-            $sectionTop = New-NsxFirewallSection "pester_dfw_top"
+        it "Can create an L2 section at bottom (insert_before_default)" {
+            $sectionTop = New-NsxFirewallSection "pester_dfw_top" -sectionType layer2sections
             $section = New-NsxFirewallSection $l2sectionname -position bottom -sectionType layer2sections
             $section | should not be $null
             $section = Get-NsxFirewallSection -sectionType layer2sections
@@ -314,9 +314,9 @@ Describe "DFW" {
         }
 
         it "Can insert an L3 section before a given section" {
-            $section3 = New-NsxFirewallSection "pester_dfw_3"
-            $section2 = New-NsxFirewallSection "pester_dfw_2"
-            $section1 = New-NsxFirewallSection "pester_dfw_1"
+            $section3 = New-NsxFirewallSection "pester_dfw_3" -sectionType layer2sections
+            $section2 = New-NsxFirewallSection "pester_dfw_2" -sectionType layer2sections
+            $section1 = New-NsxFirewallSection "pester_dfw_1" -sectionType layer2sections
             $section = New-NsxFirewallSection $l2sectionname -position before -anchorId $section2.id -sectionType layer2sections
             $section | should not be $null
             $section = Get-NsxFirewallSection -sectionType layer2sections
@@ -324,9 +324,9 @@ Describe "DFW" {
         }
 
         it "Can insert an L3 section after a given section" {
-            $section3 = New-NsxFirewallSection "pester_dfw_3"
-            $section2 = New-NsxFirewallSection "pester_dfw_2"
-            $section1 = New-NsxFirewallSection "pester_dfw_1"
+            $section3 = New-NsxFirewallSection "pester_dfw_3" -sectionType layer2sections
+            $section2 = New-NsxFirewallSection "pester_dfw_2" -sectionType layer2sections
+            $section1 = New-NsxFirewallSection "pester_dfw_1" -sectionType layer2sections
             $section = New-NsxFirewallSection $l2sectionname -position after -anchorId $section2.id -sectionType layer2sections
             $section | should not be $null
             $section = Get-NsxFirewallSection -sectionType layer2sections
