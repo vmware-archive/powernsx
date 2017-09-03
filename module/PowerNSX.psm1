@@ -26578,7 +26578,7 @@ function New-NsxFirewallSection {
             [ValidateSet("top","bottom","after","before",ignorecase=$false)]
             [string]$position="top",
         [Parameter (Mandatory=$False)]
-            #ID of an existing section to use as an achor for the new section.
+            #ID of an existing section to use as an anchor for the new section.
             [ValidateNotNullOrEmpty()]
             [string]$anchorId,
         [Parameter (Mandatory=$False)]
