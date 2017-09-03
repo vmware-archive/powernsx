@@ -927,6 +927,26 @@ function ConvertFrom-NsxApiCriteriaKey {
     }
 }
 
+function ConvertTo-NsxApiSectionOperation {
+    switch ( $args[0] ) {
+        "top" { "insert_top" }
+        "bottom" { "insert_before_default" }
+        "before" { "insert_before" }
+        "after" { "insert_after"}
+        default { $args[0] }
+    }
+}
+
+function ConvertFrom-NsxApiSectionOperation {
+    switch ( $args[0] ) {
+        "insert_top" { "top" }
+        "insert_before_default" { "bottom" }
+        "insert_before" { "before" }
+        "insert_after" { "after"}
+        default { $args[0] }
+    }
+}
+
 ########
 ########
 # Validation Functions
@@ -26470,7 +26490,7 @@ function Get-NsxFirewallSection {
     end {}
 }
 
-function New-NsxFirewallSection  {
+function New-NsxFirewallSection {
 
     <#
     .SYNOPSIS
@@ -26481,11 +26501,54 @@ function New-NsxFirewallSection  {
     set that contains firewall rules.
 
     This cmdlet create the specified NSX Distributed Firewall Section.
-    Currently this cmdlet only supports creating a section at the top of the
-    ruleset.
+    By default this cmdlet creates a section at the top of the ruleset. It is
+    possible to create the section at the top or bottom (before default) of the
+    ruleset by using the position parameter. The position parameter can also be
+    used to specify the section be created before or after an existing section.
+    The existing section Id will need to be supplied as the anchor Id.
 
     .EXAMPLE
-    PS C:\> New-NsxFirewallSection -Name TestSection
+    PS> New-NsxFirewallSection -Name TestSection
+
+    Creates a new Layer 3 firewall section at the top of the rulebase
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestL2Section -sectionType layer2sections
+
+    Creates a new Layer 2 firewall section at the top of the rulebase.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestL3RedirectSection -sectionType layer3redirectsections
+
+    Creates a new Layer 2 firewall section at the top of the rulebase.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestAtBottom -position bottom
+
+    Creates a new Layer 3 firewall section before the default section.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestAtTop -position top
+
+    Creates a new Layer 3 firewall section at the top of the rulebase.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestBeforeExisting -position before -anchorId 1024
+
+    Creates a new Layer 3 firewall section before the existing section with an ID of 1024.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestAfterExisting -position after -anchorId 1024
+
+    Creates a new Layer 3 firewall section after the existing section with an ID of 1024.
+
+    .EXAMPLE
+    PS> $section = Get-NsxFirewallSection blah
+
+    PS> New-NsxFirewallSection -Name TestBeforeExisting -position before -anchorId $section.id
+
+    Creates a new Layer 3 firewall section before the existing section named blah.
+
 
     #>
 
@@ -26510,13 +26573,31 @@ function New-NsxFirewallSection  {
         [Parameter (Mandatory=$false)]
             #Marks the firewall section to be universal or not
             [switch]$Universal,
+        [Parameter (Mandatory=$false)]
+            #Identifies where to insert the newly created section. insert_after & insert_before must specify an existing section id as the anchor.
+            [ValidateSet("top","bottom","after","before",ignorecase=$false)]
+            [string]$position="top",
+        [Parameter (Mandatory=$False)]
+            #ID of an existing section to use as an achor for the new section.
+            [ValidateNotNullOrEmpty()]
+            [string]$anchorId,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    begin {}
+    begin {
+        $requiresAnchor = @("before","after")
+
+        if (( $requiresAnchor -contains $position ) -AND (-not ($PSBoundParameters.ContainsKey("anchorID")) ) ) {
+            throw "An anchor ID must be supplied when specifying insert_before or insert_after as the operation"
+        }
+
+        if ( ($universal) -AND ($position -eq "bottom") ) {
+            throw "Cannot specify -universal and -position bottom together. Instead specify -position after and the appropriate anchorId to add a universal section after the last universal section."
+        }
+    }
     process {
 
         #Create the XMLRoot
@@ -26536,7 +26617,17 @@ function New-NsxFirewallSection  {
         #Do the post
         $body = $xmlroot.OuterXml
 
-        $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType"
+        switch ($position) {
+            {$requiresAnchor -contains $position} {
+                $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType`?operation=$(ConvertTo-NsxApiSectionOperation $position)`&anchorId=$anchorId"
+            }
+            "bottom" {
+                $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType`?operation=$(ConvertTo-NsxApiSectionOperation $position)"
+            }
+            default {
+                $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType"
+            }
+        }
 
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
