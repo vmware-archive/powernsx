@@ -11308,6 +11308,7 @@ function New-NsxLogicalRouterInterface {
 
     end {}
 }
+
 function Remove-NsxLogicalRouterInterface {
 
     <#
@@ -11477,13 +11478,14 @@ function Set-NsxLogicalRouter {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # Logical Router object as returned by Get-NsxLogicalRouter
             [ValidateScript({ ValidateLogicalRouter $_ })]
             [System.Xml.XmlElement]$LogicalRouter,
         [Parameter (Mandatory=$False)]
-            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            # Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
+            # PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
