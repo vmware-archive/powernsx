@@ -26520,7 +26520,7 @@ function New-NsxFirewallSection {
     .EXAMPLE
     PS> New-NsxFirewallSection -Name TestL3RedirectSection -sectionType layer3redirectsections
 
-    Creates a new Layer 2 firewall section at the top of the rulebase.
+    Creates a new Layer 3 redirect firewall section at the top of the rulebase.
 
     .EXAMPLE
     PS> New-NsxFirewallSection -Name TestAtBottom -position bottom
