@@ -375,6 +375,16 @@ Describe "Logical Routing" {
 
     }
 
+    it "Can disable firewall by Set-NsxLogicalRouter" {
+        $lr = Get-NsxLogicalRouter $name
+        $lr | should not be $null
+        $lr.features.firewall.enabled | should be "true"
+        $lr.features.firewall.enabled = "false"
+        $lr | Set-NsxLogicalRouter -confirm:$false
+        $lr = Get-NsxLogicalRouter $name
+        $lr.features.firewall.enabled | should be "false"
+    }
+
     it "Can remove a logical router" {
         Get-NsxLogicalRouter $name | remove-nsxlogicalrouter -confirm:$false
         get-nsxlogicalrouter $name | should be $null

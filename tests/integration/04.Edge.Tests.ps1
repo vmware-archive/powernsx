@@ -650,9 +650,22 @@ Describe "Edge" {
         }
     }
 
-    it "Can remove an edge" {
-        Get-NsxEdge $name | should not be $null
-        Get-NsxEdge $name | remove-nsxEdge -confirm:$false
-        get-nsxEdge $name | should be $null
+    Context "Misc" { 
+
+        it "Can disable firewall via Set-NsxEdge" {
+            $edge = Get-NsxEdge $name
+            $edge | should not be $null
+            $edge.features.firewall.enabled | should be "true"
+            $edge.features.firewall.enabled = "false"
+            $edge | Set-NsxEdge -confirm:$false
+            $edge = Get-NsxEdge $name
+            $edge.features.firewall.enabled | should be "false"
+        }
+
+        it "Can remove an edge" {
+            Get-NsxEdge $name | should not be $null
+            Get-NsxEdge $name | remove-nsxEdge -confirm:$false
+            get-nsxEdge $name | should be $null
+        }
     }
 }
