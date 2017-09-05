@@ -31850,6 +31850,98 @@ function Edit-NsxSecurityPolicyFwRule   {
     end {} 
 }
 
+function Remove-NsxApplySPFromSG   {
+
+    <#
+    .SYNOPSIS
+    Remove applied Security Policy from specified Security Group(s).
+
+    .DESCRIPTION
+    Remove applied Security Policy from specified Security Group(s).
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SP-001 |
+    Remove-NsxApplySPFromSG -SecurityGroup (Get-NsxSecurityGroup SG-004)
+
+    
+    Description
+    -----------
+
+    Removes applied Security Policy from Security Group(s) using pipeline input.
+
+    .EXAMPLE
+    Remove-NsxApplySPFromSG -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -SecurityGroup (Get-NsxSecurityGroup SG-005)    
+    
+    Description
+    -----------
+
+    Removes applied Security Policy from Security Group(s). 
+
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$true)]
+            [object[]]$SecurityGroup,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+
+    process {
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
+        
+        if ($SecurityPolicy.securityPolicy | get-member -Name securityGroupBinding -MemberType Property){
+            
+            #Goes through each Security Group in the securityGroupBinding element and removes the ones that match the SecurityGroup parameter
+            foreach ($Member in $SecurityGroup){
+    
+                foreach ($SGB in $SecurityPolicy.SelectNodes("securityPolicy/securityGroupBinding")){
+                    if ($SGB.name -eq $Member.name){
+                        Write-Host "Removing SecurityPolicy: $($SecurityPolicy.securityPolicy.name) from SecurityGroup: $($SGB.name)" -ForegroundColor Yellow
+                        $SecurityPolicy.SelectNodes("securityPolicy").RemoveChild($SGB) | Out-Null
+                    }
+                }  
+            }                         
+        }
+        Else{
+            Throw "No SecurityGroup(s) are assoicated with SecurityPolicy: $($SecurityPolicy.securityPolicy.name)"
+        }
+                       
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        
+         if ($response.StatusCode -eq "200"){
+            [xml]$response = $response.content
+            
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.securityPolicy.objectId -connection $connection
+            }
+        }
+    }
+    end {} 
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
