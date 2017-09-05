@@ -27045,7 +27045,6 @@ function New-NsxFirewallRule  {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    # Todo: Review need to specify rule type in param - should be able to determine from section type that is mandatory...?
     begin {
         $requiresAnchor = @("before","after")
 
@@ -27147,7 +27146,7 @@ function New-NsxFirewallRule  {
         }
         #Do the post
         $body = $Section.OuterXml
-        $URI = "/api/4.0/firewall/$scopeId/config/$ruletype/$($section.Id)"
+        $URI = "/api/4.0/firewall/$scopeId/config/$(ConvertTo-NsxApiSectionType $section.type)/$($section.Id)"
 
         #Need the IfMatch header to specify the current section generation id
         $IfMatchHeader = @{"If-Match"=$generationNumber}
