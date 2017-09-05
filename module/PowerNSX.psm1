@@ -947,6 +947,15 @@ function ConvertFrom-NsxApiSectionOperation {
     }
 }
 
+function ConvertTo-NsxApiSectionType {
+    switch ( $args[0] ) {
+        "LAYER3" { "layer3sections" }
+        "LAYER2" { "layer2sections" }
+        "L3REDIRECT" { "layer3redirectsections" }
+        default { $args[0] }
+    }
+}
+
 ########
 ########
 # Validation Functions
