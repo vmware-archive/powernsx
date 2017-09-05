@@ -652,14 +652,14 @@ Describe "Edge" {
 
     Context "Misc" { 
 
-        it "Can disable firewall via Set-NsxEdge" {
+        it "Can enable firewall via Set-NsxEdge" {
             $edge = Get-NsxEdge $name
             $edge | should not be $null
-            $edge.features.firewall.enabled | should be "true"
-            $edge.features.firewall.enabled = "false"
+            $edge.features.firewall.enabled | should be "false"
+            $edge.features.firewall.enabled = "true"
             $edge | Set-NsxEdge -confirm:$false
             $edge = Get-NsxEdge $name
-            $edge.features.firewall.enabled | should be "false"
+            $edge.features.firewall.enabled | should be "true"
         }
 
         it "Can remove an edge" {
