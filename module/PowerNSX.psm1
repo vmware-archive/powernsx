@@ -30444,7 +30444,7 @@ function Get-NsxSecurityPolicy {
 
     <#
     .SYNOPSIS
-    Retrieves NSX Security Policy
+    Retrieves an NSX Security Policy.
 
     .DESCRIPTION
     An NSX Security Policy is a set of Endpoint, firewall, and network
@@ -30453,26 +30453,26 @@ function Get-NsxSecurityPolicy {
     This cmdlet returns Security Policy objects.
 
     .EXAMPLE
-    PS C:\> Get-NsxSecurityPolicy SecPolicy_WebServers
+    Get-NsxSecurityPolicy SecPolicy_WebServers
 
+    Retrieves the security policy called SecPolicy_WebServers
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
-
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
-            #Set Security Policies by objectId
+            # Set Security Policies by objectId
             [string]$ObjectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
-            #Get Security Policies by name
+            # Get Security Policies by name
             [string]$Name,
         [Parameter (Mandatory=$false)]
-            #Include the readonly (system) Security Policies in results.
+            # Include the readonly (system) Security Policies in results.
             [alias("ShowHidden")]
             [switch]$IncludeHidden=$False,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
+            # PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -30494,7 +30494,7 @@ function Get-NsxSecurityPolicy {
         }
         else {
 
-            #Just getting a single Security group
+            #Just getting a single Security policy
             $URI = "/api/2.0/services/policy/securitypolicy/$objectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             $FinalSecPol = $response.securityPolicy
@@ -31737,6 +31737,7 @@ function Add-NsxApplySPToSG   {
     }
     end {} 
 }
+
 function Edit-NsxSecurityPolicyFwRule   {
 
      <#
