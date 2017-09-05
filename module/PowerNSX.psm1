@@ -26894,21 +26894,66 @@ function New-NsxFirewallRule  {
     in which to create the rule is mandatory.
 
     .EXAMPLE
-    PS C:\> Get-NsxFirewallSection TestSection |
+    PS> Get-NsxFirewallSection TestSection |
         New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
         -Action allow
         -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
          "Testing Rule Creation"
 
+    Add a new Layer 3 rule to the section called TestSection. By default, the
+    rule will be inserted at the top of the section.
+
     .EXAMPLE
-    PS C:\> Get-NsxFirewallSection TestSection |
+    PS> Get-NsxFirewallSection TestL2Section |
+        New-NsxFirewallRule -Name TestRule -Source $VM1 -Destination $VM1
+        -Action allow
+        -AppliedTo $VM1 -EnableLogging -Comment "Testing L2 Rule Creation"
+
+    Add a new Layer 2 rule to the section called TestL2Section. By default, the
+    rule will be inserted at the top of the section.
+
+    .EXAMPLE
+    PS> Get-NsxFirewallSection TestSection |
         New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
         -Action allow
         -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
          "Testing creating a disabled rule"
         -DisableRule
 
-    Add a new disabled rule to the section called TestSection
+    Add a new Layer 3 disabled rule to the section called TestSection
+
+    .EXAMPLE
+    PS> Get-NsxFirewallSection TestSection |
+        New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
+        -Action allow
+        -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
+         "Testing creating a rule at the bottom of the section"
+        -Position bottom
+
+    Add a new Layer 3 rule to the bottom of the section called TestSection
+
+    .EXAMPLE
+    PS> Get-NsxFirewallSection TestSection |
+        New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
+        -Action allow
+        -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
+         "Testing creating a rule before an existing rule"
+        -Position before -anchorId 1024
+
+    Add a new Layer 3 rule immediatley after rule id 1024 in the section called
+    TestSection
+
+    .EXAMPLE
+    PS> Get-NsxFirewallSection TestSection |
+        New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
+        -Action allow
+        -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
+         "Testing creating a rule after an existing rule"
+        -Position after -anchorId 1024
+
+    Add a new Layer 3 rule immediatley after rule id 1024 in the section called
+    TestSection
+
 
     #>
 
