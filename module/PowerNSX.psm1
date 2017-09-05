@@ -26790,7 +26790,7 @@ function Get-NsxFirewallRule {
 
         if ( $PSCmdlet.ParameterSetName -eq "Section" ) {
 
-            $URI = "/api/4.0/firewall/$scopeID/config/$ruletype/$($Section.Id)"
+            $URI = "/api/4.0/firewall/$scopeID/config/$(ConvertTo-NsxApiSectionType $section.type)/$($Section.Id)"
 
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response | get-member -name Section -Membertype Properties){
