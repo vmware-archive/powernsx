@@ -27021,8 +27021,12 @@ function New-NsxFirewallRule  {
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$false)]
             # Create the new rule at the specified position of the section (Top or Bottom, Default - Top)
-            [ValidateSet("Top","Bottom")]
+            [ValidateSet("Top","Bottom","before","after")]
             [string]$Position="Top",
+        [Parameter (Mandatory=$False)]
+            #ID of an existing rule to use as an anchor for the new rule.
+            [ValidateNotNullOrEmpty()]
+            [string]$anchorId,
         [Parameter (Mandatory=$false)]
             # Tag to be configured on the new rule.  Tag is an arbitrary string attached to the rule that does not affect application of the rule, but is included in logged output of rule hits if logging is enabled for the rule.
             [ValidateNotNullorEmpty()]
@@ -27042,7 +27046,13 @@ function New-NsxFirewallRule  {
     )
 
     # Todo: Review need to specify rule type in param - should be able to determine from section type that is mandatory...?
-    begin {}
+    begin {
+        $requiresAnchor = @("before","after")
+
+        if (( $requiresAnchor -contains $position ) -AND (-not ($PSBoundParameters.ContainsKey("anchorID")) ) ) {
+            throw "An anchor ID must be supplied when specifying before or after as the operation"
+        }
+    }
     process {
 
         $generationNumber = $section.generationNumber
@@ -27123,6 +27133,17 @@ function New-NsxFirewallRule  {
         switch ($Position) {
             "Top" { $Section.prependchild($xmlRule) | Out-Null }
             "Bottom" { $Section.appendchild($xmlRule) | Out-Null }
+            {($_ -eq "before") -or ($_ -eq "after")} {
+                $anchorRule = Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Section -Query "child::rule[@id=`"$anchorId`"]"
+                if (-not ($anchorRule)) {
+                    throw "Anchor rule id $anchorId does not exist in section $($section.id) ($($section.name))"
+                } else {
+                    switch ($Position) {
+                        "before" { $section.insertBefore($xmlrule,$anchorRule) | Out-Null }
+                        "after" { $section.insertAfter($xmlrule,$anchorRule) | Out-Null }
+                        }
+                }
+            }
         }
         #Do the post
         $body = $Section.OuterXml
