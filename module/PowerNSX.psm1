@@ -869,26 +869,26 @@ function ParseCentralCliResponse {
     }
 }
 
-function ConvertTo-NsxApiCriteriaOperator { 
-    
+function ConvertTo-NsxApiCriteriaOperator {
+
     #Convert the CriteriaOperator to the API AND/OR from the UI/PowerNSX value of ANY/ALL
-    switch ( $args[0] ) { 
+    switch ( $args[0] ) {
         "any" { "OR"}
         "all" { "AND"}
     }
 }
 
-function ConvertFrom-NsxApiCriteriaOperator { 
-    
+function ConvertFrom-NsxApiCriteriaOperator {
+
     #Convert from the CriteriaOperator of the API AND/OR to the UI/PowerNSX value of ANY/ALL
-    switch ( $args[0] ) { 
+    switch ( $args[0] ) {
         "or" { "ANY" }
         "and" { "ALL"}
     }
 }
 
-function ConvertTo-NsxApiCriteriaCondition { 
-    
+function ConvertTo-NsxApiCriteriaCondition {
+
     switch ( $args[0] ) {
         "equals" { "=" }
         "notequals" { "!=" }
@@ -897,8 +897,8 @@ function ConvertTo-NsxApiCriteriaCondition {
     }
 }
 
-function ConvertFrom-NsxApiCriteriaCondition { 
-    
+function ConvertFrom-NsxApiCriteriaCondition {
+
     switch ( $args[0] ) {
         "=" { "equals" }
         "!=" { "notequals" }
@@ -907,7 +907,7 @@ function ConvertFrom-NsxApiCriteriaCondition {
     }
 }
 
-function ConvertTo-NsxApiCriteriaKey { 
+function ConvertTo-NsxApiCriteriaKey {
     switch ( $args[0] ) {
         "OSName" { "VM.GUEST_OS_FULL_NAME" }
         "ComputerName" { "VM.GUEST_HOST_NAME" }
@@ -917,7 +917,7 @@ function ConvertTo-NsxApiCriteriaKey {
     }
 }
 
-function ConvertFrom-NsxApiCriteriaKey { 
+function ConvertFrom-NsxApiCriteriaKey {
     switch ( $args[0] ) {
         "VM.GUEST_OS_FULL_NAME" { "OSName" }
         "VM.GUEST_HOST_NAME" { "ComputerName" }
