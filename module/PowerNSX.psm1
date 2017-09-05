@@ -26120,210 +26120,6 @@ function Get-NsxApplicableMember {
     end{}
 }
 
-function Get-NsxApplicableFwRule {
-    
-    <#
-    .SYNOPSIS
-    Retrieves Security Policy firewall Rules associated with a NSX Security Group, Security Policy, or Virtual Machine
-
-    .DESCRIPTION
-    SecurityGroup - 
-    You can fetch all security actions applicable on a security group for all ExecutionOrderCategories. The list is
-    sorted based on the weight of security actions in descending order. The isActive tag indicates if a securityaction
-    will be applied (by the enforcement engine) on the security group.
-
-    SecurityPolicy -
-    You can retrieve all security actions applicable on a security policy. This list includes security actions from
-    associated parent security policies, if any. Security actions per Execution Order Category are sorted based on
-    the weight of security actions in descending order.
-
-    Virtual Machine - 
-    You can fetch the security actions applicable on a virtual machine for all ExecutionOrderCategories. The list of
-    SecurityActions per ExecutionOrderCategory is sorted based on the weight of security actions in descending
-    order. The isActive tag indicates whether a security action will be applied (by the enforcement engine) on the
-    virtual machine.
-
-    .EXAMPLE
-    PS C:\> Get-NsxApplicableFwRule -SecurityGroup (Get-NsxSecurityGroup -name "SG_Test")
-    
-    PS C:\> Get-NsxApplicableFwRule -VirtualMachine (Get-VM -name "VM_Test") 
-    
-    PS C:\> Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy -name "SP_Test") 
-
-    #>
-
-    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
-
-    param (
-
-        [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
-            #Query SecurityGroup by objectId
-            [System.Xml.XmlElement]$SecurityGroup,
-        [Parameter (Mandatory=$true,ParameterSetName="securitypolicy",Position=1)]
-            #Query SecurityPolicy by objectId
-            [System.Xml.XmlElement]$SecurityPolicy,
-        [Parameter (Mandatory=$true,ParameterSetName="virtualmachine",Position=1)]
-            #Query Virtual Machine by MoRef Value
-            [VMware.VimAutomation.ViCore.Impl.V1.VM.UniversalVirtualMachineImpl]$VirtualMachine,
-        [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
-
-    )
-
-    begin {}
-
-    process {
-
-    
-        # Code for securitygroup actions
-                
-        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
-            
-            $URI = "/api/2.0/services/policy/securitygroup/$($SecurityGroup.objectId)/securityactions"
-        
-            try {
-                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
-            }
-            catch {
-                throw "Failed retreiving applicable actions.  $_"
-            }
-            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
-                try {
-                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
-                        $response.securityActionsByCategoryMap.actionsByCategory.action
-                    }
-                }
-                catch {
-                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
-                }
-            }
-            else {
-                throw "No Content returned from NSX API call."
-            }
-        }
-
-        # Code for securitypolicy actions
-
-        if ( $PSCmdlet.ParameterSetName -eq "securitypolicy") {
-            
-            $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.objectId)/securityactions"
-        
-            try {
-                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
-            }
-            catch {
-                throw "Failed retreiving applicable actions.  $_"
-            }
-            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
-                try {
-                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
-                        $response.securityActionsByCategoryMap.actionsByCategory.action
-                    }
-                }
-                catch {
-                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
-                }
-            }
-            else {
-                throw "No Content returned from NSX API call."
-            }
-        }
-
-        # Code for virtual machine actions
-
-        if ( $PSCmdlet.ParameterSetName -eq "virtualmachine") {
-            
-            $URI = "/api/2.0/services/policy/virtualmachine/$($VirtualMachine.ExtensionData.MoRef.Value)/securityactions"
-        
-            try {
-                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
-            }
-            catch {
-                throw "Failed retreiving applicable actions.  $_"
-            }
-            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
-                try {
-                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
-                        $response.securityActionsByCategoryMap.actionsByCategory.action
-                    }
-                }
-                catch {
-                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
-                }
-            }
-            else {
-                throw "No Content returned from NSX API call."
-            }
-        }
-
-    }
-
-    end {}
-}
-
-function Get-NsxApplicablePolicy {
-
-    <#
-    .SYNOPSIS
-    Query Security Policies Mapped to a Security Group
-
-    .DESCRIPTION
-    You can retrieve the security policies mapped to a security group. The list is sorted based on the precedence
-    of security policy precedence in descending order. The security policy with the highest precedence (highest
-    numeric value) is the first entry (index = 0) in the list.
-
-    .EXAMPLE
-    PS C:\> Get-NsxApplicablePolicy -SecurityGroup (Get-NsxSecurityGroup -name "SG_GenesysSstormAccp_JAX").objectId 
-
-    #>
-
-    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
-
-    param (
-
-        [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
-            #Query SecurityGroup by objectId
-            [System.Xml.XmlElement]$SecurityGroup,
-        [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
-
-    )
-
-    begin {}
-
-    process {
-
-        
-        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
-            $URI = "/api/2.0/services/policy/securitygroup/$($SecurityGroup.objectId)/securitypolicies"
-        }
-        try {
-            $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
-        }
-        catch {
-            throw "Failed retreiving applicable polcies.  $_"
-        }
-        if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityPolicies").IsEmpty ) {
-            try {
-                if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityPolicies" ) {
-                    $response.securityPolicies.securityPolicy
-                }
-            }
-            catch {
-                throw "Content returned from NSX API could not be parsed as an applicable policy XML."
-            }
-        }
-        else {
-            throw "No Content returned from NSX API call."
-        }
-    }
-
-    end {}
-}
 
 #########
 #########
@@ -30724,7 +30520,6 @@ function Get-NsxSecurityPolicy {
     end {}
 }
 
-
 function New-NsxSecurityPolicyFirewallRuleSpec {
     <#
     .SYNOPSIS
@@ -31110,7 +30905,6 @@ function New-NsxSecurityPolicy   {
     end {} 
 }
 
-
 function Remove-NsxSecurityPolicy {
 
     <#
@@ -31182,6 +30976,211 @@ function Remove-NsxSecurityPolicy {
                 write-progress -activity "Remove Security Policy $($SecurityPolicy.Name)" -completed
 
             }
+        }
+    }
+
+    end {}
+}
+
+function Get-NsxApplicableFwRule {
+    
+    <#
+    .SYNOPSIS
+    Retrieves Security Policy firewall Rules associated with a NSX Security Group, Security Policy, or Virtual Machine
+
+    .DESCRIPTION
+    SecurityGroup - 
+    You can fetch all security actions applicable on a security group for all ExecutionOrderCategories. The list is
+    sorted based on the weight of security actions in descending order. The isActive tag indicates if a securityaction
+    will be applied (by the enforcement engine) on the security group.
+
+    SecurityPolicy -
+    You can retrieve all security actions applicable on a security policy. This list includes security actions from
+    associated parent security policies, if any. Security actions per Execution Order Category are sorted based on
+    the weight of security actions in descending order.
+
+    Virtual Machine - 
+    You can fetch the security actions applicable on a virtual machine for all ExecutionOrderCategories. The list of
+    SecurityActions per ExecutionOrderCategory is sorted based on the weight of security actions in descending
+    order. The isActive tag indicates whether a security action will be applied (by the enforcement engine) on the
+    virtual machine.
+
+    .EXAMPLE
+    PS C:\> Get-NsxApplicableFwRule -SecurityGroup (Get-NsxSecurityGroup -name "SG_Test")
+    
+    PS C:\> Get-NsxApplicableFwRule -VirtualMachine (Get-VM -name "VM_Test") 
+    
+    PS C:\> Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy -name "SP_Test") 
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
+
+    param (
+
+        [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
+            #Query SecurityGroup by objectId
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$true,ParameterSetName="securitypolicy",Position=1)]
+            #Query SecurityPolicy by objectId
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$true,ParameterSetName="virtualmachine",Position=1)]
+            #Query Virtual Machine by MoRef Value
+            [VMware.VimAutomation.ViCore.Impl.V1.VM.UniversalVirtualMachineImpl]$VirtualMachine,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+    
+        # Code for securitygroup actions
+                
+        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
+            
+            $URI = "/api/2.0/services/policy/securitygroup/$($SecurityGroup.objectId)/securityactions"
+        
+            try {
+                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+            }
+            catch {
+                throw "Failed retreiving applicable actions.  $_"
+            }
+            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
+                try {
+                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
+                        $response.securityActionsByCategoryMap.actionsByCategory.action
+                    }
+                }
+                catch {
+                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
+                }
+            }
+            else {
+                throw "No Content returned from NSX API call."
+            }
+        }
+
+        # Code for securitypolicy actions
+
+        if ( $PSCmdlet.ParameterSetName -eq "securitypolicy") {
+            
+            $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.objectId)/securityactions"
+        
+            try {
+                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+            }
+            catch {
+                throw "Failed retreiving applicable actions.  $_"
+            }
+            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
+                try {
+                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
+                        $response.securityActionsByCategoryMap.actionsByCategory.action
+                    }
+                }
+                catch {
+                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
+                }
+            }
+            else {
+                throw "No Content returned from NSX API call."
+            }
+        }
+
+        # Code for virtual machine actions
+
+        if ( $PSCmdlet.ParameterSetName -eq "virtualmachine") {
+            
+            $URI = "/api/2.0/services/policy/virtualmachine/$($VirtualMachine.ExtensionData.MoRef.Value)/securityactions"
+        
+            try {
+                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+            }
+            catch {
+                throw "Failed retreiving applicable actions.  $_"
+            }
+            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
+                try {
+                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
+                        $response.securityActionsByCategoryMap.actionsByCategory.action
+                    }
+                }
+                catch {
+                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
+                }
+            }
+            else {
+                throw "No Content returned from NSX API call."
+            }
+        }
+
+    }
+
+    end {}
+}
+
+function Get-NsxApplicablePolicy {
+
+    <#
+    .SYNOPSIS
+    Query Security Policies Mapped to a Security Group
+
+    .DESCRIPTION
+    You can retrieve the security policies mapped to a security group. The list is sorted based on the precedence
+    of security policy precedence in descending order. The security policy with the highest precedence (highest
+    numeric value) is the first entry (index = 0) in the list.
+
+    .EXAMPLE
+    PS C:\> Get-NsxApplicablePolicy -SecurityGroup (Get-NsxSecurityGroup -name "SG_GenesysSstormAccp_JAX").objectId 
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
+
+    param (
+
+        [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
+            #Query SecurityGroup by objectId
+            [System.Xml.XmlElement]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        
+        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
+            $URI = "/api/2.0/services/policy/securitygroup/$($SecurityGroup.objectId)/securitypolicies"
+        }
+        try {
+            $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+        }
+        catch {
+            throw "Failed retreiving applicable polcies.  $_"
+        }
+        if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityPolicies").IsEmpty ) {
+            try {
+                if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityPolicies" ) {
+                    $response.securityPolicies.securityPolicy
+                }
+            }
+            catch {
+                throw "Content returned from NSX API could not be parsed as an applicable policy XML."
+            }
+        }
+        else {
+            throw "No Content returned from NSX API call."
         }
     }
 
