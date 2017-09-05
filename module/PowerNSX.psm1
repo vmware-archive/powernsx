@@ -31630,6 +31630,114 @@ function Add-NsxSecurityPolicyFwRule   {
     end {} 
 }
 
+function Add-NsxApplySPToSG   {
+
+     <#
+    .SYNOPSIS
+    Apply Security Policy to specified Security Group(s)
+
+    .DESCRIPTION
+    Apply a Security Policy to a Security Group to secure your virtual desktops, business critical applications, and the connections between them. 
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SP-001 |
+    Add-NsxApplySPToSG -SecurityGroup (Get-NsxSecurityGroup SG-004)
+
+    
+    Description
+    -----------
+
+    Apply Security Policy to Security Group(s) using pipeline input.
+    
+    .EXAMPLE
+    Add-NsxApplySPToSG -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -SecurityGroup (Get-NsxSecurityGroup SG-005)    
+    
+    Description
+    -----------
+
+    Apply Security Policy to Security Group(s). 
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$false)]
+            [object[]]$SecurityGroup,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+
+    process {
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
+        
+        if ($SecurityPolicy.securityPolicy | get-member -Name securityGroupBinding -MemberType Property){
+            Write-Host "This SecurityPolicy is applied to existing SecurityGroups(s), adding additional member(s):" -ForegroundColor Magenta
+            #Gets the current number of securityGroupBindings and + 1 to ensure the next Security Group is added to the empty securityGroupBinding XMLElement
+            $count = ($SecurityPolicy.securityPolicy.securityGroupBinding.objectId.count) + 1
+            
+            #Goes through each Security Group creates a securityGroupBinding element and adds the Security Group's objectId to it
+            foreach ($Member in $SecurityGroup){
+                Add-XmlElement -xmlRoot $SecurityPolicy.SelectSingleNode("securityPolicy") -xmlElementName "securityGroupBinding" | Out-Null
+                
+                #This is probably not safe - need to review all possible input types to confirm.
+                if ($Member -is [System.Xml.XmlElement] -and $Member.objectTypeName -eq "SecurityGroup") {
+                    Write-Host "Applying SecurityPolicy: $($SecurityPolicy.securityPolicy.name) to SecurityGroup: $($Member.name)" -ForegroundColor Yellow  
+                    Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $SecurityPolicy -query "//securityGroupBinding[$count]") -xmlElementName "objectId" -xmlElementText $Member.objectId | Out-Null
+                    $count++ 
+                }   
+            }
+        }
+        Else{
+            #If securityGroupBindings doesn't exist start with number 1 and keep increasing $count as each member goes through the foreach loop
+            Write-Host "This SecurityPolicy is not currently applied to any SecurityGroups(s), adding additional member(s):" -ForegroundColor Magenta
+            $count = 1
+
+            #Goes through each Security Group creates a securityGroupBinding element and adds the Security Group's objectId to it
+            foreach ($Member in $SecurityGroup){
+                Add-XmlElement -xmlRoot $SecurityPolicy.SelectSingleNode("securityPolicy") -xmlElementName "securityGroupBinding" | Out-Null
+                
+                #This is probably not safe - need to review all possible input types to confirm.
+                if ($Member -is [System.Xml.XmlElement] -and $Member.objectTypeName -eq "SecurityGroup") {
+                    Write-Host "Applying SecurityPolicy: $($SecurityPolicy.securityPolicy.name) to SecurityGroup: $($Member.name)" -ForegroundColor Yellow
+                    Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $SecurityPolicy -query "//securityGroupBinding[$count]") -xmlElementName "objectId" -xmlElementText $Member.objectId | Out-Null
+                    $count++ 
+                }
+            }
+        }
+                       
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        
+        if ($response.StatusCode -eq "200"){
+            
+            [xml]$response = $response.content
+
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+                $SecurityGroup.objectId
+            }
+        }
+    }
+    end {} 
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
