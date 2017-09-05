@@ -32118,6 +32118,100 @@ function Remove-NsxServiceFromSPFwRule   {
     end {} 
 }
 
+function Remove-NsxSGFromSPFwRule   {
+
+    <#
+    .SYNOPSIS
+    Remove NSX Security Group(s) to the specified Firewall Rule.
+
+    .DESCRIPTION
+    Remove Security Group(s) to specified Firewall Rule.
+    
+    .EXAMPLE
+    Get-NsxSecurityPolicy SP-002 |
+    Remove-NsxSGFromSPFwRule -SecurityGroup (Get-NsxSecurityGroup SG-014) -ExecutionOrder 1
+    
+    Description
+    -----------
+
+    Remove Security Group SG-014 from rule 1 in Security Policy SP-002 using pipeline input.
+   
+    .EXAMPLE
+    Remove-NsxSGFromSPFwRule -SecurityPolicy (Get-NsxSecurityPolicy -Name SP-002) -SecurityGroup (Get-NsxSecurityGroup SG-015) -ExecutionOrder 2
+    
+    Description
+    -----------
+
+    Remove Security Group SG-015 from Security Policy SP-002, Rule 2. 
+
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$true)]
+            [System.Xml.XmlElement[]]$SecurityGroup,
+        [Parameter (Mandatory=$true)]
+            [Int]$ExecutionOrder,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+
+    process {
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
+        $found = @()
+
+        #The Security Policy Rule nust match the Firewall Execution Number
+        foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']")){
+                
+            #Iterates through the SecurityGroups one member at a time               
+            foreach ($existingnode in $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder]/secondarySecurityGroup ")){
+
+                #Ensures the SecurityGroup matches that of the existing SecurityGroup
+                if ($SecurityGroup.name -cmatch $existingnode.name ){
+                        
+                    Write-Host "Removing SecurityGroup Member: $($existingnode.name) from Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow 
+                    $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder and category='firewall'] ").RemoveChild($existingnode) | Out-Null
+
+                }
+            } 
+
+        }  
+           
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        New-Variable -Name GlobalResponse -Value $response -Scope Global -Force
+        if ($response.StatusCode -eq "200"){
+            [xml]$response = $response.content
+            
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.securityPolicy.objectId -connection $connection
+            }
+        }
+    }
+    end {} 
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
