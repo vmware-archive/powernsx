@@ -31187,6 +31187,156 @@ function Get-NsxApplicablePolicy {
     end {}
 }
 
+function Add-NsxSGToSPFwRule   {
+
+    <#
+    .SYNOPSIS
+    Add NSX Security Group(s) to the specified Firewall Rule.
+
+    .DESCRIPTION
+    Add Security Group(s) to specified Firewall Rule.
+    
+    .EXAMPLE
+    Add-NsxSGToSPFwRule -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -SecurityGroup (Get-NsxSecurityGroup SG-001) -ExecutionOrder 3
+
+    
+    Description
+    -----------
+
+    Add Security Group SG-001 to Rule 3.
+    
+    .EXAMPLE
+    Get-NsxSecurityPolicy SP-001 |
+    Add-NsxSGToSPFwRule -SecurityGroup (Get-NsxSecurityGroup SG-002) -ExecutionOrder 2
+
+    
+    Description
+    -----------
+
+    Add Security Group SG-002 to Rule 2 using pipeline input.
+   
+    .EXAMPLE
+    New-NsxSecurityPolicy -Name SP-004 -Description "Provide a description" |
+    Add-NsxSecurityPolicyFwRule -DefaultRule |
+    Add-NsxSecurityPolicyFwRule -DefaultRule |
+    Add-NsxSecurityPolicyFwRule -DefaultRule |
+    Add-NsxSGToSPFwRule -SecurityGroup (Get-NsxSecurityGroup SG-003) -ExecutionOrder 2
+    
+    Description
+    -----------
+    
+    Creates a new Security Policy SP-004, adds 3 Firewall Rule with default settings and apply SG-003 to Rule 2. 
+
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,
+                   ValueFromPipeline=$True,
+                   ValueFromPipelineByPropertyName=$True)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$true)]
+            [System.Xml.XmlElement[]]$SecurityGroup,
+        [Parameter (Mandatory=$true)]
+            [Int]$ExecutionOrder,
+        [Parameter (Mandatory=$false)]
+            [switch]$ReturnObjectIdOnly=$false,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+      )
+
+    begin {}
+
+    process {
+        
+        #Converts variable from an XML Element to XML Document
+        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
+        
+        #Create Applications tag and Application tag if no services exists (any)
+        $count = 1
+        
+        foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']")){
+            Write-Verbose "1st foreach loop for Existing Firewall Rule"
+            
+            if (-not ($SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']") | get-member -Name secondarySecurityGroup -MemberType Property)){    
+                Write-Host "No Security Group(s) exists creating the necessary XML tags:" -ForegroundColor Magenta
+                Write-Verbose "If statement"
+
+                #Iterates through the SecurityGroups one member at a time
+                foreach ( $Member in $SecurityGroup) {
+                    Write-Verbose "2nd Foreach loop for SecurityGroups"
+
+                    Add-XmlElement -xmlRoot $ExistingRule -xmlElementName "secondarySecurityGroup" | Out-Null
+                                   
+                    #This is probably not safe - need to review all possible input types to confirm.
+                    if ($Member -is [System.Xml.XmlElement] ) {
+                        Write-Host "Adding SecurityGroup Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow 
+                        Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
+                    } 
+                    else {
+                        Write-Host "Adding SecurityGroup Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow 
+                        Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
+                    }
+                    $count++
+                }
+            }
+            Else{
+                #Applications tag already exists meaning at least one service is applied
+                Write-Host "Security Group(s) exist adding additional members:" -ForegroundColor Magenta
+                Write-Verbose "Else Statement"
+                
+                #The Security Policy Rule nust match the Firewall Execution Number
+                foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[category='firewall']") | Where-Object {$_.executionOrder -eq $ExecutionOrder}){
+                    Write-Verbose "1st foreach loop for Existing Firewall Rule"                   
+                    $count = $ExistingRule.SelectNodes("secondarySecurityGroup").count + 1
+                    
+                    #Iterates through the SecurityGroups one member at a time
+                    foreach ($Member in $SecurityGroup){
+                        Write-Verbose "2nd foreach loop for SecurityGroups"
+                        
+                        Add-XmlElement -xmlRoot $ExistingRule -xmlElementName "secondarySecurityGroup" | Out-Null
+                                   
+                        #This is probably not safe - need to review all possible input types to confirm.
+                        if ($Member -is [System.Xml.XmlElement] ) {
+                            Write-Host "Adding SecurityGroup Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow 
+                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
+                        } else {
+                            Write-Host "Adding SecurityGroup Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow 
+                            Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "secondarySecurityGroup[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
+                      
+                        }
+                        $count++
+                    }
+                }  
+            }
+        }
+
+        #Do the post
+        $body = $SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        
+        if ($response.StatusCode -eq "200"){
+            [xml]$response = $response.content
+            
+            if ($ReturnObjectIdOnly) {
+                $response.securityPolicy.objectId
+            }
+            else {
+               Get-NsxSecurityPolicy -objectId $response.securityPolicy.objectId -connection $connection
+            }
+        }
+    }
+    end {} 
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
