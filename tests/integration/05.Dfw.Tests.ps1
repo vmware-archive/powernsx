@@ -1648,6 +1648,106 @@ Describe "DFW" {
 
         it "Can create a rule with a servicegroup specified as service"{}
 
+        #############
+        # Positional rule inserting
+
+        it "Can insert a rule at the top of a section (by default)" {
+            $rule3 = Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow
+            $rule1 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
+            $rule1 | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[0].name | should be "pester_dfw_rule1"
+        }
+
+        it "Can insert a rule at the top of a section (position top)" {
+            $rule3 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow -position top
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow -position top
+            $rule1 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -position top
+            $rule1 | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[0].name | should be "pester_dfw_rule1"
+        }
+
+        it "Can insert a rule at the bottom of a section (position bottom)" {
+            $rule3 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow
+            $ruleBottom = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom
+            $ruleBottom | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[2].name | should be "pester_dfw_bottom"
+        }
+
+        it "Can insert a rule before an existing rule within a section (position before)" {
+            $rule5 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule5" -action allow
+            $rule4 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule4" -action allow
+            $rule3 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow
+            $rule1 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
+            $rule = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position before -anchorId $rule3.id
+            $rule | should not be $null
+            $rule1 | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $rule4 | should not be $null
+            $rule5 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[2].name | should be "pester_dfw_inserted"
+        }
+
+        it "Can insert a rule after an existing rule within a section (position after)" {
+            $rule5 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule5" -action allow
+            $rule4 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule4" -action allow
+            $rule3 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow
+            $rule1 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
+            $rule = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position after -anchorId $rule3.id
+            $rule | should not be $null
+            $rule1 | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $rule4 | should not be $null
+            $rule5 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[3].name | should be "pester_dfw_inserted"
+        }
+
+        it "Fails to inset a new rule before another rule if anchorId is not supplied" {
+            {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position before} | should throw
+        }
+
+        it "Fails to inset a new rule after another rule if anchorId is not supplied" {
+            {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position after} | should throw
+        }
+
+        it "Fails to inset a new rule after another rule if anchorId does not exist within section" {
+            {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position after -anchorId 9999} | should throw
+        }
+
+        it "Fails to inset a new rule before another rule if anchorId does not exist within section" {
+            {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position before -anchorId 9999} | should throw
+        }
+
+        it "Fail to insert a new rule to the bottom of the default layer 3 section" {
+            $section = Get-NsxFirewallSection -sectionType layer3sections | Select-Object -last 1
+            {$section | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom } | should throw
+        }
+        it "Fail to insert a new rule to the bottom of the default layer 2 section" {
+            $section = Get-NsxFirewallSection -sectionType layer2sections | Select-Object -last 1
+            {$section | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom } | should throw
+        }
+
         BeforeEach {
             #create new sections for each test.
 
@@ -2220,6 +2320,16 @@ Describe "DFW" {
             $rule.action | should be allow
             $rule.disabled | should be "false"
         }
+
+        it "Can create and get a l2 rule without specifying ruleType" {
+            $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+        }
+
 
         BeforeEach {
             #create new sections for each test.
