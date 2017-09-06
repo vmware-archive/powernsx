@@ -27063,6 +27063,15 @@ function New-NsxFirewallRule  {
     }
     process {
 
+        # Check to see if the section that has been passed along the pipeline contains
+        # a "default rule". A default rule in a section is typically the last rule in
+        # the section and has a node/element of <precendence>default</precedence>
+        # and if you try to add a rule below this default rule, the API responds with
+        # a criptic errror msg which can only be decrypted if your a part of the Goa'uld
+        if ( ($position -eq "bottom") -AND (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Section -Query "child::rule[precedence=`"default`"][last()]") ){
+            throw "Cannot insert rule at the bottom of the section $($section.id) ($($section.name)) as the last rule is a system defined default rule"
+        }
+
         $generationNumber = $section.generationNumber
 
         write-debug "$($MyInvocation.MyCommand.Name) : Preparing rule for section $($section.Name) with generationId $generationNumber"
