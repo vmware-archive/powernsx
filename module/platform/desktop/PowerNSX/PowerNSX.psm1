@@ -869,26 +869,26 @@ function ParseCentralCliResponse {
     }
 }
 
-function ConvertTo-NsxApiCriteriaOperator { 
-    
+function ConvertTo-NsxApiCriteriaOperator {
+
     #Convert the CriteriaOperator to the API AND/OR from the UI/PowerNSX value of ANY/ALL
-    switch ( $args[0] ) { 
+    switch ( $args[0] ) {
         "any" { "OR"}
         "all" { "AND"}
     }
 }
 
-function ConvertFrom-NsxApiCriteriaOperator { 
-    
+function ConvertFrom-NsxApiCriteriaOperator {
+
     #Convert from the CriteriaOperator of the API AND/OR to the UI/PowerNSX value of ANY/ALL
-    switch ( $args[0] ) { 
+    switch ( $args[0] ) {
         "or" { "ANY" }
         "and" { "ALL"}
     }
 }
 
-function ConvertTo-NsxApiCriteriaCondition { 
-    
+function ConvertTo-NsxApiCriteriaCondition {
+
     switch ( $args[0] ) {
         "equals" { "=" }
         "notequals" { "!=" }
@@ -897,8 +897,8 @@ function ConvertTo-NsxApiCriteriaCondition {
     }
 }
 
-function ConvertFrom-NsxApiCriteriaCondition { 
-    
+function ConvertFrom-NsxApiCriteriaCondition {
+
     switch ( $args[0] ) {
         "=" { "equals" }
         "!=" { "notequals" }
@@ -907,7 +907,7 @@ function ConvertFrom-NsxApiCriteriaCondition {
     }
 }
 
-function ConvertTo-NsxApiCriteriaKey { 
+function ConvertTo-NsxApiCriteriaKey {
     switch ( $args[0] ) {
         "OSName" { "VM.GUEST_OS_FULL_NAME" }
         "ComputerName" { "VM.GUEST_HOST_NAME" }
@@ -917,12 +917,41 @@ function ConvertTo-NsxApiCriteriaKey {
     }
 }
 
-function ConvertFrom-NsxApiCriteriaKey { 
+function ConvertFrom-NsxApiCriteriaKey {
     switch ( $args[0] ) {
         "VM.GUEST_OS_FULL_NAME" { "OSName" }
         "VM.GUEST_HOST_NAME" { "ComputerName" }
         "VM.NAME" { "VMName" }
         "VM.SECURITY_TAG" { "SecurityTag" }
+        default { $args[0] }
+    }
+}
+
+function ConvertTo-NsxApiSectionOperation {
+    switch ( $args[0] ) {
+        "top" { "insert_top" }
+        "bottom" { "insert_before_default" }
+        "before" { "insert_before" }
+        "after" { "insert_after"}
+        default { $args[0] }
+    }
+}
+
+function ConvertFrom-NsxApiSectionOperation {
+    switch ( $args[0] ) {
+        "insert_top" { "top" }
+        "insert_before_default" { "bottom" }
+        "insert_before" { "before" }
+        "insert_after" { "after"}
+        default { $args[0] }
+    }
+}
+
+function ConvertTo-NsxApiSectionType {
+    switch ( $args[0] ) {
+        "LAYER3" { "layer3sections" }
+        "LAYER2" { "layer2sections" }
+        "L3REDIRECT" { "layer3redirectsections" }
         default { $args[0] }
     }
 }
@@ -26470,7 +26499,7 @@ function Get-NsxFirewallSection {
     end {}
 }
 
-function New-NsxFirewallSection  {
+function New-NsxFirewallSection {
 
     <#
     .SYNOPSIS
@@ -26481,11 +26510,54 @@ function New-NsxFirewallSection  {
     set that contains firewall rules.
 
     This cmdlet create the specified NSX Distributed Firewall Section.
-    Currently this cmdlet only supports creating a section at the top of the
-    ruleset.
+    By default this cmdlet creates a section at the top of the ruleset. It is
+    possible to create the section at the top or bottom (before default) of the
+    ruleset by using the position parameter. The position parameter can also be
+    used to specify the section be created before or after an existing section.
+    The existing section Id will need to be supplied as the anchor Id.
 
     .EXAMPLE
-    PS C:\> New-NsxFirewallSection -Name TestSection
+    PS> New-NsxFirewallSection -Name TestSection
+
+    Creates a new Layer 3 firewall section at the top of the rulebase
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestL2Section -sectionType layer2sections
+
+    Creates a new Layer 2 firewall section at the top of the rulebase.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestL3RedirectSection -sectionType layer3redirectsections
+
+    Creates a new Layer 3 redirect firewall section at the top of the rulebase.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestAtBottom -position bottom
+
+    Creates a new Layer 3 firewall section before the default section.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestAtTop -position top
+
+    Creates a new Layer 3 firewall section at the top of the rulebase.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestBeforeExisting -position before -anchorId 1024
+
+    Creates a new Layer 3 firewall section before the existing section with an ID of 1024.
+
+    .EXAMPLE
+    PS> New-NsxFirewallSection -Name TestAfterExisting -position after -anchorId 1024
+
+    Creates a new Layer 3 firewall section after the existing section with an ID of 1024.
+
+    .EXAMPLE
+    PS> $section = Get-NsxFirewallSection blah
+
+    PS> New-NsxFirewallSection -Name TestBeforeExisting -position before -anchorId $section.id
+
+    Creates a new Layer 3 firewall section before the existing section named blah.
+
 
     #>
 
@@ -26510,13 +26582,31 @@ function New-NsxFirewallSection  {
         [Parameter (Mandatory=$false)]
             #Marks the firewall section to be universal or not
             [switch]$Universal,
+        [Parameter (Mandatory=$false)]
+            #Identifies where to insert the newly created section. insert_after & insert_before must specify an existing section id as the anchor.
+            [ValidateSet("top","bottom","after","before",ignorecase=$false)]
+            [string]$position="top",
+        [Parameter (Mandatory=$False)]
+            #ID of an existing section to use as an anchor for the new section.
+            [ValidateNotNullOrEmpty()]
+            [string]$anchorId,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    begin {}
+    begin {
+        $requiresAnchor = @("before","after")
+
+        if (( $requiresAnchor -contains $position ) -AND (-not ($PSBoundParameters.ContainsKey("anchorID")) ) ) {
+            throw "An anchor ID must be supplied when specifying insert_before or insert_after as the operation"
+        }
+
+        if ( ($universal) -AND ($position -eq "bottom") ) {
+            throw "Cannot specify -universal and -position bottom together. Instead specify -position after and the appropriate anchorId to add a universal section after the last universal section."
+        }
+    }
     process {
 
         #Create the XMLRoot
@@ -26536,7 +26626,17 @@ function New-NsxFirewallSection  {
         #Do the post
         $body = $xmlroot.OuterXml
 
-        $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType"
+        switch ($position) {
+            {$requiresAnchor -contains $position} {
+                $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType`?operation=$(ConvertTo-NsxApiSectionOperation $position)`&anchorId=$anchorId"
+            }
+            "bottom" {
+                $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType`?operation=$(ConvertTo-NsxApiSectionOperation $position)"
+            }
+            default {
+                $URI = "/api/4.0/firewall/$($scopeId.ToLower())/config/$sectionType"
+            }
+        }
 
         $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
 
@@ -26699,7 +26799,7 @@ function Get-NsxFirewallRule {
 
         if ( $PSCmdlet.ParameterSetName -eq "Section" ) {
 
-            $URI = "/api/4.0/firewall/$scopeID/config/$ruletype/$($Section.Id)"
+            $URI = "/api/4.0/firewall/$scopeID/config/$(ConvertTo-NsxApiSectionType $section.type)/$($Section.Id)"
 
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
             if ( $response | get-member -name Section -Membertype Properties){
@@ -26803,21 +26903,66 @@ function New-NsxFirewallRule  {
     in which to create the rule is mandatory.
 
     .EXAMPLE
-    PS C:\> Get-NsxFirewallSection TestSection |
+    PS> Get-NsxFirewallSection TestSection |
         New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
         -Action allow
         -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
          "Testing Rule Creation"
 
+    Add a new Layer 3 rule to the section called TestSection. By default, the
+    rule will be inserted at the top of the section.
+
     .EXAMPLE
-    PS C:\> Get-NsxFirewallSection TestSection |
+    PS> Get-NsxFirewallSection TestL2Section |
+        New-NsxFirewallRule -Name TestRule -Source $VM1 -Destination $VM1
+        -Action allow
+        -AppliedTo $VM1 -EnableLogging -Comment "Testing L2 Rule Creation"
+
+    Add a new Layer 2 rule to the section called TestL2Section. By default, the
+    rule will be inserted at the top of the section.
+
+    .EXAMPLE
+    PS> Get-NsxFirewallSection TestSection |
         New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
         -Action allow
         -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
          "Testing creating a disabled rule"
         -DisableRule
 
-    Add a new disabled rule to the section called TestSection
+    Add a new Layer 3 disabled rule to the section called TestSection
+
+    .EXAMPLE
+    PS> Get-NsxFirewallSection TestSection |
+        New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
+        -Action allow
+        -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
+         "Testing creating a rule at the bottom of the section"
+        -Position bottom
+
+    Add a new Layer 3 rule to the bottom of the section called TestSection
+
+    .EXAMPLE
+    PS> Get-NsxFirewallSection TestSection |
+        New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
+        -Action allow
+        -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
+         "Testing creating a rule before an existing rule"
+        -Position before -anchorId 1024
+
+    Add a new Layer 3 rule immediatley after rule id 1024 in the section called
+    TestSection
+
+    .EXAMPLE
+    PS> Get-NsxFirewallSection TestSection |
+        New-NsxFirewallRule -Name TestRule -Source $LS1 -Destination $LS1
+        -Action allow
+        -service (Get-NsxService HTTP) -AppliedTo $LS1 -EnableLogging -Comment
+         "Testing creating a rule after an existing rule"
+        -Position after -anchorId 1024
+
+    Add a new Layer 3 rule immediatley after rule id 1024 in the section called
+    TestSection
+
 
     #>
 
@@ -26885,8 +27030,12 @@ function New-NsxFirewallRule  {
             [string]$RuleType="layer3sections",
         [Parameter (Mandatory=$false)]
             # Create the new rule at the specified position of the section (Top or Bottom, Default - Top)
-            [ValidateSet("Top","Bottom")]
+            [ValidateSet("Top","Bottom","before","after")]
             [string]$Position="Top",
+        [Parameter (Mandatory=$False)]
+            #ID of an existing rule to use as an anchor for the new rule.
+            [ValidateNotNullOrEmpty()]
+            [string]$anchorId,
         [Parameter (Mandatory=$false)]
             # Tag to be configured on the new rule.  Tag is an arbitrary string attached to the rule that does not affect application of the rule, but is included in logged output of rule hits if logging is enabled for the rule.
             [ValidateNotNullorEmpty()]
@@ -26905,9 +27054,23 @@ function New-NsxFirewallRule  {
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
-    # Todo: Review need to specify rule type in param - should be able to determine from section type that is mandatory...?
-    begin {}
+    begin {
+        $requiresAnchor = @("before","after")
+
+        if (( $requiresAnchor -contains $position ) -AND (-not ($PSBoundParameters.ContainsKey("anchorID")) ) ) {
+            throw "An anchor ID must be supplied when specifying before or after as the operation"
+        }
+    }
     process {
+
+        # Check to see if the section that has been passed along the pipeline contains
+        # a "default rule". A default rule in a section is typically the last rule in
+        # the section and has a node/element of <precendence>default</precedence>
+        # and if you try to add a rule below this default rule, the API responds with
+        # a criptic errror msg which can only be decrypted if your a part of the Goa'uld
+        if ( ($position -eq "bottom") -AND (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Section -Query "child::rule[precedence=`"default`"][last()]") ){
+            throw "Cannot insert rule at the bottom of the section $($section.id) ($($section.name)) as the last rule is a system defined default rule"
+        }
 
         $generationNumber = $section.generationNumber
 
@@ -26987,10 +27150,21 @@ function New-NsxFirewallRule  {
         switch ($Position) {
             "Top" { $Section.prependchild($xmlRule) | Out-Null }
             "Bottom" { $Section.appendchild($xmlRule) | Out-Null }
+            {($_ -eq "before") -or ($_ -eq "after")} {
+                $anchorRule = Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $Section -Query "child::rule[@id=`"$anchorId`"]"
+                if (-not ($anchorRule)) {
+                    throw "Anchor rule id $anchorId does not exist in section $($section.id) ($($section.name))"
+                } else {
+                    switch ($Position) {
+                        "before" { $section.insertBefore($xmlrule,$anchorRule) | Out-Null }
+                        "after" { $section.insertAfter($xmlrule,$anchorRule) | Out-Null }
+                        }
+                }
+            }
         }
         #Do the post
         $body = $Section.OuterXml
-        $URI = "/api/4.0/firewall/$scopeId/config/$ruletype/$($section.Id)"
+        $URI = "/api/4.0/firewall/$scopeId/config/$(ConvertTo-NsxApiSectionType $section.type)/$($section.Id)"
 
         #Need the IfMatch header to specify the current section generation id
         $IfMatchHeader = @{"If-Match"=$generationNumber}
