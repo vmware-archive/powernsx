@@ -73,6 +73,7 @@ $FunctionsToExport = @(
     'New-NsxLogicalRouterInterfaceSpec',
     'New-NsxLogicalRouter',
     'Remove-NsxLogicalRouter',
+    'Set-NsxLogicalRouter',
     'Set-NsxLogicalRouterInterface',
     'New-NsxLogicalRouterInterface',
     'Remove-NsxLogicalRouterInterface',
