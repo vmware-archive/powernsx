@@ -231,7 +231,7 @@ $FunctionsToExport = @(
     'Get-NsxSecurityPolicy',
     'Remove-NsxSecurityPolicy',
     'New-NsxSecurityPolicyFirewallRuleSpec',
-    'Get-NsxSecurityPolicyHighestUsedPrecendence',
+    'Get-NsxSecurityPolicyHighestUsedPrecedence',
     'New-NsxSecurityPolicy',
     'New-NsxSecurityPolicyGuestIntrospectionSpec',
     'Get-NsxSecurityGroupEffectiveMember',

@@ -2942,7 +2942,6 @@ Function ValidateSecPolFwSpec {
     }
 }
 
-
 Function ValidateSecurityTag {
 
     Param (
@@ -30520,7 +30519,7 @@ function New-NsxLoadBalancerApplicationRule {
 ########
 # Service Composer functions
 
-function Get-NsxSecurityPolicyHighestUsedPrecendence {
+function Get-NsxSecurityPolicyHighestUsedPrecedence {
     
     <#
     .SYNOPSIS
@@ -30536,7 +30535,9 @@ function Get-NsxSecurityPolicyHighestUsedPrecendence {
     .EXAMPLE
     Get-NsxSecurityPolicyHighestUsedPrecendence
 
-    3300
+    Precedence
+    ----------
+          3300
 
     Retrieves the highest precendence number used.  Convention is to add
     1000 to this when creating a new policy to leave 'gaps' in to which
@@ -30555,7 +30556,7 @@ function Get-NsxSecurityPolicyHighestUsedPrecendence {
     if ( -not ($return -match "\d*")) { 
         throw "Unexpected result $return from call to get highest used precedence.  Return value should be a number."
     }
-    $return
+    [pscustomobject]@{"Precedence" = [int]$return}
 }
 
 function Get-NsxSecurityPolicy {
@@ -30732,9 +30733,9 @@ function New-NsxSecurityPolicy   {
         )
 
     begin {
-        #Check to see if a SP exists if not use default value of 4300 else use recent SP and add 1000
+        #Get current precedence and add 1000
         if ( -not ($PSBoundParameters.ContainsKey("Precedence"))) { 
-            $Precedence = [int](Get-NsxSecurityPolicyHighestUsedPrecendence) + 1000
+            $Precedence = (Get-NsxSecurityPolicyHighestUsedPrecedence).Precedence + 1000
         }
     }
 
