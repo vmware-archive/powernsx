@@ -1450,7 +1450,7 @@ Describe "SecurityGroups" {
             $assignment = Get-Template $testtemplate1 | Get-NsxSecurityTagAssignment
             $assignment | should not be $null
             ($assignment | measure).count | should be 1
-            $assignment.VirtualMachine.name | should be $testtemplate1
+            $assignment.VirtualMachine.name | should be $testTemplateName
         }
     }
 }
