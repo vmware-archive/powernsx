@@ -12517,17 +12517,18 @@ function Add-NsxEdgeInterfaceAddress {
     existing ESG interface.
 
     .EXAMPLE
-    get-nsxedge Edge01 | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -PrimaryAddress 44.44.44.44 -SubnetPrefixLength 24  -SecondaryAddresses 44.44.44.45,44.44.44.46
-
     Adds a new primary address and multiple secondary addresses to vNic 9 on edge Edge01
 
+    PS /> Get-NsxEdge Edge01 | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -PrimaryAddress 44.44.44.44 -SubnetPrefixLength 24  -SecondaryAddresses 44.44.44.45,44.44.44.46
+
     .EXAMPLE
-    $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
-    $add3 = New-NsxAddressSpec -PrimaryAddress 33.33.33.33 -SubnetPrefixLength 24 -SecondaryAddresses 33.33.33.34
-
-    get-nsxedge Edge01 | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -AddressSpec $add2,$add3
-
     Adds two new addresses to Edge01's vnic9 using address specs.
+
+    PS /> $add2 = New-NsxAddressSpec -PrimaryAddress 22.22.22.22 -SubnetPrefixLength 24 -SecondaryAddresses 22.22.22.23
+    PS /> $add3 = New-NsxAddressSpec -PrimaryAddress 33.33.33.33 -SubnetPrefixLength 24 -SecondaryAddresses 33.33.33.34
+    PS /> Get-NsxEdge Edge01 | Get-NsxEdgeInterface -Index 9 | Add-NsxEdgeInterfaceAddress -AddressSpec $add2,$add3
+        
+    
     #>
 
     param (
@@ -12538,14 +12539,18 @@ function Add-NsxEdgeInterfaceAddress {
             [System.Xml.XmlElement]$Interface,
         [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
             [ValidateNotNullOrEmpty()]
+            #Primary IP Address for given interface
             [string]$PrimaryAddress,
         [Parameter (Mandatory=$true, ParameterSetName="DirectAddress")]
             [ValidateNotNullOrEmpty()]
+            #Subnet prefix length for Primary IP Address
             [string]$SubnetPrefixLength,
         [Parameter (Mandatory=$false, ParameterSetName="DirectAddress")]
+            #Secondary address on interface. Must be in Primary IP Address subnet
             [string[]]$SecondaryAddresses=@(),
         [Parameter (Mandatory=$true, ParameterSetName="AddressGroupSpec")]
             [ValidateScript({ ValidateAddressGroupSpec $_ })]
+            #Passes an stored address spec defined by New-NsxEdgeInterfaceSpec
             [System.Xml.XmlElement[]]$AddressSpec,
         [Parameter (Mandatory=$False, ParameterSetName="DirectAddress")]
         [Parameter (Mandatory=$false, ParameterSetName="AddressGroupSpec")]
