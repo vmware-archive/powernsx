@@ -269,7 +269,7 @@ Get-NsxFirewallSection | Get-NsxFirewallRule -connection $connection | % {
 }
 
 write-host "  Getting Security Policies"
-Get-NsxSecurityPolicy | -connection $connection | % {
+Get-NsxSecurityPolicy -connection $connection | % {
     $SecPolHash.Add($_.objectId, $_.outerxml)
 }
 
