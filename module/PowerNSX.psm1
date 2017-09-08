@@ -44,6 +44,10 @@ $Script:AllServicesRequiringPort = @( "FTP", "L2_OTHERS", "L3_OTHERS",
 
 $script:AllServicesNotRequiringPort = $Script:AllValidServices | Where-Object { $AllServicesRequiringPort -notcontains $_ }
 
+$script:AllServicesValidSourcePort = @( "FTP", "MS_RPC_TCP", "MS_RPC_UDP",
+"NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP",
+"TCP", "UDP" )
+
 $Script:AllValidIcmpTypes = @("echo-reply", "destination-unreachable",
     "source-quench", "redirect", "echo-request", "time-exceeded",
     "parameter-problem", "timestamp-request", "timestamp-reply",
@@ -25496,6 +25500,8 @@ function New-NsxService  {
         [Parameter (Mandatory=$false)]
             [string]$port,
         [Parameter (Mandatory=$false)]
+            [string]$SourcePort,
+        [Parameter (Mandatory=$false)]
             #Scope of object.  For universal object creation, use the -Universal switch.
             [ValidateScript({
                 if ($_ -match "^globalroot-0$|universalroot-0$|^edge-\d+$") {
@@ -25552,6 +25558,20 @@ function New-NsxService  {
                 throw "Specified protocol does not allow a port value to be specified."
             }
         }
+
+        if ($PSBoundParameters.ContainsKey("SourcePort")) {
+            if (( @("TCP", "UDP") -contains $protocol ) -and ( $SourcePort -notmatch "^[\d,-]+$" )) {
+                throw "TCP or UDP source port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges."
+            }
+
+            if ( ( @("FTP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP")  -contains $Protocol ) -and (-not ( ($SourcePort -as [int]) -and ( (1..65535) -contains $SourePort )))) {
+                throw "Valid source port numbers must be an integer between 1-65535."
+            }
+
+            if ( $AllServicesValidSourcePort -notcontains $protocol ) {
+                throw "Specified protocol does not allow a source port value to be specified"
+            }
+        }
     }
     process {
 
@@ -25570,6 +25590,9 @@ function New-NsxService  {
         Add-XmlElement -xmlRoot $xmlElement -xmlElementName "applicationProtocol" -xmlElementText $Protocol.ToUpper()
         if ( $PSBoundParameters.ContainsKey("Port")) {
             Add-XmlElement -xmlRoot $xmlElement -xmlElementName "value" -xmlElementText $Port
+        }
+        if ( $PSBoundParameters.ContainsKey("SourcePort")) {
+            Add-XmlElement -xmlRoot $xmlElement -xmlElementName "sourcePort" -xmlElementText $SourcePort
         }
         if ( ( $EnableInheritance ) -and ( -not ( $universal ) ) ) {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "inheritanceAllowed" -xmlElementText "True"
