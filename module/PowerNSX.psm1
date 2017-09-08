@@ -25564,7 +25564,7 @@ function New-NsxService  {
                 throw "TCP or UDP source port numbers must be either an integer, range (nn-nn) or commma separated integers or ranges."
             }
 
-            if ( ( @("FTP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP")  -contains $Protocol ) -and (-not ( ($SourcePort -as [int]) -and ( (1..65535) -contains $SourePort )))) {
+            if ( ( @("FTP", "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP")  -contains $Protocol ) -and (-not ( ($SourcePort -as [int]) -and ( (1..65535) -contains $SourcePort )))) {
                 throw "Valid source port numbers must be an integer between 1-65535."
             }
 
