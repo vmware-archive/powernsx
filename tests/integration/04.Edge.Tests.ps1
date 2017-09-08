@@ -324,7 +324,7 @@ Describe "Edge" {
             $nbr.weight | should be $bgpWeight
             $nbr.keepAliveTimer | should be $bgpKeepAliveTimer
             $nbr.holdDownTimer | should be $bgpHoldDownTimer
-            $nbr.password | should be $bgpPassword
+            ($nbr | Get-Member -MemberType Properties -Name password).count | should be 1
         }
 
         it "Can enable route redistribution into BGP" {
