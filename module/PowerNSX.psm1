@@ -17578,6 +17578,10 @@ function New-NsxEdgeBgpNeighbour {
                 Add-XmlElement -xmlRoot $Neighbour -xmlElementName "keepAliveTimer" -xmlElementText $KeepAliveTimer.ToString()
             }
 
+            if ( $PsBoundParameters.ContainsKey("Password") ) {
+                Add-XmlElement -xmlRoot $Neighbour -xmlElementName "password" -xmlElementText $Password.ToString()
+            }
+
             $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
             $body = $_EdgeRouting.OuterXml
 
@@ -20273,6 +20277,10 @@ function New-NsxLogicalRouterBgpNeighbour {
 
             if ( $PsBoundParameters.ContainsKey("KeepAliveTimer") ) {
                 Add-XmlElement -xmlRoot $Neighbour -xmlElementName "keepAliveTimer" -xmlElementText $KeepAliveTimer.ToString()
+            }
+
+            if ( $PsBoundParameters.ContainsKey("Password") ) {
+                Add-XmlElement -xmlRoot $Neighbour -xmlElementName "password" -xmlElementText $Password.ToString()
             }
 
             $URI = "/api/4.0/edges/$($LogicalRouterId)/routing/config"
