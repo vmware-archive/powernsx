@@ -3158,6 +3158,49 @@ Function ValidateDynamicCriteria {
     }
 }
 
+function ValidateFirewallSavedConfiguration {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name id -Membertype Properties)) {
+            throw "XML Element specified does not contain an id property."
+        }
+
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) {
+            throw "XML Element specified does not contain an name property."
+        }
+
+        if ( -not ( $argument | get-member -name timestamp -Membertype Properties)) {
+            throw "XML Element specified does not contain an timestamp property."
+        }
+
+        if ( -not ( $argument | get-member -name preserve -Membertype Properties)) {
+            throw "XML Element specified does not contain an preserve property."
+        }
+
+        if ( -not ( $argument | get-member -name user -Membertype Properties)) {
+            throw "XML Element specified does not contain an user property."
+        }
+
+        if ( -not ( $argument | get-member -name mode -Membertype Properties)) {
+            throw "XML Element specified does not contain an mode property."
+        }
+
+        if ( -not ( $argument | get-member -name config -Membertype Properties)) {
+            throw "XML Element specified does not contain an config property."
+        }
+
+        $true
+    }
+    else {
+        throw "Specify a valid Saved Distributed Firewall Configuration object."
+    }
+
+}
 
 ##########
 ##########
@@ -27544,6 +27587,16 @@ function Get-NsxFirewallSavedConfiguration {
     Retrieves all saved Distributed Firewall configurations
 
     .EXAMPLE
+    Get-NsxFirewallSavedConfiguration TestBackup
+
+    Retrieves all Distributed Firewall configurations with the Name
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration -Name TestBackup
+
+    Retrieves all Distributed Firewall configurations with the Name
+
+    .EXAMPLE
     Get-NsxFirewallSavedConfiguration -ObjectId 403
 
     Retrieves a Distributed Firewall configuration by ObjectId
@@ -27555,11 +27608,15 @@ function Get-NsxFirewallSavedConfiguration {
     param (
 
         [Parameter (Mandatory=$false,ParameterSetName="ObjectId")]
+            # ID of a saved Distributed Firewall Configuration
+            [ValidateNotNullOrEmpty()]
             [string]$ObjectId,
         [Parameter (Mandatory=$false,Position=1,ParameterSetName="Name")]
+            # Name of a saved Distributed Firewall Configuration
+            [ValidateNotNullOrEmpty()]
             [string]$Name,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object.
+            # PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
 
@@ -27572,19 +27629,22 @@ function Get-NsxFirewallSavedConfiguration {
     process {
 
         if ( -not ($PsBoundParameters.ContainsKey("ObjectId"))) {
-            #All Sections
+            # All Sections
 
             $URI = "/api/4.0/firewall/globalroot-0/drafts"
             [system.xml.xmldocument]$Response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::firewallDrafts")){
+            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::firewallDrafts/*")){
 
                 $Return = $Response
 
                 if ($PsBoundParameters.ContainsKey("Name")){
-                    $Return.firewallDrafts.firewallDraft | where-object {$_.name -eq $Name}
+                    $namedResults = $Return.firewallDrafts.firewallDraft | where-object {$_.name -eq $Name}
+
+                    foreach ($config in $namedResults) {
+                        Get-NsxFirewallSavedConfiguration -ObjectId $config.id -connection $connection
+                    }
                 }
                 else {
-
                     $Return.firewallDrafts.firewallDraft
                 }
             }
@@ -27600,6 +27660,266 @@ function Get-NsxFirewallSavedConfiguration {
         }
     }
     end {}
+}
+
+function New-NsxFirewallSavedConfiguration {
+
+     <#
+    .SYNOPSIS
+    Creates a manually saved Distributed Firewall configuration.
+
+    .DESCRIPTION
+    Creates a manually saved Distributed Firewall configuration.
+
+    A copy of every published configuration is automatically saved as a draft. A
+    maximum of 100 configurations can be saved at a time. 90 out of
+    these 100 can be auto saved configurations from a publish operation.
+    When the limit is reached,the oldest configuration that is not marked for
+    preserve is purged to make way for a new one.
+
+    .EXAMPLE
+    New-NsxFirewallSavedConfiguration -Name Change123 -Description "Backup taken prior to change 123"
+
+    Creates a saved Distributed Firewall Configuration
+
+    .EXAMPLE
+    New-NsxFirewallSavedConfiguration -Name Change123 -Description "Backup taken prior to change 123" -Preserve:$false
+
+    Creates a saved Distributed Firewall Configuration and does not set the preserve flag.
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+        [Parameter (Mandatory=$true,Position=1)]
+            # Name to call the saved configuration
+            [string]$Name,
+        [Parameter (Mandatory=$false)]
+            # A meaningful description for the saved configuration
+            [string]$Description,
+        [Parameter (Mandatory=$false)]
+            # Specifies whether to preserve the saved configuration to prevent it being deleted automatically. Default = $True
+            [switch]$Preserve=$true,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process{
+
+        # Create the XMLRoot
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("firewallDraft")
+
+        # Set the name attribute
+        $xmlDoc.appendChild($xmlRoot) | out-null
+        $xmlAttrName = $xmlDoc.createAttribute("name")
+        $xmlAttrName.value = $Name
+        $xmlRoot.Attributes.Append($xmlAttrName) | out-null
+
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "preserve" -xmlElementText $Preserve
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "mode" -xmlElementText "userdefined"
+
+        if ( $PsBoundParameters.ContainsKey("Description") ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
+        } else {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description"
+        }
+
+
+        #Go and grab the complete firewall configuration to backup
+        $URI = "/api/4.0/firewall/globalroot-0/config"
+        [system.xml.xmlDocument]$config = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+        if (-not (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $config -Query "child::firewallConfiguration")) {
+            throw "Cannot retrieve complete Distributed Firewall configuration."
+        }
+
+        [System.XML.XMLElement]$xmlConfigNode = $xmlRoot.OwnerDocument.CreateElement("config")
+        $xmlRoot.AppendChild($xmlConfigNode) | out-null
+
+        foreach ($node in $config.firewallConfiguration.ChildNodes) {
+            $xmlConfigBackup = $xmlroot.OwnerDocument.ImportNode($node, $true)
+            $xmlConfigNode.AppendChild($xmlConfigBackup) | out-null
+        }
+
+        $body = $xmlroot.OuterXml
+        $URI = "/api/4.0/firewall/globalroot-0/drafts"
+        Write-Progress -activity "Creating firewall saved configuration."
+        $response = invoke-nsxrestmethod -method "post" -uri $URI -body $body -connection $connection
+        Write-Progress -activity "Creating firewall saved configuration." -completed
+
+        Get-NsxFirewallSavedConfiguration -ObjectId $response.firewalldraft.id -connection $connection
+
+    }
+    end{}
+}
+
+function Remove-NsxFirewallSavedConfiguration {
+
+     <#
+    .SYNOPSIS
+    Removes a saved Distributed Firewall configuration.
+
+    .DESCRIPTION
+    The Remove-NsxFirewallSavedConfiguration will remove a given saved
+    configuration.
+
+    A maximum of 100 configurations can be saved at a time. 90 out of
+    these 100 can be auto saved configurations from a publish operation.
+    When the limit is reached,the oldest configuration that is not marked for
+    preserve is purged to make way for a new one.
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration -Name Change123 | Remove-NsxFirewallSavedConfiguration
+
+    Remove all saved Distributed Firewall Configurations named Change123
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration -Name Change123 | Remove-NsxFirewallSavedConfiguration -Confirm:$false
+
+    Remove saved Distributed Firewall Configuration named Change123 without prompting for confirmation
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration -ObjectId 3278 | Remove-NsxFirewallSavedConfiguration
+
+    Remove saved Distributed Firewall Configuration with the ID 3278
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            # A valid saved configuration from Get-NsxFirewallSavedConfiguration
+            [ValidateScript({ ValidateFirewallSavedConfiguration $_ })]
+            [System.Xml.XmlElement]$SavedConfig,
+        [Parameter (Mandatory=$False)]
+            # Prompt for confirmation. Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process{
+        if ( $confirm ) {
+            $message  = "Removal of a saved Distributed Firewall Configuration is permanent."
+            $question = "Proceed with removal of Saved Distributed Firewall Configuration ($($SavedConfig.id) - $($SavedConfig.Name))?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/firewall/globalroot-0/drafts/$($SavedConfig.id)"
+
+            Write-Progress -activity "Remove Saved Distributed Firewall Configuration $($SavedConfig.id) - $($SavedConfig.Name)"
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            write-progress -activity "Remove Saved Distributed Firewall Configuration $($SavedConfig.id) - $($SavedConfig.Name)" -completed
+        }
+    }
+
+    end{}
+}
+
+function Set-NsxFirewallSavedConfiguration {
+
+     <#
+    .SYNOPSIS
+    Update a saved Distributed Firewall configuration.
+
+    .DESCRIPTION
+    Update a saved Distributed Firewall configuration.
+
+    A copy of every published configuration is automatically saved as a draft. A
+    maximum of 100 configurations can be saved at a time. 90 out of
+    these 100 can be auto saved configurations from a publish operation.
+    When the limit is reached,the oldest configuration that is not marked for
+    preserve is purged to make way for a new one.
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration -Name Change123 | Get-NsxFirewallSavedConfiguration -Preserve
+
+    Set the Preserve flag to true on an existing saved Distributed Firewall Configuration
+
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration -Name Change123 | Get-NsxFirewallSavedConfiguration -Name Change123NewName -Description "Now With Description"
+
+    Update the name and description on an existing saved Distributed Firewall Configuration
+
+
+    .EXAMPLE
+    Get-NsxFirewallSavedConfiguration -Name Change123 | Get-NsxFirewallSavedConfiguration -Preserve
+
+    Set the Preserve flag to true on an existing saved Distributed Firewall Configuration
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            # A valid saved configuration from Get-NsxFirewallSavedConfiguration
+            [ValidateScript({ ValidateFirewallSavedConfiguration $_ })]
+            [System.Xml.XmlElement]$SavedConfig,
+        [Parameter (Mandatory=$False)]
+            # Specifies whether to preserve the saved configuration to prevent it being deleted automatically. Default = $True
+            [switch]$Preserve,
+        [Parameter (Mandatory=$False)]
+            # Name to call the saved configuration
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
+        [Parameter (Mandatory=$False)]
+            # A meaningful description for the saved configuration
+            [string]$Description,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {}
+
+    process {
+
+        #Create private xml element
+        $_SavedConfig = $SavedConfig.CloneNode($true)
+
+        if ( $PsBoundParameters.ContainsKey('Name') ) {
+            $_SavedConfig.Name = $Name
+        }
+
+        if ( $PsBoundParameters.ContainsKey('Description') ) {
+            $_SavedConfig.Description = $Description
+        }
+
+        if ( $PsBoundParameters.ContainsKey('Preserve') ) {
+            $_SavedConfig.preserve = $preserve
+        }
+
+        $URI = "/api/4.0/firewall/globalroot-0/drafts/$($SavedConfig.id)"
+        $body = $_SavedConfig.OuterXml
+        $null = Invoke-NsxRestMethod -method "put" -uri $URI -body $body -connection $connection
+
+        Get-NsxFirewallSavedConfiguration -ObjectId $SavedConfig.id -connection $connection
+
+    }
+
+    end {}
+
 }
 
 function Get-NsxFirewallThreshold {
