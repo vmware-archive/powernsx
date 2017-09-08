@@ -32,6 +32,11 @@ Describe "Logical Routing" {
         $script:LocalAS = "1234"
         $script:bgpneighbour = "1.1.1.254"
         $script:RemoteAS = "2345"
+        $script:bgpWeight = "10"
+        $script:bgpWeight = "10"
+        $script:bgpHoldDownTimer = "3"
+        $script:bgpKeepAliveTimer = "1"
+        $script:bgpPassword = "VMware1!"
         $script:PrefixName = "pester_lr_prefix"
         $script:PrefixNetwork = "1.2.3.0/24"
         $script:TenantName = "pester_tenant"
@@ -319,9 +324,16 @@ Describe "Logical Routing" {
         }
 
         it "Can add a BGP Neighbour" {
-            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2" -confirm:$false
+            Get-NsxLogicalRouter $name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterBgpNeighbour -IpAddress $bgpneighbour -RemoteAS $RemoteAs -ForwardingAddress "1.1.1.1" -ProtocolAddress "1.1.1.2" -Weight $bgpWeight -KeepAliveTimer $bgpKeepAliveTimer -HoldDownTimer $bgpHoldDownTimer -Password $bgpPassword -confirm:$false
             $nbr = Get-NsxLogicalRouter $name  | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterBgpNeighbour
             $nbr.ipaddress | should be $bgpneighbour
+            $nbr.remoteAS | should be $RemoteAs
+            $nbr.forwardingAddress | should be "1.1.1.1"
+            $nbr.protocolAddress | should be "1.1.1.2"
+            $nbr.weight | should be $bgpWeight
+            $nbr.keepAliveTimer | should be $bgpKeepAliveTimer
+            $nbr.holdDownTimer | should be $bgpHoldDownTimer
+            ($nbr | Get-Member -MemberType Properties -Name password).count | should be 1
         }
 
         it "Can enable route redistribution into BGP" {
