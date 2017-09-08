@@ -2970,7 +2970,24 @@ Function ValidateVirtualMachine {
     $true
 }
 
-Function ValidateTagAssignment {
+Function ValidateVirtualMachineOrTemplate {
+
+        Param (
+            [Parameter (Mandatory=$true)]
+            [object]$argument
+        )
+
+        if ( -not (
+            ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]) -or
+            ($argument -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.TemplateInterop])))
+        {
+            throw "Object is not a supported type.  Specify a VirtualMachine or Template object."
+        }
+
+        $true
+    }
+
+    Function ValidateTagAssignment {
 
     Param (
         [Parameter (Mandatory=$true)]
@@ -24146,8 +24163,8 @@ function Get-NsxSecurityTagAssignment {
             [ValidateScript( { ValidateSecurityTag $_ })]
             [System.Xml.XmlElement]$SecurityTag,
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
-            [ValidateNotNullorEmpty()]
-            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop]$VirtualMachine,
+            [ValidateScript( { ValidateVirtualMachineOrTemplate $_ })]
+            [object[]]$VirtualMachine,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -24170,8 +24187,24 @@ function Get-NsxSecurityTagAssignment {
 
                     foreach ($node in $nodes) {
 
-                        #Get the VI VM object...
-                        $vm = Get-Vm -Server $Connection.VIConnection -id "VirtualMachine-$($node.objectId)"
+                        # Get the VI VM object...
+                        # But seems that NSX allows you to apply a security tag to a VM Template.
+                        # So if a tag has been applied to a template we need to look for
+                        # it via Get-VM and also Get-Template.
+                        # If after trying both commands it still can't find the VM object, I'm
+                        # buggered if I know where to look for it. Considering it exists somewhere
+                        # because its being returned as a valid object via the NSX API.
+                        try {
+                            $vm = Get-Vm -Server $Connection.VIConnection -id "VirtualMachine-$($node.objectId)" -ErrorAction stop
+                        }
+                        catch {
+                            try {
+                                $vm = Get-Template -Server $Connection.VIConnection -id "VirtualMachine-$($node.objectId)" -ErrorAction stop
+                            }
+                            catch {
+                                throw "Could not find object with MoRef $($node.objectId) using Get-VM or Get-Template."
+                            }
+                        }
                         [pscustomobject]@{
                             "SecurityTag" = $SecurityTag;
                             "VirtualMachine" = $vm

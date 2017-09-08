@@ -1401,4 +1401,56 @@ Describe "SecurityGroups" {
         it "Can retrieve local Security Group SecurityGroup applicable members specifying scopeid of an edge" {
         }
     }
+
+    Context "Security Tag Assignments" {
+        BeforeAll {
+            $testTemplateName = "Pester_sg_template_1"
+            $testtemplate1 = New-Template -VM $testvm1 -Name $testTemplateName -Datastore $ds -Location $folder
+        }
+
+        AfterAll {
+            Get-Template | ? {$_.name -match "^pester"} | Remove-Template -confirm:$false
+        }
+
+        BeforeEach {
+            $testTagName = "pester_tag_1"
+            $testTag = New-NsxSecurityTag -Name $testTagName
+        }
+
+        AfterEach {
+            Get-NsxSecurityTag | Where-Object {$_.name -match "^pester"} | Remove-NsxSecurityTag -confirm:$false
+        }
+
+        it "Can get security tag assignment from a Security Tag" {
+            Get-VM $testVMName1 | New-NsxSecurityTagAssignment -ApplyTag $testTag
+            $assignment = $testTag | Get-NsxSecurityTagAssignment
+            $assignment | should not be $null
+            ($assignment | measure).count | should be 1
+            $assignment.VirtualMachine.name | should be $testVMName1
+        }
+
+        it "Can get security tag assignment from a Virtual Machine" {
+            Get-VM $testVMName1 | New-NsxSecurityTagAssignment -ApplyTag $testTag
+            $assignment = Get-VM $testVMName1 | Get-NsxSecurityTagAssignment
+            $assignment | should not be $null
+            ($assignment | measure).count | should be 1
+            $assignment.VirtualMachine.name | should be $testVMName1
+        }
+        it "Can get security tag assignment from a Template" {
+            # Now PowerNSX doesn't allow you to actually apply a security tag to
+            # a virtual machine template. But if a virtual machine was converted
+            # to a template and it had a tag already applied to it, then it may
+            # be returned when looking up tag assignments.
+
+            # Lets apply a tag manually to a template
+            $URI = "/api/2.0/services/securitytags/tag/$($testTag.objectid)/vm/$($testtemplate1.ExtensionData.MoRef.value)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+            $response.StatusCode | should be 200
+
+            $assignment = Get-Template $testtemplate1 | Get-NsxSecurityTagAssignment
+            $assignment | should not be $null
+            ($assignment | measure).count | should be 1
+            $assignment.VirtualMachine.name | should be $testTemplateName
+        }
+    }
 }
