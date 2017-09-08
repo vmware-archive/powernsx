@@ -296,7 +296,8 @@ $FunctionsToExport = @(
     'Set-NsxLogicalRouterBridging',
     'New-NsxLogicalRouterBridge',
     'Get-NsxLogicalRouterBridge',
-    'Remove-NsxLogicalRouterBridge'
+    'Remove-NsxLogicalRouterBridge',
+    'Remove-NsxEdgeCsr'
 )
 
 #Manifest settings that are common to all platforms.
