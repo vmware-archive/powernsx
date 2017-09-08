@@ -203,7 +203,7 @@ Describe "Services" {
                 $svcPort = 1234
                 $svcSourcePort = 7000
                 $svcProto = $Svc
-                $svc = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -SourcePort $svcSourcePort
+                $svc = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -sourcePort $svcSourcePort
                 $svc.Name | Should be $svcName
                 $svc.Description | should be $svcDesc
                 $svc.element.value | should be $svcPort
