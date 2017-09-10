@@ -147,14 +147,14 @@ Describe "SecurityPolicy" {
     Context "Spec Definition" {
 
         BeforeAll { 
-            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
         }
 
         AfterAll { 
-            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
         }
         
@@ -560,13 +560,13 @@ Describe "SecurityPolicy" {
     Context "Security Policy Creation" {
         
         BeforeAll { 
-            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
         }
         AfterAll { 
-            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
         }
 
@@ -652,6 +652,40 @@ Describe "SecurityPolicy" {
             ($pol.actionsByCategory | ? { $_.category -eq 'traffic_steering'}).action.name -contains $spec2.Name | should be $true
         }
 
+
+    }
+
+    Context "Security Policy Assignment" { 
+        BeforeAll { 
+            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
+            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+        }
+        AfterAll { 
+            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
+            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+        }
+
+        It "Can assign a policy to a Security Group" { 
+            $polName = ($SpNamePrefix + "policy1")            
+            $grpName = ($SpNamePrefix + "grp1")            
+            $sp = new-nsxsecuritypolicy -Name $polname
+            $sg = new-nsxsecuritygroup -name $grpname
+            $newsp = $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
+            $newsp.securityGroupBinding.objectId | should be $sg.objectID 
+        }
+        
+        It "Can remove a policy assignment from a Security Group" { 
+            $polName = ($SpNamePrefix + "policy2")            
+            $grpName = ($SpNamePrefix + "grp2")            
+            $sp = new-nsxsecuritypolicy -Name $polname
+            $sg = new-nsxsecuritygroup -name $grpname
+            $newsp = $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
+            $newsp.securityGroupBinding.objectId | should be $sg.objectID 
+            $newnewsp = $newsp | Remove-NsxSecurityPolicyAssignment -SecurityGroup $sg
+            $newnewsp.securityGroupBinding | should be $null
+        }
 
     }
 

@@ -3344,6 +3344,29 @@ Function ValidateServiceProfile {
     }
 }
 
+Function ValidateSecurityPolicy {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) {
+            throw "Object specified contains no objectId property.  Specify a valid Security Policy object."
+        }
+        if ( -not ( $argument | get-member -name type -Membertype Properties)) {
+            throw "Object specified contains no type property.  Specify a valid Security Policy object."
+        }
+        if ( -not ( $argument.type.typename -eq "Policy" )) {
+            throw "Object specified is of the wrong type $($argument.type.typename).  Specify a valid Security Policy object."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Service Profile object."
+    }
+}
 ##########
 ##########
 # Helper functions
@@ -30690,17 +30713,26 @@ function Get-NsxSecurityPolicy {
     Get-NsxSecurityPolicy SecPolicy_WebServers
 
     Retrieves the security policy called SecPolicy_WebServers
+    
+    .EXAMPLE
+    Get-NsxSecurityGroup WebApp1WebServers | Get-NsxSecurityPolicy
+
+    Retrieves all security policies applied to the security Group WeApp1WebServers
     #>
 
     [CmdLetBinding(DefaultParameterSetName="Name")]
     param (
 
-        [Parameter (Mandatory=$false,ParameterSetName="objectId")]
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
             # Set Security Policies by objectId
             [string]$ObjectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
             # Get Security Policies by name
             [string]$Name,
+        [Parameter (Mandatory=$true,ParameterSetName="SecurityGroup", ValueFromPipeline=$true)]
+            # Get Security Policies applied to the specified Security Group
+            [ValidateScript({ ValidateSecurityGroup $_ })]
+            [System.Xml.XmlElement]$SecurityGroup,
         [Parameter (Mandatory=$false)]
             # Include the readonly (system) Security Policies in results.
             [alias("ShowHidden")]
@@ -30715,24 +30747,37 @@ function Get-NsxSecurityPolicy {
 
     process {
 
-        if ( -not $objectId ) {
-            #All Security Policies
-            $URI = "/api/2.0/services/policy/securitypolicy/all"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            if  ( $Name  ) {
-                $FinalSecPol = $response.securityPolicies.securityPolicy | where-object { $_.name -eq $Name }
-            } else {
-                $FinalSecPol = $response.securityPolicies.securityPolicy
+        switch ( $PSCmdlet.ParameterSetName ) {
+            "Name" { 
+                #Get all Security Policies and optionally filter on Name
+                $URI = "/api/2.0/services/policy/securitypolicy/all"
+                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if  ( $PSBoundParameters.ContainsKey("Name") ) {
+                    $FinalSecPol = $response.securityPolicies.securityPolicy | where-object { $_.name -eq $Name }
+                } else {
+                    $FinalSecPol = $response.securityPolicies.securityPolicy
+                }
             }
 
-        }
-        else {
+            "objectId" { 
+                #Just getting a single Security policy
+                $URI = "/api/2.0/services/policy/securitypolicy/$objectId"
+                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                $FinalSecPol = $response.securityPolicy
+            }
 
-            #Just getting a single Security policy
-            $URI = "/api/2.0/services/policy/securitypolicy/$objectId"
-            $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            $FinalSecPol = $response.securityPolicy
-        }
+            "SecurityGroup" { 
+                $URI = "/api/2.0/services/policy/securitygroup/$($SecurityGroup.objectId)/securitypolicies"
+                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                if ( invoke-xpathquery -node $response -querymethod selectSingleNode -query "child::securityPolicies/securityPolicy" ) {
+                    $FinalSecPol = $response.securityPolicies.SecurityPolicy
+                } 
+                else { 
+                    $FinalSecPol = $null
+                }
+            }
+        } 
+        
 
         if ( -not $IncludeHidden ) {
             foreach ( $CurrSecPol in $FinalSecPol ) {
@@ -31062,15 +31107,17 @@ function Remove-NsxSecurityPolicy {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            [ValidateNotNullOrEmpty()]
+            # Security Policy to Remove.
+            [ValidateScript( { ValidateSecurityPolicy $_ })]
             [System.Xml.XmlElement]$SecurityPolicy,
         [Parameter (Mandatory=$False)]
-            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            # Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
         [Parameter (Mandatory=$False)]
+            # Force removal, even if the policy is in use.
             [switch]$force=$false,
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
+            # PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
     )
@@ -31880,6 +31927,167 @@ function Get-NsxServiceProfile {
     End{}
 }
 
+function New-NsxSecurityPolicyAssignment   {
+    
+    <#
+    .SYNOPSIS
+    Applies a Security Policy to the specified Security Group.
+
+    .DESCRIPTION
+    A security policy is a policy construct that can define one or more rules in 
+    several different categories, that can then be applied to an arbitrary 
+    number of Security Groups in order to enforce the defined policy.
+    
+    The New-NsxSecurityPolicyAssignment cmdlet applies the specified Security 
+    Policy to the specified Security Group.
+    .EXAMPLE
+    $sg = Get-NsxSecurityGroup WebApp1WebServers
+    PS C:\> Get-NsxSecurityPolicy WebServers | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
+
+    Applies the Security Policy WebServers to the Security Group WebApp1WebServers.
+    
+    .EXAMPLE
+    $AllSecurityGroups = Get-NsxSecurityGroup
+    PS C:\> Get-NsxSecurityPolicy Mandatory | New-NsxSecurityPolicyAssignment -SecurityGroup $AllSecurityGroups
+
+    Applies the Security Policy Mandatory to all defined Security Groups.
+    #>
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True,ValueFromPipeline=$True)]
+            # Security Policy to be applied.
+            [ValidateScript({ ValidateSecurityPolicy $_ })]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$false)]
+            # Security Group to which to apply the specified policy.  Can specify a collection of security groups to perform assignment of policy to multiple groups.
+            [ValidateScript({ ValidateSecurityGroup $_ })]
+            [System.Xml.XmlElement[]]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        #Clone the existing SP so we dont modify the input object.
+        $_SecurityPolicy = $SecurityPolicy.CloneNode($True) 
+
+        #Iterate SecurityGroup collection
+        foreach ($Group in $SecurityGroup) {
+            $BindingNode = $_SecurityPolicy.OwnerDocument.CreateElement("securityGroupBinding")
+            $null = $_SecurityPolicy.AppendChild($BindingNode)
+            Add-XmlElement -xmlRoot $BindingNode -xmlElementName "objectId" -xmlElementText $Group.objectId
+        }
+                        
+        #Do the post
+        $body = $_SecurityPolicy.OuterXml
+        $URI = "/api/2.0/services/policy/securitypolicy/$($_SecurityPolicy.objectId)"
+        Write-Progress -activity "Updating SecurityGroup bindings for Security Policy $($SecurityPolicy.Name)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        Write-Progress -activity "Updating SecurityGroup bindings for Security Policy $($SecurityPolicy.Name)" -completed
+                    
+        [xml]$return = $response.content
+        $return.securityPolicy    
+    }
+    
+    end {} 
+}
+
+function Remove-NsxSecurityPolicyAssignment   {
+    
+    <#
+    .SYNOPSIS
+    Removes the applied Security Policy from specified Security Group(s).
+
+    .DESCRIPTION
+    A security policy is a policy construct that can define one or more rules in 
+    several different categories, that can then be applied to an arbitrary 
+    number of Security Groups in order to enforce the defined policy.
+    
+    The Remove-NsxSecurityPolicyAssignment cmdlet removes the specified Security 
+    Policy from the specified Security Group.
+
+    .EXAMPLE
+    $sg = Get-NsxSecurityGroup WebApp1WebServers
+    PS C:\>Get-NsxSecurityPolicy WebServers | Remove-NsxSecurityPolicyAssignment -SecurityGroup $sg
+
+    Removes the Security Policy Webservers from the applied policies list of the WebApp1WebSevers Security Group.
+
+    #>
+
+    [CmdletBinding()]
+    param (
+        [Parameter (Mandatory=$True,ValueFromPipeline=$True)]
+            # Security Policy whose application will be removed from the specified Security Group 
+            [ValidateScript({ ValidateSecurityPolicy $_ })]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter (Mandatory=$true)]
+            # Security Group to remove the specified Security Policy from its applied policies list. 
+            [ValidateScript({ ValidateSecurityGroup $_ })]
+            [System.Xml.XmlElement[]]$SecurityGroup,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+        )
+
+    begin {}
+
+    process {
+
+        #Track if we actually modify the SP - no point in going back to the API if we dont actually have anything to say.
+        $ModifiedSP = $false
+
+        #Check that the Sp we are processing is applied to at least one group.
+        if (invoke-xpathquery -node $SecurityPolicy -QueryMethod SelectSingleNode -Query "child::securityGroupBinding") {
+            
+            #Clone the node to avoid modifying input object.
+            $_SecurityPolicy = $SecurityPolicy.CloneNode($true)
+
+            #Iterate SecurityGroups, find and remove the ones that match the current SecurityGroup
+            foreach ($Group in $SecurityGroup){
+                $CurrGroupBindingNode = invoke-xpathquery -node $_SecurityPolicy -QueryMethod SelectSingleNode -Query "child::securityGroupBinding[objectId=`'$($Group.objectId)`']"
+                if ($CurrGroupBindingNode) {
+                    $_SecurityPolicy.RemoveChild($CurrGroupBindingNode)
+                    $ModifiedSP = $true
+                }
+                else { 
+
+                    #Let the user know there was nothing to do, but dont throw...want to make sure the pipeline continues.
+                    write-warning "Security Policy $($SecurityPolicy.Name) ($($SecurityPolicy.objectId)) is not applied to Security Group $($Group.Name) ($($Group.objectId))"
+                }
+            }                         
+        }
+        Else{
+
+            #Again, we dont throw, want to make sure the pipeline continues.
+            write-warning "No SecurityGroups are assoicated with SecurityPolicy: $($SecurityPolicy.name)"
+        }
+                        
+        #Do the post
+        if ( $ModifiedSP ) { 
+            $body = $_SecurityPolicy.OuterXml
+            $URI = "/api/2.0/services/policy/securitypolicy/$($_SecurityPolicy.objectId)"
+            $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            if ($response.StatusCode -eq "200"){
+                [xml]$return = $response.content
+                $return.securityPolicy
+            }
+        }
+    }
+    end {} 
+}
+
+#############################################################
+#############################################################
+#The Following functions are NOT yet exported for a reason.  
+#They are expected to be changed significantly and should not be used in their current form.
+
 function Get-NsxApplicableFwRule {
     
     <#
@@ -32018,68 +32226,6 @@ function Get-NsxApplicableFwRule {
             }
         }
 
-    }
-
-    end {}
-}
-
-function Get-NsxApplicablePolicy {
-
-    <#
-    .SYNOPSIS
-    Query Security Policies Mapped to a Security Group
-
-    .DESCRIPTION
-    You can retrieve the security policies mapped to a security group. The list is sorted based on the precedence
-    of security policy precedence in descending order. The security policy with the highest precedence (highest
-    numeric value) is the first entry (index = 0) in the list.
-
-    .EXAMPLE
-    PS C:\> Get-NsxApplicablePolicy -SecurityGroup (Get-NsxSecurityGroup -name "SG_GenesysSstormAccp_JAX").objectId 
-
-    #>
-
-    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
-
-    param (
-
-        [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
-            #Query SecurityGroup by objectId
-            [System.Xml.XmlElement]$SecurityGroup,
-        [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
-
-    )
-
-    begin {}
-
-    process {
-
-        
-        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
-            $URI = "/api/2.0/services/policy/securitygroup/$($SecurityGroup.objectId)/securitypolicies"
-        }
-        try {
-            $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
-        }
-        catch {
-            throw "Failed retreiving applicable polcies.  $_"
-        }
-        if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityPolicies").IsEmpty ) {
-            try {
-                if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityPolicies" ) {
-                    $response.securityPolicies.securityPolicy
-                }
-            }
-            catch {
-                throw "Content returned from NSX API could not be parsed as an applicable policy XML."
-            }
-        }
-        else {
-            throw "No Content returned from NSX API call."
-        }
     }
 
     end {}
@@ -32528,114 +32674,6 @@ function Add-NsxSecurityPolicyFwRule   {
     end {} 
 }
 
-function Add-NsxApplySPToSG   {
-
-     <#
-    .SYNOPSIS
-    Apply Security Policy to specified Security Group(s)
-
-    .DESCRIPTION
-    Apply a Security Policy to a Security Group to secure your virtual desktops, business critical applications, and the connections between them. 
-
-    .EXAMPLE
-    Get-NsxSecurityPolicy SP-001 |
-    Add-NsxApplySPToSG -SecurityGroup (Get-NsxSecurityGroup SG-004)
-
-    
-    Description
-    -----------
-
-    Apply Security Policy to Security Group(s) using pipeline input.
-    
-    .EXAMPLE
-    Add-NsxApplySPToSG -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -SecurityGroup (Get-NsxSecurityGroup SG-005)    
-    
-    Description
-    -----------
-
-    Apply Security Policy to Security Group(s). 
-    #>
-
-
-
-    [CmdletBinding()]
-    param (
-
-        [Parameter (Mandatory=$True,
-                   ValueFromPipeline=$True,
-                   ValueFromPipelineByPropertyName=$True)]
-            [ValidateNotNullOrEmpty()]
-            [System.Xml.XmlElement]$SecurityPolicy,
-        [Parameter (Mandatory=$false)]
-            [object[]]$SecurityGroup,
-        [Parameter (Mandatory=$false)]
-            [switch]$ReturnObjectIdOnly=$false,
-        [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
-
-      )
-
-    begin {}
-
-    process {
-        #Converts variable from an XML Element to XML Document
-        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
-        
-        if ($SecurityPolicy.securityPolicy | get-member -Name securityGroupBinding -MemberType Property){
-            Write-Host "This SecurityPolicy is applied to existing SecurityGroups(s), adding additional member(s):" -ForegroundColor Magenta
-            #Gets the current number of securityGroupBindings and + 1 to ensure the next Security Group is added to the empty securityGroupBinding XMLElement
-            $count = ($SecurityPolicy.securityPolicy.securityGroupBinding.objectId.count) + 1
-            
-            #Goes through each Security Group creates a securityGroupBinding element and adds the Security Group's objectId to it
-            foreach ($Member in $SecurityGroup){
-                Add-XmlElement -xmlRoot $SecurityPolicy.SelectSingleNode("securityPolicy") -xmlElementName "securityGroupBinding" | Out-Null
-                
-                #This is probably not safe - need to review all possible input types to confirm.
-                if ($Member -is [System.Xml.XmlElement] -and $Member.objectTypeName -eq "SecurityGroup") {
-                    Write-Host "Applying SecurityPolicy: $($SecurityPolicy.securityPolicy.name) to SecurityGroup: $($Member.name)" -ForegroundColor Yellow  
-                    Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $SecurityPolicy -query "//securityGroupBinding[$count]") -xmlElementName "objectId" -xmlElementText $Member.objectId | Out-Null
-                    $count++ 
-                }   
-            }
-        }
-        Else{
-            #If securityGroupBindings doesn't exist start with number 1 and keep increasing $count as each member goes through the foreach loop
-            Write-Host "This SecurityPolicy is not currently applied to any SecurityGroups(s), adding additional member(s):" -ForegroundColor Magenta
-            $count = 1
-
-            #Goes through each Security Group creates a securityGroupBinding element and adds the Security Group's objectId to it
-            foreach ($Member in $SecurityGroup){
-                Add-XmlElement -xmlRoot $SecurityPolicy.SelectSingleNode("securityPolicy") -xmlElementName "securityGroupBinding" | Out-Null
-                
-                #This is probably not safe - need to review all possible input types to confirm.
-                if ($Member -is [System.Xml.XmlElement] -and $Member.objectTypeName -eq "SecurityGroup") {
-                    Write-Host "Applying SecurityPolicy: $($SecurityPolicy.securityPolicy.name) to SecurityGroup: $($Member.name)" -ForegroundColor Yellow
-                    Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $SecurityPolicy -query "//securityGroupBinding[$count]") -xmlElementName "objectId" -xmlElementText $Member.objectId | Out-Null
-                    $count++ 
-                }
-            }
-        }
-                       
-        #Do the post
-        $body = $SecurityPolicy.OuterXml
-        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        
-        if ($response.StatusCode -eq "200"){
-            
-            [xml]$response = $response.content
-
-            if ($ReturnObjectIdOnly) {
-                $response.securityPolicy.objectId
-                $SecurityGroup.objectId
-            }
-        }
-    }
-    end {} 
-}
-
 function Edit-NsxSecurityPolicyFwRule   {
 
      <#
@@ -32743,98 +32781,6 @@ function Edit-NsxSecurityPolicyFwRule   {
             else {
                 Get-NsxSecurityPolicy -objectId  ($response.securityPolicy.objectId) -connection $connection
                (Get-NsxSecurityPolicy -objectId  ($response.securityPolicy.objectId) -connection $connection).actionsByCategory.action
-            }
-        }
-    }
-    end {} 
-}
-
-function Remove-NsxApplySPFromSG   {
-
-    <#
-    .SYNOPSIS
-    Remove applied Security Policy from specified Security Group(s).
-
-    .DESCRIPTION
-    Remove applied Security Policy from specified Security Group(s).
-
-    .EXAMPLE
-    Get-NsxSecurityPolicy SP-001 |
-    Remove-NsxApplySPFromSG -SecurityGroup (Get-NsxSecurityGroup SG-004)
-
-    
-    Description
-    -----------
-
-    Removes applied Security Policy from Security Group(s) using pipeline input.
-
-    .EXAMPLE
-    Remove-NsxApplySPFromSG -SecurityPolicy (Get-NsxSecurityPolicy SP-001) -SecurityGroup (Get-NsxSecurityGroup SG-005)    
-    
-    Description
-    -----------
-
-    Removes applied Security Policy from Security Group(s). 
-
-    #>
-
-
-
-    [CmdletBinding()]
-    param (
-
-        [Parameter (Mandatory=$True,
-                   ValueFromPipeline=$True,
-                   ValueFromPipelineByPropertyName=$True)]
-            [ValidateNotNullOrEmpty()]
-            [System.Xml.XmlElement]$SecurityPolicy,
-        [Parameter (Mandatory=$true)]
-            [object[]]$SecurityGroup,
-        [Parameter (Mandatory=$false)]
-            [switch]$ReturnObjectIdOnly=$false,
-        [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
-
-      )
-
-    begin {}
-
-    process {
-        #Converts variable from an XML Element to XML Document
-        [xml]$SecurityPolicy = $SecurityPolicy.OuterXml
-        
-        if ($SecurityPolicy.securityPolicy | get-member -Name securityGroupBinding -MemberType Property){
-            
-            #Goes through each Security Group in the securityGroupBinding element and removes the ones that match the SecurityGroup parameter
-            foreach ($Member in $SecurityGroup){
-    
-                foreach ($SGB in $SecurityPolicy.SelectNodes("securityPolicy/securityGroupBinding")){
-                    if ($SGB.name -eq $Member.name){
-                        Write-Host "Removing SecurityPolicy: $($SecurityPolicy.securityPolicy.name) from SecurityGroup: $($SGB.name)" -ForegroundColor Yellow
-                        $SecurityPolicy.SelectNodes("securityPolicy").RemoveChild($SGB) | Out-Null
-                    }
-                }  
-            }                         
-        }
-        Else{
-            Throw "No SecurityGroup(s) are assoicated with SecurityPolicy: $($SecurityPolicy.securityPolicy.name)"
-        }
-                       
-        #Do the post
-        $body = $SecurityPolicy.OuterXml
-        $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
-        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-        
-         if ($response.StatusCode -eq "200"){
-            [xml]$response = $response.content
-            
-            if ($ReturnObjectIdOnly) {
-                $response.securityPolicy.objectId
-            }
-            else {
-               Get-NsxSecurityPolicy -objectId $response.securityPolicy.objectId -connection $connection
             }
         }
     }
@@ -33110,6 +33056,9 @@ function Remove-NsxSGFromSPFwRule   {
     }
     end {} 
 }
+
+#############################################################
+#############################################################
 
 ########
 ########
