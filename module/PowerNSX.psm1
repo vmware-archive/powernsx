@@ -3158,6 +3158,46 @@ Function ValidateDynamicCriteria {
     }
 }
 
+function ValidateFirewallDraft {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name id -Membertype Properties)) {
+            throw "XML Element specified does not contain an id property."
+        }
+
+        if ( -not ( $argument | get-member -name name -Membertype Properties)) {
+            throw "XML Element specified does not contain an name property."
+        }
+
+        if ( -not ( $argument | get-member -name timestamp -Membertype Properties)) {
+            throw "XML Element specified does not contain an timestamp property."
+        }
+
+        if ( -not ( $argument | get-member -name preserve -Membertype Properties)) {
+            throw "XML Element specified does not contain an preserve property."
+        }
+
+        if ( -not ( $argument | get-member -name user -Membertype Properties)) {
+            throw "XML Element specified does not contain an user property."
+        }
+
+        if ( -not ( $argument | get-member -name mode -Membertype Properties)) {
+            throw "XML Element specified does not contain an mode property."
+        }
+
+        $true
+    }
+    else {
+        throw "Specify a valid Saved Distributed Firewall Configuration object."
+    }
+
+}
+
 function ValidateFirewallSavedConfiguration {
     Param (
         [Parameter (Mandatory=$true)]
@@ -27589,12 +27629,12 @@ function Get-NsxFirewallSavedConfiguration {
     .EXAMPLE
     Get-NsxFirewallSavedConfiguration TestBackup
 
-    Retrieves all Distributed Firewall configurations with the Name
+    Retrieves all Distributed Firewall configurations with the name specified
 
     .EXAMPLE
     Get-NsxFirewallSavedConfiguration -Name TestBackup
 
-    Retrieves all Distributed Firewall configurations with the Name
+    Retrieves all Distributed Firewall configurations with the name specified
 
     .EXAMPLE
     Get-NsxFirewallSavedConfiguration -ObjectId 403
@@ -27780,7 +27820,7 @@ function Remove-NsxFirewallSavedConfiguration {
     .EXAMPLE
     Get-NsxFirewallSavedConfiguration -Name Change123 | Remove-NsxFirewallSavedConfiguration -Confirm:$false
 
-    Remove saved Distributed Firewall Configuration named Change123 without prompting for confirmation
+    Remove all saved Distributed Firewall Configurations named Change123 without prompting for confirmation
 
     .EXAMPLE
     Get-NsxFirewallSavedConfiguration -ObjectId 3278 | Remove-NsxFirewallSavedConfiguration
@@ -27794,7 +27834,7 @@ function Remove-NsxFirewallSavedConfiguration {
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             # A valid saved configuration from Get-NsxFirewallSavedConfiguration
-            [ValidateScript({ ValidateFirewallSavedConfiguration $_ })]
+            [ValidateScript({ ValidateFirewallDraft $_ })]
             [System.Xml.XmlElement]$SavedConfig,
         [Parameter (Mandatory=$False)]
             # Prompt for confirmation. Specify as -confirm:$false to disable confirmation prompt
