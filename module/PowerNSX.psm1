@@ -7549,7 +7549,8 @@ function Invoke-NsxControllerStateUpdate {
     .EXAMPLE
     Invoke-NsxControllerStateUpdate
 
-    Invoke the process to push configuration state informaiton back to the controller cluster.
+    Invoke the process to push configuration state informaiton back to the
+    controller cluster.
 
     .EXAMPLE
     Invoke-NsxControllerStateUpdate -Wait -WaitTimeout 20 -FailOnTimeout
@@ -7591,7 +7592,8 @@ function Invoke-NsxControllerStateUpdate {
         throw "Resolve All failed. $($response.content)"
     }
 
-    #The post is ansync - the Resolve All can fail after the api accepts the post.  we need to check on the status of the job.
+    # The post is ansync - the job can fail after the api accepts the post.
+    # we need to check on the status of the job.
     if ( $Wait ) {
 
         $jobid = $response.content
