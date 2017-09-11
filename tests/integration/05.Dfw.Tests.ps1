@@ -63,6 +63,15 @@ Describe "DFW" {
         $script:rawService4 = "udp/53"
         $script:rawService5 = "TCP"
         $script:rawService6 = "UDP"
+        $script:TestDraftName1 = "pester_draft_1"
+        $script:TestDraftName2 = "pester_draft_2"
+        $script:TestDraftName3 = "pester_draft_3"
+        $script:TestDraftDesc1 = "pester_draft_description_1"
+        $script:TestDraftDesc2 = "pester_draft_description_2"
+        $script:TestDraftDesc3 = "pester_draft_description_3"
+        $script:TestDraftUpdatedName = "pester_draft_updated_name"
+        $script:TestDraftUpdatedDesc = "pester_draft_updated_desc"
+
 
         #Logical Switch
         $script:testls = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testlsname
@@ -149,6 +158,188 @@ Describe "DFW" {
         disconnect-nsxserver
 
         write-host -ForegroundColor Green "Completed cleanup tasks for DFW tests"
+
+    }
+
+    Context "Firewall Drafts" {
+        AfterAll {
+            Get-NsxFirewallSavedConfiguration | ? {$_.name -match "^pester"} | Remove-NsxFirewallSavedConfiguration -confirm:$false
+        }
+
+        BeforeEach {
+            $section = New-NsxFirewallSection "pester_drafts"
+            sleep 1
+            $rule1 = $section | New-NsxFirewallRule -Name "pester_draft_rule" -Action allow
+            sleep 1
+        }
+
+        AfterEach {
+            Get-NsxFirewallSection -ObjectId $section.id | Remove-NsxFirewallSection -confirm:$false -force
+            sleep 1
+        }
+
+        it "Can retrieve all firewall drafts" {
+            $drafts = Get-NsxFirewallSavedConfiguration
+            $drafts | should not be $null
+            ($drafts | measure).count | should begreaterthan 0
+            $draft = $drafts | select-object -first 1
+            $draft.id | should not be $null
+            ($draft | Get-Member -Name description -MemberType Properties).count | should be 1
+            $draft.timestamp | should not be $null
+            $draft.preserve | should not be $null
+            $draft.user | should not be $null
+            ($draft | Get-Member -Name mode -MemberType Properties).count | should be 1
+        }
+
+        it "Can retrieve firewall drafts by name (positional)" {
+            # NSX Manager allows firewall drafts are able to be configured with
+            # the same name
+            $drafts = Get-NsxFirewallSavedConfiguration | select -first 1
+            $drafts | should not be $null
+            ($drafts | measure).count | should be 1
+
+            $draft = Get-NsxFirewallSavedConfiguration $drafts.name
+            $draft.id | should be $drafts.id
+            $draft.description | should be $drafts.description
+            $draft.timestamp | should be $drafts.timestamp
+            $draft.preserve | should be $drafts.preserve
+            $draft.user | should be $drafts.user
+            $draft.mode | should be $drafts.mode
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can retrieve firewall drafts by name (parameter)" {
+            # NSX Manager allows firewall drafts are able to be configured with
+            # the same name
+            $drafts = Get-NsxFirewallSavedConfiguration | select -first 1
+            $drafts | should not be $null
+            ($drafts | measure).count | should be 1
+
+            $draft = Get-NsxFirewallSavedConfiguration -Name $drafts.name
+            $draft.id | should be $drafts.id
+            $draft.description | should be $drafts.description
+            $draft.timestamp | should be $drafts.timestamp
+            $draft.preserve | should be $drafts.preserve
+            $draft.user | should be $drafts.user
+            $draft.mode | should be $drafts.mode
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can retrieve firewall drafts by id" {
+            $drafts = Get-NsxFirewallSavedConfiguration | select -first 1
+            $drafts | should not be $null
+            ($drafts | measure).count | should be 1
+
+            $draft = Get-NsxFirewallSavedConfiguration -ObjectId $drafts.id
+            $draft.id | should be $drafts.id
+            $draft.description | should be $drafts.description
+            $draft.timestamp | should be $drafts.timestamp
+            $draft.preserve | should be $drafts.preserve
+            $draft.user | should be $drafts.user
+            $draft.mode | should be $drafts.mode
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can create a userdefined firewall draft" {
+            $draft = New-NsxFirewallSavedConfiguration -Name $TestDraftName1 -Description $TestDraftDesc1
+            $draft | should not be $null
+            $draft.id | should not be $null
+            $draft.name | should be $TestDraftName1
+            $draft.description | should be $TestDraftDesc1
+            $draft.timestamp | should not be $null
+            $draft.preserve | should be "true"
+            $draft.user | should not be $null
+            $draft.mode | should be "userdefined"
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can create a userdefined firewall draft with preserve disabled" {
+            $draft = New-NsxFirewallSavedConfiguration -Name $TestDraftName2 -Description $TestDraftDesc2 -Preserve:$false
+            $draft | should not be $null
+            $draft.id | should not be $null
+            $draft.name | should be $TestDraftName2
+            $draft.description | should be $TestDraftDesc2
+            $draft.timestamp | should not be $null
+            $draft.preserve | should be "false"
+            $draft.user | should not be $null
+            $draft.mode | should be "userdefined"
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can modify an existing firewall draft" {
+            $draft = New-NsxFirewallSavedConfiguration -Name $TestDraftName3 -Description $TestDraftDesc3
+            $draft | should not be $null
+            $draft.id | should not be $null
+            $draft.name | should be $TestDraftName3
+            $draft.description | should be $TestDraftDesc3
+            $draft.timestamp | should not be $null
+            $draft.preserve | should be "true"
+            $draft.user | should not be $null
+            $draft.mode | should be "userdefined"
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+
+            $updated = Get-NsxFirewallSavedConfiguration -ObjectId $draft.id | Set-NsxFirewallSavedConfiguration -Name $TestDraftUpdatedName -Description $TestDraftUpdatedDesc -Preserve:$false
+            $updated.id | should be $draft.id
+            $updated.name | should be $TestDraftUpdatedName
+            $updated.description | should be $TestDraftUpdatedDesc
+            $updated.timestamp | should not be $null
+            $updated.preserve | should be "false"
+            $updated.user | should not be $null
+            $updated.mode | should be "userdefined"
+            ($updated | Get-Member -Name config -MemberType Properties).count | should be 1
+            $updated.config | should not be null
+            $updated.config.timestamp | should not be $null
+            $updated.config.contextId | should not be $null
+            $updated.config.layer3Sections | should not be $null
+            $updated.config.layer2Sections | should not be $null
+            $updated.config.layer3RedirectSections | should not be $null
+            $updated.config.generationNumber | should not be $null
+        }
+
+        it "Can remove a firewall draft" {
+            $draft = New-NsxFirewallSavedConfiguration -Name "pester_draft_delete" | Select -first 1
+            $draft | should not be $null
+            ($draft | measure).count | should be 1
+            Get-NsxFirewallSavedConfiguration -ObjectId $draft.id | Remove-NsxFirewallSavedConfiguration -confirm:$false
+            $deleted = Get-NsxFirewallSavedConfiguration | ? { ($_.name -eq $draft.name) -AND ($_.id -eq $draft.id) }
+            $deleted | should be $null
+        }
 
     }
 
@@ -2352,5 +2543,7 @@ Describe "DFW" {
             $publish.status | should not be $null
         }
     }
+
+
 
 }
