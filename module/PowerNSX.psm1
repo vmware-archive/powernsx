@@ -27889,19 +27889,19 @@ function Set-NsxFirewallSavedConfiguration {
     preserve is purged to make way for a new one.
 
     .EXAMPLE
-    Get-NsxFirewallSavedConfiguration -Name Change123 | Get-NsxFirewallSavedConfiguration -Preserve
+    Get-NsxFirewallSavedConfiguration -Name Change123 | Set-NsxFirewallSavedConfiguration -Preserve
 
     Set the Preserve flag to true on an existing saved Distributed Firewall Configuration
 
 
     .EXAMPLE
-    Get-NsxFirewallSavedConfiguration -Name Change123 | Get-NsxFirewallSavedConfiguration -Name Change123NewName -Description "Now With Description"
+    Get-NsxFirewallSavedConfiguration -Name Change123 | Set-NsxFirewallSavedConfiguration -Name Change123NewName -Description "Now With Description"
 
     Update the name and description on an existing saved Distributed Firewall Configuration
 
 
     .EXAMPLE
-    Get-NsxFirewallSavedConfiguration -Name Change123 | Get-NsxFirewallSavedConfiguration -Preserve
+    Get-NsxFirewallSavedConfiguration -Name Change123 | Set-NsxFirewallSavedConfiguration -Preserve
 
     Set the Preserve flag to true on an existing saved Distributed Firewall Configuration
 
