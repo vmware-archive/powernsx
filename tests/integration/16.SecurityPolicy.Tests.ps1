@@ -364,7 +364,7 @@ Describe "SecurityPolicy" {
 
         ############
 
-        it "Can create a security policy network introspection spec - intra - mode1 (Source/Dest w/PSG based)" {
+        it "Can create a security policy network introspection spec - intra - mode1 (Source/Dest w/PSG based)" -skip ( -not $EnableNiTests) {
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -direction Intra -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.direction | should be "intra"
@@ -373,7 +373,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec - intra - mode2 (Direction based)" {
+        it "Can create a security policy network introspection spec - intra - mode2 (Direction based)"  -skip ( -not $EnableNiTests) {
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.direction | should be "intra"
@@ -382,7 +382,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec source ANY - mode1 (Source/Dest w/PSG based)" {
+        it "Can create a security policy network introspection spec source ANY - mode1 (Source/Dest w/PSG based)"  -skip ( -not $EnableNiTests) {
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Source Any -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.direction | should be "inbound"
@@ -392,7 +392,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec source ANY - mode2 (Direction based)" {
+        it "Can create a security policy network introspection spec source ANY - mode2 (Direction based)" -skip ( -not $EnableNiTests) {
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Direction inbound -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.direction | should be "inbound"
@@ -402,7 +402,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec dest ANY - mode1 (Source/Dest w/PSG based)" {
+        it "Can create a security policy network introspection spec dest ANY - mode1 (Source/Dest w/PSG based)" -skip ( -not $EnableNiTests) {
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Destination Any -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.direction | should be "outbound"
@@ -412,7 +412,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec dest ANY - mode2 (Direction based)" {
+        it "Can create a security policy network introspection spec dest ANY - mode2 (Direction based)" -skip ( -not $EnableNiTests) {
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Direction outbound -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.direction | should be "outbound"
@@ -422,7 +422,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec source security group - mode1 (Source/Dest w/PSG based)" {
+        it "Can create a security policy network introspection spec source security group - mode1 (Source/Dest w/PSG based)" -skip ( -not $EnableNiTests) {
             $sg = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg1")
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Source $sg -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
@@ -433,7 +433,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec source security group - mode2 (Direction based)" {
+        it "Can create a security policy network introspection spec source security group - mode2 (Direction based)"  -skip ( -not $EnableNiTests) {
             $sg = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg2")
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -direction inbound -SecurityGroup $sg -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
@@ -444,7 +444,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec destination security group - mode1 (Source/Dest w/PSG based)" {
+        it "Can create a security policy network introspection spec destination security group - mode1 (Source/Dest w/PSG based)" -skip ( -not $EnableNiTests) {
             $sg = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg3")
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Destination $sg -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
@@ -455,7 +455,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec destination security group - mode2 (Direction based)" {
+        it "Can create a security policy network introspection spec destination security group - mode2 (Direction based)" -skip ( -not $EnableNiTests) {
             $sg = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg4")
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -direction outbound -SecurityGroup $sg -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
@@ -466,7 +466,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec source multiple security group - mode1 (Source/Dest w/PSG based)" {
+        it "Can create a security policy network introspection spec source multiple security group - mode1 (Source/Dest w/PSG based)" -skip ( -not $EnableNiTests) {
             $sg1 = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg5")
             $sg2 = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg6")
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Source $sg1,$sg2 -ServiceProfile $nisp
@@ -479,7 +479,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec source multiple security group - mode2 (Direction based)" {
+        it "Can create a security policy network introspection spec source multiple security group - mode2 (Direction based)" -skip ( -not $EnableNiTests) {
             $sg1 = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg7")
             $sg2 = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg8")
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Source $sg1,$sg2 -ServiceProfile $nisp
@@ -492,7 +492,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec destination multiple security group - mode1 (Source/Dest w/PSG based)" {
+        it "Can create a security policy network introspection spec destination multiple security group - mode1 (Source/Dest w/PSG based)" -skip ( -not $EnableNiTests) {
             $sg1 = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg9")
             $sg2 = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg10")
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -destination $sg1,$sg2 -ServiceProfile $nisp
@@ -505,7 +505,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec destination multiple security group - mode2 (Direction based)" {
+        it "Can create a security policy network introspection spec destination multiple security group - mode2 (Direction based)" -skip ( -not $EnableNiTests) {
             $sg1 = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg11")
             $sg2 = New-NsxSecurityGroup -Name ($SpNamePrefix + "nisg12")
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Direction outbound -SecurityGroup $sg1,$sg2 -ServiceProfile $nisp
@@ -518,7 +518,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec with service" {
+        it "Can create a security policy network introspection spec with service" -skip ( -not $EnableNiTests) {
             $svc = New-NsxService -Name ($SpNamePrefix + "nisvc1") -port 22 -protocol TCP
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svc -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
@@ -528,7 +528,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec with multiple services" {
+        it "Can create a security policy network introspection spec with multiple services" -skip ( -not $EnableNiTests) {
             $svc1 = New-NsxService -Name ($SpNamePrefix + "nisvc2") -port 22 -protocol TCP
             $svc2 = New-NsxService -Name ($SpNamePrefix + "nisvc3") -port 22 -protocol TCP
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svc1,$svc2 -ServiceProfile $nisp
@@ -540,7 +540,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a disabled security policy network introspection spec" {
+        it "Can create a disabled security policy network introspection spec" -skip ( -not $EnableNiTests) {
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Disabled -ServiceProfile $nisp
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.redirect | should be "true"
@@ -548,7 +548,7 @@ Describe "SecurityPolicy" {
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
-        it "Can create a security policy network introspection spec with redirection disabled" {
+        it "Can create a security policy network introspection spec with redirection disabled" -skip ( -not $EnableNiTests) {
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -ServiceProfile $nisp -DisableRedirection
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.redirect | should be "false"
@@ -632,7 +632,7 @@ Describe "SecurityPolicy" {
             ($pol.actionsByCategory | ? { $_.category -eq 'endpoint'}).action.name -contains $spec2.Name | should be $true
         }
 
-        It "Can create a security policy with a network introspection rule." { 
+        It "Can create a security policy with a network introspection rule."  -skip ( -not $EnableNiTests){ 
             $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -ServiceProfile $nisp
             $polName = ($SpNamePrefix + "policy7")
             $pol = New-NsxSecurityPolicy -Name $polName -Description "Pester Policy" -NetworkIntrospectionSpec $spec
@@ -641,7 +641,7 @@ Describe "SecurityPolicy" {
             ($pol.actionsByCategory | ? { $_.category -eq 'traffic_steering'}).action.name -contains $spec.Name | should be $true
         }
 
-        It "Can create a security policy with multiple network introspection rules." { 
+        It "Can create a security policy with multiple network introspection rules." -skip ( -not $EnableNiTests) { 
             $spec1 = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -ServiceProfile $nisp
             $spec2 = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -ServiceProfile $nisp -source any
             $polName = ($SpNamePrefix + "policy8")
