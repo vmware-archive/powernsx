@@ -323,7 +323,6 @@ Describe "DFW" {
             $updated.user | should not be $null
             $updated.mode | should be "userdefined"
             ($updated | Get-Member -Name config -MemberType Properties).count | should be 1
-            $updated.config | should not be null
             $updated.config.timestamp | should not be $null
             $updated.config.contextId | should not be $null
             $updated.config.layer3Sections | should not be $null
