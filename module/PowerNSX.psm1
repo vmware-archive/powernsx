@@ -7589,7 +7589,7 @@ function Invoke-NsxControllerStateUpdate {
         Throw "Failed to invoke controller state update. $_"
     }
     if ( -not ($response.Content -match "jobdata-\d+")) {
-        throw "Resolve All failed. $($response.content)"
+        throw "Controller Update State failed. No jobdata returned. $($response.content)"
     }
 
     # The post is ansync - the job can fail after the api accepts the post.
