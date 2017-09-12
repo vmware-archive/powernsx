@@ -7632,6 +7632,88 @@ function Remove-NsxController {
     end {}
 }
 
+function Invoke-NsxControllerStateUpdate {
+
+    <#
+    .SYNOPSIS
+    Update controller state information.
+
+    .DESCRIPTION
+    An NSX Controller is a member of the NSX Controller Cluster, and forms the
+    highly available distributed control plane for NSX Logical Switching and NSX
+    Logical Routing.
+
+    When a NSX Controller cluster is re-deployed in an existing environment, it
+    will not have knowledge of the currently configured logical networking
+    constructs deployed.
+
+    The Invoke-NsxControllerStateUpdate cmdlet pushes the information back to
+    the controllers after a re-deploy.
+
+    .EXAMPLE
+    Invoke-NsxControllerStateUpdate
+
+    Invoke the process to push configuration state informaiton back to the
+    controller cluster.
+
+    .EXAMPLE
+    Invoke-NsxControllerStateUpdate -Wait -WaitTimeout 20 -FailOnTimeout
+
+    Invoke the process to push configuration state and wait for the job to
+    finish. If 20 seconds elapses (default is 30), then throw an error.
+
+    #>
+
+    param (
+
+        [Parameter ( Mandatory=$False)]
+            # Block until the job is 'COMPLETED' (Will timeout with prompt after -WaitTimeout seconds)
+            # Useful if automating the re-deployment of the controller cluster so you dont have to write
+            # looping code to check status of the job before continuing.
+            [switch]$Wait=$false,
+        [Parameter(Mandatory=$false)]
+            # If job reaches -WaitTimeout without failing or completing, do we prompt, or fail with error?
+            [switch]$FailOnTimeout=$false,
+        [Parameter(Mandatory=$false)]
+            # Seconds to wait for connection job to complete.  Defaults to 30 seconds.
+            [int]$WaitTimeout=30,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    $URI = "/api/2.0/vdn/controller/synchronize"
+
+    try  {
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection
+    }
+    catch {
+        Throw "Failed to invoke controller state update. $_"
+    }
+    if ( -not ($response.Content -match "jobdata-\d+")) {
+        throw "Controller Update State failed. No jobdata returned. $($response.content)"
+    }
+
+    # The post is ansync - the job can fail after the api accepts the post.
+    # we need to check on the status of the job.
+    if ( $Wait ) {
+
+        $jobid = $response.content
+        write-debug "$($MyInvocation.MyCommand.Name) : Controller Update State job $jobid returned in post response"
+
+        #First we wait for NSX job framework to give us the needful
+        try {
+            Wait-NsxGenericJob -Jobid $response.Content -Connection $Connection -WaitTimeout $WaitTimeout -FailOnTimeout:$FailOnTimeout
+        }
+        catch {
+            throw "Controller Update State failed.  $_"
+        }
+    }
+    Write-progress -activity "Controller Update State." -completed
+}
+
 function New-NsxIpPool {
 
     <#
