@@ -46,14 +46,16 @@ Describe "Environment" -Tags "Environment" {
     
         BeforeAll { 
             #cleanup any left over test objects...
-            #vAPPs
-            Get-vApp pester* | Remove-vAPP -confirm:$false -DeletePermanently
-            #VMs
-            Get-Vm pester* | Remove-VM -Confirm:$false -DeletePermanently
             #Edges
             Get-NsxEdge | ? { $_.name -match 'pester'} | Remove-NsxEdge -confirm:$false
             #DLRs
             Get-NsxLogicalRouter | ? { $_.name -match 'pester'} | Remove-NsxLogicalRouter -confirm:$false
+            #ensure dlr/edge is gone properly!
+            start-sleep -Seconds 5
+            #vAPPs
+            Get-vApp pester* | Remove-vAPP -confirm:$false -DeletePermanently
+            #VMs
+            Get-Vm pester* | Remove-VM -Confirm:$false -DeletePermanently
             #FirewallRules
             Get-NsxFirewallSection | ? { $_.name -match 'pester'} | Remove-NsxFirewallSection -Confirm:$false -force
             #Policies
@@ -76,9 +78,6 @@ Describe "Environment" -Tags "Environment" {
             Get-NsxService | ? { $_.name -match 'pester'} | Remove-NsxService -Confirm:$false
             #SecurityTags
             Get-NsxSecurityTag | ? { $_.name -match 'pester'} | Remove-NsxSecurityTag -Confirm:$false
-            #ensure dlr/edge is gone properly!
-            start-sleep -Seconds 5
-
             #LogicalSwitches
             Get-NsxLogicalSwitch | ? { $_.name -match 'pester'} | Remove-NsxLogicalSwitch -Confirm:$false
             #PortGroups
