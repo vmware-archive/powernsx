@@ -52,6 +52,10 @@ Describe -Tag 'Slow' "Controller" {
         }
     }
 
+    It "Can update controller state" {
+        {Invoke-NsxControllerStateUpdate -Wait -WaitTimeout 300} | should not throw
+    }
+
 
     AfterAll {
 
