@@ -27759,7 +27759,7 @@ function New-NsxFirewallSavedConfiguration {
         $xmlAttrName.value = $Name
         $xmlRoot.Attributes.Append($xmlAttrName) | out-null
 
-        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "preserve" -xmlElementText $Preserve
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "preserve" -xmlElementText [string]$Preserve
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "mode" -xmlElementText "userdefined"
 
         if ( $PsBoundParameters.ContainsKey("Description") ) {
@@ -27947,7 +27947,7 @@ function Set-NsxFirewallSavedConfiguration {
         }
 
         if ( $PsBoundParameters.ContainsKey('Preserve') ) {
-            $_SavedConfig.preserve = $preserve
+            $_SavedConfig.preserve = [string]$preserve
         }
 
         $URI = "/api/4.0/firewall/globalroot-0/drafts/$($SavedConfig.id)"
