@@ -27101,7 +27101,11 @@ function Get-NsxFirewallRule {
 
     )
 
-    begin {}
+    begin {
+        if ( ( $PSCmdlet.ParameterSetName -eq "Section" ) -and $PSBoundParameters.ContainsKey('RuleType') ){
+            write-warning "The -RuleType parameter is no longer required (and will be ignored) when passing a section along the pipeline. This will be deprecated and removed in a future release."
+        }
+    }
 
     process {
 
