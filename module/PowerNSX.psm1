@@ -27759,7 +27759,7 @@ function New-NsxFirewallSavedConfiguration {
         $xmlAttrName.value = $Name
         $xmlRoot.Attributes.Append($xmlAttrName) | out-null
 
-        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "preserve" -xmlElementText [string]$Preserve
+        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "preserve" -xmlElementText $Preserve
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "mode" -xmlElementText "userdefined"
 
         if ( $PsBoundParameters.ContainsKey("Description") ) {
