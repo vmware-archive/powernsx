@@ -684,7 +684,7 @@ Describe "SecurityPolicy" {
             $newsp = $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
             $newsp.securityGroupBinding.objectId | should be $sg.objectID 
             $newnewsp = $newsp | Remove-NsxSecurityPolicyAssignment -SecurityGroup $sg
-            $newnewsp.securityGroupBinding | should be $null
+            ($newnewsp | get-member -membertype property -Name securityGroupBinding) | should be $null
         }
 
     }
