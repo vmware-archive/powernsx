@@ -84,6 +84,8 @@ Describe "Environment" -Tags "Environment" {
             Get-vdportGroup pester* | Remove-VDPortGroup -Confirm:$false
             #TransportZones
             Get-NsxTransportZone | ? { $_.name -match 'pester'} | Remove-NsxTransportZone -confirm:$false
+            #Datacenters
+            Get-Datacenter pester* | remove-datacenter -Confirm:$false
 
         }
 
