@@ -86,6 +86,8 @@ Describe "Environment" -Tags "Environment" {
             Get-NsxTransportZone | ? { $_.name -match 'pester'} | Remove-NsxTransportZone -confirm:$false
             #Datacenters
             Get-Datacenter pester* | remove-datacenter -Confirm:$false
+            #Resource Pools
+            Get-ResourcePool pester* | remove-resourcepool -Confirm:$false
 
         }
 
