@@ -32727,7 +32727,7 @@ function Remove-NsxSecurityPolicyAssignment   {
             foreach ($Group in $SecurityGroup){
                 $CurrGroupBindingNode = invoke-xpathquery -node $_SecurityPolicy -QueryMethod SelectSingleNode -Query "child::securityGroupBinding[objectId=`'$($Group.objectId)`']"
                 if ($CurrGroupBindingNode) {
-                    $_SecurityPolicy.RemoveChild($CurrGroupBindingNode)
+                    $null = $_SecurityPolicy.RemoveChild($CurrGroupBindingNode)
                     $ModifiedSP = $true
                 }
                 else { 
