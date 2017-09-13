@@ -110,10 +110,11 @@ Describe "SecurityPolicy" {
         it "Can retreive a service definition by Name" {
             
             #The default definitions should always exist, so we just get them.
-            $SD = Get-NsxServiceDefinition -Name "Protocol Introspection"
-            $SD | should not be $null
-            ($SD | measure).count | should be 1
-            $SD.Name | should be "Protocol Introspection" 
+            $SD = Get-NsxServiceDefinition | select -first 1
+            $NameSd = Get-NsxServiceDefinition -Name $SD.Name
+            $NameSD | should not be $null
+            ($NameSD | measure).count | should be 1
+            $NameSD.Name | should be $SD.Name 
         }   
 
         it "Can retreive a service profile by service definition (on pipeline)" -skip:( -not $EnableNiTests) {
