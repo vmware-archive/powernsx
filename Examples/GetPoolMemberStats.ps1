@@ -22,7 +22,7 @@ has its own license that is located in the source code of the respective compone
 
 
 <#
-This is a SAMPLE script that enables logging on all firewall rules in the NSX DFW.
+This is a SAMPLE script.
 
 It is intended to be an example of how to perform a certain action and may not be suitable
 for all purposes.  Please read an understand its action and modify as appropriate, or ensure
