@@ -1,0 +1,3 @@
+[submodule "psDoc"]
+	path = psDoc
+	url = git@github.com:nmbradford/psDoc.git
