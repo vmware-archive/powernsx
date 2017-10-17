@@ -290,7 +290,7 @@ $ServiceHash | export-clixml -depth $maxdepth $ServicesExportFile
 $ServiceGroupHash | export-clixml -depth $maxdepth $ServiceGroupExportFile
 $SecurityGroupHash | export-clixml -depth $maxdepth $SecurityGroupExportFile
 $SecurityTagHash | export-clixml -depth $maxdepth $SecurityTagExportFile
-$DfwRulesHash | export-clixml -depth $maxdepth $DfwRuleExportFile
+$DfwRuleHash | export-clixml -depth $maxdepth $DfwRuleExportFile
 $SecPolHash | export-clixml -depth $maxdepth $SecPolExportFile
 
 #Desktop extract to zip
