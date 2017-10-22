@@ -118,6 +118,8 @@ Describe "sslvpn" {
 
         it "Can disable sslvpn" {
             get-nsxedge $ssledgename | Get-NsxSslVpn | Set-NsxSslVpn -Enabled:$false -Confirm:$false
+            $sslvpn = get-nsxedge $ssledgename | Get-NsxSslVpn
+            $sslvpn.enabled | should be "false"
         }
 
     }
