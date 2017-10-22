@@ -16618,6 +16618,84 @@ function Remove-NsxSslVpnClientInstallationPackage {
     end {}
 }
 
+
+function Remove-NsxSslVpn {
+
+    <#
+    .SYNOPSIS
+    Remove the global SSLVPN configuration of an existing NSX Edge Services
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL VPN allows remote users to connect securely to private networks behind an
+    NSX Edge Services gateway and access servers and applications
+    in the private networks.
+
+    The Remove-NsxSslVpn cmdlet unconfigures the global SSLVPN configuration of
+    the specified Edge Services Gateway.
+
+    .EXAMPLE
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxSslVpn | Remove-NsxSslVpn -confirm:$false
+
+    Remove all NSX SSL VPN configuration without confirmation
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #NSX Edge SslVpn to remove
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        $edgeId = $SslVpn.edgeId
+
+        if ( $confirm ) {
+            $message  = "Edge SslVpn removal is permanent."
+            $question = "Proceed with removal of Edge SslVpn $($EdgeId) ?"
+
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/edges/$($EdgeId)/sslvpn/config"
+            Write-Progress -activity "Remove SSL VPN for Edge $($EdgeId)"
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            Write-Progress -activity "Remove SSL VPN for Edge $($EdgeId)" -completed
+
+        }
+    }
+
+    end {}
+}
+
 #########
 #########
 # Edge Routing related functions

@@ -115,6 +115,7 @@ $FunctionsToExport = @(
     'Remove-NsxEdgeCertificate',
     'Get-NsxSslVpn',
     'Set-NsxSslVpn',
+    'Remove-NsxSslVpn',
     'New-NsxSslVpnAuthServer',
     'Get-NsxSslVpnAuthServer',
     'New-NsxSslVpnUser',
