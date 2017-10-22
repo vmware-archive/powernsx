@@ -120,6 +120,12 @@ Describe "sslvpn" {
             get-nsxedge $ssledgename | Get-NsxSslVpn | Set-NsxSslVpn -Enabled:$false -Confirm:$false
         }
 
+        it "Can remove sslvpn" {
+            get-nsxedge $ssledgename | Get-NsxSslVpn | Remove-NsxSslVpn -Confirm:$false
+            $sslvpn = get-nsxedge $ssledgename | Get-NsxSslVpn
+            $sslvpn | should be $null
+        }
+
     }
 
 
