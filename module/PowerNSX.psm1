@@ -16641,7 +16641,7 @@ function Remove-NsxSslVpn {
     the specified Edge Services Gateway.
 
     .EXAMPLE
-    Get-NsxEdge Edge01 | Get-NsxSslVpn | Remove-NsxSslVpn -confirm:$false
+    Get-NsxEdge Edge01 | Get-NsxSslVpn | Remove-NsxSslVpn -NoConfirm:$true
 
     Remove all NSX SSL VPN configuration without confirmation
 
@@ -16654,9 +16654,12 @@ function Remove-NsxSslVpn {
             #NSX Edge SslVpn to remove
             [ValidateScript({ ValidateEdgeSslVpn $_ })]
             [System.Xml.XmlElement]$SslVpn,
-        [Parameter (Mandatory=$False)]
+        [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -16664,12 +16667,15 @@ function Remove-NsxSslVpn {
     )
 
     begin {
-
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
     }
 
     process {
         $edgeId = $SslVpn.edgeId
-        if ( $confirm ) {
+        if ( -not ( $Noconfirm )) {
             $message  = "Edge SslVpn removal is permanent."
             $question = "Proceed with removal of Edge SslVpn $($EdgeId) ?"
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]

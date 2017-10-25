@@ -121,7 +121,7 @@ Describe "sslvpn" {
         }
 
         it "Can remove sslvpn" {
-            get-nsxedge $ssledgename | Get-NsxSslVpn | Remove-NsxSslVpn -Confirm:$false
+            get-nsxedge $ssledgename | Get-NsxSslVpn | Remove-NsxSslVpn -NoConfirm:$true
             $sslvpn = get-nsxedge $ssledgename | Get-NsxSslVpn
             $sslvpn | should be $null
         }
