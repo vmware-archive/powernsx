@@ -16641,6 +16641,11 @@ function Remove-NsxSslVpn {
     the specified Edge Services Gateway.
 
     .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxSslVpn | Remove-NsxSslVpn
+
+    Remove all NSX SSL VPN configuration with confirmation
+
+    .EXAMPLE
     Get-NsxEdge Edge01 | Get-NsxSslVpn | Remove-NsxSslVpn -NoConfirm:$true
 
     Remove all NSX SSL VPN configuration without confirmation
