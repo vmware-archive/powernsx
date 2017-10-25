@@ -16641,7 +16641,6 @@ function Remove-NsxSslVpn {
     the specified Edge Services Gateway.
 
     .EXAMPLE
-
     PS C:\> Get-NsxEdge Edge01 | Get-NsxSslVpn | Remove-NsxSslVpn -confirm:$false
 
     Remove all NSX SSL VPN configuration without confirmation
@@ -16662,7 +16661,6 @@ function Remove-NsxSslVpn {
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
     begin {
@@ -16670,17 +16668,13 @@ function Remove-NsxSslVpn {
     }
 
     process {
-
         $edgeId = $SslVpn.edgeId
-
         if ( $confirm ) {
             $message  = "Edge SslVpn removal is permanent."
             $question = "Proceed with removal of Edge SslVpn $($EdgeId) ?"
-
             $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
             $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
             $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
         }
         else { $decision = 0 }
@@ -16689,7 +16683,6 @@ function Remove-NsxSslVpn {
             Write-Progress -activity "Remove SSL VPN for Edge $($EdgeId)"
             $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
             Write-Progress -activity "Remove SSL VPN for Edge $($EdgeId)" -completed
-
         }
     }
 

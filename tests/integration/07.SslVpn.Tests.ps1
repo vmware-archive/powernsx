@@ -125,7 +125,6 @@ Describe "sslvpn" {
             $sslvpn = get-nsxedge $ssledgename | Get-NsxSslVpn
             $sslvpn | should be $null
         }
-
     }
 
 
