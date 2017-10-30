@@ -9666,6 +9666,54 @@ function Get-NsxLicense {
 
 }
 
+
+function Invoke-NsxClusterResolveAll {
+    <#
+    .SYNOPSIS
+    Invokes the 'Resolve All' task for a cluster
+
+    .DESCRIPTION
+    If the cluster status is in a state where a 'resolve' action is available, 
+    the Invoke-NsxClusterResolveAll cmdlet can be executed against the cluster
+    to trigger the Resolve All task.  
+
+    This command does NOT block on a resolve as no job data is returned from the 
+    NSX api for us to check on.
+
+    Use Get-NsxClusterStatus to check the status of a given cluster.  If the 
+    cluster status is such that a 'Resolve' operation is not available, this is 
+    a no-op (no error is thrown.)
+
+    .EXAMPLE
+    Get-Cluster Cluster01 | Invoke-NsxClusterResolveAll
+
+    Triggers a 'Resolve All' For the cluster Cluster01.  
+    #>
+
+    param (
+        [Parameter ( Mandatory=$true,ValueFromPipeline=$true)]
+            #Cluster to trigger resolve on.
+            [ValidateNotNullOrEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+        
+        #Get the agency Id for the cluster
+        $response = Invoke-NsxWebRequest -method Get -Uri "/api/2.0/vdn/config/cluster/agency/$($cluster.extensiondata.moref.value)"
+        [xml]$Content = $response.content
+        $null = Invoke-NsxWebRequest -method Post -Uri "/api/2.0/vdn/config/agency/$($Content.AgencyInfo.Agencyid)?action=resolveAll"    
+    }
+    end {}
+
+}
+
 #########
 #########
 # User related functions

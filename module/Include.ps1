@@ -304,6 +304,7 @@ $FunctionsToExport = @(
     'Remove-NsxFirewallRuleMember',
     'Wait-NsxGenericJob',
     'Remove-NsxController',
+    'Invoke-NsxClusterResolveAll',
     'Get-NsxFirewallPublishStatus',
     'Get-NsxLogicalRouterBridging',
     'Set-NsxLogicalRouterBridging',
