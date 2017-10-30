@@ -36457,5 +36457,82 @@ function Set-NsxDns {
     end{
     }
 }
+
+function Remove-NsxDns {
+
+    <#
+
+    .SYNOPSIS
+    Remove the global DNS configuration of an existing NSX Edge Services
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    The NSX Edge DNS add DNS server (relay) on the Edge
+
+    The Remove-NsxDns cmdlet unconfigures the global DNS configuration of
+    the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxDNS | Remove-NsxDns
+
+    Remove all NSX DNS configuration with confirmation
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxDNS | Remove-NsxDns -NoConfirm:$true
+
+    Remove all NSX DNS configuration without confirmation
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #NSX Edge DNS to remove
+            [ValidateScript({ ValidateEdgeDNS $_ })]
+            [System.Xml.XmlElement]$DNS,
+        [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
+    }
+
+    process {
+        $edgeId = $DNS.edgeId
+        if ( -not ( $Noconfirm )) {
+            $message  = "Edge DNS removal is permanent."
+            $question = "Proceed with removal of Edge DNS $($EdgeId) ?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/edges/$($EdgeId)/dns/config"
+            Write-Progress -activity "Remove DNS for Edge $($EdgeId)"
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            Write-Progress -activity "Remove DNS for Edge $($EdgeId)" -completed
+        }
+    }
+
+    end {}
+}
 #Call Init function
 _init
