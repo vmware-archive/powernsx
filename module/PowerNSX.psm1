@@ -5829,9 +5829,9 @@ function New-NsxManager{
             [ValidateNotNullOrEmpty()]
             [ipaddress]$Gateway,
         [Parameter ( Mandatory=$True )]
-            #DNS Server for the deployed NSX Manager (One only.)
+            #DNS Server for the deployed NSX Manager
             [ValidateNotNullOrEmpty()]
-            [ipaddress]$DnsServer,
+            [ipaddress[]]$DnsServer,
         [Parameter ( Mandatory=$True )]
             #DNS Domain Name for the deployed NSX Manager.
             [ValidateNotNullOrEmpty()]
@@ -5916,7 +5916,7 @@ function New-NsxManager{
         $OvfConfiguration.common.vsm_ip_0.value            = $IpAddress
         $OvfConfiguration.common.vsm_netmask_0.value       = $Netmask
         $OvfConfiguration.common.vsm_gateway_0.value       = $Gateway
-        $OvfConfiguration.common.vsm_dns1_0.value          = $DnsServer
+        $OvfConfiguration.common.vsm_dns1_0.value          = $DnsServer.IPAddressToString -join ","
         $OvfConfiguration.common.vsm_domain_0.value        = $DnsDomain
         $OvfConfiguration.common.vsm_ntp_0.value           = $NtpServer
         $OvfConfiguration.common.vsm_isSSHEnabled.value    = $EnableSsh
