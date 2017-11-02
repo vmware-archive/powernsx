@@ -36350,9 +36350,9 @@ function Set-NsxDns {
 
     .EXAMPLE
 
-    Get-NsxEdge Edge01 | Get-NsxDns | Set-NsxDns -PrimaryDNSServer 192.0.2.2
+    Get-NsxEdge Edge01 | Get-NsxDns | Set-NsxDns -DNSServer 192.0.2.2
 
-    Set the Primary DNS Server to 192.0.2.2
+    Set the DNS Server to 192.0.2.2
 
     .EXAMPLE
 
@@ -36384,7 +36384,7 @@ function Set-NsxDns {
             [switch]$Enabled,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
-            [ipaddress]$PrimaryDNSServer,
+            [ipaddress]$DNSServer,
         [Parameter (Mandatory=$False)]
             [ValidateRange(1,8196)]
             [int]$CacheSize,
@@ -36428,8 +36428,8 @@ function Set-NsxDns {
             $_Dns.CacheSize = $CacheSize
         }
 
-        if ( $PsBoundParameters.ContainsKey('PrimaryDNSServer') ) {
-            $_Dns.dnsViews.dnsView.forwarders.ipAddress = $PrimaryDNSServer
+        if ( $PsBoundParameters.ContainsKey('DNSServer') ) {
+            $_Dns.dnsViews.dnsView.forwarders.ipAddress = $DNSServer
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableLogging') ) {
