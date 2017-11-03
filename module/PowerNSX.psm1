@@ -13852,6 +13852,63 @@ function Remove-NsxEdge {
     end {}
 }
 
+function Get-NsxEdgeStatus {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Edge status
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    This cmdlet retrieves NSX Edge Status.
+
+    The edgeStatus has the following possible states:
+    * GREEN: Health checks are successful, status is good.
+    * YELLOW: Intermittent health check failure. If health check fails for five
+      consecutive times for all appliances, status will turn RED.
+    * GREY: unknown status.
+    * RED: None of the appliances for this NSX Edge are in a serving state.
+
+    Get also the status (UP / Down / Applied / Not Configured) of each ESG Service (DNS,
+    Firewall, Routing, VPN...)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeStatus
+
+    Get NSX Edge Status
+
+    .EXAMPLE
+    ((Get-NsxEdge Edge01 | Get-NsxEdgeStatus).featureStatuses.featureStatus | where-object { $_.service -eq 'dns' }).status
+
+    Get only status of DNS service
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ ValidateEdge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+
+        $URI = "/api/4.0/edges/$($Edge.Id)/status"
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::edgeStatus")) {
+            $response.edgeStatus
+        }
+    }
+    end {}
+}
+
 function Enable-NsxEdgeSsh {
 
     <#

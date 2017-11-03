@@ -95,6 +95,7 @@ $FunctionsToExport = @(
     'Repair-NsxEdge',
     'Set-NsxEdge',
     'Remove-NsxEdge',
+    'Get-NsxEdgeStatus',
     'Enable-NsxEdgeSsh',
     'Disable-NsxEdgeSsh',
     'Set-NsxEdgeNat',
