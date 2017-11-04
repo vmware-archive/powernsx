@@ -89,6 +89,40 @@ Describe "Edge" {
         disconnect-nsxserver
     }
 
+    Context "Edge Status" {
+
+        BeforeAll{
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+            }
+        }
+
+        It "Get Edge Status" {
+            $status = Get-NsxEdge $name | Get-NsxEdgeStatus
+            $status | should not be $null
+            $status.systemStatus| should be "good"
+            $status.edgeStatus | should be "GREEN"
+            $status.publishStatus| should be "APPLIED"
+        }
+
+        It "Get Edge Service Status" {
+            $service = Get-NsxEdge $name | Get-NsxEdgeStatus
+            $service | should not be $null
+
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'firewall' }).status | should be "Applied"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'loadbalancer' }).status | should be "down"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'ipsec' }).status | should be "not_configured"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'syslog' }).status | should be "up"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'l2vpn' }).status | should be "not_configured"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'sslvpn' }).status | should be "not_configured"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'highAvailability' }).status | should be "not_configured"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'routing' }).status | should be "Applied"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'nat' }).status | should be "not_configured"
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'dns' }).status | should be "not_configured"
+        }
+
+    }
+
     Context "Interfaces" {
 
         BeforeAll{
