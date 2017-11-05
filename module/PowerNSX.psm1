@@ -36384,7 +36384,7 @@ function Set-NsxDns {
             [switch]$Enabled,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
-            [ipaddress]$DNSServer,
+            [ipaddress[]]$DNSServer,
         [Parameter (Mandatory=$False)]
             [ValidateRange(1,8196)]
             [int]$CacheSize,
@@ -36428,8 +36428,31 @@ function Set-NsxDns {
             $_Dns.CacheSize = $CacheSize
         }
 
-        if ( $PsBoundParameters.ContainsKey('DNSServer') ) {
-            $_Dns.dnsViews.dnsView.forwarders.ipAddress = $DNSServer
+        if ( Invoke-XpathQuery -Node $_Dns -QueryMethod SelectSingleNode -query "child::dnsViews/dnsView") {
+            if ( $PSBoundParameters.ContainsKey("DNSServer")) {
+                if ( Invoke-XpathQuery -Node $_Dns -QueryMethod SelectSingleNode -query "child::dnsViews/dnsView/forwarders" ) {
+
+                    write-warning "Existing DNS servers configured are removed"
+
+                    #Remove DNS Server list...
+                    $_Dns.dnsViews.dnsview.RemoveChild((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Dns -Query 'child::dnsViews/dnsView/forwarders')) | out-null
+                    [System.XML.XMLElement]$xmlDNSlist = $_Dns.OwnerDocument.CreateElement('forwarders')
+                    $_Dns.dnsViews.dnsView.Appendchild($xmlDNSlist) | out-null
+
+                    #Add list of new DNS Server
+                    foreach ($Server in $DNSServer) {
+                        Add-XmlElement -xmlRoot $xmlDNSlist -xmlElementName "ipAddress" -xmlElementText $Server.ToString()
+                    }
+                }
+                else {
+
+                    [System.XML.XMLElement]$xmlDNSlist = $_Dns.OwnerDocument.CreateElement('forwarders')
+                    $_Dns.dnsViews.dnsView.Appendchild($xmlDNSlist) | out-null
+                    foreach ($Server in $DNSServer) {
+                        Add-XmlElement -xmlRoot $xmlDNSlist -xmlElementName "ipAddress" -xmlElementText $Server.ToString()
+                    }
+                }
+            }
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableLogging') ) {
