@@ -14210,6 +14210,52 @@ function Disable-NsxEdgeSsh {
 
 }
 
+function Get-NsxcliSettings {
+
+    <#
+    .SYNOPSIS
+    Gets cliSettings (userName, Status, ssh banner...) of a ESG
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The Get-NsxcliSettings cmdlet retreives the cli Settings of the ESG
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxcliSettings
+
+    Get current cli Settings
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateEdge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        #We append the Edge-id to the associated config XML to enable pipeline workflows and
+        #consistent readable output
+
+        $_cliSettings = $Edge.cliSettings.CloneNode($True)
+        Add-XmlElement -xmlRoot $_cliSettings -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_cliSettings
+    }
+
+    end {}
+}
+
 #########
 #########
 # Edge NAT related functions
