@@ -100,6 +100,7 @@ $FunctionsToExport = @(
     'Enable-NsxEdgeSsh',
     'Disable-NsxEdgeSsh',
     'Get-NsxcliSettings',
+    'Set-NsxcliSettings',
     'Set-NsxEdgeNat',
     'Get-NsxEdgeNat',
     'Get-NsxEdgeNatRule',

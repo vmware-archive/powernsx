@@ -3464,6 +3464,39 @@ Function ValidateEdgeDns {
     else {
         throw "Specify a valid Edge DNS object."
     }
+
+}
+
+function ValidateCliSettings {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) {
+            throw "XML Element specified does not contain an edgeId property."
+        }
+
+        if ( -not ( $argument | get-member -name remoteAccess -Membertype Properties)) {
+            throw "XML Element specified does not contain an remoteAccess property."
+        }
+
+        if ( -not ( $argument | get-member -name sshLoginBannerText -Membertype Properties)) {
+            throw "XML Element specified does not contain an sshLoginBannerText property."
+        }
+
+        if ( -not ( $argument | get-member -name passwordExpiry -Membertype Properties)) {
+            throw "XML Element specified does not contain an passwordExpiry property."
+        }
+
+        $true
+    }
+    else {
+        throw "Specify a valid CliSettings Configuration object."
+    }
+
 }
 
 Function ValidateIPsec {
@@ -14251,6 +14284,129 @@ function Get-NsxcliSettings {
         $_cliSettings = $Edge.cliSettings.CloneNode($True)
         Add-XmlElement -xmlRoot $_cliSettings -xmlElementName "edgeId" -xmlElementText $Edge.Id
         $_cliSettings
+    }
+
+    end {}
+}
+
+function Set-NsxcliSettings {
+
+    <#
+    .SYNOPSIS
+    Set cliSettings (userName, Status, ssh banner...) of a ESG
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The Set-NsxcliSettings cmdlet configure the cli Settings of the ESG
+    it is mandatory to specified the password...
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1!
+
+    Change the SSH Password
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -remoteAccess:$true
+
+    Enable the SSH on ESG (you can use also use Enable-NsxSSHEdgeSSH)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -username PowerNSX
+
+    Set the SSH username to PowerNSX
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -sshLoginBannerText "My Login Banner"
+
+    Change the SSH Login Banner
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -
+
+    Change the SSH Login Banner
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateCliSettings $_ })]
+            [System.Xml.XmlElement]$cliSettings,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$userName,
+        [Parameter (Mandatory=$true)]
+            [ValidateNotNullorEmpty()]
+            [String]$password,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [boolean]$remoteAccess,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [ValidateRange(1,99999)]
+            [int]$passwordExpiry,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [string]$sshLoginBannerText,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        #Create private xml element
+        $_cliSettings = $cliSettings.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_cliSettings.edgeId
+        $_cliSettings.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_cliSettings -Query 'descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('userName') ) {
+            $_cliSettings.username = $userName
+        }
+
+        #You need ALWAYS to specified the password...
+        Add-XmlElement -xmlRoot $_cliSettings -xmlElementName "password" -xmlElementText $password
+
+        if ( $PsBoundParameters.ContainsKey('remoteAccess') ) {
+            if ( $remoteAccess ) {
+                $_cliSettings.remoteAccess = "true"
+            } else {
+                $_cliSettings.remoteAccess = "false"
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('passwordExpiry') ) {
+            $_cliSettings.passwordExpiry = $passwordExpiry
+        }
+
+        if ( $PsBoundParameters.ContainsKey('sshLoginBannerText') ) {
+            $_cliSettings.sshLoginBannerText = $sshLoginBannerText
+        }
+
+        $URI = "/api/4.0/edges/$($EdgeId)/clisettings"
+        $body = $_cliSettings.OuterXml
+
+        Write-Progress -activity "Update Edge Services Gateway (cliSettings) $($edgeId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        Write-Progress -activity "Update Edge Services Gateway (cliSettings) $($edgeId)" -completed
+        Get-NsxEdge -objectId $($edgeId)  -connection $connection | Get-NsxcliSettings
     }
 
     end {}
