@@ -30253,8 +30253,9 @@ function New-NsxLoadBalancerPool {
             write-warning "Load Balancer feature is not enabled on edge $($edgeId). Use Set-NsxLoadBalancer -Enabled to enable."
         }
 
-        [System.XML.XMLElement]$xmlPool = $_LoadBalancer.OwnerDocument.CreateElement("pool")
-        $_LoadBalancer.appendChild($xmlPool) | out-null
+        [System.XML.XmlDocument]$xmldoc = New-Object System.XML.XmlDocument
+        [System.XML.XMLElement]$xmlPool = $xmldoc.CreateElement("pool")
+        $xmldoc.appendChild($xmlPool) | out-null
 
         Add-XmlElement -xmlRoot $xmlPool -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlPool -xmlElementName "description" -xmlElementText $Description
@@ -30272,11 +30273,11 @@ function New-NsxLoadBalancerPool {
             }
         }
 
-        $URI = "/api/4.0/edges/$EdgeId/loadbalancer/config"
+        $URI = "/api/4.0/edges/$EdgeId/loadbalancer/config/pools"
         $body = $_LoadBalancer.OuterXml
 
         Write-Progress -activity "Update Edge Services Gateway $($EdgeId)" -status "Load Balancer Config"
-        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        $null = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
         write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
 
         $UpdatedEdge = Get-NsxEdge -objectId $($EdgeId) -connection $connection
