@@ -798,36 +798,36 @@ if ( $nukeit -and ( -not $buildnsx ) ) {
 	Write-Output "Clean up started..." | timestamp
 
 	Write-Output "  -> Stopping vApp" | timestamp
-	Get-VApp | ? {$_.name -match ($vAppName)} | Stop-VApp -Force -Confirm:$false | out-null
+	Get-VApp | ? {$_.name -eq ($vAppName)} | Stop-VApp -Force -Confirm:$false | out-null
 	Write-Output "  -> Removing vApp" | timestamp
-	Get-VApp | ? {$_.name -match ($vAppName)} | Remove-VApp -DeletePermanently -Confirm:$false | out-null
+	Get-VApp | ? {$_.name -eq ($vAppName)} | Remove-VApp -DeletePermanently -Confirm:$false | out-null
 	
     Write-Output "  -> Deleting edges" | timestamp
-	Get-NsxEdge | ? {$_.name -match ($EdgeName)} | Remove-NsxEdge -Confirm:$false | out-null
-	Get-NsxLogicalRouter | ? {$_.name -match ($LdrName)} | Remove-NsxLogicalRouter -Confirm:$false | out-null
+	Get-NsxEdge | ? {$_.name -eq ($EdgeName)} | Remove-NsxEdge -Confirm:$false | out-null
+	Get-NsxLogicalRouter | ? {$_.name -eq ($LdrName)} | Remove-NsxLogicalRouter -Confirm:$false | out-null
 	#Start-Sleep 10
 
 	Write-Output "  -> Deleting DFW rules" | timestamp
-	Get-NsxFirewallSection | ? {$_.name -match ($vAppName)} | Remove-NsxFirewallSection -force -Confirm:$false | out-null
+	Get-NsxFirewallSection | ? {$_.name -eq ($vAppName)} | Remove-NsxFirewallSection -force -Confirm:$false | out-null
 
 	Write-Output "  -> Deleting security tags" | timestamp
-	Get-NsxSecurityTag | ? {$_.name -match ($vAppName)} | Remove-NsxSecurityTag -Confirm:$false | out-null
+	Get-NsxSecurityTag | ? {$_.name -eq ($vAppName)} | Remove-NsxSecurityTag -Confirm:$false | out-null
 
 	Write-Output "  -> Deleting IP sets" | timestamp
-	Get-NsxIpSet | ? {$_.name -match ($vAppName)} | Remove-NsxIpSet -Confirm:$false | out-null
+	Get-NsxIpSet | ? {$_.name -eq ($vAppName)} | Remove-NsxIpSet -Confirm:$false | out-null
 
 	Write-Output "  -> Deleting security groups" | timestamp
-	Get-NsxSecurityGroup | ? {$_.name -match ($vAppName)} | Remove-NsxSecurityGroup -Confirm:$false | out-null
+	Get-NsxSecurityGroup | ? {$_.name -eq ($vAppName)} | Remove-NsxSecurityGroup -Confirm:$false | out-null
 
 	Write-Output "  -> Deleting service definitions" | timestamp
-	Get-NsxService | ? {$_.name -match ($vAppName)} | Remove-NsxService -Confirm:$false | out-null
+	Get-NsxService | ? {$_.name -eq ($vAppName)} | Remove-NsxService -Confirm:$false | out-null
 	
 	Write-Output "  -> Deleting switches" | timestamp
-	Get-NsxLogicalSwitch | ? {$_.name -match ($TransitLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -match ($WebLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -match ($AppLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -match ($DbLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -match ($MgmtLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+	Get-NsxLogicalSwitch | ? {$_.name -eq ($TransitLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+	Get-NsxLogicalSwitch | ? {$_.name -eq ($WebLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+	Get-NsxLogicalSwitch | ? {$_.name -eq ($AppLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+	Get-NsxLogicalSwitch | ? {$_.name -eq ($DbLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+	Get-NsxLogicalSwitch | ? {$_.name -eq ($MgmtLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
 	
 	Write-Output "Clean up finished.`n" | timestamp
 
