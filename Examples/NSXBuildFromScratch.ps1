@@ -67,9 +67,9 @@ $NsxManagerOVF = "C:\Temp\VMware-NSX-Manager-6.2.6-4977495.ova"
 $NsxLicenseKey = ""
 $NsxManagerName = "nsx-m-01a"
 $NsxManagerPassword = "VMware1!"
-$NsxManagerIpAddress = "192.168.110.15"
-$ControllerPoolStartIp = "192.168.110.201"
-$ControllerPoolEndIp = "192.168.110.203"
+$NsxManagerIpAddress = "192.168.100.201"
+$ControllerPoolStartIp = "192.168.100.202"
+$ControllerPoolEndIp = "192.168.100.204"
 $ControllerPassword = "VMware1!VMware1!"
 $SegmentPoolStart = "5000"
 $SegmentPoolEnd = "5999"
@@ -79,48 +79,48 @@ $TransportZoneName = "TransportZone1"
 $vCenterServer = "vc-01a.corp.local"
 $vCenterUserName = "administrator@vsphere.local"
 $vCenterPassword = "VMware1!"
-$MgmtClusterName = "Management Cluster"
-$ManagementDatastoreName = "ds-site-a-nfs01"
-$EdgeVdsName = "MGMT-Comp-Edge-VDS"
-$ComputeClusterName = "Compute Cluster 1"
-$ComputeVdsName = $EdgeVdsName
-$EdgeClusterName = "Edge Cluster"
+$MgmtClusterName = "Mgmt01"
+$ManagementDatastoreName = "MgmtData"
+$MgmtVdsName = "DSwitch"
+$ComputeClusterName = "Mgmt01"
+$ComputeVdsName = "DSwitch"
+$EdgeClusterName = $MgmtClusterName
 $EdgeDatastoreName = $ManagementDatastoreName
-$ComputeDatastoreName = $ManagementDatastoreName
+$ComputeDatastoreName = "MgmtData"
 
 # Network Details
 $ManagementNetworkPortGroupName = "Internal"
 $ManagementNetworkSubnetMask = "255.255.255.0"
 $ManagementNetworkSubnetPrefixLength = "24"
-$ManagementNetworkGateway = "192.168.110.1"
+$ManagementNetworkGateway = "192.168.100.1"
 
 $VxlanMtuSize = 1600
 
-$EdgeVdsVxlanNetworkSubnetMask = "255.255.255.0"
-$EdgeVdsVxlanNetworkSubnetPrefixLength = "24"
-$EdgeVdsVxlanNetworkGateway = "192.168.250.1"
-$EdgeVdsVxlanNetworkVlanId = "0"
-$EdgeVdsVxlanVlanID = "0"
-$EdgeVdsHostVtepCount = 1
-$EdgeVdsVtepPoolStartIp = "192.168.250.51"
-$EdgeVdsVtepPoolEndIp = "192.168.250.57"
+$MgmtVdsVxlanNetworkSubnetMask = "255.255.255.0"
+$MgmtVdsVxlanNetworkSubnetPrefixLength = "24"
+$MgmtVdsVxlanNetworkGateway = "172.16.110.1"
+$MgmtVdsVxlanNetworkVlanId = "0"
+$MgmtVdsVxlanVlanID = "0"
+$MgmtVdsHostVtepCount = 1
+$MgmtVdsVtepPoolStartIp = "172.16.110.201"
+$MgmtVdsVtepPoolEndIp = "172.16.110.204"
 
 $ComputeVdsVxlanNetworkSubnetMask = "255.255.255.0"
 $ComputeVdsVxlanNetworkSubnetPrefixLength = "24"
-$ComputeVdsVxlanNetworkGateway = "192.168.150.1"
+$ComputeVdsVxlanNetworkGateway = "172.16.111.1"
 $ComputeVdsVxlanNetworkVlanId = "0"
 $ComputeVdsVxlanVlanID = "0"
 $ComputeVdsHostVtepCount = 1
-$ComputeVdsVtepPoolStartIp = "192.168.150.51"
-$ComputeVdsVtepPoolEndIp = "192.168.150.57"
+$ComputeVdsVtepPoolStartIp = "172.16.111.201"
+$ComputeVdsVtepPoolEndIp = "172.16.111.204"
 
 # Miscellaneous
-$SyslogServer = "192.168.110.31"
+$SyslogServer = "192.168.100.254"
 $SysLogPort = 514
 $SysLogProtocol = "TCP"
-$NtpServer = "192.168.110.10"
-$DnsServer1 = "192.168.110.10"
-$DnsServer2 = "192.168.110.10"
+$NtpServer = "192.168.100.10"
+$DnsServer1 = "192.168.100.10"
+$DnsServer2 = "192.168.100.10"
 $DnsSuffix = "corp.local"
 
 # Reduce NSX Manager Memory - in GB.  Comment variable out for default.
@@ -129,9 +129,9 @@ $NsxManagerMem = 12
 ##########################################################################
 # Physical to Virtual Connectivity On-Ramp
 #
-$EdgeUplinkPrimaryAddress = "192.168.0.214"
-$EdgeUplinkSecondaryAddress = "192.168.0.215"
-$EdgeDefaultGW = "192.168.0.1"
+$EdgeUplinkPrimaryAddress = "192.168.100.192"
+$EdgeUplinkSecondaryAddress = "192.168.100.193"
+$EdgeDefaultGW = "192.168.100.1"
 $EdgeUplinkNetworkName = $ManagementNetworkPortGroupName
 $AppliancePassword = "VMware1!VMware1!"
 $3TiervAppLocation = "C:\Temp\3_Tier-App-v1.6.ova"
@@ -240,7 +240,7 @@ filter timestamp {"$(Get-Date -Format G): $_"}
 #Get Connection required.
 try {
     if ( -not $buildnsx ) {
-        write-Output "`nConnecting to NSX Manager $NsxManagerName ..." | timestamp
+        Write-Output "`nConnecting to NSX Manager $NsxManagerName ..." | timestamp
         Connect-NsxServer -server $NsxManagerIpAddress -Username 'admin' -password $NsxManagerPassword -VIUsername $vCenterUserName -VIPassword $vCenterPassword -ViWarningAction Ignore -DebugLogging | out-null
     }
     else {
@@ -262,7 +262,7 @@ try {
     $EdgeDatastore = get-datastore $EdgeDatastoreName -errorAction Stop
     $MgmtDatastore = Get-Datastore $ManagementDatastoreName -errorAction Stop
     $ManagementPortGroup = Get-VdPortGroup $ManagementNetworkPortGroupName -errorAction Stop
-    $EdgeVds = Get-VdSwitch $EdgeVdsName -errorAction Stop
+    $MgmtVds = Get-VdSwitch $MgmtVdsName -errorAction Stop
     $CompVds = $ComputeCluster | get-vmhost | Get-VdSwitch $ComputeVdsName -errorAction Stop
     if ( -not $CompVds ) { throw "Compute cluster hosts are not configured with compute VDSwitch."}
     $ComputeDatastore = get-datastore $ComputeDatastoreName -errorAction Stop
@@ -459,7 +459,7 @@ if ( $buildnsx ) {
 
     try {
         #This is assuming two or more NICs on the uplink PG on this VDS.  No LAG required, and results in load balance accross multiple uplink NICs
-        New-NsxVdsContext -VirtualDistributedSwitch $EdgeVds -Teaming "LOADBALANCE_SRCID" -Mtu $VxlanMtuSize | out-null
+        New-NsxVdsContext -VirtualDistributedSwitch $MgmtVds -Teaming "LOADBALANCE_SRCID" -Mtu $VxlanMtuSize | out-null
         New-NsxVdsContext -VirtualDistributedSwitch $CompVds -Teaming "LOADBALANCE_SRCID" -Mtu $VxlanMtuSize | out-null
 
     }
@@ -480,12 +480,12 @@ if ( $buildnsx ) {
 
         Write-Output "  -> Creating IP Pools for VTEP addressing" | timestamp
 
-        $MgmtVtepPool = New-NsxIpPool -Name "Edge_VTEP" -Gateway $EdgeVdsVxlanNetworkGateway -SubnetPrefixLength $EdgeVdsVxlanNetworkSubnetPrefixLength -DnsServer1 $DnsServer1 -DnsServer2 $DnsServer2 -DnsSuffix $DnsSuffix -StartAddress $EdgeVdsVtepPoolStartIp -EndAddress $EdgeVdsVtepPoolEndIp
+        $MgmtVtepPool = New-NsxIpPool -Name "Edge_VTEP" -Gateway $MgmtVdsVxlanNetworkGateway -SubnetPrefixLength $MgmtVdsVxlanNetworkSubnetPrefixLength -DnsServer1 $DnsServer1 -DnsServer2 $DnsServer2 -DnsSuffix $DnsSuffix -StartAddress $MgmtVdsVtepPoolStartIp -EndAddress $MgmtVdsVtepPoolEndIp
 
         $Compute01VtepPool = New-NsxIpPool -Name "Compute_VTEP" -Gateway $ComputeVdsVxlanNetworkGateway -SubnetPrefixLength $ComputeVdsVxlanNetworkSubnetPrefixLength -DnsServer1 $DnsServer1 -DnsServer2 $DnsServer2 -DnsSuffix $DnsSuffix -StartAddress $ComputeVdsVtepPoolStartIp -EndAddress $ComputeVdsVtepPoolEndIp
 
         Write-Output "  -> Preparing cluster $MgmtClusterName and configuring VXLAN" | timestamp
-        Get-Cluster $MgmtCluster | New-NsxClusterVxlanConfig -VirtualDistributedSwitch $EdgeVds -Vlan $EdgeVdsVxlanVlanID -VtepCount $EdgeVdsHostVtepCount -ipPool $MgmtVtepPool| out-null
+        Get-Cluster $MgmtCluster | New-NsxClusterVxlanConfig -VirtualDistributedSwitch $MgmtVds -Vlan $MgmtVdsVxlanVlanID -VtepCount $MgmtVdsHostVtepCount -ipPool $MgmtVtepPool| out-null
 
         Write-Output "  -> Preparing cluster $ComputeClusterName and configuring VXLAN" | timestamp
         Get-Cluster $ComputeCluster | New-NsxClusterVxlanConfig -VirtualDistributedSwitch $CompVds -Vlan $ComputeVdsVxlanVlanID -VtepCount $ComputeVdsHostVtepCount -ipPool $Compute01VtepPool | out-null
