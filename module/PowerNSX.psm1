@@ -1,4 +1,4 @@
-#Powershell NSX module
+﻿#Powershell NSX module
 #Nick Bradford
 #nbradford@vmware.com
 #Version - See Manifest for version details.
@@ -2793,7 +2793,9 @@ Function ValidateLoadBalancerMemberSpec {
             throw "XML Element specified does not contain a name property.  Create with New-NsxLoadbalancerMemberSpec"
         }
         if ( -not ( $argument | get-member -name ipAddress -Membertype Properties)) {
-            throw "XML Element specified does not contain an ipAddress property.  Create with New-NsxLoadbalancerMemberSpec"
+            if ( -not ( $argument | get-member -name groupingObjectId -MemberType Properties ) ) {
+                throw "XML Element specified does not contain an ipAddress property.  Create with New-NsxLoadbalancerMemberSpec"
+            }
         }
         if ( -not ( $argument | get-member -name weight -Membertype Properties)) {
             throw "XML Element specified does not contain a weight property.  Create with New-NsxLoadbalancerMemberSpec"
@@ -31348,7 +31350,7 @@ function New-NsxLoadBalancerApplicationRule {
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $LoadBalancer.edgeId
 
-        if ( -not $_LoadBalancer.enabled -eq 'true' ) {
+        if ( -not $LoadBalancer.enabled -eq 'true' ) {
             write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
         }
         #Create a new XML document. Use applicationRule as root.
