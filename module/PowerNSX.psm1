@@ -51,7 +51,8 @@ $script:AllServicesValidSourcePort = @( "FTP", "MS_RPC_TCP", "MS_RPC_UDP",
 $Script:AllValidIcmpTypes = @("echo-reply", "destination-unreachable",
     "source-quench", "redirect", "echo-request", "time-exceeded",
     "parameter-problem", "timestamp-request", "timestamp-reply",
-    "address-mask-request", "address-mask-reply"
+    "address-mask-request", "address-mask-reply","router-solicitation",
+    "router-advertisement"
 )
 
 set-strictmode -version Latest
