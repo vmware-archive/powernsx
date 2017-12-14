@@ -32002,7 +32002,7 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
             [object[]]$Destination = "PoliciesSecurityGroup",
         [Parameter (Mandatory=$false)]
             # Service defined by the rule.  Defaults to 'any'.  Can be any valid PowerNSX Service object.
-            [ValidateScript({ ValidateService $_ })]
+            [ValidateScript({ ValidateServiceOrServiceGroup $_ })]
             [object[]]$Service,
         [Parameter (Mandatory=$false)]
             # Enable logging.  Defaults to disabled.
