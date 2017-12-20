@@ -726,6 +726,49 @@ Describe "Edge" {
         }
     }
 
+    Context "CliSettings" {
+
+        it "Can disable SSH" {
+            $edge = Get-NsxEdge $name
+            #When deploy pstester ESG, the SSH is enabled
+            $edge.cliSettings.remoteAccess | should be "true"
+            #Need Always to set a password to change cliSettings
+            Get-NsxEdge $name | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -remoteAccess:$false
+            $edge = Get-NsxEdge $name
+            $edge.cliSettings.remoteAccess | should be "false"
+        }
+
+        it "Can enable SSH" {
+            Get-NsxEdge $name | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -remoteAccess:$true
+            $edge = Get-NsxEdge $name
+            $edge.cliSettings.remoteAccess | should be "true"
+        }
+
+        it "Change (SSH) username" {
+            $edge = Get-NsxEdge $name
+            #By default it is admin
+            $edge.cliSettings.userName | should be "admin"
+            Get-NsxEdge $name | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -userName powernsx
+            $edge = Get-NsxEdge $name
+            $edge.cliSettings.userName | should be "powernsx"
+        }
+
+        it "Change Password Expiry" {
+            $edge = Get-NsxEdge $name
+            #By default it is 99999
+            $edge.cliSettings.passwordExpiry | should be "99999"
+            Get-NsxEdge $name | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -passwordExpiry 42
+            $edge = Get-NsxEdge $name
+            $edge.cliSettings.passwordExpiry | should be "42"
+        }
+
+        it "Change sshLoginBannerText" {
+            Get-NsxEdge $name | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -sshLoginBannerText "Secure ESG SSH Access don't connect !"
+            $edge = Get-NsxEdge $name
+            $edge.cliSettings.sshLoginBannerText | should be "Secure ESG SSH Access don't connect !"
+        }
+    }
+
     Context "Misc" {
 
         it "Can enable firewall via Set-NsxEdge" {
