@@ -14316,7 +14316,7 @@ function Set-NsxcliSettings {
     Enable the SSH on ESG (you can use also use Enable-NsxSSHEdgeSSH)
 
     .EXAMPLE
-    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -username PowerNSX
+    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -username powernsx
 
     Set the SSH username to PowerNSX
 
@@ -14326,9 +14326,9 @@ function Set-NsxcliSettings {
     Change the SSH Login Banner
 
     .EXAMPLE
-    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -
+    Get-NsxEdge Edge01 | Get-NsxcliSettings | Set-NsxCliSettings -password Vmware1!Vmware1! -passwordExpiry 30
 
-    Change the SSH Login Banner
+    Change the SSH Password Expiration to 30 (days)
 
     #>
 
