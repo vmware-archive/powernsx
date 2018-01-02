@@ -31530,7 +31530,7 @@ function New-NsxSecurityPolicy   {
     .DESCRIPTION
     A security policy is a policy construct that can define one or more rules in 
     several different categories, that can then be applied to an arbitrary 
-    number of Security Groups in order to enforceme the defined policy.
+    number of Security Groups in order to enforce the defined policy.
     
     The three categories of rules that can be included in a Security Policy are:
      
@@ -32803,6 +32803,122 @@ function Remove-NsxSecurityPolicyAssignment   {
         }
     }
     end {} 
+}
+
+function Get-NsxSecurityPolicyRule {
+    
+    <#
+    .SYNOPSIS
+    Retrieves rules defined on the specified Security Policy.
+
+    .DESCRIPTION
+    A security policy is a policy construct that can define one or more rules in 
+    several different categories, that can then be applied to an arbitrary 
+    number of Security Groups in order to enforce the defined policy.
+    
+    The three categories of rules that can be included in a Security Policy are:
+     
+    - Guest Introspection - data security, anti-virus, and vulnerability 
+      management and rules based on third party Guest Introspection capability. 
+    - Firewall rules - creates appropriate distributed firewall rules when 
+      the policy is applied to a security group.
+    - Network introspection services - Thirdparty firewall, IPS/IDS etc.
+
+    Get-NsxSecurityPolicyRule retrieves firewall, guest introspection and 
+    network introspection rules defined on the specified policy.
+
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule
+    
+    Retrieves all defined rules from the security policy SecPol01
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall
+    
+    Retrieves all defined firewall rules from the security policy SecPol01
+    
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Network
+    
+    Retrieves all defined network introspection rules from the security policy SecPol01
+    
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Guest
+    
+    Retrieves all defined guest introspection rules from the security policy SecPol01
+    
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -Name TestRule
+    
+    Retrieves the rule called TestRule from the security policy SecPol01
+    
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -Index 1
+    
+    Retrieves the first rule defined from the security policy SecPol01
+    
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
+
+    param (
+        [Parameter(Mandatory = $true, ValueFromPipeLine)]
+            #Security Policy to retrieve rules from.
+            [ValidateScript({ ValidateSecurityPolicy $_ })]
+            [System.Xml.XmlElement]$SecurityPolicy,
+        [Parameter()]
+            #Type of rule to retrieve.  Defaults to all.
+            [ValidateSet("All","Firewall","Network","Guest")]
+            [String]$RuleType="All",
+        [Parameter(Position=1)]
+            #Name of rule to retrieve.
+            [ValidateNotNullOrEmpty()]
+            [String]$Name,
+        [Parameter()]
+            #Name of rule to retrieve.
+            [ValidateNotNullOrEmpty()]
+            [int]$Index,
+        [Parameter(Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+         #Define the XPATH search criteria based on RuleType.
+         Switch($RuleType) {
+            "All" { $Query = "actionsByCategory/action" } 
+            "Firewall" { $Query = "actionsByCategory/action[@class='firewallSecurityAction']" } 
+            "Network" { $Query = "actionsByCategory/action[@class='trafficSteeringSecurityAction']" } 
+            "Guest" { $Query = "actionsByCategory/action[@class='endPointSecurityAction']" } 
+        }
+
+        if ($PSBoundParameters.ContainsKey("Name"))  { 
+            $Query += "[name=`'$Name`']"
+        }
+
+        if ($PSBoundParameters.ContainsKey("Index"))  { 
+            $Query += "[$index]"
+        }
+
+        write-debug "Using xpath query $Query"
+        $rules = invoke-xpathquery -Node $SecurityPolicy -querymethod SelectNodes -query $Query 
+
+        $count = 1
+        foreach ( $rule in $rules ) { 
+            add-xmlelement -xmlRoot $rule -xmlElementName "index" -xmlElementText $count
+            $count++
+        }
+
+        $rules
+
+    }
+
+    end {}
 }
 
 #############################################################
