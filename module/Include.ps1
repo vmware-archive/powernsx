@@ -238,6 +238,7 @@ $FunctionsToExport = @(
     'New-NsxSecurityPolicyNetworkIntrospectionSpec',
     'New-NsxSecurityPolicyAssignment',
     'Remove-NsxSecurityPolicyAssignment',
+    'Get-NsxSecurityPolicyRule',
     'Get-NsxSecurityGroupEffectiveMember',
     'Get-NsxServiceDefinition',
     'Get-NsxServiceProfile',
