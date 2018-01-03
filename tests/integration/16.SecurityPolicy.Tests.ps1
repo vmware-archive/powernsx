@@ -343,13 +343,13 @@ Describe "SecurityPolicy" {
 
         it "Can create a security policy firewall spec with both service and servicegroups" {
             $svc1 = New-NsxService -Name ($SpNamePrefix + "svc4") -port 22 -protocol TCP
-            $svcgrp2 = New-NsxServiceGroup -Name ($SpNamePrefix + "svcgrp2")
-            $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svc1,$svcgrp2
+            $svcgrp3 = New-NsxServiceGroup -Name ($SpNamePrefix + "svcgrp3")
+            $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svc1,$svcgrp3
             $spec.class | should be "firewallSecurityAction"
             $spec.action | should be "allow"
             $spec.isEnabled | should be "true"
             $spec.applications.application.objectId -contains $svc1.objectId | should be $true
-            $spec.applications.application.objectId -contains $svcgrp2.objectId | should be $true
+            $spec.applications.application.objectId -contains $svcgrp3.objectId | should be $true
         }
 
         it "Can create a disabled security policy firewall spec" {
