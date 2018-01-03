@@ -151,14 +151,14 @@ Describe "SecurityPolicy" {
             Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
             Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
-            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
 
         AfterAll { 
             Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
             Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
-            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
         
         it "Can create a security policy firewall spec - intra - mode1 (Source/Dest w/PSG based)" {
@@ -342,7 +342,7 @@ Describe "SecurityPolicy" {
         }
 
         it "Can create a security policy firewall spec with both service and servicegroups" {
-            $svc1 = New-NsxService -Name ($SpNamePrefix + "svc4")
+            $svc1 = New-NsxService -Name ($SpNamePrefix + "svc4") -port 22 -protocol TCP
             $svcgrp2 = New-NsxServiceGroup -Name ($SpNamePrefix + "svcgrp2")
             $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svc1,$svcgrp2
             $spec.class | should be "firewallSecurityAction"
