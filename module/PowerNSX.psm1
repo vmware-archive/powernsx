@@ -3394,7 +3394,42 @@ Function ValidateSecurityPolicy {
         $true
     }
     else {
-        throw "Specify a valid Service Profile object."
+        throw "Specify a valid Security Policy object."
+    }
+}
+
+Function ValidateSecPolRule {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+        if ( -not ( $argument | get-member -name objectId -Membertype Properties)) {
+            throw "Object specified contains no objectId property.  Specify a valid Security Policy Rule object."
+        }
+        if ( -not ( $argument | get-member -name type -Membertype Properties)) {
+            throw "Object specified contains no type property.  Specify a valid Security Policy Rule object."
+        }
+        if ( -not ( ($argument.type.typename -eq "FirewallPolicyAction") -or 
+                    ($argument.type.typename -eq "endpointSecurityAction") -or
+                    ($argument.type.typename -eq "trafficSteeringSecurityAction") )) {
+            throw "Object specified is of the wrong type $($argument.type.typename).  Specify a valid Security Policy Rule object."
+        }
+        #Because we frequently rely on the parent node relationship to do editing of the parent policy xml, we have to make sure user hasnt concocted a rule out of thin air.
+        try { 
+            $ParentPolicyObjectId = $argument.ParentNode.ParentNode.objectId
+            if ( -not $ParentPolicyObjectId ) { 
+                throw "No parent node objectId found."
+            }
+        } 
+        catch { 
+            throw "An invalid policy rule was specified.  Ensure a policy rule as retrieved by Get-NsxSecurityPolicyRule is specified. $_"
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Security Policy Rule object."
     }
 }
 
@@ -32854,9 +32889,9 @@ function Get-NsxSecurityPolicyRule {
     Retrieves the rule called TestRule from the security policy SecPol01
     
     .EXAMPLE
-    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -Index 1
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -ObjectId firewallpolicyaction-10
     
-    Retrieves the first rule defined from the security policy SecPol01
+    Retrieves the specified from the security policy SecPol01
     
     #>
 
@@ -32878,7 +32913,7 @@ function Get-NsxSecurityPolicyRule {
         [Parameter()]
             #Name of rule to retrieve.
             [ValidateNotNullOrEmpty()]
-            [int]$Index,
+            [string]$ObjectId,
         [Parameter(Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -32901,25 +32936,511 @@ function Get-NsxSecurityPolicyRule {
             $Query += "[name=`'$Name`']"
         }
 
-        if ($PSBoundParameters.ContainsKey("Index"))  { 
-            $Query += "[$index]"
+        if ($PSBoundParameters.ContainsKey("ObjectId"))  { 
+            $Query += "[objectId=`'$ObjectId`']"
         }
-
         write-debug "Using xpath query $Query"
-        $rules = invoke-xpathquery -Node $SecurityPolicy -querymethod SelectNodes -query $Query 
-
-        $count = 1
-        foreach ( $rule in $rules ) { 
-            add-xmlelement -xmlRoot $rule -xmlElementName "index" -xmlElementText $count
-            $count++
-        }
-
-        $rules
-
+        invoke-xpathquery -Node $SecurityPolicy -querymethod SelectNodes -query $Query 
     }
 
     end {}
 }
+
+function Set-NsxSecurityPolicyRule   {
+
+    <#
+    .SYNOPSIS
+    Modifies the configuration of an existing Security Policy Rule.
+
+    .DESCRIPTION
+    A security policy is a policy construct that can define one or more rules in
+    several different categories, that can then be applied to an arbitrary 
+    number of Security Groups in order to enforce the defined policy.
+    
+    The three categories of rules that can be included in a Security Policy are:
+     
+    - Guest Introspection - data security, anti-virus, and vulnerability 
+      management and rules based on third party Guest Introspection capability. 
+    - Firewall rules - creates appropriate distributed firewall rules when 
+      the policy is applied to a security group.
+    - Network introspection services - Thirdparty firewall, IPS/IDS etc.
+
+    Set-NsxSecurityPolicyRule modifies an existing firewall, guest introspection 
+    or network introspection rule as retrieved by Get-NsxSecurityPolicyRule
+        
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name AdminSsh | Set-NsxSecurityPolicyRule -Action Allow
+
+    Sets the action to allow on the firewall rule called AdminSsh within the security policy SecPol01
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name AdminSsh | Set-NsxSecurityPolicyRule -Logging Enabled
+
+    Enables logging on the firewall rule called AdminSsh within the security policy SecPol01
+    #>
+
+
+
+    [CmdletBinding(DefaultParameterSetName = "Firewall")]
+    param (
+
+        [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            # Security Policy Rule to reconfigure
+            [ValidateScript( { ValidateSecPolRule $_ })]
+            [System.Xml.XmlElement]$Rule,
+        [Parameter ()]
+            # Set the name of the specified rule
+            [ValidateNotNullOrEmpty()]
+            [String]$Name,
+        [Parameter ()]
+            # Set the description of the specified rule
+            [ValidateNotNullOrEmpty()]
+            [String]$Description,
+        [Parameter (ParameterSetName = "Firewall")]
+            # Set the Action of the specified rule
+            [ValidateSet("Allow", "Block", "Reject")]
+            [String]$Action,
+        [Parameter (ParameterSetName = "Firewall")]
+            # Configure logging behaviour for the specified rule
+            [Boolean]$LoggingEnabled,
+        [Parameter (ParameterSetName = "Firewall")]
+            # Enable or disable the specified rule.
+            [Boolean]$Enabled,
+        [Parameter ()]
+            # Disable confirmation prompt
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+      )
+
+    begin {
+
+        # We process all rule modifications offline as part of pipeline processing, then we put the updated policies to the api in the end{} block to avoid overwriting changes to different rules in the same policy..
+        # Save modified policies in a hash table keyed by id
+        write-debug "$($MyInvocation.MyCommand.Name) : Initialising Policy cache"
+        $ModifiedPolicies = @{}
+        $ModifiedRules = @()
+    }
+
+    process {
+        $ParentPolicyObjectId = $Rule.ParentNode.ParentNode.objectId
+
+        #The Rule the user specified is only used the first time we edit a given policy.  Otherwise, it is just a key to the cached copy - in which case, we modify the rule as it exists in the cached copy of the policy.
+        if ( $ModifiedPolicies.ContainsKey($ParentPolicyObjectId )) {
+            
+            if ( $PSCmdlet.ParameterSetName -eq "Move") {
+                #Doesnt make sense to move multiple rules at the same time.
+                throw "Moving multiple rules within a single policy is not supported.  Ensure only a single rule is specified to be moved."
+            }
+            
+            # Policy has already been updated in this pipeline, so we modify the already updated xml.
+            $PolicyXml = $ModifiedPolicies[$ParentPolicyObjectId]
+            write-debug "$($MyInvocation.MyCommand.Name) : Retrieved specified rules parent policy from the policy cache. Policy XML is : $($PolicyXML | format-xml)"
+        }
+        else {
+            # We havent touched the policy yet, so we have to get it.  We clone to avoid modifying the original.
+            $PolicyXml = $Rule.ParentNode.ParentNode.CloneNode($true)
+            $ModifiedPolicies.Add($ParentPolicyObjectId, $PolicyXml)
+            write-debug "$($MyInvocation.MyCommand.Name) : Specified rules parent policy not found in policy cache so it has been added."
+        }
+
+        #Now get our xml from the cached policy.
+        $_Rule = invoke-xpathquery -querymethod SelectSingleNode -Node $PolicyXml -query "actionsByCategory/action[objectId=`'$($Rule.objectId)`']"
+        if ( -not $_Rule ) { 
+            #This should never happen
+            throw "An unexpected error occured retrieving a rule from cache.  Please report this as a bug at https://github.com/vmware/powernsx"
+        }
+        write-debug "$($MyInvocation.MyCommand.Name) : Retrieved rule from cache: $( $_Rule | format-xml )"
+        
+        #And do our updates...
+        switch ( $PSCmdlet.ParameterSetName ) { 
+            "Firewall" { 
+                if ( $PSBoundParameters.ContainsKey("Name")) {
+                    if ( -not ( invoke-xpathquery -querymethod SelectSingleNode -Node $_Rule -query "descendant::name" )) { 
+                        Add-XmlElement -xmlRoot $_Rule -xmlElementName "name" -xmlElementText $Name
+                    }
+                    else { 
+                        $_Rule.name= $Name
+                    }
+                }
+
+                if ( $PSBoundParameters.ContainsKey("Description")) {
+                    if ( -not ( invoke-xpathquery -querymethod SelectSingleNode -Node $_Rule -query "descendant::description" )) { 
+                        Add-XmlElement -xmlRoot $_Rule -xmlElementName "description" -xmlElementText $description
+                    }
+                    else { 
+                        $_Rule.description = $description
+                    }
+                }
+
+                if ( $PSBoundParameters.ContainsKey("Action")) {
+                    $_Rule.action = $Action.tolower()
+                }
+
+                if ( $PSBoundParameters.ContainsKey("LoggingEnabled")) {
+                    $_Rule.logged = $LoggingEnabled.ToString().ToLower()
+                }
+
+                if ( $PSBoundParameters.ContainsKey("State")) {
+                    $_Rule.isEnabled = $Enabled.ToString().ToLower()
+                }
+            }
+        }
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Rule processing complete.  Updated rule xml is : $($_Rule.OuterXml)"
+        $ModifiedRules += $_Rule.objectId
+
+    }
+
+    end {
+
+        foreach ( $Policy in $ModifiedPolicies.Values ) {
+            if ( -Not $Noconfirm ) {
+                $message  = "Modification of the specified rule(s) will affect the security posture of all Security Groups that have the parent Security Policy applied."
+                $question = "Proceed with update of policy $($Policy.objectId)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                write-debug "$($MyInvocation.MyCommand.Name) : Putting updated policy from the policy cache for $($Policy.objectId)"
+                #Do the post
+                $body = $Policy.OuterXml
+                $URI = "/api/2.0/services/policy/securitypolicy/$($Policy.objectId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                if ($response.StatusCode -eq "200"){
+                    [System.Xml.XmlDocument]$Doc = $response.content
+                    $Policy = $Doc.securityPolicy
+                    $AllPolicyRules = Invoke-XpathQuery -QueryMethod SelectNodes -Node $Policy -Query "actionsByCategory/action"
+                    $AllPolicyRules | Where-Object { $ModifiedRules -contains $_.objectId }
+                }
+            }
+        }
+    }
+}
+
+function Move-NsxSecurityPolicyRule   {
+
+    <#
+    .SYNOPSIS
+    Moves the specified rule to a new location within its parent Security Policy.
+
+    .DESCRIPTION
+    A security policy is a policy construct that can define one or more rules in
+    several different categories, that can then be applied to an arbitrary 
+    number of Security Groups in order to enforce the defined policy.
+    
+    The three categories of rules that can be included in a Security Policy are:
+     
+    - Guest Introspection - data security, anti-virus, and vulnerability 
+      management and rules based on third party Guest Introspection capability. 
+    - Firewall rules - creates appropriate distributed firewall rules when 
+      the policy is applied to a security group.
+    - Network introspection services - Thirdparty firewall, IPS/IDS etc.
+
+    Move-NsxSecurityPolicyRule moves the specified rule to a new location within
+    it's parent Security Policy.  Allowed destinations are 'Top', 'Bottom' or 
+    'ToPosition', where -position must specified the desired location.
+        
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name AdminSsh | Move-NsxSecurityPolicyRule -Destination Top
+
+    Moves the specified the firewall rule called AdminSsh to the top of the security policy SecPol01's configured firewall rules.
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name AdminSsh | Move-NsxSecurityPolicyRule -Destination Bottom
+
+    Moves the specified the firewall rule called AdminSsh to the bottom of the security policy SecPol01's configured firewall rules.
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name AdminSsh | Move-NsxSecurityPolicyRule -Destination 3
+
+    Moves the specified the firewall rule called AdminSsh to be the third of security policy SecPol01's configured firewall rules.
+
+    .EXAMPLE
+    $dodgyrule = Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name DodgyRule
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name AdminSsh | Move-NsxSecurityPolicyRule -Destination $dodgyrule.executionOrder
+
+    Moves the specified the firewall rule called AdminSsh to be above the rule called DodgyRule within security policy SecPol01's configured firewall rules.
+    #>
+
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            # Security Policy Rule to reconfigure
+            [ValidateScript( { ValidateSecPolRule $_ })]
+            [System.Xml.XmlElement]$Rule,
+        [Parameter (Mandatory=$true)]
+            # Move the specified rule.  Destination parameter must be used to specify the desired location.
+            [ValidateScript( { 
+                switch -regex ($_) {
+                    "^Top$" { $true; break }
+                    "^Bottom$" { $true; break }
+                    "^\d.*$" { $true; break }
+                    default {throw "Specify position as 'Top', 'Bottom', or an integer to specify a new position.  Use an existing rules property executionOrder to move relative to an existing rule." }
+                }
+            })]
+            [string]$Destination,
+        [Parameter ()]
+            # Disable confirmation prompt
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+      )
+
+    begin {
+        # We process all rule modifications offline as part of pipeline processing, then we put the updated policies to the api in the end{} block to avoid overwriting changes to different rules in the same policy..
+        # Save modified policies in a hash table keyed by id
+        write-debug "$($MyInvocation.MyCommand.Name) : Initialising Policy cache"
+        $ModifiedPolicies = @{}
+        $ModifiedRules = @()
+    }
+
+    process {
+        $ParentPolicyObjectId = $Rule.ParentNode.ParentNode.objectId
+        
+        #The Rule the user specified is only used the first time we edit a given policy.  Otherwise, it is just a key to the cached copy - in which case, we modify the rule as it exists in the cached copy of the policy.
+        if ( $ModifiedPolicies.ContainsKey($ParentPolicyObjectId )) {
+            
+            if ( $PSCmdlet.ParameterSetName -eq "Move") {
+                #Doesnt make sense to move multiple rules at the same time.
+                throw "Moving multiple rules within a single policy is not supported.  Ensure only a single rule is specified to be moved."
+            }
+            
+            # Policy has already been updated in this pipeline, so we modify the already updated xml.
+            $PolicyXml = $ModifiedPolicies[$ParentPolicyObjectId]
+            write-debug "$($MyInvocation.MyCommand.Name) : Retrieved specified rules parent policy from the policy cache. Policy XML is : $($PolicyXML | format-xml)"
+        }
+        else {
+            # We havent touched the policy yet, so we have to get it.  We clone to avoid modifying the original.
+            $PolicyXml = $Rule.ParentNode.ParentNode.CloneNode($true)
+            $ModifiedPolicies.Add($ParentPolicyObjectId, $PolicyXml)
+            write-debug "$($MyInvocation.MyCommand.Name) : Specified rules parent policy not found in policy cache so it has been added."
+        }
+
+        #Now get our xml from the cached policy.
+        $_Rule = invoke-xpathquery -querymethod SelectSingleNode -Node $PolicyXml -query "actionsByCategory/action[objectId=`'$($Rule.objectId)`']"
+        if ( -not $_Rule ) { 
+            #This should never happen
+            throw "An unexpected error occured retrieving a rule from cache.  Please report this as a bug at https://github.com/vmware/powernsx"
+        }
+        write-debug "$($MyInvocation.MyCommand.Name) : Retrieved rule from cache: $( $_Rule | format-xml )"
+        
+        #And do our updates...
+
+        #This logic is predicated on the fact that the executionOrder text elem value reflects the xml ordering.
+        $CurrentRuleClass = $_Rule.class
+
+        #Get a ref node for the destination of the move.
+        try {
+            switch -regex ( $Destination ) { 
+                "Top" { 
+                    $refnode = invoke-xpathquery -node $PolicyXml -querymethod SelectSingleNode -Query "actionsByCategory/action[@class=`'$CurrentRuleClass`'][1]"
+                    break
+                }
+
+                "Bottom" { 
+                    $refnode = invoke-xpathquery -node $PolicyXml -querymethod SelectSingleNode -Query "actionsByCategory/action[@class=`'$CurrentRuleClass`'][last()]"
+                    break
+                }
+
+                "\d.*" { 
+
+                    $refnode = invoke-xpathquery -node $PolicyXml -querymethod SelectSingleNode -Query "actionsByCategory/action[@class=`'$CurrentRuleClass`'][$Destination]"
+                    break
+                }
+            }
+            if ( -not $refnode ) { 
+                throw "No existing rule found at number $Destination."
+            }
+        }
+        catch { 
+            throw "Specified destination is invalid.  Specify a valid destination and try again. $_"
+        }
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Ref node for new destination is $($refnode.objectId) )"
+
+        #Check user specified an actual move.
+        if ( $_Rule.objectId -eq $refnode.objectId ) { 
+            throw "Rule $($_Rule.objectId) is already at the specified location."
+        }
+
+        #Move the node.  If we are moving it down, then we insert after the refnode.  If moving up, we insert before...
+        $Parent = $_Rule.ParentNode
+        if ( $_rule.executionOrder -lt $refnode.executionOrder) { 
+            $null = $Parent.InsertAfter($_Rule, $refnode)
+        }
+        else { 
+            $null = $Parent.InsertBefore($_Rule, $refnode)            
+        }
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Rule processing complete.  Updated policy xml is : $( $PolicyXML | format-xml )"
+        $ModifiedRules += $_Rule.objectId
+    }
+
+    end {
+
+        foreach ( $Policy in $ModifiedPolicies.Values ) {
+            
+            if ( -Not $Noconfirm ) {
+                $message  = "Modification of the specified rule(s) will affect the security posture of all Security Groups that have the parent Security Policy applied."
+                $question = "Proceed with update of policy $($Policy.objectId)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                write-debug "$($MyInvocation.MyCommand.Name) : Putting updated policy from the policy cache for $($Policy.objectId)"
+                #Do the post
+                $body = $Policy.OuterXml
+                $URI = "/api/2.0/services/policy/securitypolicy/$($Policy.objectId)"
+                $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+                if ($response.StatusCode -eq "200"){
+                    [System.Xml.XmlDocument]$Doc = $response.content
+                    $Policy = $Doc.securityPolicy
+                    $AllPolicyRules = Invoke-XpathQuery -QueryMethod SelectNodes -Node $Policy -Query "actionsByCategory/action"
+                    $AllPolicyRules | Where-Object { $ModifiedRules -contains $_.objectId }
+                }
+            }
+        }
+    } 
+}
+
+function Remove-NsxSecurityPolicyRule   {
+
+    <#
+    .SYNOPSIS
+    Removes the specified rule from its parent Security Policy.
+
+    .DESCRIPTION
+    A security policy is a policy construct that can define one or more rules in
+    several different categories, that can then be applied to an arbitrary 
+    number of Security Groups in order to enforce the defined policy.
+    
+    The three categories of rules that can be included in a Security Policy are:
+     
+    - Guest Introspection - data security, anti-virus, and vulnerability 
+      management and rules based on third party Guest Introspection capability. 
+    - Firewall rules - creates appropriate distributed firewall rules when 
+      the policy is applied to a security group.
+    - Network introspection services - Thirdparty firewall, IPS/IDS etc.
+
+    Remove-NsxSecurityPolicyRule removes the specified rule from its parent 
+    Security Policy.
+        
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name AdminSsh | Remove-NsxSecurityPolicyRule
+
+    Remove the rule called AdminSsh from the Security Policy SecPol01
+
+    .EXAMPLE
+    Get-NsxSecurityPolicy SecPol01 | Get-NsxSecurityPolicyRule -RuleType Firewall -Name AdminSsh | Remove-NsxSecurityPolicyRule -NoConfirm 
+
+    Remove the rule called AdminSsh from the Security Policy SecPol01 with no confirmation prompt.
+    #>
+
+
+    [CmdletBinding()]
+    param (
+
+        [Parameter (Mandatory=$True, ValueFromPipeline=$True)]
+            # Security Policy Rule to reconfigure
+            [ValidateScript( { ValidateSecPolRule $_ })]
+            [System.Xml.XmlElement]$Rule,
+        [Parameter()]
+            # Disable confirmation prompt
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            # PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+      )
+
+    begin {
+        # We process all rule modifications offline as part of pipeline processing, then we put the updated policies to the api in the end{} block to avoid overwriting changes to different rules in the same policy..
+        # Save modified policies in a hash table keyed by id
+        write-debug "$($MyInvocation.MyCommand.Name) : Initialising Policy cache"
+        $ModifiedPolicies = @{}
+    }
+
+    process {
+        $ParentPolicyObjectId = $Rule.ParentNode.ParentNode.objectId
+        
+        #The Rule the user specified is only used the first time we edit a given policy.  Otherwise, it is just a key to the cached copy - in which case, we modify the rule as it exists in the cached copy of the policy.
+        if ( $ModifiedPolicies.ContainsKey($ParentPolicyObjectId )) {
+            
+            if ( $PSCmdlet.ParameterSetName -eq "Move") {
+                #Doesnt make sense to move multiple rules at the same time.
+                throw "Moving multiple rules within a single policy is not supported.  Ensure only a single rule is specified to be moved."
+            }
+            
+            # Policy has already been updated in this pipeline, so we modify the already updated xml.
+            $PolicyXml = $ModifiedPolicies[$ParentPolicyObjectId]
+            write-debug "$($MyInvocation.MyCommand.Name) : Retrieved specified rules parent policy from the policy cache. Policy XML is : $($PolicyXML | format-xml)"
+        }
+        else {
+            # We havent touched the policy yet, so we have to get it.  We clone to avoid modifying the original.
+            $PolicyXml = $Rule.ParentNode.ParentNode.CloneNode($true)
+            $ModifiedPolicies.Add($ParentPolicyObjectId, $PolicyXml)
+            write-debug "$($MyInvocation.MyCommand.Name) : Specified rules parent policy not found in policy cache so it has been added."
+        }
+
+        #Now get our xml from the cached policy.
+        $_Rule = invoke-xpathquery -querymethod SelectSingleNode -Node $PolicyXml -query "actionsByCategory/action[objectId=`'$($Rule.objectId)`']"
+        if ( -not $_Rule ) { 
+            #This should never happen
+            throw "An unexpected error occured retrieving a rule from cache.  Please report this as a bug at https://github.com/vmware/powernsx"
+        }
+        write-debug "$($MyInvocation.MyCommand.Name) : Retrieved rule from cache: $( $_Rule | format-xml )"
+        
+        #And do our updates...
+        $null = $_Rule.ParentNode.RemoveChild($_Rule)
+
+        write-debug "$($MyInvocation.MyCommand.Name) : Rule processing complete.  Updated policy xml is : $( $PolicyXML | format-xml )"
+    }
+
+    end {
+
+        foreach ( $Policy in $ModifiedPolicies.Values ) {
+            
+            if ( -Not $Noconfirm ) {
+                $message  = "Removal of the specified rule(s) will affect the security posture of all Security Groups that have the parent Security Policy applied."
+                $question = "Proceed with update of policy $($Policy.objectId)?"
+
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                
+                write-debug "$($MyInvocation.MyCommand.Name) : Putting updated policy from the policy cache for $($Policy.objectId)"
+                #Do the post
+                $body = $Policy.OuterXml
+                $URI = "/api/2.0/services/policy/securitypolicy/$($Policy.objectId)"
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            }
+        }
+    } 
+}
+
 
 #############################################################
 #############################################################
