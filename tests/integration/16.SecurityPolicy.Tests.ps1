@@ -337,7 +337,7 @@ Describe "SecurityPolicy" {
             $spec.class | should be "firewallSecurityAction"
             $spec.action | should be "allow"
             $spec.isEnabled | should be "true"
-            $spec.applications.application.objectId -contains $svcgrp1.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp1.objectId | should be $true
             $spec.applications.applicationgroup.objectId -contains $svcgrp2.objectId | should be $true
         }
 
