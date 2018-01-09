@@ -32094,9 +32094,13 @@ function New-NsxSecurityPolicyFirewallRuleSpec {
             $xmlApplications = $xmlDoc.CreateElement("applications")
             $xmlRoot.appendChild($xmlApplications) | out-null
             foreach ( $svc in $service) {
-                $xmlApplication = $xmlDoc.CreateElement("application")
-                $xmlApplications.appendChild($xmlApplication) | out-null            
-                Add-XmlElement -xmlRoot $xmlApplication -xmlElementName "objectId" -xmlElementText $svc.objectId
+                switch ($svc.objectTypeName) {
+                    "application" { $xmlElementName = "application"}
+                    "applicationgroup" { $xmlElementName = "applicationGroup"}
+                }
+                $xmlApplicationsObject = $xmlDoc.CreateElement($xmlElementName)
+                $xmlApplications.appendChild($xmlApplicationsObject) | out-null
+                Add-XmlElement -xmlRoot $xmlApplicationsObject -xmlElementName "objectId" -xmlElementText $svc.objectId
             }
         }
 
@@ -32323,9 +32327,13 @@ function New-NsxSecurityPolicyNetworkIntrospectionSpec {
             $xmlApplications = $xmlDoc.CreateElement("applications")
             $xmlRoot.appendChild($xmlApplications) | out-null
             foreach ( $svc in $service) {
-                $xmlApplication = $xmlDoc.CreateElement("application")
-                $xmlApplications.appendChild($xmlApplication) | out-null            
-                Add-XmlElement -xmlRoot $xmlApplication -xmlElementName "objectId" -xmlElementText $svc.objectId
+                switch ($svc.objectTypeName) {
+                    "application" { $xmlElementName = "application"}
+                    "applicationgroup" { $xmlElementName = "applicationGroup"}
+                }
+                $xmlApplicationsObject = $xmlDoc.CreateElement($xmlElementName)
+                $xmlApplications.appendChild($xmlApplicationsObject) | out-null
+                Add-XmlElement -xmlRoot $xmlApplicationsObject -xmlElementName "objectId" -xmlElementText $svc.objectId
             }
         }
 

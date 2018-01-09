@@ -327,7 +327,7 @@ Describe "SecurityPolicy" {
             $spec.class | should be "firewallSecurityAction"
             $spec.action | should be "allow"
             $spec.isEnabled | should be "true"
-            $spec.applications.application.objectId | should be $svcgrp.objectId
+            $spec.applications.applicationgroup.objectId | should be $svcgrp.objectId
         }
 
         it "Can create a security policy firewall spec with multiple servicegroups" {
@@ -338,7 +338,7 @@ Describe "SecurityPolicy" {
             $spec.action | should be "allow"
             $spec.isEnabled | should be "true"
             $spec.applications.application.objectId -contains $svcgrp1.objectId | should be $true
-            $spec.applications.application.objectId -contains $svcgrp2.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp2.objectId | should be $true
         }
 
         it "Can create a security policy firewall spec with both service and servicegroups" {
@@ -349,7 +349,7 @@ Describe "SecurityPolicy" {
             $spec.action | should be "allow"
             $spec.isEnabled | should be "true"
             $spec.applications.application.objectId -contains $svc1.objectId | should be $true
-            $spec.applications.application.objectId -contains $svcgrp3.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp3.objectId | should be $true
         }
 
         it "Can create a disabled security policy firewall spec" {
@@ -580,7 +580,7 @@ Describe "SecurityPolicy" {
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.redirect | should be "true"
             $spec.isEnabled | should be "true"
-            $spec.applications.application.objectId | should be $svcgrp.objectId
+            $spec.applications.applicationgroup.objectId | should be $svcgrp.objectId
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
@@ -591,8 +591,8 @@ Describe "SecurityPolicy" {
             $spec.class | should be "trafficSteeringSecurityAction"
             $spec.redirect | should be "true"
             $spec.isEnabled | should be "true"
-            $spec.applications.application.objectId -contains $svcgrp1.objectId | should be $true
-            $spec.applications.application.objectId -contains $svcgrp2.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp1.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp2.objectId | should be $true
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
@@ -604,7 +604,7 @@ Describe "SecurityPolicy" {
             $spec.redirect | should be "true"
             $spec.isEnabled | should be "true"
             $spec.applications.application.objectId -contains $svc1.objectId | should be $true
-            $spec.applications.application.objectId -contains $svcgrp2.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp2.objectId | should be $true
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
