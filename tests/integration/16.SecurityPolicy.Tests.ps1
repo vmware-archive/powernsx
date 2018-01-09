@@ -151,12 +151,14 @@ Describe "SecurityPolicy" {
             Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
             Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
 
         AfterAll { 
             Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
             Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
         
         it "Can create a security policy firewall spec - intra - mode1 (Source/Dest w/PSG based)" {
@@ -317,6 +319,37 @@ Describe "SecurityPolicy" {
             $spec.isEnabled | should be "true"
             $spec.applications.application.objectId -contains $svc1.objectId | should be $true
             $spec.applications.application.objectId -contains $svc2.objectId | should be $true
+        }
+
+        it "Can create a security policy firewall spec with servicegroup" {
+            $svcgrp = New-NsxServiceGroup -Name ($SpNamePrefix + "svcgrp")
+            $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svcgrp
+            $spec.class | should be "firewallSecurityAction"
+            $spec.action | should be "allow"
+            $spec.isEnabled | should be "true"
+            $spec.applications.applicationgroup.objectId | should be $svcgrp.objectId
+        }
+
+        it "Can create a security policy firewall spec with multiple servicegroups" {
+            $svcgrp1 = New-NsxServiceGroup -Name ($SpNamePrefix + "svcgrp1")
+            $svcgrp2 = New-NsxServiceGroup -Name ($SpNamePrefix + "svcgrp2")
+            $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svcgrp1,$svcgrp2
+            $spec.class | should be "firewallSecurityAction"
+            $spec.action | should be "allow"
+            $spec.isEnabled | should be "true"
+            $spec.applications.applicationgroup.objectId -contains $svcgrp1.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp2.objectId | should be $true
+        }
+
+        it "Can create a security policy firewall spec with both service and servicegroups" {
+            $svc1 = New-NsxService -Name ($SpNamePrefix + "svc4") -port 22 -protocol TCP
+            $svcgrp3 = New-NsxServiceGroup -Name ($SpNamePrefix + "svcgrp3")
+            $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svc1,$svcgrp3
+            $spec.class | should be "firewallSecurityAction"
+            $spec.action | should be "allow"
+            $spec.isEnabled | should be "true"
+            $spec.applications.application.objectId -contains $svc1.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp3.objectId | should be $true
         }
 
         it "Can create a disabled security policy firewall spec" {
@@ -538,6 +571,40 @@ Describe "SecurityPolicy" {
             $spec.isEnabled | should be "true"
             $spec.applications.application.objectId -contains $svc1.objectId | should be $true
             $spec.applications.application.objectId -contains $svc2.objectId | should be $true
+            $spec.serviceProfile.objectId | should be $nisp.objectID
+        }
+
+        it "Can create a security policy network introspection spec with servicegroup" -skip:( -not $EnableNiTests) {
+            $svcgrp = New-NsxServiceGroup -Name ($SpNamePrefix + "nisvcgrp1")
+            $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svcgrp -ServiceProfile $nisp
+            $spec.class | should be "trafficSteeringSecurityAction"
+            $spec.redirect | should be "true"
+            $spec.isEnabled | should be "true"
+            $spec.applications.applicationgroup.objectId | should be $svcgrp.objectId
+            $spec.serviceProfile.objectId | should be $nisp.objectID
+        }
+
+        it "Can create a security policy network introspection spec with multiple servicegroups" -skip:( -not $EnableNiTests) {
+            $svcgrp1 = New-NsxServiceGroup -Name ($SpNamePrefix + "nisvcgrp2")
+            $svcgrp2 = New-NsxServiceGroup -Name ($SpNamePrefix + "nisvcgrp3")
+            $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svcgrp1,$svcgrp2 -ServiceProfile $nisp
+            $spec.class | should be "trafficSteeringSecurityAction"
+            $spec.redirect | should be "true"
+            $spec.isEnabled | should be "true"
+            $spec.applications.applicationgroup.objectId -contains $svcgrp1.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp2.objectId | should be $true
+            $spec.serviceProfile.objectId | should be $nisp.objectID
+        }
+
+        it "Can create a security policy network introspection spec with both services and servicegroups" -skip:( -not $EnableNiTests) {
+            $svc1 = New-NsxService -Name ($SpNamePrefix + "nisvc3")
+            $svcgrp1 = New-NsxServiceGroup -Name ($SpNamePrefix + "nisvcgrp4")
+            $spec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1" -Service $svc1,$svcgrp2 -ServiceProfile $nisp
+            $spec.class | should be "trafficSteeringSecurityAction"
+            $spec.redirect | should be "true"
+            $spec.isEnabled | should be "true"
+            $spec.applications.application.objectId -contains $svc1.objectId | should be $true
+            $spec.applications.applicationgroup.objectId -contains $svcgrp2.objectId | should be $true
             $spec.serviceProfile.objectId | should be $nisp.objectID
         }
 
