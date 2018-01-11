@@ -100,25 +100,22 @@ Describe "Edge" {
         It "Get Edge Status" {
             $status = Get-NsxEdge $name | Get-NsxEdgeStatus
             $status | should not be $null
-            $status.systemStatus| should be "good"
-            $status.edgeStatus | should be "GREEN"
-            $status.publishStatus| should be "APPLIED"
+            $status.systemStatus| should not be $null
+            $status.edgeStatus | should not be $null
+            $status.publishStatus| should not be $null
         }
 
         It "Get Edge Service Status" {
             $service = Get-NsxEdge $name | Get-NsxEdgeStatus
             $service | should not be $null
+            $service.featureStatuses.featureStatus | should not be $null
+        }
 
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'firewall' }).status | should be "Applied"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'loadbalancer' }).status | should be "down"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'ipsec' }).status | should be "not_configured"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'syslog' }).status | should be "up"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'l2vpn' }).status | should be "not_configured"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'sslvpn' }).status | should be "not_configured"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'highAvailability' }).status | should be "not_configured"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'routing' }).status | should be "Applied"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'nat' }).status | should be "not_configured"
-            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'dns' }).status | should be "not_configured"
+        It "Get Edge Service Firewall Status" {
+            $service = Get-NsxEdge $name | Get-NsxEdgeStatus
+            $service | should not be $null
+            $service.featureStatuses.featureStatus | should not be $null
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'firewall' }).status | should not be $null
         }
 
     }
