@@ -9731,12 +9731,26 @@ function Get-NsxUserRole {
     Transport Zone.
 
     .EXAMPLE
+    Get-NsxLogicalswitch -name LS1
 
-    Example1: Get a named Logical Switch
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch -name LS1
+    Get a named Logical Switch (LS1) from all transport zones
 
-    Example2: Get all logical switches in a given transport zone.
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch
+    .EXAMPLE
+    Get-NsxTransportZone -LocalOnly | Get-NsxLogicalswitch -name LS1
+
+    Get a named Logical Switch (LS1) from all Local Transport Zones (use -UniversalOnly
+    for Universal Transport Zones)
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalswitch
+
+    Get all logical switches from all Transport Zones.
+
+    .EXAMPLE
+    Get-NsxTransportZone -UniversalOnly | Get-NsxLogicalswitch
+
+    Get all logical switches from all Universal Transport Zones (use -LocalOnly
+    for Local Transport Zones)
 
     #>
 
@@ -9909,13 +9923,20 @@ function New-NsxLogicalSwitch  {
     the Transport Zone it is created in, but CP mode can specified as required.
 
     .EXAMPLE
+    Get-NsxTransportZone | New-NsxLogicalSwitch -name LS6
 
-    Example1: Create a Logical Switch with default control plane mode.
-    PS C:\> Get-NsxTransportZone | New-NsxLogicalSwitch -name LS6
+    Create a Logical Switch with default control plane mode on all Transport Zones.
 
-    Example2: Create a Logical Switch with a specific control plane mode.
-    PS C:\> Get-NsxTransportZone | New-NsxLogicalSwitch -name LS6
-        -ControlPlaneMode MULTICAST_MODE
+    .EXAMPLE
+    Get-NsxTransportZone -LocalOnly | New-NsxLogicalSwitch -name LS6
+
+    Create a Logical Switch with default control plane mode on All Local Transport Zones.
+    (Use -UniversalOnly for create on Universal Transport Zones)
+
+    .EXAMPLE
+    Get-NsxTransportZone | New-NsxLogicalSwitch -name LS6 -ControlPlaneMode MULTICAST_MODE
+
+    Create a Logical Switch with a specific control plane mode on all Transport Zones.
 
     #>
 
@@ -9982,14 +10003,20 @@ function Remove-NsxLogicalSwitch {
     Transport Zone.
 
     .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalSwitch LS6 | Remove-NsxLogicalSwitch
 
-    Example1: Remove a Logical Switch
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalSwitch LS6 |
-        Remove-NsxLogicalSwitch
+    Remove a Logical Switch from all Transport Zones.
 
-    Example2: Remove a Logical Switch without confirmation.
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalSwitch LS6 |
-        Remove-NsxLogicalSwitch -confirm:$false
+    .EXAMPLE
+    Get-NsxTransportZone -UniversalOnly | Get-NsxLogicalSwitch LS6 | Remove-NsxLogicalSwitch
+
+    Remove a Logical Switch from all Universal Transport Zones (use -LocalOnly to
+    remove from all Local Transport Zones).
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalSwitch LS6 | Remove-NsxLogicalSwitch -confirm:$false
+
+    Remove a Logical Switch from all Transport Zones without confirmation.
 
     #>
 
