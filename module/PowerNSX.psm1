@@ -33295,26 +33295,26 @@ function Add-NsxSecurityPolicyFwRule   {
     Predefined Firewall Rule hashtables:
     ------------------------------------
 
-        $FW3 = @{
-    'Name' = "Rule1"
-    'Description' = "Rule2 Description"
-    'Enabled' = $true
-    'securityGroup' = (Get-NsxSecurityGroup -Name SG-016)
-    'service' = (Get-NsxService -Name DNS)
-    'Logging' = $false
-    'Action' = "allow"
-    'Direction' = "outbound"
+    $FW3 = @{
+        'Name' = "Rule1"
+        'Description' = "Rule2 Description"
+        'Enabled' = $true
+        'SecurityGroup' = (Get-NsxSecurityGroup -Name SG-016)
+        'Service' = (Get-NsxService -Name DNS)
+        'EnableLogging' = $false
+        'Action' = "allow"
+        'Direction' = "outbound"
     }
 
     $FW4 = @{
-    'Name' = "Rule2"
-    'Description' = "Rule2 Description"
-    'Enabled' = $true
-    'securityGroup' = (Get-NsxSecurityGroup -Name SG-017)
-    'service' = (Get-NsxService -Name SSH)
-    'Logging' = $true
-    'Action' = "allow"
-    'Direction' = "inbound"
+        'Name' = "Rule2"
+        'Description' = "Rule2 Description"
+        'Enabled' = $true
+        'SecurityGroup' = (Get-NsxSecurityGroup -Name SG-017)
+        'Service' = (Get-NsxService -Name SSH)
+        'EnableLogging' = $true
+        'Action' = "allow"
+        'Direction' = "inbound"
     }
 
     .EXAMPLE
@@ -33370,48 +33370,51 @@ function Add-NsxSecurityPolicyFwRule   {
         if ($FirewallRule){
             foreach ($rule in $FirewallRule){
                 $xmlRule = New-NSXSecurityPolicyFirewallRuleSpec @rule
-            
-                if (-not ($SecurityPolicy.SelectNodes("securityPolicy") | get-member -Name actionsByCategory -MemberType Property)){
-            
-                    $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
-            
+                [xml]$xmlRule = $xmlRule.OuterXml
+
+                if (-not ($SecurityPolicy.SelectNodes("securityPolicy") | get-member -Name actionsByCategory -MemberType Property)) {
+                    $xmlDoc = New-Object System.XML.XMLDocument
+                    $xmlRoot = $xmlDoc.CreateElement("actionsByCategory")
+                    Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "category" -xmlElementText "firewall"
+                    $xmlDoc.appendChild($xmlRoot) | out-null
+                    $xmlRoot.AppendChild($xmlDoc.ImportNode($xmlRule.action, $true))
+
+                    $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRoot), $true)) | Out-Null
                 }
-                Else{
-                    $SecurityPolicy.securityPolicy.actionsByCategory.InsertAfter($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory.action), $true), $SecurityPolicy.SelectSingleNode("securityPolicy/actionsByCategory/action[position()=last()]")) | Out-Null
-                }         
-        
+                Else {
+                    $SecurityPolicy.securityPolicy.actionsByCategory.InsertAfter($SecurityPolicy.ImportNode(($xmlRule.action), $true), $SecurityPolicy.SelectSingleNode("securityPolicy/actionsByCategory/action[position()=last()]")) | Out-Null
+                }
             }
         }
         Elseif (-not($FirewallRule) -and $DefaultRule) {
             $DefaultFWRule = @{
-            'Name' = Read-Host -Prompt "Name for Firewall Rule"
-            'Enabled' = $true
-            'Logging' = $false
-            'Action' = "allow"
-            'Direction' = "Outbound"
+                'Name' = Read-Host -Prompt "Name for Firewall Rule"
+                'Enabled' = $true
+                'EnableLogging' = $false
+                'Action' = "allow"
+                'Direction' = "Outbound"
             }
 
             $xmlRule = New-NSXSecurityPolicyFirewallRuleSpec @DefaultFWRule
+            [xml]$xmlRule = $xmlRule.OuterXml
 
-            if (-not ($SecurityPolicy.SelectNodes("securityPolicy") | get-member -Name actionsByCategory -MemberType Property)){
-            
-                $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
-            
+            if (-not ($SecurityPolicy.SelectNodes("securityPolicy") | get-member -Name actionsByCategory -MemberType Property)) {
+                $xmlDoc = New-Object System.XML.XMLDocument
+                $xmlRoot = $xmlDoc.CreateElement("actionsByCategory")
+                Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "category" -xmlElementText "firewall"
+                $xmlDoc.appendChild($xmlRoot) | out-null
+                $xmlRoot.AppendChild($xmlDoc.ImportNode($xmlRule.action, $true))
+
+                $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRoot), $true)) | Out-Null
             }
-            Else{
-                $SecurityPolicy.securityPolicy.actionsByCategory.InsertAfter($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory.action), $true), $SecurityPolicy.SelectSingleNode("securityPolicy/actionsByCategory/action[position()=last()]")) | Out-Null
-            }    
-
+            Else {
+                $SecurityPolicy.securityPolicy.actionsByCategory.InsertAfter($SecurityPolicy.ImportNode(($xmlRule.action), $true), $SecurityPolicy.SelectSingleNode("securityPolicy/actionsByCategory/action[position()=last()]")) | Out-Null
+            }
         }
         Else{
             Throw "Parameters -FirewallRule or -DefaultRule must be used!"
         }
-        #Creating the XML Document for GIS Rule
-        foreach ($rule in $GuestIntrospectionService){
-            $xmlRule = New-NsxSecurityPolicyGISSpec @rule
-            $SecurityPolicy.securityPolicy.AppendChild($SecurityPolicy.ImportNode(($xmlRule.actionsByCategory), $true)) | Out-Null
-        }
-             
+
         #Do the post
         $body = $SecurityPolicy.OuterXml
         $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.securityPolicy.objectId)"
@@ -33466,12 +33469,12 @@ function Edit-NsxSecurityPolicyFwRule   {
     -------------
 
     $FW = @{
-    'Name' = "Rule1 - Edited with Edit-NsxSecurityPolicyFwRule"
-    'Description' = "Edited with Edit-NsxSecurityPolicyFwRule"
-    'Enabled' = $false
-    'Logging' = $true
-    'Action' = "allow"
-    'Direction' = "outbound"
+        'Name' = "Rule1 - Edited with Edit-NsxSecurityPolicyFwRule"
+        'Description' = "Edited with Edit-NsxSecurityPolicyFwRule"
+        'Enabled' = $false
+        'EnableLogging' = $true
+        'Action' = "allow"
+        'Direction' = "outbound"
     }
   
     #>
@@ -33507,20 +33510,21 @@ function Edit-NsxSecurityPolicyFwRule   {
         #Creating the XML Document for SP Firewall Rule
         foreach ($Rule in $FirewallRule){
             $NewRule_XML = New-NsxSecurityPolicyFirewallRuleSpec @Rule
-            $NewRule_XML = $NewRule_XML.actionsByCategory.action
-            }
+            [xml]$NewRule_XML = $NewRule_XML.OuterXml
+        }
 
-            #Edit firwall Rule for Security Policy
-            foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']")){
-                    
-                     $ExistingRule.Name = $NewRule_XML.Name
-                     $ExistingRule.description = $NewRule_XML.description
-                     $ExistingRule.isEnabled = $NewRule_XML.isEnabled
-                     $ExistingRule.logged = $NewRule_XML.logged
-                     $ExistingRule.action = $NewRule_XML.action
-                     $ExistingRule.direction = $NewRule_XML.direction
-                 
-            }  
+        #Edit firwall Rule for Security Policy
+        foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']")) {
+            $ExistingRule.Name = $NewRule_XML.action.name
+            $ExistingRule.isEnabled = $NewRule_XML.action.isEnabled
+            $ExistingRule.logged = $NewRule_XML.action.logged
+            $ExistingRule.action = $NewRule_XML.action.action
+            $ExistingRule.direction = $NewRule_XML.action.direction
+
+            if ($ExistingRule.description) {
+                $ExistingRule.description = $NewRule_XML.action.description
+            }
+        }
 
         #Do the post
         $body = $SecurityPolicy.OuterXml
