@@ -757,6 +757,94 @@ Describe "SecurityPolicy" {
 
     }
 
+    Context "Security Policy Firewall Rules" {
+        BeforeAll {
+            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
+            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+        }
+
+        AfterAll {
+            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
+            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+        }
+
+        It "Add a service object to a firewall rule within a security policy" {
+            $svc1 = New-NsxService -Name ($SpNamePrefix + "nisvc11") -port 21 -protocol TCP
+            $svc2 = New-NsxService -Name ($SpNamePrefix + "nisvc12") -port 22 -protocol TCP
+
+            $ruleName = ($SpFwNamePrefix + "rule1")
+            $rulespec = New-NsxSecurityPolicyFirewallRuleSpec -Name $ruleName -Direction 'outbound' -Service $svc1 -Action 'allow' -EnableLogging
+            $polName = ($SpNamePrefix + "hash2")
+            New-NsxSecurityPolicy $polName -FirewallRuleSpec $rulespec
+
+            Add-NsxServiceToSPFwRule -SecurityPolicy (Get-NsxSecurityPolicy $polName) -Service $svc2 -ExecutionOrder 1
+            $rule = Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy $polName)
+            $services = $rule.applications.application
+            $services.Length | should be 2
+
+            $index = 0
+            Foreach ($service in $services) {
+                $index = $index + 1
+                $service.name | should be ($SpNamePrefix + "nisvc1" + $index)
+                $service.element.applicationProtocol | should be "TCP"
+                $service.element.value | should be ("2" + $index)
+            }
+        }
+
+        It "Remove a service object from a firewall rule within a security policy" {
+            # Dependent on prior test.
+            $polName = ($SpNamePrefix + "hash2")
+            $pol = Get-NsxSecurityPolicy $polName
+
+            $svc2 = Get-NsxService ($SpNamePrefix + "nisvc12")
+
+            Remove-NsxServiceFromSPFwRule -SecurityPolicy $pol -Service $svc2 -ExecutionOrder 1
+            $rule = Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy $polName)
+            $services = $rule.applications.application
+            # $services will only have a length if there is more than one entry.
+            $services.Length | should be $null
+
+            $services.name | should be ($SpNamePrefix + "nisvc11")
+            $services.element.applicationProtocol | should be "TCP"
+            $services.element.value | should be 21
+        }
+
+        It "Add a service group object to a firewall rule within a security policy" {
+            # Dependent on prior two tests.
+            $polName = ($SpNamePrefix + "hash2")
+            $pol = Get-NsxSecurityPolicy $polName
+
+            $svc1 = Get-NsxService ($SpNamePrefix + "nisvc11")
+            $svc2 = Get-NsxService ($SpNamePrefix + "nisvc12")
+            $svcgrp = New-NsxServiceGroup -Name ($SpNamePrefix + "nisvcgrp1")
+            $svcgrp | Add-NsxServiceGroupMember $svc1,$svc2
+
+            Add-NsxServiceToSPFwRule -SecurityPolicy $pol -Service $svcgrp -ExecutionOrder 1
+            $rule = Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy $polName)
+            $servicegroups = $rule.applications.applicationGroup
+
+            $servicegroups.name | should be ($SpNamePrefix + "nisvcgrp1")
+        }
+
+        It "Remove a service group object from a firewall rule within a security policy" {
+            # Dependent on prior test.
+            $polName = ($SpNamePrefix + "hash2")
+            $pol = Get-NsxSecurityPolicy $polName
+
+            $svcgrp = Get-NsxServiceGroup ($SpNamePrefix + "nisvcgrp1")
+
+            Remove-NsxServiceFromSPFwRule -SecurityPolicy $pol -Service $svcgrp -ExecutionOrder 1
+            $rule = Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy $polName)
+            $servicegroups = $rule.applications.applicationGroup
+            # $services will only have a length if there is more than one entry.
+            $servicegroups | should be $null
+        }
+    }
+
     AfterAll {
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.

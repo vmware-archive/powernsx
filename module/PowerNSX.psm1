@@ -33221,17 +33221,20 @@ function Add-NsxServiceToSPFwRule   {
 
                 #Iterates through the Services one member at a time
                 foreach ( $Member in $Service) {
-                    
-                    Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications") -xmlElementName "application" | Out-Null
+                    switch ($Member.objectTypeName) {
+                        "application" { $xmlElementName = "application"}
+                        "applicationgroup" { $xmlElementName = "applicationGroup"}
+                    }
+                    Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications") -xmlElementName $xmlElementName | Out-Null
                                    
                     #This is probably not safe - need to review all possible input types to confirm.
                     if ($Member -is [System.Xml.XmlElement] ) {
                         Write-Host "Adding Application Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow    
-                        Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
+                        Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications/$xmlElementName[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
                     } 
                     else {
                         Write-Host "Adding Application Member: $($Member.name) to Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow   
-                        Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications/application[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
+                        Add-XmlElement -xmlRoot (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $ExistingRule -query "applications/$xmlElementName[$count]") -xmlElementName "objectId" -xmlElementText $member.objectId | Out-Null
                     }
                     $count++
                 }
@@ -33687,18 +33690,22 @@ function Remove-NsxServiceFromSPFwRule   {
         foreach ($ExistingRule in $SecurityPolicy.SelectNodes("securityPolicy/actionsByCategory/action[executionOrder=$ExecutionOrder and category='firewall']")){
             Write-Verbose "1st foreach loop for existing Firewall Rule"
 
-            #Iterates through the Application(s) one member at a time     
-            foreach ($existingnode in $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder]/applications/application ")){
-                Write-Verbose "2nd foreach loop for existing Application(s)"
+            $xmlElementNames = @("application", "applicationGroup")
+            # Iterate XML elements for both service and service group objects.
+            foreach ($xmlElementName in $xmlElementNames) {
+                #Iterates through the Application(s) one member at a time     
+                foreach ($existingnode in $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder]/applications/$xmlElementName")){
+                    Write-Verbose "2nd foreach loop for existing Application(s)"
 
-                #Ensures the Application matches that of the existing Application
-                if ($Service.name -eq $existingnode.name){
+                    #Ensures the Application matches that of the existing Application
+                    if ($Service.name -eq $existingnode.name){
 
-                    Write-Host "Removing Application Member: $($existingnode.name) from Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow  
-                    $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder and category='firewall']/applications ").RemoveChild($existingnode) | Out-Null
+                        Write-Host "Removing Application Member: $($existingnode.name) from Security Policy: $($SecurityPolicy.securityPolicy.name), Rule: $ExecutionOrder" -ForegroundColor Yellow  
+                        $SecurityPolicy.securityPolicy.actionsByCategory.SelectNodes("action[executionOrder=$ExecutionOrder and category='firewall']/applications ").RemoveChild($existingnode) | Out-Null
 
+                    }
                 }
-            } 
+            }
         }  
            
         #Do the post
