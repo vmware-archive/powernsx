@@ -37,6 +37,7 @@ Describe "SecurityPolicy" {
         # $script:ds = $cl | get-datastore | select -first 1
         # write-warning "Using datastore $ds for datastorey stuff"
         $script:SpNamePrefix = "pester_secpol_"
+        $script:SpFwNamePrefix = "$($SpNamePrefix)fw_"
 
         # These Service Defintions and Service profiles have to be precreated manually in for the associated tests to be run.
         # We know how to create the service defintion, but not sure on the service profile.
@@ -755,6 +756,121 @@ Describe "SecurityPolicy" {
             ($newnewsp | get-member -membertype property -Name securityGroupBinding) | should be $null
         }
 
+    }
+
+    Context "Security Policy Firewall Rules" {
+        BeforeAll {
+            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
+            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+        }
+
+        AfterAll {
+            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityGroup -Confirm:$false
+            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+        }
+
+        It "Add a custom hash firewall rule to an empty security policy" {
+            $polName = ($SpNamePrefix + "hash1")
+            $pol = New-NsxSecurityPolicy -Name $polName -Description "Pester Policy"
+
+            $ruleName = ($SpFwNamePrefix + "rule1")
+            $fwrulehash = @{
+                'Name' = $ruleName
+                'EnableLogging' = $true
+                'Action' = 'allow'
+                'Direction' = 'outbound'
+                'Description' = 'Pester Hash FW Rule 1'
+            }
+
+            Add-NsxSecurityPolicyFwRule -SecurityPolicy $pol -FirewallRule $fwrulehash
+            $rule = Get-NsxApplicableFwRule -SecurityPolicy $pol
+
+            $rule.name | should be $ruleName
+            $rule.description | should be "Pester Hash FW Rule 1"
+            $rule.direction | should be "outbound"
+            $rule.action | should be "allow"
+            $rule.logged | should be $true
+            $rule.executionOrder | should be 1
+        }
+
+        It "Add a second custom hash firewall rule to a security policy" {
+            # Dependent on prior test.
+            $polName = ($SpNamePrefix + "hash1")
+            $pol = Get-NsxSecurityPolicy $polName
+
+            $sg = New-NsxSecurityGroup -Name ($SpNamePrefix + "sg1")
+            $svc = New-NsxService -Name ($SpNamePrefix + "nisvc1") -port 22 -protocol TCP
+
+            $ruleName = ($SpFwNamePrefix + "rule2")
+            $fwrulehash = @{
+                'Name' = $ruleName
+                'EnableLogging' = $true
+                'Action' = 'allow'
+                'Direction' = 'outbound'
+                'Description' = 'Pester Hash FW Rule 2'
+                'SecurityGroup' = $sg
+                'Service' = $svc
+            }
+
+            Add-NsxSecurityPolicyFwRule -SecurityPolicy $pol -FirewallRule $fwrulehash
+            $rules = Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy $polName)
+            $rules.Length | should be 2
+
+            $index = 0
+            Foreach ($rule in $rules) {
+                $index = $index + 1
+
+                $rule.name | should be ($SpFwNamePrefix + "rule" + $index)
+                $rule.description | should be ("Pester Hash FW Rule " + $index)
+                $rule.direction | should be "outbound"
+                $rule.action | should be "allow"
+                $rule.logged | should be $true
+                $rule.executionOrder | should be $index
+
+                if ($index -eq 2) {
+                    $rule.secondarySecurityGroup.name | should be $sg.name
+                    $rule.applications.application.name | should be $svc.name
+                }
+            }
+        }
+
+        It "Edit a firewall rule within a security policy" {
+            # Dependent on prior two tests.
+            # This test edits the first rule created.
+            $polName = ($SpNamePrefix + "hash1")
+            $pol = Get-NsxSecurityPolicy $polName
+
+            $editedRuleName = ($SpFwNamePrefix + "edited_rule")
+            $fwruleedithash = @{
+                'Name' = $editedRuleName
+                'EnableLogging' = $true
+                'Action' = 'allow'
+                'Direction' = 'outbound'
+                'Description' = 'Pester Changed Description'
+            }
+
+            Edit-NsxSecurityPolicyFwRule -SecurityPolicy $pol -FirewallRule $fwruleedithash -ExecutionOrder 1
+            $rules = Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy $polName)
+            $rules.Length | should be 2
+
+            $index = 0
+            Foreach ($rule in $rules) {
+                $index = $index + 1
+
+                if ($index -eq 1) {
+                    $rule.name | should be $editedRuleName
+                    $rule.description | should be "Pester Changed Description"
+                }
+                else {
+                    $rule.name | should be ($SpFwNamePrefix + "rule" + $index)
+                    $rule.description | should be ("Pester Hash FW Rule " + $index)
+                }
+            }
+        }
     }
 
     AfterAll {
