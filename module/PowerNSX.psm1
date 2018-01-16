@@ -33298,7 +33298,7 @@ function Move-NsxSecurityPolicyRule   {
 
     end {
         foreach ( $policy in $ModifiedPolicies.Values ) { 
-            $UpdatedPolicy = Set-NsxSecurityPolicy -Policy $policy
+            $UpdatedPolicy = Set-NsxSecurityPolicy -Policy $policy -NoConfirm:$NoConfirm
             if ( $UpdatedPolicy) { 
                 $AllPolicyRules = Invoke-XpathQuery -QueryMethod SelectNodes -Node $UpdatedPolicy -Query "actionsByCategory/action"
                 $AllPolicyRules | Where-Object { $ModifiedRules -contains $_.objectId }
@@ -33397,7 +33397,7 @@ function Remove-NsxSecurityPolicyRule   {
 
     end {
         foreach ( $policy in $ModifiedPolicies.Values ) { 
-            $null = Set-NsxSecurityPolicy -Policy $policy
+            $null = Set-NsxSecurityPolicy -Policy $policy -Noconfirm:$NoConfirm
         }
     } 
 }
@@ -33817,7 +33817,7 @@ function Set-NsxSecurityPolicyFirewallRule   {
             $_Rule.logged = $LoggingEnabled.ToString().ToLower()
         }
 
-        if ( $PSBoundParameters.ContainsKey("State")) {
+        if ( $PSBoundParameters.ContainsKey("Enabled")) {
             $_Rule.isEnabled = $Enabled.ToString().ToLower()
         }
 
@@ -33924,7 +33924,7 @@ function Add-NsxSecurityPolicyRuleGroup   {
             # Security Policy Rule to reconfigure
             [ValidateScript( { 
                 ValidateSecPolRule $_
-                if ( ($_.class -ne "firewallSecurityAction") -and ($_.class -ne "networkSecurityAction") ) { 
+                if ( ($_.class -ne "firewallSecurityAction") -and ($_.class -ne "trafficSteeringSecurityAction") ) { 
                     throw "Specified rule is not a firewall or network introspection rule"
                 }
             })]
@@ -34075,7 +34075,7 @@ function Remove-NsxSecurityPolicyRuleGroup   {
             # Security Policy Rule to reconfigure
             [ValidateScript( { 
                 ValidateSecPolRule $_
-                if ( ($_.class -ne "firewallSecurityAction") -and ($_.class -ne "networkSecurityAction") ) { 
+                if ( ($_.class -ne "firewallSecurityAction") -and ($_.class -ne "trafficSteeringSecurityAction") ) { 
                     throw "Specified rule is not a firewall or network introspection rule"
                 }
             })]
@@ -34225,7 +34225,7 @@ function Add-NsxSecurityPolicyRuleService   {
             # Security Policy Rule to reconfigure
             [ValidateScript( { 
                 ValidateSecPolRule $_
-                if ( ($_.class -ne "firewallSecurityAction") -and ($_.class -ne "networkSecurityAction") ) { 
+                if ( ($_.class -ne "firewallSecurityAction") -and ($_.class -ne "trafficSteeringSecurityAction") ) { 
                     throw "Specified rule is not a firewall or network introspection rule"
                 }
             })]
@@ -34353,7 +34353,7 @@ function Remove-NsxSecurityPolicyRuleService   {
             # Security Policy Rule to reconfigure
             [ValidateScript( { 
                 ValidateSecPolRule $_
-                if ( ($_.class -ne "firewallSecurityAction") -and ($_.class -ne "networkSecurityAction") ) { 
+                if ( ($_.class -ne "firewallSecurityAction") -and ($_.class -ne "trafficSteeringSecurityAction") ) { 
                     throw "Specified rule is not a firewall or network introspection rule"
                 }
             })]
@@ -34459,158 +34459,108 @@ function Remove-NsxSecurityPolicyRuleService   {
     }
 }
 
-
-#############################################################
-#############################################################
-#The Following functions are NOT yet exported for a reason.  
-#They are expected to be changed significantly and should not be used in their current form.
-
-function Get-NsxApplicableFwRule {
+function Get-NsxApplicableSecurityAction {
     
     <#
     .SYNOPSIS
-    Retrieves Security Policy firewall Rules associated with a NSX Security Group, Security Policy, or Virtual Machine
+    Retrieves Security Policy actions (rules) associated with NSX Security 
+    Groups, Security Policies, or Virtual Machines.
 
     .DESCRIPTION
-    SecurityGroup - 
-    You can fetch all security actions applicable on a security group for all ExecutionOrderCategories. The list is
-    sorted based on the weight of security actions in descending order. The isActive tag indicates if a securityaction
-    will be applied (by the enforcement engine) on the security group.
+    A security policy is a policy construct that can define one or more rules in
+    several different categories, that can then be applied to an arbitrary 
+    number of Security Groups in order to enforce the defined policy.
+    
+    The three categories of rules that can be included in a Security Policy are:
+     
+    - Guest Introspection - data security, anti-virus, and vulnerability 
+      management and rules based on third party Guest Introspection capability. 
+    - Firewall rules - creates appropriate distributed firewall rules when 
+      the policy is applied to a security group.
+    - Network introspection services - Thirdparty firewall, IPS/IDS etc.
 
-    SecurityPolicy -
-    You can retrieve all security actions applicable on a security policy. This list includes security actions from
-    associated parent security policies, if any. Security actions per Execution Order Category are sorted based on
-    the weight of security actions in descending order.
-
-    Virtual Machine - 
-    You can fetch the security actions applicable on a virtual machine for all ExecutionOrderCategories. The list of
-    SecurityActions per ExecutionOrderCategory is sorted based on the weight of security actions in descending
-    order. The isActive tag indicates whether a security action will be applied (by the enforcement engine) on the
-    virtual machine.
+    Get-NsxApplicableFSecurityAction retrieves the security actions applicable 
+    to a given object.  Actions may be firewall, traffic redirection or guest 
+    introspection. 
 
     .EXAMPLE
-    PS C:\> Get-NsxApplicableFwRule -SecurityGroup (Get-NsxSecurityGroup -name "SG_Test")
+    $SG_Test = Get-NsxSecurityGroup "SG_Test" 
+    PS C:\> $SG_Test | Get-NsxApplicableSecurityAction
     
-    PS C:\> Get-NsxApplicableFwRule -VirtualMachine (Get-VM -name "VM_Test") 
+    .EXAMPLE
+    $VM_Test = Get-VM -name "VM_Test"
+    PS C:\> $VM_Test | Get-NsxApplicableSecurityAction
     
-    PS C:\> Get-NsxApplicableFwRule -SecurityPolicy (Get-NsxSecurityPolicy -name "SP_Test") 
-
+    .EXAMPLE
+    $SP_Test = Get-NsxSecurityPolicy -name "SP_Test"
+    PS C:\> Get-NsxApplicableSecurityAction -SecurityPolicy $SP_Test
     #>
 
-    [CmdLetBinding(DefaultParameterSetName="securitygroup")]
-
+    [CmdLetBinding()]
     param (
-
-        [Parameter (Mandatory=$true,ParameterSetName="securitygroup",Position=1)]
-            #Query SecurityGroup by objectId
-            [System.Xml.XmlElement]$SecurityGroup,
-        [Parameter (Mandatory=$true,ParameterSetName="securitypolicy",Position=1)]
-            #Query SecurityPolicy by objectId
-            [System.Xml.XmlElement]$SecurityPolicy,
-        [Parameter (Mandatory=$true,ParameterSetName="virtualmachine",Position=1)]
-            #Query Virtual Machine by MoRef Value
-            [VMware.VimAutomation.ViCore.Impl.V1.VM.UniversalVirtualMachineImpl]$VirtualMachine,
+        [Parameter (Mandatory=$True, ValueFromPipeline=$true)]
+            # Object(s) to retreive applicable rules for.  Can be a SecurityGroup, Security Policy or Virtual Machine
+            [ValidateScript( {
+                $arg = $_
+                try { 
+                    ValidateSecurityGroup $arg }
+                catch {
+                    try {
+                        ValidateSecurityPolicy $arg 
+                    }
+                    catch { 
+                        try { 
+                            ValidateVirtualMachine $arg
+                        }
+                        catch { 
+                            throw "Object specified is not a SecurityGroup, SecurityPolicy or Virtual Machine. $($arg.gettype())"
+                        }
+                    }
+                }
+            })]
+            [object[]]$Object,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
     begin {}
 
     process {
 
-    
-        # Code for securitygroup actions
-                
-        if ( $PSCmdlet.ParameterSetName -eq "securitygroup") {
-            
-            $URI = "/api/2.0/services/policy/securitygroup/$($SecurityGroup.objectId)/securityactions"
-        
-            try {
-                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
-            }
-            catch {
-                throw "Failed retreiving applicable actions.  $_"
-            }
-            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
-                try {
-                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
-                        $response.securityActionsByCategoryMap.actionsByCategory.action
-                    }
-                }
-                catch {
-                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
-                }
+        foreach ( $obj in $object ) {
+            # Work out what type of object we have.
+            if ( $obj -is [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop] ) {
+                $URI = "/api/2.0/services/policy/virtualmachine/$($obj.ExtensionData.MoRef.Value)/securityactions"
             }
             else {
-                throw "No Content returned from NSX API call."
+                if ( $obj.ObjectTypeName -eq "SecurityGroup" )  {
+                    $URI = "/api/2.0/services/policy/securitygroup/$($obj.objectId)/securityactions"
+                }
+                elseif ( $obj.ObjectTypeName -eq "Policy" ) { 
+                    $URI = "/api/2.0/services/policy/securitypolicy/$($obj.objectId)/securityactions"
+                }
+                else { 
+                    throw "Unsupported objecttype specified."
+                }
             }
-        }
 
-        # Code for securitypolicy actions
-
-        if ( $PSCmdlet.ParameterSetName -eq "securitypolicy") {
-            
-            $URI = "/api/2.0/services/policy/securitypolicy/$($SecurityPolicy.objectId)/securityactions"
-        
+            #Make the call
             try {
                 $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
+                $ApplicableActions = Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap/actionsByCategory/action"
+                if ( $ApplicableActions ){ 
+                    $response.securityActionsByCategoryMap.actionsByCategory.action
+                }
             }
             catch {
-                throw "Failed retreiving applicable actions.  $_"
-            }
-            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
-                try {
-                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
-                        $response.securityActionsByCategoryMap.actionsByCategory.action
-                    }
-                }
-                catch {
-                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
-                }
-            }
-            else {
-                throw "No Content returned from NSX API call."
+                throw "Failed retrieving applicable actions.  $_"
             }
         }
-
-        # Code for virtual machine actions
-
-        if ( $PSCmdlet.ParameterSetName -eq "virtualmachine") {
-            
-            $URI = "/api/2.0/services/policy/virtualmachine/$($VirtualMachine.ExtensionData.MoRef.Value)/securityactions"
-        
-            try {
-                $response = Invoke-NsxRestMethod -Uri $Uri -method Get -connection $connection
-            }
-            catch {
-                throw "Failed retreiving applicable actions.  $_"
-            }
-            if ( !(Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap").IsEmpty ) {
-                try {
-                    if ( Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $response -query "child::securityActionsByCategoryMap" ) {
-                        $response.securityActionsByCategoryMap.actionsByCategory.action
-                    }
-                }
-                catch {
-                    throw "Content returned from NSX API could not be parsed as an applicable action XML."
-                }
-            }
-            else {
-                throw "No Content returned from NSX API call."
-            }
-        }
-
     }
-
     end {}
 }
-
-
-#############################################################
-#############################################################
 
 ########
 ########

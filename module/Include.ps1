@@ -248,6 +248,7 @@ $FunctionsToExport = @(
     'Remove-NsxSecurityPolicyRuleGroup',
     'Add-NsxSecurityPolicyRuleService',
     'Remove-NsxSecurityPolicyRuleService',
+    'Get-NsxApplicableSecurityAction',
     'Get-NsxSecurityGroupEffectiveMember',
     'Get-NsxServiceDefinition',
     'Get-NsxServiceProfile',
