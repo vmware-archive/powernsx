@@ -13695,7 +13695,7 @@ function Repair-NsxEdge {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    The Repair-NsxEdge cmdlet allows a Resync or Redploy operation to be
+    The Repair-NsxEdge cmdlet allows a Resync, Redploy or Upgrade operation to be
     performed on the specified Edges appliance.
 
     WARNING: Repair operations can cause connectivity loss.  Use with caution.
@@ -13709,6 +13709,11 @@ function Repair-NsxEdge {
     Get-NsxEdge Edge01 | Repair-NsxEdge -Operation ReSync -Confirm:$false
 
     Resyncs the ESG Edge01 without confirmation.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Repair-NsxEdge -Operation Upgrade -Confirm:$false
+
+    Upgrade the ESG Edge01 to last release without confirmation.
 
     #>
 
@@ -13728,7 +13733,8 @@ function Repair-NsxEdge {
             #Specify the repair operation to be performed on the Edge.
             #If ForceSync - The edge appliance is rebooted
             #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
-            [ValidateSet("ForceSync", "Redeploy")]
+            #If Upgrade - The Edge is upgrade to last release
+            [ValidateSet("ForceSync", "Redeploy","Upgrade")]
             [string]$Operation,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
