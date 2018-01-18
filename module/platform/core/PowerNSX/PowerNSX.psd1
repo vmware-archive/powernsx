@@ -12,7 +12,7 @@
 RootModule = 'PowerNSX.psm1'
 
 # Version number of this module.
-ModuleVersion = '3.0.1071'
+ModuleVersion = '3.0.1072'
 
 # Supported PSEditions
 # CompatiblePSEditions = @()

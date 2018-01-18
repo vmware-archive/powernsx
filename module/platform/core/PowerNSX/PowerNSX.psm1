@@ -5945,7 +5945,7 @@ function New-NsxManager{
         #6.4.0 GA changed the name of the network that is mapped, so now we need to 
         #determine what it is rather than assume it is vsmgmt
         $networkobj = get-member -membertype CodeProperty -inputobject $OvfConfiguration.NetworkMapping
-        $networkname = $networkobject.name
+        $networkname = $networkobj.name
         $OvfConfiguration.NetworkMapping.$networkname.Value = $ManagementPortGroupName
 
         # OVF Configuration values.
