@@ -66,8 +66,8 @@ Describe "Edge" {
         $script:vnics += New-NsxEdgeInterfaceSpec -index 2 -Type internal -Name "vNic2" -ConnectedTo $lswitches[1] -PrimaryAddress $ip2 -SubnetPrefixLength 24
         $script:vnics += New-NsxEdgeInterfaceSpec -index 3 -Type trunk -Name "vNic3" -ConnectedTo $pg1
         $script:preexistingrulename = "pester_e_testrule1"
-        $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
-        $edge | get-nsxedgefirewall | new-nsxedgefirewallrule -name $preexistingrulename -action accept
+        $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest" 
+        $edge | get-nsxedgefirewall | new-nsxedgefirewallrule -name $preexistingrulename -action accept | out-null
         $script:scopedservice = New-NsxService -scope $edge.id -Name "pester_e_scopedservice" -Protocol "TCP" -port "1234"
         $script:VersionLessThan623 = [version]$DefaultNsxConnection.Version -lt [version]"6.2.3"
         $script:VersionLessThan630 = [version]$DefaultNsxConnection.Version -lt [version]"6.3.0"
