@@ -26673,17 +26673,24 @@ function Remove-NsxServiceGroupMember {
     Group for specific or all Service Groups
 
     .EXAMPLE
-    PS C:\> Get-NsxServiceGroup Heartbeat | Remove-NsxServiceGroupMember -Member $Service1
+    Get-NsxServiceGroup Heartbeat | Remove-NsxServiceGroupMember -Member $Service1
 
-    PS C:\> get-nsxservicegroup Service-Group-4 | Remove-NsxServiceGroupMember $Service1,$Service2
+    Remove a service of "Heartbeat" Service Group.
+
+    Get-NsxServiceGroup Service-Group-4 | Remove-NsxServiceGroupMember $Service1,$Service2
+
+    Remove multiple services of "Service-Group-4" Service Group.
 
     #>
 
     param (
-        #Mastergroup added from Get-NsxServiceGroup
+        #Mastergroup removed from Get-NsxServiceGroup
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
             [ValidateScript({ ValidateServiceGroup $_ })]
             [System.Xml.XmlElement]$ServiceGroup,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
         [Parameter (Mandatory=$true,Position=1)]
             [ValidateScript({ ValidateServiceOrServiceGroup $_ })]
             #The [] in XmlElement means it can expect more than one object!
@@ -26695,15 +26702,29 @@ function Remove-NsxServiceGroupMember {
     )
 
     begin {}
-    process {
 
+    process{
         foreach ($Mem in $Member){
-            $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectId)/members/$($Mem.objectId)"
-            $null = invoke-nsxwebrequest -method "DELETE" -uri $URI -connection $connection
-            Write-Progress -activity "Removing Service or Service Group $($Mem) to Service Group $($ServiceGroup)"
-        }
+            if ( $confirm ) {
+                $message  = "Removal of a Service Group Member is permanent."
+                $question = "Proceed with removal of Service Group Member ($Mem.Name)?"
 
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+
+            if ($decision -eq 0) {
+                $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectId)/members/$($Mem.objectId)"
+                $null = invoke-nsxwebrequest -method "DELETE" -uri $URI -connection $connection
+                Write-Progress -activity "Removing Service or Service Group $($Mem) to Service Group $($ServiceGroup)"
+            }
+        }
     }
+
     end {}
 }
 
