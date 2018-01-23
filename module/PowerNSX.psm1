@@ -5942,11 +5942,7 @@ function New-NsxManager{
         $OvfConfiguration = Get-OvfConfiguration -Ovf $NsxManagerOVF
 
         #Network Mapping to portgroup need to be defined.
-        #6.4.0 GA changed the name of the network that is mapped, so now we need to 
-        #determine what it is rather than assume it is vsmgmt
-        $networkobj = get-member -membertype CodeProperty -inputobject $OvfConfiguration.NetworkMapping
-        $networkname = $networkobj.name
-        $OvfConfiguration.NetworkMapping.$networkname.Value = $ManagementPortGroupName
+	$OvfConfiguration.NetworkMapping.VSMgmt.Value = $ManagementPortGroupName        
 
         # OVF Configuration values.
         $OvfConfiguration.common.vsm_cli_passwd_0.value    = $CliPassword
