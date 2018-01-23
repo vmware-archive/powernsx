@@ -5942,7 +5942,7 @@ function New-NsxManager{
         $OvfConfiguration = Get-OvfConfiguration -Ovf $NsxManagerOVF
 
         #Network Mapping to portgroup need to be defined.
-	$OvfConfiguration.NetworkMapping.VSMgmt.Value = $ManagementPortGroupName        
+        $OvfConfiguration.NetworkMapping.VSMgmt.Value = $ManagementPortGroupName
 
         # OVF Configuration values.
         $OvfConfiguration.common.vsm_cli_passwd_0.value    = $CliPassword
