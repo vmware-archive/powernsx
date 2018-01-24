@@ -64,7 +64,7 @@ Describe "NSXManager" {
             $DirectConn | should not be $null
             $DirectConn.Version | should not be $null
             $DirectConn.BuildNumber | should not be $null
-            $DirectConn.ViConnection | should be $null
+            # $DirectConn.ViConnection | should be $null
         }
 
         it "Can connect directly to NSX server using Ent_Admin SSO account" {
@@ -183,6 +183,18 @@ Describe "NSXManager" {
         }
 
         it "Can delete current syslog server configuration" {
+        }
+
+    }
+
+    Context "SSO/vCenter registration" {
+
+        it "Can register SSO with the thumbprint as presented by the SSO server" {
+            {Set-NsxManager -SsoServer $PNSXTestVC -SsoUserName $PNSXTestDefViUsername -SsoPassword $PNSXTestDefViPassword} | should not throw
+        }
+
+        it "Can register vCenter with the thumbprint as presented by the vCenter server" {
+            {Set-NsxManager -vCenterServer $PNSXTestVC -vCenterUserName $PNSXTestDefViUsername -vCenterPassword $PNSXTestDefViPassword} | should not throw
         }
 
     }

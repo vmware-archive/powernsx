@@ -160,87 +160,6 @@ Function _init {
     add-type $InternalNsxApiException -IgnoreWarnings -warningaction "SilentlyContinue"
 
 }
-
-Function Test-WebServerSSL {
-    # Function original location: http://en-us.sysadmins.lv/Lists/Posts/Post.aspx?List=332991f0-bfed-4143-9eea-f521167d287c&ID=60
-    # Ref : https://communities.vmware.com/thread/501913?start=0&tstart=0 - Thanks Alan ;)
-
-    [CmdletBinding()]
-
-    param(
-        [Parameter(Mandatory = $true, ValueFromPipeline = $true, Position = 0)]
-        [string]$URL,
-        [Parameter(Position = 1)]
-        [ValidateRange(1,65535)]
-        [int]$Port = 443,
-        [Parameter(Position = 2)]
-        [Net.WebProxy]$Proxy,
-        [Parameter(Position = 3)]
-        [int]$Timeout = 15000,
-        [switch]$UseUserContext
-    )
-
-Add-Type @"
-using System;
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-namespace PKI {
-    namespace Web {
-        public class WebSSL {
-            public Uri OriginalURi;
-            public Uri ReturnedURi;
-            public X509Certificate2 Certificate;
-            //public X500DistinguishedName Issuer;
-            //public X500DistinguishedName Subject;
-            public string Issuer;
-            public string Subject;
-            public string[] SubjectAlternativeNames;
-            public bool CertificateIsValid;
-            //public X509ChainStatus[] ErrorInformation;
-            public string[] ErrorInformation;
-            public HttpWebResponse Response;
-        }
-    }
-}
-"@
-
-    $ConnectString = "https://$url`:$port"
-    $WebRequest = [Net.WebRequest]::Create($ConnectString)
-    $WebRequest.Proxy = $Proxy
-    $WebRequest.Credentials = $null
-    $WebRequest.Timeout = $Timeout
-    $WebRequest.AllowAutoRedirect = $true
-    [Net.ServicePointManager]::ServerCertificateValidationCallback = {$true}
-    try {$Response = $WebRequest.GetResponse()}
-    catch {}
-    if ($WebRequest.ServicePoint.Certificate -ne $null) {
-        $Cert = [Security.Cryptography.X509Certificates.X509Certificate2]$WebRequest.ServicePoint.Certificate.Handle
-        try {$SAN = ($Cert.Extensions | Where-Object {$_.Oid.Value -eq "2.5.29.17"}).Format(0) -split ", "}
-        catch {$SAN = $null}
-        $chain = New-Object Security.Cryptography.X509Certificates.X509Chain -ArgumentList (!$UseUserContext)
-        [void]$chain.ChainPolicy.ApplicationPolicy.Add("1.3.6.1.5.5.7.3.1")
-        $Status = $chain.Build($Cert)
-        New-Object PKI.Web.WebSSL -Property @{
-            OriginalUri = $ConnectString;
-            ReturnedUri = $Response.ResponseUri;
-            Certificate = $WebRequest.ServicePoint.Certificate;
-            Issuer = $WebRequest.ServicePoint.Certificate.Issuer;
-            Subject = $WebRequest.ServicePoint.Certificate.Subject;
-            SubjectAlternativeNames = $SAN;
-            CertificateIsValid = $Status;
-            Response = $Response;
-            ErrorInformation = $chain.ChainStatus | ForEach-Object {$_.Status}
-        }
-        $chain.Reset()
-        [Net.ServicePointManager]::ServerCertificateValidationCallback = $null
-        $ServicePoint = [System.Net.ServicePointManager]::FindServicePoint($ConnectString)
-        $ServicePoint.CloseConnectionGroup("") | out-null
-        write-debug "$($MyInvocation.MyCommand.Name) : Closing connections to $ConnectString."
-    } else {
-        Write-Error $Error[0]
-    }
-}
-
 function Invoke-XpathQuery {
 
     <#
@@ -6078,7 +5997,7 @@ function Set-NsxManager {
     network management component of NSX. It provides the single point of
     configuration for NSX operations, and provides NSX's REST API.
 
-    The Set-NsxManager cmdlet allows configuration of the applaince settings
+    The Set-NsxManager cmdlet allows configuration of the appliance settings
     such as syslog, vCenter registration and SSO configuration.
 
     .EXAMPLE
@@ -6100,6 +6019,11 @@ function Set-NsxManager {
     Set-NsxManager -vcenterusername administrator@vsphere.local -vcenterpassword VMware1! -vcenterserver vcenter.corp.local
 
     Configures the vCenter registration of NSX Manager.
+
+    .EXAMPLE
+    Set-NsxManager -vcenterusername administrator@vsphere.local -vcenterpassword VMware1! -vcenterserver vcenter.corp.local -sslThumbPrint F6:48:11:0E:AC:F7:93:A3:1B:60:8F:A2:53:C4:88:77:3F:CD:B1:81
+
+    Configures the vCenter registration of NSX Manager using the specified thumbprint.
 
     #>
 
@@ -6152,7 +6076,7 @@ function Set-NsxManager {
         [Parameter (Mandatory=$False, ParameterSetName="Sso")]
             #SSL Thumbprint to validate certificate presented by SSO/vCenter server against.
             [ValidateNotNullOrEmpty()]
-            [string]$SslThumbprint,
+            [string]$SslThumbprint="",
         [Parameter (Mandatory=$False, ParameterSetName="vCenter")]
         [Parameter (Mandatory=$False, ParameterSetName="Sso")]
             #Accept any SSL certificate presented by SSO/vCenter.
@@ -6186,7 +6110,7 @@ function Set-NsxManager {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "protocol" -xmlElementText $SyslogProtocol
 
             $uri = "/api/1.0/appliance-management/system/syslogserver"
-            $method = "put"
+            Invoke-NsxRestMethod -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
         }
 
         "Sso" {
@@ -6201,21 +6125,6 @@ function Set-NsxManager {
                 $AcceptAnyThumbprint = $False
             }
 
-            #Need to get the SSL thumbprint for vCenter to send it in the request.
-            if ( $AcceptAnyThumbprint ) {
-                try {
-                    $Cert = Test-WebServerSSL $SsoServer -erroraction Stop
-                    #The cert thumprint comes back without colons separating the bytes, so we add them
-                    $Thumbprint = $Cert.Certificate.Thumbprint -replace '(..(?!$))','$1:'
-                }
-                catch {
-                    Throw "An error occured retrieving the SSO SSL certificate.  $_"
-                }
-            }
-            else {
-                $Thumbprint = $SslThumbprint
-            }
-
             #Create the XMLRoot
 
             [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("ssoConfig")
@@ -6226,10 +6135,26 @@ function Set-NsxManager {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "ssoLookupServiceUrl" -xmlElementText $SsoLookupServiceUrl
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "ssoAdminUsername" -xmlElementText $SsoUserName.ToString()
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "ssoAdminUserpassword" -xmlElementText $SsoPassword
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "certificateThumbprint" -xmlElementText $Thumbprint
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "certificateThumbprint" -xmlElementText $SslThumbprint
 
-            $method = "post"
             $uri = "/api/2.0/services/ssoconfig"
+            try {
+                Invoke-NsxRestMethod -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+            }
+            catch {
+                #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
+                $thumbprintMatch = "<error><details>(([A-F0-9]{2}:)+[A-F0-9]{2})<\/details><errorCode>226<\/errorCode><\/error>"
+                if (($AcceptAnyThumbprint) -and ($_ -match $thumbprintMatch))  {
+                    #API responded with a thumbprint
+                    write-warning "Using thumbprint presented by the SSO server: $($Matches[1])"
+                    $xmlRoot.certificateThumbprint = $matches[1]
+                    Invoke-NsxRestMethod -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                }
+                else {
+                    #rethrow
+                    throw "An error occured configuring the specified SSO server.  $_"
+                }
+            }
         }
 
         "vCenter" {
@@ -6244,21 +6169,6 @@ function Set-NsxManager {
                 $AcceptAnyThumbprint = $False
             }
 
-            #Need to get the SSL thumbprint for vCenter to send it in the request.
-            if ( $AcceptAnyThumbprint ) {
-                try {
-                    $VcCert = Test-WebServerSSL $vCenterServer -erroraction Stop
-                    #The cert thumprint comes back without colons separating the bytes, so we add them
-                    $Thumbprint = $VcCert.Certificate.Thumbprint -replace '(..(?!$))','$1:'
-                }
-                catch {
-                    Throw "An error occured retrieving the vCenter SSL certificate.  $_"
-                }
-            }
-            else {
-                $Thumbprint = $SslThumbprint
-            }
-
             #Build the XML
             [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("vcInfo")
             $xmlDoc.appendChild($xmlRoot) | out-null
@@ -6266,16 +6176,29 @@ function Set-NsxManager {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "ipAddress" -xmlElementText $vCenterServer.ToString()
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "userName" -xmlElementText $vCenterUserName.ToString()
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "password" -xmlElementText $vCenterPassword.ToString()
-            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "certificateThumbprint" -xmlElementText $Thumbprint
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "certificateThumbprint" -xmlElementText $SslThumbprint
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "assignRoleToUser" -xmlElementText "true"
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "pluginDownloadServer" -xmlElementText ""
-            $method = "put"
             $uri = "/api/2.0/services/vcconfig"
-
+            try {
+                Invoke-NsxRestMethod -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+            }
+            catch {
+                #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
+                $thumbprintMatch = "<error><details>(([A-F0-9]{2}:)+[A-F0-9]{2})<\/details><errorCode>226<\/errorCode><\/error>"
+                if (($AcceptAnyThumbprint) -and ($_ -match $thumbprintMatch))  {
+                    #API responded with a thumbprint
+                    write-warning "Using thumbprint presented by the vCenter server: $($Matches[1])"
+                    $xmlRoot.certificateThumbprint = $matches[1]
+                    Invoke-NsxRestMethod -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                }
+                else {
+                    #rethrow
+                    throw "An error occured configuring the specified vCenter server.  $_"
+                }
+            }
         }
     }
-
-    Invoke-NsxRestMethod -Method $method -body $xmlRoot.outerXml -uri $uri -Connection $Connection
 }
 
 function Get-NsxManagerCertificate {

@@ -130,8 +130,12 @@ function Start-Test {
         # $PNSXTestDefMgrCred = New-Object System.Management.Automation.PSCredential $import.nsxuser, ( $import.nsxpwd | ConvertTo-SecureString )
         # $PNSXTestDefViCred = New-Object System.Management.Automation.PSCredential $import.viuser, ( $import.vipwd | ConvertTo-SecureString )
 
-        $PNSXTestDefMgrCred = New-Object System.Management.Automation.PSCredential $import.nsxuser, ( $import.nsxpwd | ConvertTo-SecureString -AsPlainText -Force )
-        $PNSXTestDefViCred = New-Object System.Management.Automation.PSCredential $import.viuser, ( $import.vipwd | ConvertTo-SecureString -AsPlainText -Force )
+        $PNSXTestDefViUsername = $import.viuser
+        $PNSXTestDefViPassword = $import.vipwd
+        $PNSXTestDefMgrUsername = "admin"
+        $PNSXTestDefMgrPassword = $import.nsxpwd
+        $PNSXTestDefMgrCred = New-Object System.Management.Automation.PSCredential $PNSXTestDefMgrUsername, ( $PNSXTestDefMgrPassword | ConvertTo-SecureString -AsPlainText -Force )
+        $PNSXTestDefViCred = New-Object System.Management.Automation.PSCredential $PNSXTestDefViUsername, ( $PNSXTestDefViPassword | ConvertTo-SecureString -AsPlainText -Force )
 
         ###
     }
