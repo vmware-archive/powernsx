@@ -13723,11 +13723,11 @@ function Set-NsxEdge {
     by specific PowerNSX cmdlets.
 
     .EXAMPLE
-    Disable the Edge Firewall on ESG Edge01
+    $edge = Get-NsxEdge Edge01
+    PS C:\>$edge.features.firewall.enabled = "false"
+    PS C:\>$edge | Set-NsxEdge
 
-    PS C:\> $edge = Get-NsxEdge Edge01
-    PS C:\> $edge.features.firewall.enabled = "false"
-    PS C:\> $edge | Set-NsxEdge
+    Disable the Edge Firewall on ESG Edge01
 
     #>
 
