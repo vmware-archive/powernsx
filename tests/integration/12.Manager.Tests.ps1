@@ -189,11 +189,12 @@ Describe "NSXManager" {
 
     Context "SSO/vCenter registration" {
 
-        it "Can register SSO with the thumbprint as presented by the SSO server" {
+        #Disabled tests until the work on core.  Review when we do Core GA support.
+        it "Can register SSO with the thumbprint as presented by the SSO server" -skip {
             {Set-NsxManager -SsoServer $PNSXTestVC -SsoUserName $PNSXTestDefViUsername -SsoPassword $PNSXTestDefViPassword} | should not throw
         }
 
-        it "Can register vCenter with the thumbprint as presented by the vCenter server" {
+        it "Can register vCenter with the thumbprint as presented by the vCenter server" -skip {
             {Set-NsxManager -vCenterServer $PNSXTestVC -vCenterUserName $PNSXTestDefViUsername -vCenterPassword $PNSXTestDefViPassword} | should not throw
         }
 
