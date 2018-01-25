@@ -8342,7 +8342,7 @@ function New-NsxClusterVxlanConfig {
 
         #Check that the VDS has a VDS context in NSX and is configured.
         try {
-            $null = Get-NsxVdsContext -objectId $VirtualDistributedSwitch.Extensiondata.MoRef.Value -connection $connection
+            $vdscontext = Get-NsxVdsContext -objectId $VirtualDistributedSwitch.Extensiondata.MoRef.Value -connection $connection
         }
         catch {
             throw "Specified VDS is not configured for NSX.  Use New-NsxVdsContext to configure the VDS and try again."
@@ -8355,7 +8355,7 @@ function New-NsxClusterVxlanConfig {
 
         Add-XmlElement -xmlRoot $xmlContext -xmlElementName "featureId" -xmlElementText "com.vmware.vshield.vsm.vxlan"
 
-        #configSpec
+        #cluster configSpec
         $xmlResourceConfig = $xmlDoc.CreateElement("resourceConfig")
         $xmlConfigSpec = $xmlDoc.CreateElement("configSpec")
         $xmlConfigSpec.SetAttribute("class","clusterMappingSpec")
@@ -8373,6 +8373,24 @@ function New-NsxClusterVxlanConfig {
 
         Add-XmlElement -xmlRoot $xmlSwitch -xmlElementName "objectId" -xmlElementText $VirtualDistributedSwitch.Extensiondata.Moref.Value.ToString()
         Add-XmlElement -xmlRoot $xmlResourceConfig -xmlElementName "resourceId" -xmlElementText $Cluster.Extensiondata.Moref.Value.ToString()
+
+        # NSX 6.4.0 introduced changes that require the (redundant) vdsContext to be passed in this call too.
+        # switch configSpec
+        $xmlvdsResourceConfig = $xmlDoc.CreateElement("resourceConfig")
+        $xmlvdsConfigSpec = $xmlDoc.CreateElement("configSpec")
+        $xmlvdsConfigSpec.SetAttribute("class","vdsContext")
+        $xmlContext.Appendchild($xmlvdsResourceConfig) | out-null
+        $xmlvdsResourceConfig.Appendchild($xmlvdsConfigSpec) | out-null
+
+        Add-XmlElement -xmlRoot $xmlvdsConfigSpec -xmlElementName "mtu" -xmlElementText $vdsContext.mtu
+        Add-XmlElement -xmlRoot $xmlvdsConfigSpec -xmlElementName "teaming" -xmlElementText $vdsContext.teaming
+
+        $xmlvdsSwitch = $xmlDoc.CreateElement("switch")
+        $xmlvdsConfigSpec.Appendchild($xmlvdsSwitch) | out-null
+
+        Add-XmlElement -xmlRoot $xmlvdsSwitch -xmlElementName "objectId" -xmlElementText $VirtualDistributedSwitch.Extensiondata.Moref.Value.ToString()
+        Add-XmlElement -xmlRoot $xmlvdsResourceConfig -xmlElementName "resourceId" -xmlElementText $VirtualDistributedSwitch.Extensiondata.Moref.Value.ToString()
+
 
         Write-Progress -id 1 -activity "Configuring VXLAN on cluster $($Cluster.Name)." -status "In Progress..."
 
