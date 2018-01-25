@@ -71,8 +71,9 @@ Describe "NSXManager" {
             $NSXManager = $DefaultNsxConnection.Server
             $DirectConn = Connect-NsxServer -NsxServer $NSXManager -Credential $PNSXTestDefViCred -ViWarningAction "Ignore" -DefaultConnection:$false -DisableViAutoConnect
             $DirectConn | should not be $null
-            $DirectConn.Version | should be $null
-            $DirectConn.BuildNumber | should be $null
+            #Disabled as NSX 6.4.0 appears to allow access to some appliance management APIs now and this is succeeding now.
+            # $DirectConn.Version | should be $null
+            # $DirectConn.BuildNumber | should be $null
         }
 
     }

@@ -52,6 +52,11 @@ Describe "DFW Global Properties" {
             $ver_gt_623 = $false
         }
 
+        #Changed in 6.4.0
+        if ( [version]$DefaultNsxConnection.Version -ge [version]"6.4.0" ) {
+            $script:cpudefault = "90"
+        }
+
     }
 
     AfterAll {
