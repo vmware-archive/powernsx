@@ -109,7 +109,7 @@ Describe "IPSets" {
 
     }
 
-    Context "Successful IpSet Creation" {
+    Context "Successful IpSet Creation (Legacy)" {
 
         AfterAll {
             get-nsxipset | ? { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
@@ -160,9 +160,30 @@ Describe "IPSets" {
             $get.inheritanceAllowed | should be "false"
         }
 
-        it "Can create an ipset with inheritance enabled" {
+
+        it "Can create an ipset with multiple entries" {
 
             $ipsetName = "$IpSetPrefix-ipset-create4"
+            $ipsetDesc = "PowerNSX Pester Test create ipset"
+            $ipaddress1 = "1.2.3.4"
+            $ipaddress2 = "1.2.3.4-2.3.4.5"
+            $ipaddress3 = "1.2.3.0/24"
+            $ipaddresses = @($ipaddress1,$ipaddress2,$ipaddress3)
+            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses ($ipaddresses -join ",")
+            $ipset.Name | Should be $ipsetName
+            $ipset.Description | should be $ipsetDesc
+            $get = Get-nsxipset -Name $ipsetName
+            $get.name | should be $ipset.name
+            $get.description | should be $ipset.description
+            $get.value -split "," -contains $ipAddress1 | should be $true
+            $get.value -split "," -contains $ipAddress2 | should be $true
+            $get.value -split "," -contains $ipAddress3 | should be $true
+            $get.inheritanceAllowed | should be "false"
+        }
+
+        it "Can create an ipset with inheritance enabled" {
+
+            $ipsetName = "$IpSetPrefix-ipset-create5"
             $ipsetDesc = "PowerNSX Pester Test create ipset"
             $ipaddresses = "1.2.3.4"
             $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses -EnableInheritance
@@ -183,6 +204,112 @@ Describe "IPSets" {
             $id | should BeOfType System.String
             $id | should match "^ipset-\d*$"
         }
+    }
+
+    Context "Unsuccessful IpSet Creation (Legacy)" {
+
+        it "Fails to create an ipset with invalid address" {
+
+            $ipsetName = "$IpSetPrefix-ipset-create1"
+            $ipsetDesc = "PowerNSX Pester Test create ipset"
+            $ipaddresses = "1.2.3.4.5"
+            { New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses } | should throw
+        }
+    }
+
+    Context "Successful IpSet Creation" {
+
+        AfterAll {
+            get-nsxipset | ? { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
+        }
+
+        it "Can create an ipset with single address" {
+
+            $ipsetName = "$IpSetPrefix-ipset-create1"
+            $ipsetDesc = "PowerNSX Pester Test create ipset"
+            $ipaddresses = "1.2.3.4"
+            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddresses
+            $ipset.Name | Should be $ipsetName
+            $ipset.Description | should be $ipsetDesc
+            $get = Get-nsxipset -Name $ipsetName
+            $get.name | should be $ipset.name
+            $get.description | should be $ipset.description
+            $get.value | should be $ipset.value
+            $get.inheritanceAllowed | should be "false"
+        }
+
+        it "Can create an ipset with range" {
+
+            $ipsetName = "$IpSetPrefix-ipset-create2"
+            $ipsetDesc = "PowerNSX Pester Test create ipset"
+            $ipaddresses = "1.2.3.4-2.3.4.5"
+            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddresses
+            $ipset.Name | Should be $ipsetName
+            $ipset.Description | should be $ipsetDesc
+            $get = Get-nsxipset -Name $ipsetName
+            $get.name | should be $ipset.name
+            $get.description | should be $ipset.description
+            $get.value | should be $ipset.value
+            $get.inheritanceAllowed | should be "false"
+        }
+
+        it "Can create an ipset with CIDR" {
+
+            $ipsetName = "$IpSetPrefix-ipset-create3"
+            $ipsetDesc = "PowerNSX Pester Test create ipset"
+            $ipaddresses = "1.2.3.0/24"
+            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddresses
+            $ipset.Name | Should be $ipsetName
+            $ipset.Description | should be $ipsetDesc
+            $get = Get-nsxipset -Name $ipsetName
+            $get.name | should be $ipset.name
+            $get.description | should be $ipset.description
+            $get.value | should be $ipset.value
+            $get.inheritanceAllowed | should be "false"
+        }
+
+        it "Can create an ipset with multiple entries" {
+
+            $ipsetName = "$IpSetPrefix-ipset-create4"
+            $ipsetDesc = "PowerNSX Pester Test create ipset"
+            $ipaddress1 = "1.2.3.4"
+            $ipaddress2 = "1.2.3.4-2.3.4.5"
+            $ipaddress3 = "1.2.3.0/24"
+            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddress1,$ipaddress2,$ipaddress3
+            $ipset.Name | Should be $ipsetName
+            $ipset.Description | should be $ipsetDesc
+            $get = Get-nsxipset -Name $ipsetName
+            $get.name | should be $ipset.name
+            $get.description | should be $ipset.description
+            $get.value -split "," -contains $ipAddress1 | should be $true
+            $get.value -split "," -contains $ipAddress2 | should be $true
+            $get.value -split "," -contains $ipAddress3 | should be $true
+            $get.inheritanceAllowed | should be "false"
+        }
+
+        it "Can create an ipset with inheritance enabled" {
+
+            $ipsetName = "$IpSetPrefix-ipset-create5"
+            $ipsetDesc = "PowerNSX Pester Test create ipset"
+            $ipaddresses = "1.2.3.4"
+            $ipset = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddresses -EnableInheritance
+            $ipset.Name | Should be $ipsetName
+            $ipset.Description | should be $ipsetDesc
+            $get = Get-nsxipset -Name $ipsetName
+            $get.name | should be $ipset.name
+            $get.description | should be $ipset.description
+            $get.value | should be $ipset.value
+            $get.inheritanceAllowed | should be "true"
+        }
+
+        it "Can create an ipset and return an objectId only" {
+            $ipsetName = "$IpSetPrefix-objonly-1234"
+            $ipsetDesc = "PowerNSX Pester Test objectidonly ipset"
+            $ipaddresses = "1.2.3.4"
+            $id = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddresses -ReturnObjectIdOnly
+            $id | should BeOfType System.String
+            $id | should match "^ipset-\d*$"
+        }
 
         It "Creates only a single ipset when used as the first part of a pipeline (#347)" {
             New-NsxIpSet -Name "$IpSetPrefix-test-347"
@@ -198,7 +325,7 @@ Describe "IPSets" {
             $ipsetName = "$IpSetPrefix-ipset-create1"
             $ipsetDesc = "PowerNSX Pester Test create ipset"
             $ipaddresses = "1.2.3.4.5"
-            { New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses $ipaddresses } | should throw
+            { New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddresses } | should throw
         }
     }
 
@@ -292,8 +419,9 @@ Describe "IPSets" {
             $iprange = "1.2.3.4-2.3.4.5"
             $cidr = "1.2.3.0/24"
             $hostCidr = "1.2.3.4/32"
+            $dummyIpAddress = "9.9.9.9"
             get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
-            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddresses "$ipaddress,$iprange,$cidr,$hostCidr"
+            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddress,$iprange,$cidr,$hostCidr
 
         }
 
@@ -325,6 +453,31 @@ Describe "IPSets" {
             $ipset.value -split "," -contains $ipaddress | should be $true
             $ipset.value -split "," -contains $iprange | should be $true
             $ipset.value -split "," -contains $hostCidr | should be $true
+        }
+
+        it "Display a warning when when an ip set does not contain an address to be removed" {
+            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $dummyIpAddress -WarningVariable warning
+            $warning | Should Match ": $dummyIpAddress is not a member of IPSet"
+            $ipset | Should be $null
+            $validate = get-nsxipset $ipsetName
+            $validate.value -split "," -contains $ipaddress | should be $true
+            $validate.value -split "," -contains $hostCidr | should be $true
+            $validate.value -split "," -contains $cidr | should be $true
+            $validate.value -split "," -contains $iprange | should be $true
+        }
+
+        it "Display a warning when when an ip set does not contain any memebers" {
+            # Cleanup the existing IP Set as we need to create one with no
+            # IP addresses specified.
+            get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
+            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc
+            $remove | Should not be $null
+            $ipset = $remove | Remove-NsxIpSetMember -IpAddress $dummyIpAddress -WarningVariable warning
+            $warning | Should match ": No members found"
+        }
+
+        it "Fail to remove all addresses from an ip set" {
+            { $remove | Remove-NsxIpSetMember -IpAddress $ipaddress,$hostCidr,$cidr,$iprange } | should throw
         }
 
         it "Can remove multiple values from an ip set" {

@@ -97,7 +97,8 @@ $ServicesExportFile = "$TempDir\ServicesExport.xml"
 $ServiceGroupExportFile = "$TempDir\ServiceGroupExport.xml"
 $SecurityGroupExportFile = "$TempDir\SecurityGroupExport.xml"
 $SecurityTagExportFile = "$TempDir\SecurityTagExport.xml"
-$DfwRuleExportFile = "$TempDir\DfwRuleExport.xml"
+$SecPolExportFile = "$TempDir\SecPolExport.xml"
+$dfwConfigFile = "$TempDir\DfwConfigExport.xml"
 
 $LsHash = @{}
 $VdPortGroupHash = @{}
@@ -112,7 +113,7 @@ $ServiceHash = @{}
 $ServiceGroupHash = @{}
 $SecurityGroupHash = @{}
 $SecurityTagHash = @{}
-$DfwRuleHash = @{}
+$SecPolHash = @{}
 
 write-host -ForeGroundColor Green "PowerNSX Object Capture Script"
 
@@ -262,8 +263,13 @@ Get-NsxSecurityTag -connection $connection | % {
 }
 
 write-host "  Getting configured DFW Rules"
-Get-NsxFirewallSection | Get-NsxFirewallRule -connection $connection | % {
-    $DfwRuleHash.Add($_.id, $_.outerxml)
+$uri="/api/4.0/firewall/globalroot-0/config"
+$response = invoke-nsxwebrequest -URI $uri -Method GET -connection $connection
+$response.content | format-xml | Out-File $dfwConfigFile
+
+write-host "  Getting Security Policies"
+Get-NsxSecurityPolicy -connection $connection | % {
+    $SecPolHash.Add($_.objectId, $_.outerxml)
 }
 
 
@@ -283,7 +289,7 @@ $ServiceHash | export-clixml -depth $maxdepth $ServicesExportFile
 $ServiceGroupHash | export-clixml -depth $maxdepth $ServiceGroupExportFile
 $SecurityGroupHash | export-clixml -depth $maxdepth $SecurityGroupExportFile
 $SecurityTagHash | export-clixml -depth $maxdepth $SecurityTagExportFile
-$DfwRulesHash | export-clixml -depth $maxdepth $DfwRuleExportFile
+$SecPolHash | export-clixml -depth $maxdepth $SecPolExportFile
 
 #Desktop extract to zip
 if ($psversiontable.PSEdition -ne "Core"){

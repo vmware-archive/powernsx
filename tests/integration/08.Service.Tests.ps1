@@ -59,6 +59,10 @@ Describe "Services" {
 
         $script:AllServicesNotRequiringPort = $Script:AllValidServices | ? { $AllServicesRequiringPort -notcontains $_ }
 
+        $script:AllServicesValidSourcePort = @( "FTP", "MS_RPC_TCP", "MS_RPC_UDP",
+        "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP",
+        "TCP", "UDP" )
+
         $Script:AllValidIcmpTypes = @("echo-reply", "destination-unreachable",
             "source-quench", "redirect", "echo-request", "time-exceeded",
             "parameter-problem", "timestamp-request", "timestamp-reply",
@@ -187,6 +191,29 @@ Describe "Services" {
                 $get.name | should be $svc.name
                 $get.description | should be $svc.description
                 $get.element.value | should be $svc.element.value
+                $get.element.protocol | should be $svc.element.protocol
+
+            }
+        }
+
+        foreach ( $svc in $AllServicesValidSourcePort ) {
+            it "Can create $svc service with source port" {
+                $svcName = "$svcPrefix-$svc-sourceport-1234"
+                $svcDesc = "PowerNSX Pester Test $svc service source port"
+                $svcPort = 1234
+                $svcSourcePort = 7000
+                $svcProto = $Svc
+                $svc = New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port $svcPort -sourcePort $svcSourcePort
+                $svc.Name | Should be $svcName
+                $svc.Description | should be $svcDesc
+                $svc.element.value | should be $svcPort
+                $svc.element.sourcePort | should be $svcSourcePort
+                $svc.element.applicationProtocol | should be $svcProto
+                $get = Get-NsxService -Name $svcName
+                $get.name | should be $svc.name
+                $get.description | should be $svc.description
+                $get.element.value | should be $svc.element.value
+                $get.element.sourcePort | should be $svc.element.sourcePort
                 $get.element.protocol | should be $svc.element.protocol
 
             }
@@ -330,6 +357,26 @@ Describe "Services" {
                 $svcDesc = "PowerNSX Pester Test Invalid service"
                 $svcProto = $svc
                 {New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port 70000 } | should throw
+            }
+        }
+
+        foreach ( $svc in $AllServicesValidSourcePort ) {
+            it "Fails to create a $svc service with an invalid source port number" {
+
+                $svcName = "$svcPrefix-invalid"
+                $svcDesc = "PowerNSX Pester Test Invalid service"
+                $svcProto = $svc
+                {New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -port 70000 } | should throw
+            }
+        }
+
+        foreach ( $svc in ($AllValidServices | ? { $AllServicesValidSourcePort -notcontains $_})) {
+            it "Fails to create a $svc service when specifying a source port number" {
+
+                $svcName = "$svcPrefix-invalid"
+                $svcDesc = "PowerNSX Pester Test Invalid service"
+                $svcProto = $svc
+                {New-NsxService -Name $svcName -Description $svcDesc -Protocol $svcProto -sourcePort 12345 } | should throw
             }
         }
 

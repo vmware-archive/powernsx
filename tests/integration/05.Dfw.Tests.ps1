@@ -63,6 +63,15 @@ Describe "DFW" {
         $script:rawService4 = "udp/53"
         $script:rawService5 = "TCP"
         $script:rawService6 = "UDP"
+        $script:TestDraftName1 = "pester_draft_1"
+        $script:TestDraftName2 = "pester_draft_2"
+        $script:TestDraftName3 = "pester_draft_3"
+        $script:TestDraftDesc1 = "pester_draft_description_1"
+        $script:TestDraftDesc2 = "pester_draft_description_2"
+        $script:TestDraftDesc3 = "pester_draft_description_3"
+        $script:TestDraftUpdatedName = "pester_draft_updated_name"
+        $script:TestDraftUpdatedDesc = "pester_draft_updated_desc"
+
 
         #Logical Switch
         $script:testls = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testlsname
@@ -92,8 +101,8 @@ Describe "DFW" {
         $script:testvm3 = new-vm -name $testVMName3 @vmsplat
 
         #Create Groupings
-        $script:TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Pester dfw Test IP Set" -IpAddresses $testIPs
-        $script:TestIpSet2 = New-NsxIpSet -Name $testIPSetName2 -Description "Pester dfw Test IP Set2" -IpAddresses $testIPs2
+        $script:TestIpSet = New-NsxIpSet -Name $testIPSetName -Description "Pester dfw Test IP Set" -IpAddress $testIPs
+        $script:TestIpSet2 = New-NsxIpSet -Name $testIPSetName2 -Description "Pester dfw Test IP Set2" -IpAddress $testIPs2
         $script:TestMacSet1 = New-NsxMacSet -Name $testMacSetName1 -Description "Pester dfw Test MAC Set1" -MacAddresses "$TestMac1,$TestMac2"
         $script:TestMacSet2 = New-NsxMacSet -Name $testMacSetName2 -Description "Pester dfw Test MAC Set2" -MacAddresses "$TestMac1,$TestMac2"
         $script:TestSG1 = New-NsxSecurityGroup -Name $testSGName1 -Description "Pester dfw Test SG1" -IncludeMember $testVM1, $testVM2
@@ -152,7 +161,193 @@ Describe "DFW" {
 
     }
 
+    Context "Firewall Drafts" {
+        AfterAll {
+            Get-NsxFirewallSavedConfiguration | ? {$_.name -match "^pester"} | Remove-NsxFirewallSavedConfiguration -confirm:$false
+        }
+
+        BeforeEach {
+            $section = New-NsxFirewallSection "pester_drafts"
+            sleep 1
+            $rule1 = $section | New-NsxFirewallRule -Name "pester_draft_rule" -Action allow
+            sleep 1
+        }
+
+        AfterEach {
+            Get-NsxFirewallSection -ObjectId $section.id | Remove-NsxFirewallSection -confirm:$false -force
+            sleep 1
+        }
+
+        it "Can retrieve all firewall drafts" {
+            $drafts = Get-NsxFirewallSavedConfiguration
+            $drafts | should not be $null
+            ($drafts | measure).count | should begreaterthan 0
+            $draft = $drafts | select-object -first 1
+            $draft.id | should not be $null
+            ($draft | Get-Member -Name description -MemberType Properties).count | should be 1
+            $draft.timestamp | should not be $null
+            $draft.preserve | should not be $null
+            $draft.user | should not be $null
+            ($draft | Get-Member -Name mode -MemberType Properties).count | should be 1
+        }
+
+        it "Can retrieve firewall drafts by name (positional)" {
+            # NSX Manager allows firewall drafts are able to be configured with
+            # the same name
+            $drafts = Get-NsxFirewallSavedConfiguration | select -first 1
+            $drafts | should not be $null
+            ($drafts | measure).count | should be 1
+
+            $draft = Get-NsxFirewallSavedConfiguration $drafts.name
+            $draft.id | should be $drafts.id
+            $draft.description | should be $drafts.description
+            $draft.timestamp | should be $drafts.timestamp
+            $draft.preserve | should be $drafts.preserve
+            $draft.user | should be $drafts.user
+            $draft.mode | should be $drafts.mode
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can retrieve firewall drafts by name (parameter)" {
+            # NSX Manager allows firewall drafts are able to be configured with
+            # the same name
+            $drafts = Get-NsxFirewallSavedConfiguration | select -first 1
+            $drafts | should not be $null
+            ($drafts | measure).count | should be 1
+
+            $draft = Get-NsxFirewallSavedConfiguration -Name $drafts.name
+            $draft.id | should be $drafts.id
+            $draft.description | should be $drafts.description
+            $draft.timestamp | should be $drafts.timestamp
+            $draft.preserve | should be $drafts.preserve
+            $draft.user | should be $drafts.user
+            $draft.mode | should be $drafts.mode
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can retrieve firewall drafts by id" {
+            $drafts = Get-NsxFirewallSavedConfiguration | select -first 1
+            $drafts | should not be $null
+            ($drafts | measure).count | should be 1
+
+            $draft = Get-NsxFirewallSavedConfiguration -ObjectId $drafts.id
+            $draft.id | should be $drafts.id
+            $draft.description | should be $drafts.description
+            $draft.timestamp | should be $drafts.timestamp
+            $draft.preserve | should be $drafts.preserve
+            $draft.user | should be $drafts.user
+            $draft.mode | should be $drafts.mode
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can create a userdefined firewall draft" {
+            $draft = New-NsxFirewallSavedConfiguration -Name $TestDraftName1 -Description $TestDraftDesc1
+            $draft | should not be $null
+            $draft.id | should not be $null
+            $draft.name | should be $TestDraftName1
+            $draft.description | should be $TestDraftDesc1
+            $draft.timestamp | should not be $null
+            $draft.preserve | should be "true"
+            $draft.user | should not be $null
+            $draft.mode | should be "userdefined"
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can create a userdefined firewall draft with preserve disabled" {
+            $draft = New-NsxFirewallSavedConfiguration -Name $TestDraftName2 -Description $TestDraftDesc2 -Preserve:$false
+            $draft | should not be $null
+            $draft.id | should not be $null
+            $draft.name | should be $TestDraftName2
+            $draft.description | should be $TestDraftDesc2
+            $draft.timestamp | should not be $null
+            $draft.preserve | should be "false"
+            $draft.user | should not be $null
+            $draft.mode | should be "userdefined"
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+        }
+
+        it "Can modify an existing firewall draft" {
+            $draft = New-NsxFirewallSavedConfiguration -Name $TestDraftName3 -Description $TestDraftDesc3
+            $draft | should not be $null
+            $draft.id | should not be $null
+            $draft.name | should be $TestDraftName3
+            $draft.description | should be $TestDraftDesc3
+            $draft.timestamp | should not be $null
+            $draft.preserve | should be "true"
+            $draft.user | should not be $null
+            $draft.mode | should be "userdefined"
+            ($draft | Get-Member -Name config -MemberType Properties).count | should be 1
+            $draft.config.timestamp | should not be $null
+            $draft.config.contextId | should not be $null
+            $draft.config.layer3Sections | should not be $null
+            $draft.config.layer2Sections | should not be $null
+            $draft.config.layer3RedirectSections | should not be $null
+            $draft.config.generationNumber | should not be $null
+
+            $updated = Get-NsxFirewallSavedConfiguration -ObjectId $draft.id | Set-NsxFirewallSavedConfiguration -Name $TestDraftUpdatedName -Description $TestDraftUpdatedDesc -Preserve:$false
+            $updated.id | should be $draft.id
+            $updated.name | should be $TestDraftUpdatedName
+            $updated.description | should be $TestDraftUpdatedDesc
+            $updated.timestamp | should not be $null
+            $updated.preserve | should be "false"
+            $updated.user | should not be $null
+            $updated.mode | should be "userdefined"
+            ($updated | Get-Member -Name config -MemberType Properties).count | should be 1
+            $updated.config.timestamp | should not be $null
+            $updated.config.contextId | should not be $null
+            $updated.config.layer3Sections | should not be $null
+            $updated.config.layer2Sections | should not be $null
+            $updated.config.layer3RedirectSections | should not be $null
+            $updated.config.generationNumber | should not be $null
+        }
+
+        it "Can remove a firewall draft" {
+            $draft = New-NsxFirewallSavedConfiguration -Name "pester_draft_delete" | Select -first 1
+            $draft | should not be $null
+            ($draft | measure).count | should be 1
+            Get-NsxFirewallSavedConfiguration -ObjectId $draft.id | Remove-NsxFirewallSavedConfiguration -confirm:$false
+            $deleted = Get-NsxFirewallSavedConfiguration | ? { ($_.name -eq $draft.name) -AND ($_.id -eq $draft.id) }
+            $deleted | should be $null
+        }
+
+    }
+
     Context "L3 Sections" {
+
+        AfterAll {
+            get-nsxfirewallsection | ? {$_.name -match "^pester" } | remove-nsxfirewallsection -Confirm:$false -force:$true
+        }
+
         it "Can create an L3 section" {
             $section = New-NsxFirewallSection $l3sectionname
             $section | should not be $null
@@ -186,8 +381,69 @@ Describe "DFW" {
             $section = Get-NsxFirewallSection $l3sectionname
             $section | should be $null
         }
+
+        it "Can create an L3 section at top (legacy)" {
+            $section = New-NsxFirewallSection $l3sectionname
+            $section | should not be $null
+            $section = Get-NsxFirewallSection
+            $section | should not be $null
+            $section[0].name | should be $l3sectionname
+        }
+
+        it "Can create an L3 section at top (insert_top)" {
+            $section = New-NsxFirewallSection $l3sectionname -position top
+            $section | should not be $null
+            $section = Get-NsxFirewallSection
+            $section | should not be $null
+            $section[0].name | should be $l3sectionname
+        }
+
+        it "Can create an L3 section at bottom (insert_before_default)" {
+            $sectionTop = New-NsxFirewallSection "pester_dfw_top"
+            $section = New-NsxFirewallSection $l3sectionname -position bottom
+            $section | should not be $null
+            $section = Get-NsxFirewallSection
+            $section[-2].name  | should be $l3sectionname
+        }
+
+        it "Can insert an L3 section before a given section" {
+            $section3 = New-NsxFirewallSection "pester_dfw_3"
+            $section2 = New-NsxFirewallSection "pester_dfw_2"
+            $section1 = New-NsxFirewallSection "pester_dfw_1"
+            $section = New-NsxFirewallSection $l3sectionname -position before -anchorId $section2.id
+            $section | should not be $null
+            $section = Get-NsxFirewallSection
+            $section[1].name  | should be $l3sectionname
+        }
+
+        it "Can insert an L3 section after a given section" {
+            $section3 = New-NsxFirewallSection "pester_dfw_3"
+            $section2 = New-NsxFirewallSection "pester_dfw_2"
+            $section1 = New-NsxFirewallSection "pester_dfw_1"
+            $section = New-NsxFirewallSection $l3sectionname -position after -anchorId $section2.id
+            $section | should not be $null
+            $section = Get-NsxFirewallSection
+            $section[2].name  | should be $l3sectionname
+        }
+
+        it "Fails to insert an L3 section if no anchorId is supplied when using after" {
+            { New-NsxFirewallSection $l3sectionname -position after } | should Throw
+        }
+
+        it "Fails to insert an L3 section if no anchorId is supplied when using before" {
+            { New-NsxFirewallSection $l3sectionname -position before } | should Throw
+        }
+
+        it "Fails to insert an L3 universal section if bottom is specified as the position" {
+            { New-NsxFirewallSection $l3sectionname -position bottom -universal } | should Throw
+        }
     }
+
     Context "L2 Sections" {
+
+        AfterAll {
+            get-nsxfirewallsection -sectionType layer2sections | ? {$_.name -match "^pester" } | remove-nsxfirewallsection -Confirm:$false -force:$true
+        }
 
         it "Can create an L2 section" {
             $section = New-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections
@@ -221,6 +477,62 @@ Describe "DFW" {
             $section | should not be $null
             $section | Get-NsxFirewallRule -RuleType layer2sections | should not be $null
             { $section | Remove-NsxFirewallSection -Confirm:$false -force } | should not Throw
+        }
+
+        it "Can create an L2 section at top (legacy)" {
+            $section = New-NsxFirewallSection $l2sectionname -sectionType layer2sections
+            $section | should not be $null
+            $section = Get-NsxFirewallSection -sectionType layer2sections
+            $section | should not be $null
+            $section[0].name | should be $l2sectionname
+        }
+
+        it "Can create an L2 section at top (insert_top)" {
+            $section = New-NsxFirewallSection $l2sectionname -position top -sectionType layer2sections
+            $section | should not be $null
+            $section = Get-NsxFirewallSection -sectionType layer2sections
+            $section | should not be $null
+            $section[0].name | should be $l2sectionname
+        }
+
+        it "Can create an L2 section at bottom (insert_before_default)" {
+            $sectionTop = New-NsxFirewallSection "pester_dfw_top" -sectionType layer2sections
+            $section = New-NsxFirewallSection $l2sectionname -position bottom -sectionType layer2sections
+            $section | should not be $null
+            $section = Get-NsxFirewallSection -sectionType layer2sections
+            $section[-2].name  | should be $l2sectionname
+        }
+
+        it "Can insert an L3 section before a given section" {
+            $section3 = New-NsxFirewallSection "pester_dfw_3" -sectionType layer2sections
+            $section2 = New-NsxFirewallSection "pester_dfw_2" -sectionType layer2sections
+            $section1 = New-NsxFirewallSection "pester_dfw_1" -sectionType layer2sections
+            $section = New-NsxFirewallSection $l2sectionname -position before -anchorId $section2.id -sectionType layer2sections
+            $section | should not be $null
+            $section = Get-NsxFirewallSection -sectionType layer2sections
+            $section[1].name  | should be $l2sectionname
+        }
+
+        it "Can insert an L3 section after a given section" {
+            $section3 = New-NsxFirewallSection "pester_dfw_3" -sectionType layer2sections
+            $section2 = New-NsxFirewallSection "pester_dfw_2" -sectionType layer2sections
+            $section1 = New-NsxFirewallSection "pester_dfw_1" -sectionType layer2sections
+            $section = New-NsxFirewallSection $l2sectionname -position after -anchorId $section2.id -sectionType layer2sections
+            $section | should not be $null
+            $section = Get-NsxFirewallSection -sectionType layer2sections
+            $section[2].name  | should be $l2sectionname
+        }
+
+        it "Fails to insert an L2 section if no anchorId is supplied when using after" {
+            { New-NsxFirewallSection $l3sectionname -sectionType layer2sections -position after } | should Throw
+        }
+
+        it "Fails to insert an L2 section if no anchorId is supplied when using before" {
+            { New-NsxFirewallSection $l3sectionname -sectionType layer2sections -position before } | should Throw
+        }
+
+        it "Fails to insert an L2 universal section if bottom is specified as the position" {
+            { New-NsxFirewallSection $l3sectionname -sectionType layer2sections -position bottom -universal } | should Throw
         }
     }
 
@@ -1526,6 +1838,106 @@ Describe "DFW" {
 
         it "Can create a rule with a servicegroup specified as service"{}
 
+        #############
+        # Positional rule inserting
+
+        it "Can insert a rule at the top of a section (by default)" {
+            $rule3 = Get-NsxFirewallSection $l3sectionname | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow
+            $rule1 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
+            $rule1 | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[0].name | should be "pester_dfw_rule1"
+        }
+
+        it "Can insert a rule at the top of a section (position top)" {
+            $rule3 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow -position top
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow -position top
+            $rule1 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow -position top
+            $rule1 | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[0].name | should be "pester_dfw_rule1"
+        }
+
+        it "Can insert a rule at the bottom of a section (position bottom)" {
+            $rule3 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow
+            $ruleBottom = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom
+            $ruleBottom | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[2].name | should be "pester_dfw_bottom"
+        }
+
+        it "Can insert a rule before an existing rule within a section (position before)" {
+            $rule5 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule5" -action allow
+            $rule4 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule4" -action allow
+            $rule3 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow
+            $rule1 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
+            $rule = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position before -anchorId $rule3.id
+            $rule | should not be $null
+            $rule1 | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $rule4 | should not be $null
+            $rule5 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[2].name | should be "pester_dfw_inserted"
+        }
+
+        it "Can insert a rule after an existing rule within a section (position after)" {
+            $rule5 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule5" -action allow
+            $rule4 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule4" -action allow
+            $rule3 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule3" -action allow
+            $rule2 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule2" -action allow
+            $rule1 = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
+            $rule = Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position after -anchorId $rule3.id
+            $rule | should not be $null
+            $rule1 | should not be $null
+            $rule2 | should not be $null
+            $rule3 | should not be $null
+            $rule4 | should not be $null
+            $rule5 | should not be $null
+            $section = Get-NsxFirewallSection -Name $l3sectionname
+            $section | should not be $null
+            $section.rule[3].name | should be "pester_dfw_inserted"
+        }
+
+        it "Fails to inset a new rule before another rule if anchorId is not supplied" {
+            {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position before} | should throw
+        }
+
+        it "Fails to inset a new rule after another rule if anchorId is not supplied" {
+            {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position after} | should throw
+        }
+
+        it "Fails to inset a new rule after another rule if anchorId does not exist within section" {
+            {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position after -anchorId 9999} | should throw
+        }
+
+        it "Fails to inset a new rule before another rule if anchorId does not exist within section" {
+            {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position before -anchorId 9999} | should throw
+        }
+
+        it "Fail to insert a new rule to the bottom of the default layer 3 section" {
+            $section = Get-NsxFirewallSection -sectionType layer3sections | Select-Object -last 1
+            {$section | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom } | should throw
+        }
+        it "Fail to insert a new rule to the bottom of the default layer 2 section" {
+            $section = Get-NsxFirewallSection -sectionType layer2sections | Select-Object -last 1
+            {$section | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom } | should throw
+        }
+
         BeforeEach {
             #create new sections for each test.
 
@@ -2099,6 +2511,16 @@ Describe "DFW" {
             $rule.disabled | should be "false"
         }
 
+        it "Can create and get a l2 rule without specifying ruleType" {
+            $rule = $l2sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action allow
+            $rule | should not be $null
+            $rule = Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections | Get-NsxFirewallRule -Name "pester_dfw_rule1"
+            $rule | should not be $null
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be allow
+        }
+
+
         BeforeEach {
             #create new sections for each test.
 
@@ -2111,5 +2533,16 @@ Describe "DFW" {
             Get-NsxFirewallSection -Name $l2sectionname -sectionType layer2sections| Remove-NsxFirewallSection -force -Confirm:$false
         }
     }
+
+    Context "Miscellaneous"  {
+        It "Can get publish status" {
+            $publish = Get-NsxFirewallPublishStatus
+            $publish | should not be $null
+            $publish.starttime | should not be $null
+            $publish.status | should not be $null
+        }
+    }
+
+
 
 }

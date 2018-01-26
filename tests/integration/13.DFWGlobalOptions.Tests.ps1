@@ -32,6 +32,8 @@ Describe "DFW Global Properties" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
+        $script:existingFwGlobalOptions = Get-NsxFirewallGlobalConfiguration
+
         # Threshold Variables
         $script:cpuThreshold = "75"
         $script:cpuThreshold1 = "85"
@@ -39,10 +41,6 @@ Describe "DFW Global Properties" {
         $script:memoryThreshold1 = "85"
         $script:cpsThreshold = "125000"
         $script:cpsThreshold1 = "200000"
-        $script:cpsDefault = "100000"
-        $script:memorydefault = "100"
-        $script:cpudefault = "100"
-        $script:existingFwGlobalOptions = Get-NsxFirewallGlobalConfiguration
 
         #Set flag used in tests we have to tag out for 6.2.3 and above only...
         if ( [version]$DefaultNsxConnection.Version -ge [version]"6.2.3" )  {
@@ -51,7 +49,6 @@ Describe "DFW Global Properties" {
         else {
             $ver_gt_623 = $false
         }
-
     }
 
     AfterAll {
@@ -78,12 +75,12 @@ Describe "DFW Global Properties" {
 
     Context "DFW Global options" {
         it "Can validate default DFW event thresholds"{
-            #Unsure if this is correct "test"
+            # Updated to accept any default value that is an integer.
             $threshold = Get-NsxFirewallThreshold
             $threshold | should not be $null
-            $threshold.Cpu.percentValue | should be $cpuDefault
-            $threshold.Memory.percentValue | should be $memoryDefault
-            $threshold.ConnectionsPerSecond.value | should be $cpsDefault
+            ($threshold.Cpu.percentValue -as [int]) -is [int] | should be $true
+            ($threshold.Memory.percentValue -as [int]) -is [int] | should be $true
+            ($threshold.ConnectionsPerSecond.value -as [int]) -is [int] | should be $true
         }
         it "Can adjust all DFW event thresholds" {
             $threshold = Set-NsxFirewallThreshold -Cpu $cputhreshold -Memory $memorythreshold -ConnectionsPerSecond $cpsThreshold
@@ -95,7 +92,6 @@ Describe "DFW Global Properties" {
         it "Can adjust Memory DFW event threshold" {
             $threshold = Set-NsxFirewallThreshold  -Memory $memorythreshold1
             $threshold | should not be $null
-
             $threshold.Memory.percentValue | should be $memorythreshold1
         }
         it "Can adjust CPU DFW event threshold" {

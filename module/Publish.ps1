@@ -96,6 +96,11 @@ New-ModuleManifest -Path "$GalleryPath/PowerNSX/PowerNSX.psd1" -RequiredModules 
 $content = Get-Content "$GalleryPath/PowerNSX/PowerNSX.psd1"
 [System.IO.File]::WriteAllLines("$GalleryPath/PowerNSX/PowerNSX.psd1", $content)
 
+#Generate Help Doc
+if ( Get-Module powernsx ) { remove-module powernsx }
+Import-Module ./platform/desktop/PowerNSX/PowerNSX.psd1
+../psDoc/src/psDoc.ps1 -moduleName PowerNSX -template ..\psDoc\src\out-html-template.ps1 -outputDir ..\doc\
+
 Publish-Module -NuGetApiKey $NugetAPIKey -Path "$GalleryPath/PowerNSX"
 
 write-host -ForegroundColor Yellow "Version $ModuleVersion is now published to the Powershell Gallery.  You MUST now push these updates back to the git repository."
