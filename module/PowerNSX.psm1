@@ -13696,7 +13696,7 @@ function Repair-NsxEdge {
     for load balancer, site‐to‐site VPN, and NAT services.
 
     The Repair-NsxEdge cmdlet allows a Resync, Redploy or Upgrade operation to be
-    performed on the specified Edges appliance.
+    performed on the specified Edge appliance.
 
     WARNING: Repair operations can cause connectivity loss.  Use with caution.
 
@@ -13733,7 +13733,7 @@ function Repair-NsxEdge {
             #Specify the repair operation to be performed on the Edge.
             #If ForceSync - The edge appliance is rebooted
             #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
-            #If Upgrade - The Edge is upgrade to last release
+            #If Upgrade - The Edge is upgraded to latest release
             [ValidateSet("ForceSync", "Redeploy","Upgrade")]
             [string]$Operation,
         [Parameter (Mandatory=$False)]
