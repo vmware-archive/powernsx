@@ -14266,18 +14266,14 @@ function Get-NsxcliSettings {
     #>
 
     param (
-
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateScript({ ValidateEdge $_ })]
             [System.Xml.XmlElement]$Edge
     )
 
-    begin {
-
-    }
+    begin {}
 
     process {
-
         #We append the Edge-id to the associated config XML to enable pipeline workflows and
         #consistent readable output
 
@@ -14334,7 +14330,6 @@ function Set-NsxcliSettings {
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
-
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateScript({ ValidateCliSettings $_ })]
             [System.Xml.XmlElement]$cliSettings,
@@ -14358,15 +14353,11 @@ function Set-NsxcliSettings {
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
-    begin {
-
-    }
+    begin { }
 
     process {
-
         #Create private xml element
         $_cliSettings = $cliSettings.CloneNode($true)
 
