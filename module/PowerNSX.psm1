@@ -14369,22 +14369,42 @@ function Set-NsxcliSettings {
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('userName') ) {
-            $_cliSettings.username = $userName
+            if ( invoke-xpathquery -node $_cliSettings -querymethod SelectSingleNode -Query "child::userName" ) {
+                $_cliSettings.username = $userName
+            } else {
+                Add-XmlElement -xmlroot  $_cliSettings -xmlElementName "userName" -xmlElementText $userName
+            }
         }
 
         #You need ALWAYS to specified the password...
-        Add-XmlElement -xmlRoot $_cliSettings -xmlElementName "password" -xmlElementText $password
+        if ( invoke-xpathquery -node $_cliSettings -querymethod SelectSingleNode -Query "child::password" ) {
+            $_cliSettings.password = $password
+        } else {
+            Add-XmlElement -xmlRoot $_cliSettings -xmlElementName "password" -xmlElementText $password
+        }
 
         if ( $PsBoundParameters.ContainsKey('remoteAccess') ) {
+            if ( invoke-xpathquery -node $_cliSettings -querymethod SelectSingleNode -Query "child::remoteAccess" ) {
                 $_cliSettings.remoteAccess = $remoteAccess.ToString().ToLower()
+            } else {
+                Add-XmlElement -xmlroot  $_cliSettings -xmlElementName "remoteAccess" -xmlElementText $remoteAccess.ToString().ToLower()
+            }
         }
 
         if ( $PsBoundParameters.ContainsKey('passwordExpiry') ) {
-            $_cliSettings.passwordExpiry = $passwordExpiry
+            if ( invoke-xpathquery -node $_cliSettings -querymethod SelectSingleNode -Query "child::passwordExpiry" ) {
+                $_cliSettings.passwordExpiry = $passwordExpiry
+            } else {
+                Add-XmlElement -xmlroot  $_cliSettings -xmlElementName "passwordExpiry" -xmlElementText $passwordExpiry
+            }
         }
 
         if ( $PsBoundParameters.ContainsKey('sshLoginBannerText') ) {
-            $_cliSettings.sshLoginBannerText = $sshLoginBannerText
+            if ( invoke-xpathquery -node $_cliSettings -querymethod SelectSingleNode -Query "child::sshLoginBannerText" ) {
+                $_cliSettings.sshLoginBannerText = $sshLoginBannerText
+            } else {
+                Add-XmlElement -xmlroot  $_cliSettings -xmlElementName "sshLoginBannerText" -xmlElementText $sshLoginBannerText
+            }
         }
 
         $URI = "/api/4.0/edges/$($EdgeId)/clisettings"
