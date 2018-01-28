@@ -14376,11 +14376,7 @@ function Set-NsxcliSettings {
         Add-XmlElement -xmlRoot $_cliSettings -xmlElementName "password" -xmlElementText $password
 
         if ( $PsBoundParameters.ContainsKey('remoteAccess') ) {
-            if ( $remoteAccess ) {
-                $_cliSettings.remoteAccess = "true"
-            } else {
-                $_cliSettings.remoteAccess = "false"
-            }
+                $_cliSettings.remoteAccess = $remoteAccess.ToString().ToLower()
         }
 
         if ( $PsBoundParameters.ContainsKey('passwordExpiry') ) {
