@@ -660,6 +660,24 @@ Describe "Edge" {
         }
     }
 
+    Context "SSH" {
+
+        it "Can disable SSH" {
+            $edge = Get-NsxEdge $name
+            #When deploy pstester ESG, the SSH is enabled
+            $edge.cliSettings.remoteAccess | should be "true"
+            Get-NsxEdge $name | Disable-NsxEdgeSsh -confirm:$false
+            $edge = Get-NsxEdge $name
+            $edge.cliSettings.remoteAccess | should be "false"
+        }
+
+        it "Can enable SSH" {
+            Get-NsxEdge $name | Enable-NsxEdgeSsh
+            $edge = Get-NsxEdge $name
+            $edge.cliSettings.remoteAccess | should be "true"
+        }
+    }
+
     Context "Misc" { 
 
         it "Can enable firewall via Set-NsxEdge" {
