@@ -29373,27 +29373,15 @@ function Set-NsxLoadBalancer {
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('Enabled') ) {
-            if ( $Enabled ) {
-                $_LoadBalancer.enabled = "true"
-            } else {
-                $_LoadBalancer.enabled = "false"
-            }
+            $_LoadBalancer.enabled = $Enabled.ToString().ToLower()
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableAcceleration') ) {
-            if ( $EnableAcceleration ) {
-                $_LoadBalancer.accelerationEnabled = "true"
-            } else {
-                $_LoadBalancer.accelerationEnabled = "false"
-            }
+            $_LoadBalancer.accelerationEnabled = $EnableAcceleration.ToString().ToLower()
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableLogging') ) {
-            if ( $EnableLogging ) {
-                $_LoadBalancer.logging.enable = "true"
-            } else {
-                $_LoadBalancer.logging.enable = "false"
-            }
+            $_LoadBalancer.logging.enable = $EnableLogging.ToString().ToLower()
         }
 
         if ( $PsBoundParameters.ContainsKey('LogLevel') ) {
