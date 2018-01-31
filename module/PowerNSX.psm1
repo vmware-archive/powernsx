@@ -9788,12 +9788,26 @@ function Get-NsxLogicalSwitch {
     Transport Zone.
 
     .EXAMPLE
+    Get-NsxLogicalswitch -name LS1
 
-    Example1: Get a named Logical Switch
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch -name LS1
+    Get a named Logical Switch (LS1) from all transport zones
 
-    Example2: Get all logical switches in a given transport zone.
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch
+    .EXAMPLE
+    Get-NsxTransportZone -LocalOnly | Get-NsxLogicalswitch -name LS1
+
+    Get a named Logical Switch (LS1) from all Local Transport Zones (use -UniversalOnly
+    for Universal Transport Zones)
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalswitch
+
+    Get all logical switches from all Transport Zones.
+
+    .EXAMPLE
+    Get-NsxTransportZone -UniversalOnly | Get-NsxLogicalswitch
+
+    Get all logical switches from all Universal Transport Zones (use -LocalOnly
+    for Local Transport Zones)
 
     #>
 
