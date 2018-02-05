@@ -782,10 +782,12 @@ Describe "Edge" {
             $edge.cliSettings.remoteAccess | should be "true"
         }
 
-        it "Change (SSH) username via Set-NsxEdge" {
-            Get-NsxEdge $name | Set-NsxEdge -userName powernsxviasetnsxedge -confirm:$false
+        it "Change (SSH) username (and Password) via Set-NsxEdge" {
+            #it is mandatory to change username (and Password) on the same time (bug or feature ?)
+            Get-NsxEdge $name | Set-NsxEdge -userName powernsxviasetnsxedge -Password "Vmware1!Vmware1!" -confirm:$false
             $edge = Get-NsxEdge $name
             $edge.cliSettings.userName | should be "powernsxviasetnsxedge"
+            #It is impossible to check if the password is modified...
         }
 
         it "Change Password Expiry via Set-NsxEdge" {
@@ -798,11 +800,6 @@ Describe "Edge" {
             Get-NsxEdge $name | Set-NsxEdge -sshLoginBannerText "Secured by Set-NsxEdge" -confirm:$false
             $edge = Get-NsxEdge $name
             $edge.cliSettings.sshLoginBannerText | should be "Secured by Set-NsxEdge"
-        }
-
-        it "Change Password via Set-NsxEdge" {
-            Get-NsxEdge $name | Set-NsxEdge -Password "Vmware1!Vmware1!" -confirm:$false
-            #There is no really check if the value is changed...
         }
     }
 

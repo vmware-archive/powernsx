@@ -14001,10 +14001,14 @@ function Set-NsxEdge {
 
         #cliSettings
         if ( $PsBoundParameters.ContainsKey('userName') ) {
-            if ( invoke-xpathquery -node $_Edge -querymethod SelectSingleNode -Query "child::cliSettings/userName" ) {
-                $_Edge.cliSettings.username = $userName
+            if ( $PsBoundParameters.ContainsKey('password') ) {
+                if ( invoke-xpathquery -node $_Edge -querymethod SelectSingleNode -Query "child::cliSettings/userName" ) {
+                    $_Edge.cliSettings.username = $userName
+                } else {
+                    Add-XmlElement -xmlroot $_Edge.cliSettings -xmlElementName "userName" -xmlElementText $userName
+                }
             } else {
-                Add-XmlElement -xmlroot $_Edge.cliSettings -xmlElementName "userName" -xmlElementText $userName
+                throw "You need to specify a password for change username..."
             }
         }
 
