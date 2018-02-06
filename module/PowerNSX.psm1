@@ -13947,6 +13947,31 @@ function Set-NsxEdge {
 
     Disable the Edge Firewall on ESG Edge01
 
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -password Vmware1!Vmware1!
+
+    Change the SSH Password
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -remoteAccess:$true
+
+    Enable the SSH on ESG (you can use also use Enable-NsxSSHEdgeSSH)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -username powernsx -password Vmware1!Vmware1!
+
+    Set the SSH username to PowerNSX (You need to change/set the password on the sametime)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -sshLoginBannerText "My Login Banner"
+
+    Change the SSH Login Banner
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -passwordExpiry 30
+
+    Change the SSH Password Expiration to 30 (days)
+
     #>
 
     [CmdletBinding()]
