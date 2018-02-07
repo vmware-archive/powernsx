@@ -3431,6 +3431,38 @@ function ValidateFirewallSavedConfiguration {
 
 }
 
+Function ValidateIPsec {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) {
+            throw "XML Element specified does not contain an enabled property."
+        }
+
+        if ( -not ( $argument | get-member -name logging -Membertype Properties)) {
+            throw "XML Element specified does not contain an logging property."
+        }
+
+        if ( -not ( $argument | get-member -name sites -Membertype Properties)) {
+            throw "XML Element specified does not contain an sites property."
+        }
+
+        if ( -not ( $argument | get-member -name global -Membertype Properties)) {
+            throw "XML Element specified does not contain an global property."
+        }
+
+        $true
+    }
+    else {
+        throw "Specify a valid Edge IPsec object."
+    }
+
+}
+
 ##########
 ##########
 # Helper functions
@@ -35760,6 +35792,152 @@ function Get-NsxBackingDVSwitch{
 
     end {}
 
+}
+
+########
+########
+# IPsec VPN
+
+function Get-NsxIPsec {
+
+    <#
+    .SYNOPSIS
+    Retrieves the IPsec configuration from a specified Edge.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN IPsec, load balancing, and high availability.
+
+    The NSX supports site-to-site IPSec VPN between an NSX Edge instance and
+    remote sites. Certificate authentication, preshared key mode, IP unicast
+    traffic, and no dynamic routing protocol are supported between the NSX Edge
+    instance and remote VPN routers.
+
+    This cmdlet retrieves the IPsec configuration from a specified Edge.
+
+    .EXAMPLE
+
+    PS C:\> Get-NsxEdge Edge01 | Get-NsxIPsec
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateEdge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+
+    begin {}
+
+    process {
+        $_IPsec = $Edge.features.ipsec.CloneNode($True)
+        Add-XmlElement -xmlRoot $_IPsec -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_IPsec
+    }
+
+    end {}
+}
+
+function Set-NsxIPsec {
+
+    <#
+    .SYNOPSIS
+    Configures an NSX (VPN) IPsec.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN IPsec, load balancing, and high availability.
+
+    The NSX supports site-to-site IPSec VPN between an NSX Edge instance and
+    remote sites. Certificate authentication, preshared key mode, IP unicast
+    traffic, and no dynamic routing protocol are supported between the NSX Edge
+    instance and remote VPN routers.
+
+    This cmdlet sets the basic IPsec configuration of an NSX ESG.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxIPsec | Set-NsxIPsec -Enabled
+
+    Enabled the IPsec feature on Edge (Need to add IPsec Site before).
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxIPsec | Set-NsxIPsec -Enabled:$false
+
+    Disabled the IPsec feature on Edge.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxIPsec| Set-NsxIPsec -EnableLogging
+
+    Enabled IPsec collects traffic logs.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxIPsec | Set-NsxIPsec -LogLevel debug
+
+    Choose the log level (emergency, alert, critical, error, warning, notice, info, debug)
+    of IPsec traffic logs.
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateIPsec $_ })]
+            [System.Xml.XmlElement]$IPsec,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled,
+        [Parameter (Mandatory=$False)]
+            [switch]$EnableLogging,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
+            [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin { }
+
+    process {
+
+        #Create private xml element
+        $_IPsec = $IPsec.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_IPsec.edgeId
+        $_IPsec.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_IPsec -Query 'descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled') ) {
+            $_IPsec.enabled = $Enabled.ToString().ToLower();
+        }
+
+        if ( $PsBoundParameters.ContainsKey('EnableLogging') ) {
+            $_IPsec.logging.enable = $EnableLogging.ToString().ToLower();
+        }
+
+        if ( $PsBoundParameters.ContainsKey('LogLevel') ) {
+            $_IPsec.logging.logLevel = $LogLevel
+        }
+
+        $URI = "/api/4.0/edges/$($edgeId)/ipsec/config"
+        $body = $_IPsec.OuterXml
+
+        Write-Progress -activity "Update Edge Services Gateway $($edgeId)"
+        $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        write-progress -activity "Update Edge Services Gateway $($edgeId)" -completed
+        Get-NsxEdge -objectId $($edgeId)  -connection $connection | Get-NsxIPsec
+    }
+
+    end {}
 }
 
 function Copy-NsxEdge{
