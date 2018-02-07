@@ -8954,11 +8954,13 @@ function Get-NsxSegmentIdRange {
 
             $URI = "/api/2.0/vdn/config/segments"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            switch ( $PSCmdlet.ParameterSetName ) {
-                "Name" { $response.segmentRanges.segmentRange | where-object { $_.name -eq $Name } }
-                "UniversalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "true" } }
-                "LocalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "false" } }
-                Default { $response.segmentRanges.segmentRange }
+            if(([bool](($response.segmentRanges).PSobject.Properties.name -match "segmentRange"))){
+                switch ( $PSCmdlet.ParameterSetName ) {
+                    "Name" { $response.segmentRanges.segmentRange | where-object { $_.name -eq $Name } }
+                    "UniversalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "true" } }
+                    "LocalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "false" } }
+                    Default { $response.segmentRanges.segmentRange }
+                }
             }
         }
     }
