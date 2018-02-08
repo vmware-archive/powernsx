@@ -7906,6 +7906,62 @@ function Invoke-NsxControllerStateUpdate {
     Write-progress -activity "Controller Update State." -completed
 }
 
+function Get-NsxControllerSyslog {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Controller Syslog Configuration.
+
+    .DESCRIPTION
+    An NSX Controller is a member of the NSX Controller Cluster, and forms the
+    highly available distributed control plane for NSX Logical Switching and NSX
+    Logical Routing.
+
+    The Get-NsxControllerSyslog cmdlet retrieves the NSX Controller Syslog configuratiob via the NSX API.
+
+    .EXAMPLE
+    Get-NsxControllerSyslog
+
+    Retreives all NSX Controller Syslog Configuration objects from NSX manager
+
+    .EXAMPLE
+    Get-NsxController -objectId Controller-1
+
+    Returns a specific NSX Controller Syslog Configuration object from NSX manager
+    #>
+
+    param (
+        [Parameter (Mandatory=$false,Position=1)]
+            #ObjectId of the NSX Controller to return.
+            [string]$ObjectId,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    if($ObjectId) {
+        $controllers = Get-NSXController -ObjectId $ObjectId
+    } else {
+        $controllers = Get-NSXController
+    }
+
+    foreach($controller in $controllers) {
+        $URI = "/api/2.0/vdn/controller/$($controller.Id)/syslog"
+
+        [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::controllers/controller')) {
+            if ( $PsBoundParameters.containsKey('objectId')) {
+                $response.controllers.controller | where-object { $_.Id -eq $ObjectId }
+            } else {
+                $response.controllers.controller
+            }
+        }
+    }
+}
+
 function New-NsxIpPool {
 
     <#
