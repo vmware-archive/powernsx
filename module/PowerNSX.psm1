@@ -7948,18 +7948,121 @@ function Get-NsxControllerSyslog {
     }
 
     foreach($controller in $controllers) {
-        $URI = "/api/2.0/vdn/controller/$($controller.Id)/syslog"
+        try {
+            $URI = "/api/2.0/vdn/controller/$($controller.Id)/syslog"
 
-        [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+            [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
-        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::controllers/controller')) {
-            if ( $PsBoundParameters.containsKey('objectId')) {
-                $response.controllers.controller | where-object { $_.Id -eq $ObjectId }
-            } else {
-                $response.controllers.controller
+            if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::controllerSyslogServer')) {
+                $response.controllerSyslogServer
+            }
+        }
+        catch {
+            if(!($_ -match "<details>Syslog server is not configured for controller $($controller.Id).</details>")) {
+                throw $_
             }
         }
     }
+}
+
+function Set-NsxControllerSyslog {
+
+    <#
+    .SYNOPSIS
+    Configures NSX Controller Syslog Configuration.
+
+    .DESCRIPTION
+    An NSX Controller is a member of the NSX Controller Cluster, and forms the
+    highly available distributed control plane for NSX Logical Switching and NSX
+    Logical Routing.
+
+    The Set-NsxControllerSyslog cmdlet configures the NSX Controller Syslog via the NSX API.
+
+    .EXAMPLE
+    Get-NSXController | Set-NsxControllerSyslog -Server
+
+    Retreives all NSX Controller Syslog Configuration objects from NSX manager
+
+    .EXAMPLE
+    Get-NsxController -objectId Controller-1
+
+    Returns a specific NSX Controller Syslog Configuration object from NSX manager
+    #>
+
+    [CmdletBinding(DefaultParameterSetName="Object")]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+        [Parameter (Mandatory=$true, ValueFromPipeline=$true,Position=1, ParameterSetName="Object")]
+            #PowerNSX Controller object obtained via Get-NsxController
+            [ValidateScript({ ValidateController $_ })]
+            [System.Xml.XmlElement]$Controller,
+        [Parameter (Mandatory=$true,ParameterSetName="objectId")]
+            #ObjectID of the controller to remove
+            [ValidateNotNullorEmpty()]
+            [string]$objectId,
+        [Parameter (Mandatory=$true)]
+            #Syslog Server IP
+            [ValidateNotNullorEmpty()]
+            [string]$SyslogServer,
+        [Parameter (Mandatory=$true)]
+            #Syslog Port
+            [ValidateNotNullorEmpty()]
+            [string]$Port,
+        [Parameter (Mandatory=$true)]
+            #Syslog Protocol
+            [ValidateSet('TCP','UDP')]
+            [string]$Protocol,
+        [Parameter (Mandatory=$true)]
+            #Syslog Logging Level
+            [ValidateSet('INFO','WARN','ERROR')]
+            [string]$Level,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+    begin{}
+
+    process {
+        if ( $PSCmdlet.ParameterSetName -ne "objectId" ) {
+            $objectId = $Controller.id
+        }
+
+        #Construct the XML
+        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
+        [System.XML.XMLElement]$xmlSyslog = $XMLDoc.CreateElement("controllerSyslogServer")
+        $xmlDoc.Appendchild($xmlSyslog) | out-null
+
+        #Mandatory and default params
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "syslogServer" -xmlElementText $syslogServer
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "port" -xmlElementText $port
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "protocol" -xmlElementText $protocol
+        Add-XmlElement -xmlRoot $xmlSyslog -xmlElementName "level" -xmlElementText $level
+
+        try {
+            Write-Progress -activity "Configuring Syslog Server"
+            $URI = "/api/2.0/vdn/controller/$($objectId)/syslog"
+            $existingConfig = Get-NsxControllerSyslog -ObjectId $ObjectId -Connection $connection
+            if($existingConfig) {
+                # Delete existing configuration before posting the new one
+                $delete = invoke-NsxWebRequest -method "delete" -uri $URI -connection $connection
+            }
+            #Do the post
+            $body = $xmlSyslog.OuterXml
+            $response = invoke-NsxWebRequest -method "post" -uri $URI -body $body -connection $connection
+            Write-progress -activity "Configuring Syslog Server" -completed
+
+            Get-NsxControllerSyslog -objectId $objectId -connection $connection
+        }
+        catch {
+            throw "Unable to configure NSX Controller Syslog - $_"
+        }
+        finally{}
+
+
+    }
+
+    end{}
 }
 
 function New-NsxIpPool {
