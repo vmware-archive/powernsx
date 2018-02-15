@@ -7985,12 +7985,12 @@ function Set-NsxControllerSyslog {
     The Set-NsxControllerSyslog cmdlet configures the NSX Controller Syslog via the NSX API.
 
     .EXAMPLE
-    Get-NSXController | Set-NsxControllerSyslog -Server 192.168.1.20 -Port 514 -Protocol UDP -Level INFO
+    Get-NSXController | Set-NsxControllerSyslog -syslogServer 192.168.1.20 -Port 514 -Protocol UDP -Level INFO
 
     Gets all NSX Controllers from NSX Manager and sets the syslog configuration on each of them.
 
     .EXAMPLE
-    Get-NsxController -objectId Controller-1 | Set-NSXControllerSyslog -Server 192.168.1.20 -Port 514 -Protocol UDP -Level INFO
+    Get-NsxController -objectId Controller-1 | Set-NSXControllerSyslog -syslogServer 192.168.1.20 -Port 514 -Protocol UDP -Level INFO
 
     Gets a specific NSX Controller from NSX Manager and sets the syslog configuration.
     #>
