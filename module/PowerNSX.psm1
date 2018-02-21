@@ -9713,37 +9713,15 @@ function Get-NsxUserRole {
 
     <#
     .SYNOPSIS
-    Retrieves a Logical Switch object
+    Retrieves the user role
 
     .DESCRIPTION
-    An NSX Logical Switch provides L2 connectivity to VMs attached to it.
-    A Logical Switch is 'bound' to a Transport Zone, and only hosts that are
-    members of the Transport Zone are able to host VMs connected to a Logical
-    Switch that is bound to it.  All Logical Switch operations require a
-    Transport Zone.
+    Each user has a role (with permissions) on NSX
 
     .EXAMPLE
-    Get-NsxLogicalswitch -name LS1
+    get-NsxUserRole admin
 
-    Get a named Logical Switch (LS1) from all transport zones
-
-    .EXAMPLE
-    Get-NsxTransportZone -LocalOnly | Get-NsxLogicalswitch -name LS1
-
-    Get a named Logical Switch (LS1) from all Local Transport Zones (use -UniversalOnly
-    for Universal Transport Zones)
-
-    .EXAMPLE
-    Get-NsxTransportZone | Get-NsxLogicalswitch
-
-    Get all logical switches from all Transport Zones.
-
-    .EXAMPLE
-    Get-NsxTransportZone -UniversalOnly | Get-NsxLogicalswitch
-
-    Get all logical switches from all Universal Transport Zones (use -LocalOnly
-    for Local Transport Zones)
-
+    Get the role of admin user
     #>
 
     param (
@@ -9788,12 +9766,26 @@ function Get-NsxLogicalSwitch {
     Transport Zone.
 
     .EXAMPLE
+    Get-NsxLogicalswitch -name LS1
 
-    Example1: Get a named Logical Switch
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch -name LS1
+    Get a named Logical Switch (LS1) from all transport zones
 
-    Example2: Get all logical switches in a given transport zone.
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch
+    .EXAMPLE
+    Get-NsxTransportZone -LocalOnly | Get-NsxLogicalswitch -name LS1
+
+    Get a named Logical Switch (LS1) from all Local Transport Zones (use -UniversalOnly
+    for Universal Transport Zones)
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalswitch
+
+    Get all logical switches from all Transport Zones.
+
+    .EXAMPLE
+    Get-NsxTransportZone -UniversalOnly | Get-NsxLogicalswitch
+
+    Get all logical switches from all Universal Transport Zones (use -LocalOnly
+    for Local Transport Zones)
 
     #>
 
