@@ -25908,7 +25908,7 @@ function Get-NsxService {
                                     }
 
                                     default { #do nothing, port number is not numeric....
-                                        write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                        write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element | format-xml)"
                                     }
                                 }
                             }
