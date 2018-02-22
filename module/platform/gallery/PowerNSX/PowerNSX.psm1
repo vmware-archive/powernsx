@@ -7616,7 +7616,6 @@ function New-NsxController {
         }
 
         # Check for presence of optional controller name
-        if ($PSBoundParameters.ContainsKey("ControllerName")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
         if ($PSBoundParameters.ContainsKey("Password") -and ($Ctrlcount.count -eq 0)) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()}
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
@@ -8955,11 +8954,13 @@ function Get-NsxSegmentIdRange {
 
             $URI = "/api/2.0/vdn/config/segments"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            switch ( $PSCmdlet.ParameterSetName ) {
-                "Name" { $response.segmentRanges.segmentRange | where-object { $_.name -eq $Name } }
-                "UniversalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "true" } }
-                "LocalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "false" } }
-                Default { $response.segmentRanges.segmentRange }
+            if(([bool](($response.segmentRanges).PSobject.Properties.name -match "segmentRange"))){
+                switch ( $PSCmdlet.ParameterSetName ) {
+                    "Name" { $response.segmentRanges.segmentRange | where-object { $_.name -eq $Name } }
+                    "UniversalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "true" } }
+                    "LocalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "false" } }
+                    Default { $response.segmentRanges.segmentRange }
+                }
             }
         }
     }
@@ -9713,37 +9714,15 @@ function Get-NsxUserRole {
 
     <#
     .SYNOPSIS
-    Retrieves a Logical Switch object
+    Retrieves the user role
 
     .DESCRIPTION
-    An NSX Logical Switch provides L2 connectivity to VMs attached to it.
-    A Logical Switch is 'bound' to a Transport Zone, and only hosts that are
-    members of the Transport Zone are able to host VMs connected to a Logical
-    Switch that is bound to it.  All Logical Switch operations require a
-    Transport Zone.
+    Each user has a role (with permissions) on NSX
 
     .EXAMPLE
-    Get-NsxLogicalswitch -name LS1
+    get-NsxUserRole admin
 
-    Get a named Logical Switch (LS1) from all transport zones
-
-    .EXAMPLE
-    Get-NsxTransportZone -LocalOnly | Get-NsxLogicalswitch -name LS1
-
-    Get a named Logical Switch (LS1) from all Local Transport Zones (use -UniversalOnly
-    for Universal Transport Zones)
-
-    .EXAMPLE
-    Get-NsxTransportZone | Get-NsxLogicalswitch
-
-    Get all logical switches from all Transport Zones.
-
-    .EXAMPLE
-    Get-NsxTransportZone -UniversalOnly | Get-NsxLogicalswitch
-
-    Get all logical switches from all Universal Transport Zones (use -LocalOnly
-    for Local Transport Zones)
-
+    Get the role of admin user
     #>
 
     param (
@@ -9788,12 +9767,26 @@ function Get-NsxLogicalSwitch {
     Transport Zone.
 
     .EXAMPLE
+    Get-NsxLogicalswitch -name LS1
 
-    Example1: Get a named Logical Switch
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch -name LS1
+    Get a named Logical Switch (LS1) from all transport zones
 
-    Example2: Get all logical switches in a given transport zone.
-    PS C:\> Get-NsxTransportZone | Get-NsxLogicalswitch
+    .EXAMPLE
+    Get-NsxTransportZone -LocalOnly | Get-NsxLogicalswitch -name LS1
+
+    Get a named Logical Switch (LS1) from all Local Transport Zones (use -UniversalOnly
+    for Universal Transport Zones)
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalswitch
+
+    Get all logical switches from all Transport Zones.
+
+    .EXAMPLE
+    Get-NsxTransportZone -UniversalOnly | Get-NsxLogicalswitch
+
+    Get all logical switches from all Universal Transport Zones (use -LocalOnly
+    for Local Transport Zones)
 
     #>
 
@@ -13652,8 +13645,8 @@ function Repair-NsxEdge {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    The Repair-NsxEdge cmdlet allows a Resync or Redploy operation to be
-    performed on the specified Edges appliance.
+    The Repair-NsxEdge cmdlet allows a Resync, Redploy or Upgrade operation to be
+    performed on the specified Edge appliance.
 
     WARNING: Repair operations can cause connectivity loss.  Use with caution.
 
@@ -13666,6 +13659,11 @@ function Repair-NsxEdge {
     Get-NsxEdge Edge01 | Repair-NsxEdge -Operation ReSync -Confirm:$false
 
     Resyncs the ESG Edge01 without confirmation.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Repair-NsxEdge -Operation Upgrade -Confirm:$false
+
+    Upgrade the ESG Edge01 to last release without confirmation.
 
     #>
 
@@ -13685,7 +13683,8 @@ function Repair-NsxEdge {
             #Specify the repair operation to be performed on the Edge.
             #If ForceSync - The edge appliance is rebooted
             #If Redeploy - The Edge is removed and redeployed (if the edge is HA this causes failover, otherwise, an outage.)
-            [ValidateSet("ForceSync", "Redeploy")]
+            #If Upgrade - The Edge is upgraded to latest release
+            [ValidateSet("ForceSync", "Redeploy","Upgrade")]
             [string]$Operation,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -25910,7 +25909,7 @@ function Get-NsxService {
                                     }
 
                                     default { #do nothing, port number is not numeric....
-                                        write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element.applicationProtocol) : $($application.element.value)"
+                                        write-debug "$($MyInvocation.MyCommand.Name) : Ignoring $($application.name) - non numeric element: $($application.element | format-xml)"
                                     }
                                 }
                             }
