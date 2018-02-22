@@ -7616,7 +7616,6 @@ function New-NsxController {
         }
 
         # Check for presence of optional controller name
-        if ($PSBoundParameters.ContainsKey("ControllerName")) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "name" -xmlElementText $ControllerName.ToString()}
         if ($PSBoundParameters.ContainsKey("Password") -and ($Ctrlcount.count -eq 0)) {Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "password" -xmlElementText $Password.ToString()}
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "datastoreId" -xmlElementText $DataStore.ExtensionData.Moref.value.ToString()
         Add-XmlElement -xmlRoot $ControllerSpec -xmlElementName "networkId" -xmlElementText $PortGroup.ExtensionData.Moref.Value.ToString()
@@ -8955,11 +8954,13 @@ function Get-NsxSegmentIdRange {
 
             $URI = "/api/2.0/vdn/config/segments"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
-            switch ( $PSCmdlet.ParameterSetName ) {
-                "Name" { $response.segmentRanges.segmentRange | where-object { $_.name -eq $Name } }
-                "UniversalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "true" } }
-                "LocalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "false" } }
-                Default { $response.segmentRanges.segmentRange }
+            if(([bool](($response.segmentRanges).PSobject.Properties.name -match "segmentRange"))){
+                switch ( $PSCmdlet.ParameterSetName ) {
+                    "Name" { $response.segmentRanges.segmentRange | where-object { $_.name -eq $Name } }
+                    "UniversalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "true" } }
+                    "LocalOnly" { $response.segmentRanges.segmentRange | where-object { $_.isUniversal -eq "false" } }
+                    Default { $response.segmentRanges.segmentRange }
+                }
             }
         }
     }
