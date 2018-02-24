@@ -36314,12 +36314,11 @@ function Get-NsxDns {
     begin {}
 
     process {
-
         $_DNS = $Edge.features.dns.CloneNode($True)
         Add-XmlElement -xmlRoot $_DNS -xmlElementName "edgeId" -xmlElementText $Edge.Id
         $_DNS
-
     }
+
 }
 
 function Set-NsxDns {
@@ -36376,7 +36375,6 @@ function Set-NsxDns {
     #>
 
     param (
-
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
             [ValidateScript({ ValidateEdgeDNS $_ })]
             [System.Xml.XmlElement]$DNS,
@@ -36398,14 +36396,11 @@ function Set-NsxDns {
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
             [PSCustomObject]$Connection=$defaultNSXConnection
-
     )
 
-    begin {
-    }
+    begin { }
 
     process {
-
         #Create private xml element
         $_Dns = $DNS.CloneNode($true)
 
@@ -36477,8 +36472,7 @@ function Set-NsxDns {
         Get-NsxEdge -objectId $($edgeId)  -connection $connection | Get-NsxDns
     }
 
-    end{
-    }
+    end{ }
 }
 
 function Remove-NsxDns {
