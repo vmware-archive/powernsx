@@ -36412,11 +36412,7 @@ function Set-NsxDns {
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('Enabled') ) {
-            if ( $Enabled ) {
-                $_Dns.enabled = "true"
-            } else {
-                $_Dns.enabled = "false"
-            }
+            $_Dns.enabled = $Enabled.ToString().ToLower()
         }
 
         if ( $PsBoundParameters.ContainsKey('CacheSize') ) {
@@ -36451,11 +36447,7 @@ function Set-NsxDns {
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableLogging') ) {
-            if ( $EnableLogging ) {
-                $_Dns.logging.enable = "true"
-            } else {
-                $_Dns.logging.enable = "false"
-            }
+            $_Dns.logging.enable = $EnableLogging.ToString().ToLower()
         }
 
         if ( $PsBoundParameters.ContainsKey('LogLevel') ) {
