@@ -36412,11 +36412,19 @@ function Set-NsxDns {
         #If the user did not specify a given parameter, we dont want to modify from the existing value.
 
         if ( $PsBoundParameters.ContainsKey('Enabled') ) {
-            $_Dns.enabled = $Enabled.ToString().ToLower()
+            if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::enabled" ) {
+                $_Dns.enabled = $Enabled.ToString().ToLower()
+            } else {
+                Add-XmlElement -xmlroot  $_Dns -xmlElementName "enabled" -xmlElementText $Enabled.ToString().ToLower()
+            }
         }
 
         if ( $PsBoundParameters.ContainsKey('CacheSize') ) {
-            $_Dns.CacheSize = $CacheSize
+            if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::cacheSize" ) {
+                $_Dns.CacheSize = $CacheSize
+            } else {
+                Add-XmlElement -xmlroot  $_Dns -xmlElementName "cacheSize" -xmlElementText $CacheSize
+            }
         }
 
         if ( Invoke-XpathQuery -Node $_Dns -QueryMethod SelectSingleNode -query "child::dnsViews/dnsView") {
@@ -36447,13 +36455,20 @@ function Set-NsxDns {
         }
 
         if ( $PsBoundParameters.ContainsKey('EnableLogging') ) {
-            $_Dns.logging.enable = $EnableLogging.ToString().ToLower()
+            if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::logging/enable" ) {
+                $_Dns.logging.enable = $EnableLogging.ToString().ToLower()
+            } else {
+                Add-XmlElement -xmlroot  $_Dns -xmlElementName "enable" -xmlElementText $EnableLogging
+            }
         }
 
         if ( $PsBoundParameters.ContainsKey('LogLevel') ) {
-            $_Dns.logging.logLevel = $LogLevel
+            if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::logging/logLevel" ) {
+                $_Dns.logging.LogLevel = $LogLevel
+            } else {
+                Add-XmlElement -xmlroot  $_Dns -xmlElementName "logLevel" -xmlElementText $LogLevel
+            }
         }
-
 
         $URI = "/api/4.0/edges/$($edgeId)/dns/config"
         $body = $_Dns.OuterXml
