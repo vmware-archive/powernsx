@@ -106,6 +106,15 @@ Describe "Edge DNS" {
             (Get-NsxEdge $dnsedge1name | Get-NsxDns).logging.loglevel | should be "debug"
         }
 
+        it "Configure multiple DNS Server" {
+            #set DNS Server to 192.0.2.3 and 192.0.2.4
+            Get-NsxEdge $dnsedge1name | Get-NsxDns | Set-NsxDns -DNSServer 192.0.2.3, 192.0.2.4
+            #Check the DNS Server value
+            $dns = Get-NsxEdge $dnsedge1name | Get-NsxDns
+            $dns.dnsViews.dnsview.forwarders.ipaddress[0] | should be "192.0.2.3"
+            $dns.dnsViews.dnsview.forwarders.ipaddress[1] | should be "192.0.2.4"
+        }
+
         it "Remove DNS Config" {
             #Remove ALL DNS config
             Get-NsxEdge $dnsedge1name | Get-NsxDns | Remove-NsxDns -NoConfirm:$true
