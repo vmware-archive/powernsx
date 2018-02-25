@@ -62,6 +62,15 @@ Describe "Edge DNS" {
 
         #Group related tests together.
 
+        it "Can retrieve DNS Config" {
+            $dns= Get-NsxEdge $dnsedge1name | Get-NsxDns
+            $dns.enabled | should be false
+            $dns.cacheSize | should be 16
+            $dns.dnsViews.dnsView.forwarders | should be $null
+            $dns.logging.enable | should be false
+            $dns.logging.loglevel | should be "info"
+        }
+
         it "Configure DNS Server" {
             #set DNS Server to 192.0.2.2
             Get-NsxEdge $dnsedge1name | Get-NsxDns | Set-NsxDns -DNSServer 192.0.2.2
@@ -77,7 +86,6 @@ Describe "Edge DNS" {
         }
 
         it "Change cacheSize" {
-            (Get-NsxEdge $dnsedge1name | Get-NsxDns).cacheSize | should be 16
             #Change cacheSize to 32
             Get-NsxEdge $dnsedge1name | Get-NsxDns | Set-NsxDns -cacheSize 32
             #Check cacheSize is 32 now
@@ -85,8 +93,6 @@ Describe "Edge DNS" {
         }
 
         it "Enable logging" {
-            # DNS Logging is disabled by default
-            (Get-NsxEdge $dnsedge1name | Get-NsxDns).logging.enable | should be false
             #Enable logging
             Get-NsxEdge $dnsedge1name | Get-NsxDns | Set-NsxDns -EnableLogging
             #Check DNS logging
@@ -94,8 +100,6 @@ Describe "Edge DNS" {
         }
 
         it "Change logging level" {
-            #Logging Level is set to info by default
-            (Get-NsxEdge $dnsedge1name | Get-NsxDns).logging.loglevel | should be "info"
             #Change level to Debug
             Get-NsxEdge $dnsedge1name | Get-NsxDns | Set-NsxDNS -LogLevel debug
             #Check DNS Log Level
