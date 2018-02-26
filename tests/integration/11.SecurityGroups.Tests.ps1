@@ -71,6 +71,15 @@ Describe "SecurityGroups" {
             $ver_gt_630_universalSyncEnabled = $false
         }
 
+        #LDAP Directory Groups - Check to see if this setup is integrated with LDAP
+        $script:listDomainsUri = "/api/1.0/directory/listDomains"
+        $script:domainsConfigured = Invoke-NsxRestMethod -method GET -URI $listDomainsUri
+        if ($domainsConfigured.DirectoryDomains) {
+            $script:directoryDomainConfigured = $True
+        } else {
+            $script:directoryDomainConfigured = $False
+        }
+
         # Create test VM to test VM membership
         $script:testVMName1 = "pester_sg_vm1"
         if ( get-vm $testVMName1 -ErrorAction Ignore ) {
@@ -673,6 +682,30 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can add a Directory Group member by id" -skip:(-not $script:directoryDomainConfigured ) {
+            $directoryGroup = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup | Select-Object -First 1
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup.objectId
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            $get.member | should beoftype System.xml.xmlelement
+            $get.member.name | should be $directoryGroup.name
+            $get.member.objectId | should be $directoryGroup.objectId
+        }
+
+        it "Can add a Directory Group member by object" -skip:(-not $script:directoryDomainConfigured ) {
+            $directoryGroup = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup | Select-Object -First 1
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            $get.member | should beoftype System.xml.xmlelement
+            $get.member.name | should be $directoryGroup.name
+            $get.member.objectId | should be $directoryGroup.objectId
+        }
+
         foreach ( $key in $DynamicCriteriaKeySubstitute.keys ) {
             foreach ( $condition in $DynamicCriteriaConditionSubstitute.keys ) {
                 it "Can create a new Dynamic Criteria Spec: $key/$condition" {
@@ -1132,12 +1165,18 @@ Describe "SecurityGroups" {
             $item.objectTypeName | should be "VirtualMachine"
         }
 
-        it "Can retrieve local Security Group DirectoryGroup applicable members" {
+        it "Can retrieve local Security Group DirectoryGroup applicable members" -skip:(-not $script:directoryDomainConfigured ) {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup } | should not throw
+            # The test environments will be connected to a Microsoft Active Directory, which should populate all the default Active Directory Groups
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup
+            $results | should not be $null
         }
 
-        it "Can retrieve local Security Group DirectoryGroup applicable members specifying scopeid globalroot-0" {
+        it "Can retrieve local Security Group DirectoryGroup applicable members specifying scopeid globalroot-0" -skip:(-not $script:directoryDomainConfigured ) {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup -scopeId GlobalRoot-0 } | should not throw
+            # The test environments will be connected to a Microsoft Active Directory, which should populate all the default Active Directory Groups
+            $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup -scopeId GlobalRoot-0
+            $results | should not be $null
         }
 
         it "Can retrieve local Security Group SecurityGroup applicable members" {

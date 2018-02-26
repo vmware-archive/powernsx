@@ -2209,7 +2209,7 @@ Function ValidateSecurityGroupMember {
     }
 
     #check if we are valid type
-    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
         #argument is moref string and refers to vm, resource pool or dvportgroup.
         $true
     }
@@ -22975,7 +22975,7 @@ function Add-NsxSecurityGroupMember {
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
                 }
-                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
                     $MemberMoref = $_Member
                 }
                 elseif ( ($_Member -is [string] ) -and ( [guid]::tryparse(($_Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
@@ -23098,7 +23098,7 @@ function Remove-NsxSecurityGroupMember {
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
                 }
-                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
                     $MemberMoref = $_Member
 
                 }
@@ -23391,7 +23391,7 @@ function New-NsxDynamicCriteriaSpec {
             if ($entity -is [System.Xml.XmlElement] ) {
                 $EntityObjectId = $entity.objectId
             }
-            elseif ( ($entity -is [string]) -and ($entity -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+            elseif ( ($entity -is [string]) -and ($entity -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
                 $EntityObjectId = $entity
             }
             # Match NIC identifier specified by user (eg UUID.000)
