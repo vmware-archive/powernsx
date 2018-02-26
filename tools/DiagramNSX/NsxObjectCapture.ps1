@@ -43,6 +43,16 @@ If ( (-not $Connection) -and ( -not $Connection.ViConnection.IsConnected ) ) {
 
 Set-StrictMode -Off
 
+# We set a version number here
+$version = "2.0.0"
+
+$versionObject = [PSCustomObject]@{
+        "bundleVersion" = $version
+        "majorVersion" = $version.split(".")[0]
+        "minorVersion" = $version.split(".")[1]
+        "patchVersion" = $version.split(".")[2]
+    }
+
 #########################
 #Define Windows environment stuff
 $filename = "NSX-ObjectCapture-$($Connection.Server)-$(get-date -format "yyyy_MM_dd_HH_mm_ss").zip"
@@ -99,6 +109,8 @@ $SecurityGroupExportFile = "$TempDir\SecurityGroupExport.xml"
 $SecurityTagExportFile = "$TempDir\SecurityTagExport.xml"
 $SecPolExportFile = "$TempDir\SecPolExport.xml"
 $dfwConfigFile = "$TempDir\DfwConfigExport.xml"
+$bundleVersionExportFile = "$TempDir\BundleVersion.xml"
+$powernsxConnectionExportFile = "$TempDir\PowerNSXConnection.xml"
 
 $LsHash = @{}
 $VdPortGroupHash = @{}
@@ -115,7 +127,7 @@ $SecurityGroupHash = @{}
 $SecurityTagHash = @{}
 $SecPolHash = @{}
 
-write-host -ForeGroundColor Green "PowerNSX Object Capture Script"
+write-host -ForeGroundColor Green "PowerNSX Object Capture Script - Version $version"
 
 write-host -ForeGroundColor Green "`nGetting NSX Objects"
 write-host "  Getting LogicalSwitches"
@@ -290,6 +302,14 @@ $ServiceGroupHash | export-clixml -depth $maxdepth $ServiceGroupExportFile
 $SecurityGroupHash | export-clixml -depth $maxdepth $SecurityGroupExportFile
 $SecurityTagHash | export-clixml -depth $maxdepth $SecurityTagExportFile
 $SecPolHash | export-clixml -depth $maxdepth $SecPolExportFile
+$versionObject | export-clixml -depth $maxdepth $bundleVersionExportFile
+
+# Create new PSCustomObject for the connection details, but remove the credentials
+$exportConnectionObject = New-Object psobject
+$connection.psobject.properties | ? {$_.name -ne "credential"} | % {
+    $exportConnectionObject | Add-Member -MemberType $_.MemberType -Name $_.Name -Value $_.Value
+}
+$exportConnectionObject | export-clixml -depth $maxdepth $powernsxConnectionExportFile
 
 #Desktop extract to zip
 if ($psversiontable.PSEdition -ne "Core"){
