@@ -1,18 +1,17 @@
 ## PowerNSX Sample Script
 ## Author: Dale Coghlan
 ## version 1.0
-## Jan 2018
+## Feb 2018
 
 ########################################
 # 1 - Connect to your NSX Manager
-# 2 - Run the script and it will report how many dynamic criteria are eligible
-#     to convert to entity_belongs_to
+# 2 - Run the script and it will log the security groups which have dynamic
+#     criteria that are configured with security tag equals
 #       ./Convert2EntityBelongsTo.ps1
-# 3 - If your happy with what it wants to change, run the script with the 
+# 3 - If your happy with what it wants to change, run the script with the
 #     -DoTheNeedful parameter
 #       ./Convert2EntityBelongsTo.ps1 -DoTheNeedful
-# 4 - Sit back, have a drink, and reflect on what you just did and how long it
-#     would have taken you to do manually.
+# 4 - Sit back, have a drink, and if your like me, go and ride a vert on my blades.
 
 
 <#
@@ -39,10 +38,9 @@ Often when NSX Security Groups are configured and some dynamic criteria rules
 are created, it has been observed that security tag "equals" is often
 configured. This is not an optimal configuration, and should be converted to use
 entity_belongs_to. This script will automate the process.
-is configured
 
 It is intended to be an example of how to perform a certain action and may not
-be suitable for all purposes.  Please read an understand its action and modify
+be suitable for all purposes. Please read an understand its action and modify
 as appropriate, or ensure its suitability for a given situation before blindly
 running it.
 
@@ -54,89 +52,194 @@ param (
 
     [Parameter (Mandatory=$False)]
         #Set this switch to modify the NSX Configuration. By default will only report what will change
-        [switch]$DoTheNeedful=$false
+        [switch]$DoTheNeedful=$false,
+    [Parameter (Mandatory=$False)]
+        # Used to setup a small test set of tags and groups
+        [switch]$CreateTestEnvironment=$false,
+    [Parameter (Mandatory=$False)]
+        # Used to trash the test tags and groups
+        [switch]$TrashTestEnvironment=$false
+
 )
+
+################################################################################
+# Setup and Teardown some test groups if required
+################################################################################
+
+if ($CreateTestEnvironment) {
+    1..9 | % {New-NsxSecurityTag -Name EntityTagTest_00$_ | out-null}
+    $st = Get-NsxSecurityTag | ? {$_.name -match "EntityTagTest"}
+    $criteria0 = New-NsxDynamicCriteriaSpec -Key SecurityTag -Value dummyNonExistentTag -Condition equals
+    0..8 | % { New-Variable -Name criteria$($_ + 1) -value (New-NsxDynamicCriteriaSpec -Key SecurityTag -Value ($st[$_].name) -Condition equals)}
+    $group1 = New-NsxSecurityGroup -Name EntityTestGroup_001
+    $group2 = New-NsxSecurityGroup -Name EntityTestGroup_002
+    $group3 = New-NsxSecurityGroup -Name EntityTestGroup_003
+
+    Get-NsxSecurityGroup -objectId $group1.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria1,$criteria2
+    Get-NsxSecurityGroup -objectId $group1.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3,$criteria0,$criteria4
+    Get-NsxSecurityGroup -objectId $group2.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3,$criteria5
+    Get-NsxSecurityGroup -objectId $group3.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria6,$criteria7,$criteria8,$criteria9
+    exit
+}
+
+if ($TrashTestEnvironment) {
+    Get-NsxSecurityGroup | ? {$_.name -match "EntityTestGroup_"} | Remove-NsxSecurityGroup -confirm:$False
+    Get-NsxSecurityTag | ? {$_.name -match "EntityTagTest"} | Remove-NsxSecurityTag -confirm:$False
+    exit
+}
+
+################################################################################
+# The fun starts here
+################################################################################
+
+# This is to determine dynamic path separators
+$pathSeparator = [IO.Path]::DirectorySeparatorChar
+# Generate date time string for debug log file name
+$dtstring = get-date -format "yyyy_MM_dd_HH_mm_ss"
+# Name and location of the debug log file. This will place it in the directory
+# where this script is run from and will work cross-platform
+$DebugLogFile = ".$($pathSeparator)debuglogfile-$dtstring.log"
+# Take note of the start time
+$StartTime = Get-Date
+
+function Write-Log {
+    param (
+        [Parameter(Mandatory=$false)]
+            [ValidateSet("host", "warning", "verbose")]
+            [string]$level="host",
+        [Parameter(Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [ValidateSet("white", "yellow", "red", "magenta", "cyan", "green")]
+            [string]$ForegroundColor="white",
+        [Parameter(Mandatory=$true)]
+            [ValidateNotNullOrEmpty()]
+            [object]$msg
+            )
+
+    $msgPrefix = "$(get-date -f "HH:mm:ss") : Line($($MyInvocation.ScriptLineNumber)) :"
+
+    if ( -not ( test-path $DebugLogFile )) {
+        write-host "$msgPrefix Log file not found... creating a new one"
+        New-Item -Type file $DebugLogFile | out-null
+        if ( test-path $DebugLogFile ) {
+            write-host "$msgPrefix Logging to file $DebugLogFile"
+        }
+    }
+
+    switch ($level) {
+        "warning" {
+            write-warning "$msgPrefix $msg"
+            Add-content -path $DebugLogFile -value "$msgPrefix $msg"
+        }
+        "verbose" {
+            write-verbose "$msgPrefix $msg"
+            Add-content -path $DebugLogFile -value "$msgPrefix $msg"
+        }
+        default {
+            write-host "$msgPrefix $msg" -ForegroundColor $ForegroundColor
+            Add-content -path $DebugLogFile -value "$msgPrefix $msg"
+        }
+    }
+}
 
 # Make sure we have a connection to NSX Manager
 If ( -not $DefaultNsxConnection ) {
     throw "Please connect to to NSX first"
 }
 
-$secGrpCacheLocal = Get-NsxSecurityGroup -LocalOnly
-$secTagCache = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag
+# Retrieve the configuration of ALL the security groups. We do this manually,
+# rather than via Get-NsxSecurityGroup as we want the result in a single XML
+# document as we can do some funky stuff with XPATH if we need to.
+write-log -level host -msg "Retrieving local NSX Security Groups"
+$URI = "/api/2.0/services/securitygroup/scope/globalroot-0"
+[system.xml.xmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
-# Here we clone the xml response so that we have a copy of the xml that we can
-# modify and use to send back to the NSX Manager with the rules removed from it
-$modifiedxml = $secGrpCacheLocal.CloneNode($true)
-
-$modifiedxml.gettype()
-foreach ($blah in $secGrpCacheLocal) {
-    if ( $modifiedxml -is [System.Xml.XmlElement] ) {
-        write-host "it is an element"
-        $SecurityGroupId = $securityGroup.objectId
-        $_SecurityGroup = $SecurityGroup.cloneNode($true)
-    } else {
-        write-host "not so"
-    }
-}
-exit
-
-
-[System.Xml.XmlElement]$xmltest = ($secGrpCacheLocal | format-xml)
-$query = "//*dynamiccriteria[key='VM.SECURITY_TAG' and criteria='equals']"
-$output = Invoke-XpathQuery -QueryMethod SelectNodes -Node $xmltest -query "//*dynamiccriteria[key='VM.SECURITY_TAG' and criteria='equals']"
-
-$output
-
-exit
-# Supply the path to the file containing the list of rule IDs that are required
-# to be deleted. The script expects a the file contain a single rule ID per line
-$file = $args[0]
-
-# Test to make sure the file path provided actually exists
-if (-Not (Test-Path -Path $file) ) {
-    throw "The file containing the rules to delete does not exist"
+if ( ! (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::list/securitygroup') ) {
+    Throw "No security groups were returned."
 }
 
-$f = Get-Content -Path $file
+# Save a copy of the security group config prior to any changes being made
+write-log -level verbose -msg "$($response | format-xml)"
 
+# Search for any instances where securitytag equals is configured
+write-log -level host -msg "Searching for Security Groups with 'Security Tag' & 'Equals' configured in dynamic criteria"
+$query = "//dynamicCriteria[key='VM.SECURITY_TAG' and criteria='=']"
+$output = Invoke-XpathQuery -QueryMethod SelectNodes -Node $response -query $query
 
+# Create a hash table that allows us to store the security groups that are identified via the query above
+$securityGroupsAffected = @{}
 
-# Go and grab the current firewall configuration
-$URI = "/api/4.0/firewall/globalroot-0/config"
-$response = invoke-nsxrestmethod -method "get" -uri $URI
+if ($output) {
+    $foundInstances = ($output| Measure-Object).count
+    write-log -level host -msg "Instances where 'Security Tag' & 'equals' is configured : $($foundInstances) " -ForegroundColor green
+    write-log -level host -msg "Adding Security Group names to logfile. "
 
-# Here we clone the xml response so that we have a copy of the xml that we can
-# modify and use to send back to the NSX Manager with the rules removed from it
-$modifiedxml = $response.CloneNode($true)
-
-$generationNumber = $modifiedxml.firewallConfiguration.generationNumber
-$modified = $false
-
-# Lets loop through the rule ids in the file and find them in the XML. If we
-# find them, we remove the node and set the modified flag to $true
-foreach ($id in $f ) {
-    $node = Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $modifiedxml -Query "firewallConfiguration/*/section/rule[@id=`"$id`"]"
-    if ($node) {
-        $node.parentnode.removechild($node) | out-null
-        $modified = $true
+    # Go through each criteria which matches the query and add the security group
+    # to the hashtable of affected security groups
+    foreach ($criteriaFound in $output) {
+        # Get the parent security group
+        $parentNode = Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $criteriaFound -query "ancestor::securitygroup"
+        if ( ! ($securityGroupsAffected.ContainsKey($parentNode.name)) ) {
+            write-log -level verbose -msg "Adding to hashtable (securityGroupsAffected) : $($parentNode.name)($($parentNode.objectId))"
+            $securityGroupsAffected.Add($parentNode.name,$parentNode)
+        }
     }
+
+    if ($DoTheNeedful) {
+        # Retrieve a list of all the Security Tags. We really just need the
+        # Names and ObjectIds, hence we are just using the applicable members API
+        write-log -level host -msg "Retrieving local NSX Security Tags"
+        $secTagCache = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag
+
+        # Go through each security group that is identified, and grab the latest
+        # config for it. Why not just use the one we already have? Good question.
+        # In environments where there is large amounts of security tags,churn
+        # or updates to security groups done automatically, we run into an issue
+        # where we could be working on a group with a old revision number and
+        # NSX doesn't like it if we submit changes with an old revision number.
+        foreach ($key in $securityGroupsAffected.KEYS.GetEnumerator()) {
+            write-log -level host -msg "Retrieving latest Security Group configuration : $($key)($($securityGroupsAffected[$key].objectId))" -ForegroundColor cyan
+            $sg = Get-NsxSecurityGroup -objectid $securityGroupsAffected[$key].objectId
+
+            # Again lets search within this specific security group for the offending criteria
+            $sgQueryOutput = Invoke-XpathQuery -QueryMethod SelectNodes -Node $sg -query $query
+            $sgModified = $False
+
+            # Now we've found some, lets swap them to use entity belong to
+            foreach ($dynamicCriteriaIdentified in $sgQueryOutput) {
+                $secTag = $secTagCache | Where-Object {$_.name -eq $dynamicCriteriaIdentified.value}
+
+                # If we don't find a corresponding match with a configured security tag,
+                # we just flag it here and move on. When we do find a matching security
+                # tag configured in the system, we manipulate the XML and mark the group
+                # as modified. We keep doing this for all instances found in the security
+                # group, and then at the end, if the gorup is marked as modified, we
+                # update it via the API.
+                if ( ! ($secTag) ) {
+                    write-log -level host -msg "Criteria Skipped - Exact match NOT found for Security Tag : $($dynamicCriteriaIdentified.value)" -ForegroundColor red
+                } else {
+                    write-log -level host -msg "Found exact match for Security Tag : $($dynamicCriteriaIdentified.value)($($secTag.objectid))" -ForegroundColor green
+                    write-log -level verbose -msg "----- BEFORE -----"
+                    write-log -level verbose -msg ($dynamicCriteriaIdentified | format-xml)
+                    $dynamicCriteriaIdentified.key = "ENTITY"
+                    $dynamicCriteriaIdentified.criteria = "belongs_to"
+                    $dynamicCriteriaIdentified.value = $secTag.objectid
+                    write-log -level verbose -msg "----- AFTER -----"
+                    write-log -level verbose -msg ($dynamicCriteriaIdentified | format-xml)
+                    $sgModified = $True
+                }
+            }
+            if ($sgModified) {
+                write-log -level host -msg "Updating Security Group : $($sg.name)($($sg.objectid))" -ForegroundColor green
+                write-log -level verbose -msg ($sg.outerXml | format-xml)
+                $sgUpdateURI = "/api/2.0/services/securitygroup/bulk/$($sg.objectid)"
+                $update = Invoke-NsxRestMethod -method PUT -uri $sgUpdateURI -body $sg.outerXml
+            }
+        }
+    }
+
 }
 
-# If we managed to remove some xml then lets go ahead and save the original xml
-# and the modified xml, just so we can see whats changed. We could have just
-# saved the individual nodes that were being removed, but this does not give you
-# the context of where abouts in the rule base the rules were located.
-if ($modified) {
-    if (! (Test-Path -Path "$generationNumber-original.xml")) {
-        $response.firewallconfiguration | Export-NsxObject -FilePath "$generationNumber-original.xml"
-    }
-
-    if (! (Test-Path -Path "$generationNumber-modified.xml")) {
-        $modifiedxml.firewallconfiguration | Export-NsxObject -FilePath "$generationNumber-modified.xml"
-    }
-
-    $IfMatchHeader = @{"If-Match"=$generationNumber}
-    invoke-nsxwebrequest -method "put" -uri $URI -body $modifiedxml.outerXml -extraheader $IfMatchHeader | out-null
-}
-
+[timespan]$ts = (get-date) - $StartTime
+write-log -ForegroundColor magenta -msg "Script complete in $($ts -f "HH:mm:ss")"
+write-log -ForegroundColor magenta -msg "Debug log saved to $DebugLogFile"
