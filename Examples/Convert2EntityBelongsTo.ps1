@@ -53,7 +53,17 @@ If there is no corresponding security tag found that matches what is in the
 dynamic criteria, then the script will leave it alone, but a message will be
 displayed on the screen as well as captured in the logfile.
 
-It is intended to be an example of how to perform a certain action and may not
+A couple of parameter switches have been included to create some sample NSX
+Security Tags and NSX Security Groups with dynamic criteria specified so that
+you can use these to see how the script functions.
+
+./Convert2EntityBelongsTo.ps1 -TrashTestEnvironment -CreateTestEnvironment
+
+The above will cleanup any previous test tags and groups, and then create them
+again. You can use these parameter switches independantly of each other if you
+so desire.
+
+This is intended to be an example of how to perform a certain action and may not
 be suitable for all purposes. Please read an understand its action and modify
 as appropriate, or ensure its suitability for a given situation before blindly
 running it.
@@ -70,10 +80,10 @@ param (
     [Parameter (Mandatory=$False, ParameterSetName="StandardExecution")]
         #Set this switch to modify the NSX Configuration. By default will only report what will change
         [switch]$DoTheNeedful=$false,
-    [Parameter (Mandatory=$False, ParameterSetName="CreateTestEnvironment")]
+    [Parameter (Mandatory=$False, ParameterSetName="TestLab")]
         # Used to setup a small test set of tags and groups
         [switch]$CreateTestEnvironment=$false,
-    [Parameter (Mandatory=$False, ParameterSetName="TrashTestEnvironment")]
+    [Parameter (Mandatory=$False, ParameterSetName="TestLab")]
         # Used to trash the test tags and groups
         [switch]$TrashTestEnvironment=$false
 
@@ -82,28 +92,32 @@ param (
 ################################################################################
 # Setup and Teardown some test groups if required
 ################################################################################
+if ( $PSCmdlet.ParameterSetName -eq "TestLab") {
 
-if ($CreateTestEnvironment) {
-    1..9 | ForEach-Object {New-NsxSecurityTag -Name EntityTagTest_00$_ | out-null}
-    $st = Get-NsxSecurityTag | Where-Object {$_.name -match "EntityTagTest"}
-    $criteria0 = New-NsxDynamicCriteriaSpec -Key SecurityTag -Value dummyNonExistentTag -Condition equals
-    0..8 | ForEach-Object { New-Variable -Name criteria$($_ + 1) -value (New-NsxDynamicCriteriaSpec -Key SecurityTag -Value ($st[$_].name) -Condition equals)}
-    $group1 = New-NsxSecurityGroup -Name EntityTestGroup_001
-    $group2 = New-NsxSecurityGroup -Name EntityTestGroup_002
-    $group3 = New-NsxSecurityGroup -Name EntityTestGroup_003
-    $group4 = New-NsxSecurityGroup -Name EntityTestGroup_004
+    if ($TrashTestEnvironment) {
+        Get-NsxSecurityGroup | Where-Object {$_.name -match "EntityTestGroup_"} | Remove-NsxSecurityGroup -confirm:$False
+        Get-NsxSecurityTag | Where-Object {$_.name -match "EntityTagTest"} | Remove-NsxSecurityTag -confirm:$False
+    }
 
-    Get-NsxSecurityGroup -objectId $group1.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria1,$criteria2
-    Get-NsxSecurityGroup -objectId $group1.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3,$criteria0,$criteria4
-    Get-NsxSecurityGroup -objectId $group2.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3,$criteria5
-    Get-NsxSecurityGroup -objectId $group3.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria6,$criteria7,$criteria8,$criteria9
-    Get-NsxSecurityGroup -objectId $group4.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria5
-    exit
-}
+    if ($CreateTestEnvironment) {
+        1..9 | ForEach-Object {New-NsxSecurityTag -Name EntityTagTest_00$_ | out-null}
+        $st = Get-NsxSecurityTag | Where-Object {$_.name -match "EntityTagTest"}
 
-if ($TrashTestEnvironment) {
-    Get-NsxSecurityGroup | Where-Object {$_.name -match "EntityTestGroup_"} | Remove-NsxSecurityGroup -confirm:$False
-    Get-NsxSecurityTag | Where-Object {$_.name -match "EntityTagTest"} | Remove-NsxSecurityTag -confirm:$False
+        $criteria0 = New-NsxDynamicCriteriaSpec -Key SecurityTag -Value dummyNonExistentTag -Condition equals
+        0..8 | ForEach-Object { New-Variable -Name criteria$($_ + 1) -value (New-NsxDynamicCriteriaSpec -Key SecurityTag -Value ($st[$_].name) -Condition equals)}
+
+        $group1 = New-NsxSecurityGroup -Name EntityTestGroup_001
+        $group2 = New-NsxSecurityGroup -Name EntityTestGroup_002
+        $group3 = New-NsxSecurityGroup -Name EntityTestGroup_003
+        $group4 = New-NsxSecurityGroup -Name EntityTestGroup_004
+
+        Get-NsxSecurityGroup -objectId $group1.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria1,$criteria2
+        Get-NsxSecurityGroup -objectId $group1.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3,$criteria0,$criteria4
+        Get-NsxSecurityGroup -objectId $group2.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3,$criteria5
+        Get-NsxSecurityGroup -objectId $group3.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria6,$criteria7,$criteria8,$criteria9
+        Get-NsxSecurityGroup -objectId $group4.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria5
+    }
+
     exit
 }
 
