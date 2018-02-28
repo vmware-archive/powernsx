@@ -210,7 +210,7 @@ if ($output) {
             # Now we've found some, lets swap them to use entity belong to
             foreach ($dynamicCriteriaIdentified in $sgQueryOutput) {
                 # Identify if this is the only criteria defined in the set?
-                $dynamicCriteriaInSetCount = (($dynamicCriteriaIdentified.parentNode).dynamicCriteria).count
+                $dynamicCriteriaInSetCount = (($dynamicCriteriaIdentified.parentNode).dynamicCriteria | measure).count
                 write-log -level verbose -msg "Criteria set : Criteria count = $($dynamicCriteriaInSetCount)"
 
                 # Lookup the corresponding tag objectid
