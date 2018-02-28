@@ -74,11 +74,13 @@ if ($CreateTestEnvironment) {
     $group1 = New-NsxSecurityGroup -Name EntityTestGroup_001
     $group2 = New-NsxSecurityGroup -Name EntityTestGroup_002
     $group3 = New-NsxSecurityGroup -Name EntityTestGroup_003
+    $group4 = New-NsxSecurityGroup -Name EntityTestGroup_004
 
     Get-NsxSecurityGroup -objectId $group1.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria1,$criteria2
     Get-NsxSecurityGroup -objectId $group1.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3,$criteria0,$criteria4
     Get-NsxSecurityGroup -objectId $group2.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria3,$criteria5
     Get-NsxSecurityGroup -objectId $group3.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria6,$criteria7,$criteria8,$criteria9
+    Get-NsxSecurityGroup -objectId $group4.objectid | Add-NsxDynamicMemberSet -SetOperator OR -CriteriaOperator ALL -DynamicCriteriaSpec $criteria5
     exit
 }
 
@@ -207,7 +209,12 @@ if ($output) {
 
             # Now we've found some, lets swap them to use entity belong to
             foreach ($dynamicCriteriaIdentified in $sgQueryOutput) {
-                $secTag = $secTagCache | Where-Object {$_.name -eq $dynamicCriteriaIdentified.value}
+                # Identify if this is the only criteria defined in the set?
+                $dynamicCriteriaInSetCount = (($dynamicCriteriaIdentified.parentNode).dynamicCriteria).count
+                write-log -level verbose -msg "Criteria set : Criteria count = $($dynamicCriteriaInSetCount)"
+
+                # Lookup the corresponding tag objectid
+                $secTag = $secTagCache | Where-Object {$_.name -eq $dynamicCriteriaIdentified.value.trim()}
 
                 # If we don't find a corresponding match with a configured security tag,
                 # we just flag it here and move on. When we do find a matching security
@@ -219,14 +226,30 @@ if ($output) {
                     write-log -level host -msg "Criteria Skipped - Exact match NOT found for Security Tag : $($dynamicCriteriaIdentified.value)" -ForegroundColor red
                 } else {
                     write-log -level host -msg "Found exact match for Security Tag : $($dynamicCriteriaIdentified.value)($($secTag.objectid))" -ForegroundColor green
-                    write-log -level verbose -msg "----- BEFORE -----"
-                    write-log -level verbose -msg ($dynamicCriteriaIdentified | format-xml)
-                    $dynamicCriteriaIdentified.key = "ENTITY"
-                    $dynamicCriteriaIdentified.criteria = "belongs_to"
-                    $dynamicCriteriaIdentified.value = $secTag.objectid
-                    write-log -level verbose -msg "----- AFTER -----"
-                    write-log -level verbose -msg ($dynamicCriteriaIdentified | format-xml)
-                    $sgModified = $True
+
+                    # If there is more than 1 criteria in the set, just do an in place
+                    # conversion to entity belongs to, otherwise remove the dynamic
+                    # criteria and add the security tag as a static include.
+                    if ($dynamicCriteriaInSetCount -gt 1) {
+                        write-log -level verbose -msg "Multiple criteria exists in parentNode. Performing conversion to Entity Belongs To"
+                        write-log -level verbose -msg "----- BEFORE -----"
+                        write-log -level verbose -msg ($dynamicCriteriaIdentified | format-xml)
+                        $dynamicCriteriaIdentified.key = "ENTITY"
+                        $dynamicCriteriaIdentified.criteria = "belongs_to"
+                        $dynamicCriteriaIdentified.value = $secTag.objectid
+                        write-log -level verbose -msg "----- AFTER -----"
+                        write-log -level verbose -msg ($dynamicCriteriaIdentified | format-xml)
+                        $sgModified = $True
+                    } else {
+                        write-log -level verbose -msg "Single criteria in parent node found. Criteria will be deleted and added as a statically included member."
+                        $null = $memberxml = $sg.OwnerDocument.CreateElement("member")
+                        $null = $sg.AppendChild($memberxml)
+                        Add-XmlElement -xmlRoot $memberxml -xmlElementName "objectId" -xmlElementText $secTag.objectid
+
+                        $dynamicCriteriaIdentified.parentNode.parentNode.RemoveChild($dynamicCriteriaIdentified.parentNode) | out-null
+
+                        $sgModified = $True
+                    }
                 }
             }
             if ($sgModified) {
