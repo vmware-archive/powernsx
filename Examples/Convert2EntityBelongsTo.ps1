@@ -131,7 +131,8 @@ $pathSeparator = [IO.Path]::DirectorySeparatorChar
 $dtstring = get-date -format "yyyy_MM_dd_HH_mm_ss"
 # Name and location of the debug log file. This will place it in the directory
 # where this script is run from and will work cross-platform
-$DebugLogFile = ".$($pathSeparator)debuglogfile-$dtstring.log"
+$DebugFileNamePrefix = [System.IO.Path]::GetFileNameWithoutExtension($MyInvocation.InvocationName)
+$DebugLogFile = ".$($pathSeparator)$($DebugFileNamePrefix)_$dtstring.log"
 # Take note of the start time
 $StartTime = Get-Date
 
