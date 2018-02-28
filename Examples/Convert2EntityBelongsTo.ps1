@@ -173,8 +173,8 @@ $securityGroupsAffected = @{}
 
 if ($output) {
     $foundInstances = ($output| Measure-Object).count
-    write-log -level host -msg "Instances where 'Security Tag' & 'equals' is configured : $($foundInstances) " -ForegroundColor green
-    write-log -level host -msg "Adding Security Group names to logfile. "
+    write-log -level host -msg "Instances where 'Security Tag' & 'equals' is configured : $($foundInstances)" -ForegroundColor green
+    write-log -level host -msg "Adding Security Group names to logfile."
 
     # Go through each criteria which matches the query and add the security group
     # to the hashtable of affected security groups
