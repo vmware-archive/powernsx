@@ -67,10 +67,10 @@ param (
 ################################################################################
 
 if ($CreateTestEnvironment) {
-    1..9 | % {New-NsxSecurityTag -Name EntityTagTest_00$_ | out-null}
-    $st = Get-NsxSecurityTag | ? {$_.name -match "EntityTagTest"}
+    1..9 | ForEach-Object {New-NsxSecurityTag -Name EntityTagTest_00$_ | out-null}
+    $st = Get-NsxSecurityTag | Where-Object {$_.name -match "EntityTagTest"}
     $criteria0 = New-NsxDynamicCriteriaSpec -Key SecurityTag -Value dummyNonExistentTag -Condition equals
-    0..8 | % { New-Variable -Name criteria$($_ + 1) -value (New-NsxDynamicCriteriaSpec -Key SecurityTag -Value ($st[$_].name) -Condition equals)}
+    0..8 | ForEach-Object { New-Variable -Name criteria$($_ + 1) -value (New-NsxDynamicCriteriaSpec -Key SecurityTag -Value ($st[$_].name) -Condition equals)}
     $group1 = New-NsxSecurityGroup -Name EntityTestGroup_001
     $group2 = New-NsxSecurityGroup -Name EntityTestGroup_002
     $group3 = New-NsxSecurityGroup -Name EntityTestGroup_003
@@ -85,8 +85,8 @@ if ($CreateTestEnvironment) {
 }
 
 if ($TrashTestEnvironment) {
-    Get-NsxSecurityGroup | ? {$_.name -match "EntityTestGroup_"} | Remove-NsxSecurityGroup -confirm:$False
-    Get-NsxSecurityTag | ? {$_.name -match "EntityTagTest"} | Remove-NsxSecurityTag -confirm:$False
+    Get-NsxSecurityGroup | Where-Object {$_.name -match "EntityTestGroup_"} | Remove-NsxSecurityGroup -confirm:$False
+    Get-NsxSecurityTag | Where-Object {$_.name -match "EntityTagTest"} | Remove-NsxSecurityTag -confirm:$False
     exit
 }
 
@@ -210,7 +210,7 @@ if ($output) {
             # Now we've found some, lets swap them to use entity belong to
             foreach ($dynamicCriteriaIdentified in $sgQueryOutput) {
                 # Identify if this is the only criteria defined in the set?
-                $dynamicCriteriaInSetCount = (($dynamicCriteriaIdentified.parentNode).dynamicCriteria | measure).count
+                $dynamicCriteriaInSetCount = (($dynamicCriteriaIdentified.parentNode).dynamicCriteria | Measure-Object).count
                 write-log -level verbose -msg "Criteria set : Criteria count = $($dynamicCriteriaInSetCount)"
 
                 # Lookup the corresponding tag objectid
