@@ -5,8 +5,9 @@
 
 ########################################
 # 1 - Connect to your NSX Manager
-# 2 - Run the script and it will log the security groups which have dynamic
-#     criteria that are configured with security tag equals
+# 2 - Run the script and it will find the security groups which have dynamic
+#     criteria that are configured with "security tag" & "equals" and add them
+#     to the log file
 #       ./Convert2EntityBelongsTo.ps1
 # 3 - If your happy with what it wants to change, run the script with the
 #     -DoTheNeedful parameter
@@ -39,6 +40,19 @@ are created, it has been observed that security tag "equals" is often
 configured. This is not an optimal configuration, and should be converted to use
 entity_belongs_to. This script will automate the process.
 
+If there is only a single dynamic criteria identified in the criteria set, that
+is configured with "Security Tag" & "Equals to", the script will remove the
+dynamic criteria/set and add the security tag directly as a statically included
+member of the security group.
+
+If there are multiple criteria in a criteria set where it find at least 1 of
+them is configured with "Security Tag" & "Equals to", the script will do an
+in-place conversion to "Entity" & "Belongs to".
+
+If there is no corresponding security tag found that matches what is in the
+dynamic criteria, then the script will leave it alone, but a message will be
+displayed on the screen as well as captured in the logfile.
+
 It is intended to be an example of how to perform a certain action and may not
 be suitable for all purposes. Please read an understand its action and modify
 as appropriate, or ensure its suitability for a given situation before blindly
@@ -48,15 +62,18 @@ Testing is limited to a lab environment.  Please test accordingly.
 
 #>
 
+[CmdletBinding(DefaultParameterSetName="StandardExecution")]
+[Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSUseDeclaredVarsMoreThanAssignments","")]
+
 param (
 
-    [Parameter (Mandatory=$False)]
+    [Parameter (Mandatory=$False, ParameterSetName="StandardExecution")]
         #Set this switch to modify the NSX Configuration. By default will only report what will change
         [switch]$DoTheNeedful=$false,
-    [Parameter (Mandatory=$False)]
+    [Parameter (Mandatory=$False, ParameterSetName="CreateTestEnvironment")]
         # Used to setup a small test set of tags and groups
         [switch]$CreateTestEnvironment=$false,
-    [Parameter (Mandatory=$False)]
+    [Parameter (Mandatory=$False, ParameterSetName="TrashTestEnvironment")]
         # Used to trash the test tags and groups
         [switch]$TrashTestEnvironment=$false
 
