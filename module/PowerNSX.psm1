@@ -73,7 +73,7 @@ Function _init {
         $script:PNsxPSTarget = "Desktop"
     }
 
-    if ( $script:PNsxPSTarget -eq "Core" ) {
+    if ( ( $script:PNsxPSTarget -eq "Core" ) -and ( $PSVersionTable.GitCommitId -notmatch '^v6.[\d].[\d]+$') ) {
 
         if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
             write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
@@ -205,7 +205,7 @@ function Invoke-XpathQuery {
 
     )
 
-    If ( $script:PNsxPSTarget -eq "Core") {
+    If ( ( $script:PNsxPSTarget -eq "Core") -and ($PSVersionTable.GitCommitId -eq "v6.0.0-alpha.18") ) {
         #Use the XPath extensions class to perform the query
         switch ($QueryMethod) {
             "SelectSingleNode" {
