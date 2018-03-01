@@ -14429,6 +14429,7 @@ function Set-NsxEdgeFirewall {
 
     #>
 
+    [CmdletBinding(DefaultParameterSetName="Default")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
