@@ -14427,8 +14427,21 @@ function Set-NsxEdgeFirewall {
     The Set-NsxEdgeFirewall cmdlet configures the global FW configuration of
     the specified Edge Services Gateway.
 
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -DefaultRuleAction deny
+
+    Retrieve the current global FW configuration of Edge01 and set the action on
+    the default rule to deny.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -DefaultRuleAction deny -NoConfirm
+
+    Retrieve the current global FW configuration of Edge01 and set the action on
+    the default rule to deny without prompting for confirmation.
+
     #>
 
+    [CmdletBinding(DefaultParameterSetName="Default")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
