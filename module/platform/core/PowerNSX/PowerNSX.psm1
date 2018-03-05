@@ -73,7 +73,7 @@ Function _init {
         $script:PNsxPSTarget = "Desktop"
     }
 
-    if ( $script:PNsxPSTarget -eq "Core" ) {
+    if ( ( $script:PNsxPSTarget -eq "Core" ) -and ( $PSVersionTable.GitCommitId -notmatch '^v6.[\d].[\d]+$') ) {
 
         if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
             write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
@@ -131,10 +131,9 @@ Function _init {
             public internalWebResponse() {
                 this.Headers = new Dictionary<string,string>(StringComparer.OrdinalIgnoreCase);
             }
-	    public override string ToString()
-	    {
-		return this.Content;
-	    }
+        public override string ToString() {
+            return this.Content;
+            }
         }
 
         public class InternalWebRequestException: Exception
@@ -206,7 +205,7 @@ function Invoke-XpathQuery {
 
     )
 
-    If ( $script:PNsxPSTarget -eq "Core") {
+    If ( ( $script:PNsxPSTarget -eq "Core") -and ($PSVersionTable.GitCommitId -eq "v6.0.0-alpha.18") ) {
         #Use the XPath extensions class to perform the query
         switch ($QueryMethod) {
             "SelectSingleNode" {
@@ -2209,7 +2208,7 @@ Function ValidateSecurityGroupMember {
     }
 
     #check if we are valid type
-    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
         #argument is moref string and refers to vm, resource pool or dvportgroup.
         $true
     }
@@ -14428,8 +14427,21 @@ function Set-NsxEdgeFirewall {
     The Set-NsxEdgeFirewall cmdlet configures the global FW configuration of
     the specified Edge Services Gateway.
 
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -DefaultRuleAction deny
+
+    Retrieve the current global FW configuration of Edge01 and set the action on
+    the default rule to deny.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -DefaultRuleAction deny -NoConfirm
+
+    Retrieve the current global FW configuration of Edge01 and set the action on
+    the default rule to deny without prompting for confirmation.
+
     #>
 
+    [CmdletBinding(DefaultParameterSetName="Default")]
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
     param (
 
@@ -17791,64 +17803,64 @@ function Set-NsxEdgeBgp {
             else{
                 Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
             }
-	    }
-	}
+        }
+    }
 
-	if ( $PsBoundParameters.ContainsKey("LocalAS")) {
-	    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) {
-		#LocalAS element exists, update it.
-		$bgp.localAS = $LocalAS.ToString()
-	    }
-	    else {
-		#LocalAS element does not exist...
-		Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
-	    }
-	}
-	elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) -and $EnableBGP  )) {
-	    throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
-	}
+    if ( $PsBoundParameters.ContainsKey("LocalAS")) {
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) {
+            #LocalAS element exists, update it.
+            $bgp.localAS = $LocalAS.ToString()
+        }
+        else {
+            #LocalAS element does not exist...
+            Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
+        }
+    }
+    elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) -and $EnableBGP  )) {
+        throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
+    }
 
-	if ( $PsBoundParameters.ContainsKey("GracefulRestart")) {
-	    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::gracefulRestart')) {
-		#element exists, update it.
-		$bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
-	    }
-	    else {
-		#element does not exist...
-		Add-XmlElement -xmlRoot $bgp -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
-	    }
-	}
+    if ( $PsBoundParameters.ContainsKey("GracefulRestart")) {
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::gracefulRestart')) {
+            #element exists, update it.
+            $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
+        }
+        else {
+            #element does not exist...
+            Add-XmlElement -xmlRoot $bgp -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+        }
+    }
 
-	if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) {
-	    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::defaultOriginate')) {
-		#element exists, update it.
-		$bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
-	    }
-	    else {
-		#element does not exist...
-		Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
-	    }
-	}
+    if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) {
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::defaultOriginate')) {
+            #element exists, update it.
+            $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+        }
+        else {
+            #element does not exist...
+            Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
+        }
+    }
 
-	$URI = "/api/4.0/edges/$($EdgeId)/routing/config"
-	$body = $_EdgeRouting.OuterXml
+    $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+    $body = $_EdgeRouting.OuterXml
 
-	if ( $confirm ) {
-	    $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
-	    $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
-	    $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-	    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-	    $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+    if ( $confirm ) {
+        $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+        $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
 
-	    $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-	}
-	else { $decision = 0 }
-	if ($decision -eq 0) {
-	    Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
-	    $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
-	    write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
-	    Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
-	}
+        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+    }
+    else { $decision = 0 }
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            write-progress -activity "Update Edge Services Gateway $($EdgeId)" -completed
+            Get-NsxEdge -objectId $EdgeId -connection $connection | Get-NsxEdgeRouting | Get-NsxEdgeBgp
+        }
     }
 
     end {}
@@ -18306,9 +18318,9 @@ function Set-NsxEdgeOspf {
             $_EdgeRouting.appendChild($ospf) | out-null
         }
 
-	    # Check ospf enablemant
+        # Check ospf enablemant
         if ($PsBoundParameters.ContainsKey('EnableOSPF')) {
-	        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled')) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled')) {
                 #Enabled element exists.  Update it.
                 $ospf.enabled = $EnableOSPF.ToString().ToLower()
             }
@@ -18316,18 +18328,18 @@ function Set-NsxEdgeOspf {
                 #Enabled element does not exist...
                 Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
             }
-	    }
-	    elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled') {
-	        # OSPF option is not specified but enabled
+        }
+        elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'descendant::enabled') {
+            # OSPF option is not specified but enabled
             if ( $ospf.enabled -eq 'true' ) {
-		        # Assume ospf is already enabled.
-	        } else {
-		        throw "EnableOSPF is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableOSPF"
-	        }
+                # Assume ospf is already enabled.
+            } else {
+                throw "EnableOSPF is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableOSPF"
+            }
         }
         else {
-	        throw "EnableOSPF is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableOSFP"
-	    }
+            throw "EnableOSPF is not specified or BGP is not enabled on edge $edgeID.  Please specify option EnableOSFP"
+        }
 
         $xmlGlobalConfig = $_EdgeRouting.routingGlobalConfig
         $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'descendant::routerId')
@@ -20451,29 +20463,29 @@ function Set-NsxLogicalRouterBgp {
             $_LogicalRouterRouting.appendChild($bgp) | out-null
         }
 
-	    # Check bgp enablement
+        # Check bgp enablement
         if ($PsBoundParameters.ContainsKey('EnableBGP')) {
-	        # BGP option is specified
-	        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
-		        #Enabled element exists.  Update it.
-		        $bgp.enabled = $EnableBGP.ToString().ToLower()
-	        }
-	        else {
+            # BGP option is specified
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
+                #Enabled element exists.  Update it.
+                $bgp.enabled = $EnableBGP.ToString().ToLower()
+            }
+            else {
                 #Enabled element does not exist...
                 Add-XmlElement -xmlRoot $bgp -xmlElementName "enabled" -xmlElementText $EnableBGP.ToString().ToLower()
             }
-	    }
-	    elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled') {
-	        # BGP option is not specified but enabled
+        }
+        elseif (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled') {
+            # BGP option is not specified but enabled
             if ( $bgp.enabled -eq 'true' ) {
             # Assume bgp is already enabled.
             } else {
                 throw "EnableBGP is not specified or BGP is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableBGP"
-	        }
+            }
         }
         else {
             throw "EnableBGP is not specified or BGP is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableBGP"
-	    }
+        }
         $xmlGlobalConfig = $_LogicalRouterRouting.routingGlobalConfig
         $xmlRouterId = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $xmlGlobalConfig -Query 'child::routerId')
         if ( $EnableBGP ) {
@@ -21018,17 +21030,17 @@ function Set-NsxLogicalRouterOspf {
                 #Enabled element does not exist...
                 Add-XmlElement -xmlRoot $ospf -xmlElementName "enabled" -xmlElementText $EnableOSPF.ToString().ToLower()
             }
-	}
-	elseif ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::enabled')) {
-	    # OSPF option is not specified but enabled
-            if ( $ospf.enabled -eq 'true' ) {
-		# Assume ospf is already enabled.
-	    } else {
-		throw "EnableOSPF is not specified or OSPF is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableOSPF"
-	    }
-	} else {
-            throw "EnableOSPF is not specified or OSPF is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableOSPF"
-	}
+    }
+    elseif ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::enabled')) {
+        # OSPF option is not specified but enabled
+        if ( $ospf.enabled -eq 'true' ) {
+        # Assume ospf is already enabled.
+        } else {
+        throw "EnableOSPF is not specified or OSPF is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableOSPF"
+        }
+    } else {
+       throw "EnableOSPF is not specified or OSPF is not enabled on logicalrouter $logicalrouterID.  Please specify option EnableOSPF"
+    }
 
         if ( $EnableOSPF -and (-not ($ProtocolAddress -or ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $ospf -Query 'child::protocolAddress'))))) {
             throw "ProtocolAddress and ForwardingAddress are required to enable OSPF"
@@ -22975,7 +22987,7 @@ function Add-NsxSecurityGroupMember {
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
                 }
-                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
                     $MemberMoref = $_Member
                 }
                 elseif ( ($_Member -is [string] ) -and ( [guid]::tryparse(($_Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
@@ -23098,7 +23110,7 @@ function Remove-NsxSecurityGroupMember {
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
                 }
-                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
                     $MemberMoref = $_Member
 
                 }
@@ -23391,7 +23403,7 @@ function New-NsxDynamicCriteriaSpec {
             if ($entity -is [System.Xml.XmlElement] ) {
                 $EntityObjectId = $entity.objectId
             }
-            elseif ( ($entity -is [string]) -and ($entity -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$" )) {
+            elseif ( ($entity -is [string]) -and ($entity -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
                 $EntityObjectId = $entity
             }
             # Match NIC identifier specified by user (eg UUID.000)
@@ -25449,7 +25461,7 @@ function Remove-NsxIpPool {
             }
             else { $decision = 0 }
             if ($decision -eq 0) {
-				$URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=$($force.tostring().tolower())"
+                $URI = "/api/2.0/services/ipam/pools/$($IPPool.objectId)?force=$($force.tostring().tolower())"
                 Write-Progress -activity "Remove IP Pool $($IPPool.Name)"
                 invoke-nsxrestmethod -method "delete" -uri $URI -connection $connection | out-null
                 write-progress -activity "Remove IP Pool $($IPPool.Name)" -completed
