@@ -36512,6 +36512,7 @@ function Remove-NsxDns {
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    [CmdletBinding(DefaultParameterSetName="Default")]
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
