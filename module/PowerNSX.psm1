@@ -3896,6 +3896,10 @@ function Invoke-NsxRestMethod {
             #Protocol - HTTP/HTTPS
             [string]$protocol,
         [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #URI Prefix to support URI rewrite scenario
+            [AllowEmptyString()]
+            [string]$UriPrefix="",
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
             #Validates the certificate presented by NSX Manager for HTTPS connections
             [bool]$ValidateCertificate,
         [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
@@ -3950,7 +3954,7 @@ function Invoke-NsxRestMethod {
         $server = $connection.Server
         $port = $connection.Port
         $protocol = $connection.Protocol
-
+        $uriprefix = $connection.UriPrefix
     }
 
     $headerDictionary = @{}
@@ -3972,8 +3976,9 @@ function Invoke-NsxRestMethod {
             $headerDictionary.add($header.Key, $header.Value)
         }
     }
-    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+
+    $FullURI = "$($protocol)://$($server):$($Port)$($UriPrefix)$($URI)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, URIPrefix: $UriPrefix, Body: `n$($body | Format-Xml)"
 
     if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
         if ( $connection.DebugLogging ) {
@@ -4123,6 +4128,10 @@ function Invoke-NsxWebRequest {
             #Protocol - HTTP/HTTPS
             [string]$protocol,
         [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #URI prefix to support URI rewrite scenario
+            [AllowEmptyString()]
+            [string]$UriPrefix="",
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
             #Validates the certificate presented by NSX Manager for HTTPS connections
             [bool]$ValidateCertificate,
         [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
@@ -4169,6 +4178,7 @@ function Invoke-NsxWebRequest {
         $server = $connection.Server
         $port = $connection.Port
         $protocol = $connection.Protocol
+        $uriprefix = $connection.UriPrefix
     }
 
     $headerDictionary = @{}
@@ -4190,8 +4200,9 @@ function Invoke-NsxWebRequest {
             $headerDictionary.add($header.Key, $header.Value)
         }
     }
-    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+
+    $FullURI = "$($protocol)://$($server):$($Port)$($UriPrefix)$($URI)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, URIPrefix: $URIPrefix, Body: `n$($body | Format-Xml)"
 
     if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
         if ( $connection.DebugLogging ) {
@@ -4444,6 +4455,16 @@ function Connect-NsxServer {
     with the NSX API (not all) require that all cmdlets specify the -connection
     parameter (not just the fist one.)
 
+    .EXAMPLE
+    Connect-NsxServer -NsxServer nsxserver -username admin -Password VMware1! -ViUserName administrator@vsphere.local -ViPassword VMware1! -UriPRefix /other
+
+    Automatically prepends /other to the URI used to access the NSX REST API for
+    all PowerNSX cmdlets using the associated connection.  UriPrefix is intended
+    to allow for a reverse proxy that is doing URL rewriting in front of NSX.
+
+    Connects to the nsxserver 'nsxserver' with the specified credentials and
+    automatically establishes a PowerCLI connection with the registered
+    vCenter using the credentials specified.
     #>
 
     [CmdletBinding(DefaultParameterSetName="Legacy")]
@@ -4489,6 +4510,10 @@ function Connect-NsxServer {
             #NSX API transport protocol - HTTPS / HTTP .  Defaults to HTTPS
             [ValidateNotNullOrEmpty()]
             [string]$Protocol="https",
+        [Parameter (Mandatory=$false)]
+            #NSX API URI prefix.  Supports reverse proxy in between client and NSX doing URI rewrites so that uri is prepended with $UriPrefix
+            [ValidateNotNullOrEmpty()]
+            [string]$UriPrefix="",
         [Parameter (Mandatory=$false)]
             #If True, the $DefaultNsxConnection global variable is created and populated with connection details.
             #All PowerNSX commands that use the NSX API will utilise this connection unless they are called with the -connection parameter.
@@ -4627,7 +4652,7 @@ function Connect-NsxServer {
 
         #Even though there is partial version info available in the feature info - we cant get the manager version from here, so Im reluctant to return anything.
         try {
-            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate -UriPrefix $uriprefix
         }
         catch {
             Throw "Connection to NSX server $NsxServer failed : $_"
@@ -4638,7 +4663,7 @@ function Connect-NsxServer {
 
         #Test NSX connection
         try {
-            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate -UriPrefix $uriprefix
 
             # try to populate version information
 
@@ -4679,7 +4704,7 @@ function Connect-NsxServer {
         #Try and get the registered VC info from NSX so we can build a VIconnection...
         try {
             $URI = "/api/2.0/services/vcconfig"
-            $vcInfo = Invoke-NsxRestMethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+            $vcInfo = Invoke-NsxRestMethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate -UriPrefix $uriprefix
             if ( $DebugLogging ) { "$(Get-Date -format s)  New PowerNSX Connection to $($credential.UserName)@$($Protocol)://$($NsxServer):$port, version $($Connection.Version)"  | out-file -Append -FilePath $DebugLogfile -Encoding utf8 }
         }
         catch {
@@ -4813,7 +4838,7 @@ function Connect-NsxServer {
         #Now we simply test the connection to NSX against a random unprivileged URI
         $URI = "/api/2.0/nwfabric/features"
         try {
-            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate -UriPrefix $uriprefix
         }
         catch {
             Throw "Connection to NSX server $NsxServer failed : $_"
@@ -4828,6 +4853,7 @@ function Connect-NsxServer {
         "Server" = $NSXServer
         "Port" = $port
         "Protocol" = $Protocol
+        "UriPrefix" = $UriPrefix
         "ValidateCertificate" = $ValidateCertificate
         "VIConnection" = $ViConnection
         "DebugLogging" = $DebugLogging
