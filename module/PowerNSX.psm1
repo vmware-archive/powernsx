@@ -6138,7 +6138,7 @@ function Set-NsxManager {
 
             $uri = "/api/2.0/services/ssoconfig"
             try {
-                Invoke-NsxRestMethod -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                $null = Invoke-NsxWebRequest -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
             }
             catch {
                 #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
@@ -6147,7 +6147,7 @@ function Set-NsxManager {
                     #API responded with a thumbprint
                     write-warning "Using thumbprint presented by the SSO server: $($Matches[1])"
                     $xmlRoot.certificateThumbprint = $matches[1]
-                    Invoke-NsxRestMethod -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                    $null = Invoke-NsxWebRequest -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
                 }
                 else {
                     #rethrow
@@ -6180,7 +6180,7 @@ function Set-NsxManager {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "pluginDownloadServer" -xmlElementText ""
             $uri = "/api/2.0/services/vcconfig"
             try {
-                Invoke-NsxRestMethod -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                $null = Invoke-NsxWebRequest -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
             }
             catch {
                 #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
@@ -6189,7 +6189,7 @@ function Set-NsxManager {
                     #API responded with a thumbprint
                     write-warning "Using thumbprint presented by the vCenter server: $($Matches[1])"
                     $xmlRoot.certificateThumbprint = $matches[1]
-                    Invoke-NsxRestMethod -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                    $null = Invoke-NsxWebRequest -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
                 }
                 else {
                     #rethrow
