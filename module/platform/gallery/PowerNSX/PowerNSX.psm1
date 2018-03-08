@@ -3896,6 +3896,10 @@ function Invoke-NsxRestMethod {
             #Protocol - HTTP/HTTPS
             [string]$protocol,
         [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #URI Prefix to support URI rewrite scenario
+            [AllowEmptyString()]
+            [string]$UriPrefix="",
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
             #Validates the certificate presented by NSX Manager for HTTPS connections
             [bool]$ValidateCertificate,
         [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
@@ -3950,7 +3954,7 @@ function Invoke-NsxRestMethod {
         $server = $connection.Server
         $port = $connection.Port
         $protocol = $connection.Protocol
-
+        $uriprefix = $connection.UriPrefix
     }
 
     $headerDictionary = @{}
@@ -3972,8 +3976,9 @@ function Invoke-NsxRestMethod {
             $headerDictionary.add($header.Key, $header.Value)
         }
     }
-    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+
+    $FullURI = "$($protocol)://$($server):$($Port)$($UriPrefix)$($URI)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, URIPrefix: $UriPrefix, Body: `n$($body | Format-Xml)"
 
     if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
         if ( $connection.DebugLogging ) {
@@ -4123,6 +4128,10 @@ function Invoke-NsxWebRequest {
             #Protocol - HTTP/HTTPS
             [string]$protocol,
         [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
+            #URI prefix to support URI rewrite scenario
+            [AllowEmptyString()]
+            [string]$UriPrefix="",
+        [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
             #Validates the certificate presented by NSX Manager for HTTPS connections
             [bool]$ValidateCertificate,
         [Parameter (Mandatory=$true,ParameterSetName="Parameter")]
@@ -4169,6 +4178,7 @@ function Invoke-NsxWebRequest {
         $server = $connection.Server
         $port = $connection.Port
         $protocol = $connection.Protocol
+        $uriprefix = $connection.UriPrefix
     }
 
     $headerDictionary = @{}
@@ -4190,8 +4200,9 @@ function Invoke-NsxWebRequest {
             $headerDictionary.add($header.Key, $header.Value)
         }
     }
-    $FullURI = "$($protocol)://$($server):$($Port)$($URI)"
-    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, Body: `n$($body | Format-Xml)"
+
+    $FullURI = "$($protocol)://$($server):$($Port)$($UriPrefix)$($URI)"
+    write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, URIPrefix: $URIPrefix, Body: `n$($body | Format-Xml)"
 
     if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
         if ( $connection.DebugLogging ) {
@@ -4444,6 +4455,16 @@ function Connect-NsxServer {
     with the NSX API (not all) require that all cmdlets specify the -connection
     parameter (not just the fist one.)
 
+    .EXAMPLE
+    Connect-NsxServer -NsxServer nsxserver -username admin -Password VMware1! -ViUserName administrator@vsphere.local -ViPassword VMware1! -UriPRefix /other
+
+    Automatically prepends /other to the URI used to access the NSX REST API for
+    all PowerNSX cmdlets using the associated connection.  UriPrefix is intended
+    to allow for a reverse proxy that is doing URL rewriting in front of NSX.
+
+    Connects to the nsxserver 'nsxserver' with the specified credentials and
+    automatically establishes a PowerCLI connection with the registered
+    vCenter using the credentials specified.
     #>
 
     [CmdletBinding(DefaultParameterSetName="Legacy")]
@@ -4489,6 +4510,10 @@ function Connect-NsxServer {
             #NSX API transport protocol - HTTPS / HTTP .  Defaults to HTTPS
             [ValidateNotNullOrEmpty()]
             [string]$Protocol="https",
+        [Parameter (Mandatory=$false)]
+            #NSX API URI prefix.  Supports reverse proxy in between client and NSX doing URI rewrites so that uri is prepended with $UriPrefix
+            [ValidateNotNullOrEmpty()]
+            [string]$UriPrefix="",
         [Parameter (Mandatory=$false)]
             #If True, the $DefaultNsxConnection global variable is created and populated with connection details.
             #All PowerNSX commands that use the NSX API will utilise this connection unless they are called with the -connection parameter.
@@ -4627,7 +4652,7 @@ function Connect-NsxServer {
 
         #Even though there is partial version info available in the feature info - we cant get the manager version from here, so Im reluctant to return anything.
         try {
-            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate -UriPrefix $uriprefix
         }
         catch {
             Throw "Connection to NSX server $NsxServer failed : $_"
@@ -4638,7 +4663,7 @@ function Connect-NsxServer {
 
         #Test NSX connection
         try {
-            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate -UriPrefix $uriprefix
 
             # try to populate version information
 
@@ -4679,7 +4704,7 @@ function Connect-NsxServer {
         #Try and get the registered VC info from NSX so we can build a VIconnection...
         try {
             $URI = "/api/2.0/services/vcconfig"
-            $vcInfo = Invoke-NsxRestMethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+            $vcInfo = Invoke-NsxRestMethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate -UriPrefix $uriprefix
             if ( $DebugLogging ) { "$(Get-Date -format s)  New PowerNSX Connection to $($credential.UserName)@$($Protocol)://$($NsxServer):$port, version $($Connection.Version)"  | out-file -Append -FilePath $DebugLogfile -Encoding utf8 }
         }
         catch {
@@ -4813,7 +4838,7 @@ function Connect-NsxServer {
         #Now we simply test the connection to NSX against a random unprivileged URI
         $URI = "/api/2.0/nwfabric/features"
         try {
-            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate
+            $response = invoke-nsxrestmethod -cred $Credential -server $NsxServer -port $port -protocol $Protocol -method "get" -uri $URI -ValidateCertificate:$ValidateCertificate -UriPrefix $uriprefix
         }
         catch {
             Throw "Connection to NSX server $NsxServer failed : $_"
@@ -4828,6 +4853,7 @@ function Connect-NsxServer {
         "Server" = $NSXServer
         "Port" = $port
         "Protocol" = $Protocol
+        "UriPrefix" = $UriPrefix
         "ValidateCertificate" = $ValidateCertificate
         "VIConnection" = $ViConnection
         "DebugLogging" = $DebugLogging
@@ -6138,7 +6164,7 @@ function Set-NsxManager {
 
             $uri = "/api/2.0/services/ssoconfig"
             try {
-                Invoke-NsxRestMethod -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                $null = Invoke-NsxWebRequest -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
             }
             catch {
                 #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
@@ -6147,7 +6173,7 @@ function Set-NsxManager {
                     #API responded with a thumbprint
                     write-warning "Using thumbprint presented by the SSO server: $($Matches[1])"
                     $xmlRoot.certificateThumbprint = $matches[1]
-                    Invoke-NsxRestMethod -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                    $null = Invoke-NsxWebRequest -Method "post" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
                 }
                 else {
                     #rethrow
@@ -6180,7 +6206,7 @@ function Set-NsxManager {
             Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "pluginDownloadServer" -xmlElementText ""
             $uri = "/api/2.0/services/vcconfig"
             try {
-                Invoke-NsxRestMethod -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                $null = Invoke-NsxWebRequest -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
             }
             catch {
                 #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
@@ -6189,7 +6215,7 @@ function Set-NsxManager {
                     #API responded with a thumbprint
                     write-warning "Using thumbprint presented by the vCenter server: $($Matches[1])"
                     $xmlRoot.certificateThumbprint = $matches[1]
-                    Invoke-NsxRestMethod -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
+                    $null = Invoke-NsxWebRequest -Method "put" -body $xmlRoot.outerXml -uri $uri -Connection $Connection
                 }
                 else {
                     #rethrow
@@ -8923,6 +8949,8 @@ function Get-NsxSegmentIdRange {
 
     param (
         [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Name of the segment ID range to return
             [string]$Name,
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
@@ -9059,6 +9087,8 @@ function Get-NsxTransportZone {
     param (
 
         [Parameter (Mandatory=$true,Position=1,ParameterSetName = "Name")]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #TransportZoneName
             [string]$name,
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
@@ -9092,17 +9122,18 @@ function Get-NsxTransportZone {
         [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::vdnScopes/vdnScope")) {
-            if ( $PsBoundParameters.containsKey('name') ) {
-                $response.vdnscopes.vdnscope | where-object { $_.name -eq $name }
+            $return = $response.vdnscopes.vdnscope
+            if ( $psboundParameters.ContainsKey("Name") ) {
+                $return = $return | where-object { $_.name -eq $name }
             }
-            elseif ( $UniversalOnly ) {
-                $response.vdnscopes.vdnscope | where-object { $_.isUniversal -eq 'True' }
+            if ( $UniversalOnly ) {
+                $return | where-object { $_.isUniversal -eq 'True' }
             }
             elseif ( $LocalOnly ) {
-                $response.vdnscopes.vdnscope | where-object { $_.isUniversal -eq 'False' }
+                $return | where-object { $_.isUniversal -eq 'False' }
             }
             else {
-                $response.vdnscopes.vdnscope
+                $return
             }
         }
     }
@@ -22521,7 +22552,9 @@ function Get-NsxSecurityGroup {
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
             #Get SecurityGroups by objectid
             [string]$objectId,
-        [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$false,ParameterSetName="Name", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Get SecurityGroups by name
             [string]$name,
         [Parameter (Mandatory=$false)]
@@ -24896,6 +24929,8 @@ function Get-NsxIpSet {
             #Objectid of IPSet
             [string]$objectId,
         [Parameter (Mandatory=$true,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Name of IPSet
             [string]$Name,
         [Parameter (Mandatory=$false)]
@@ -25506,6 +25541,8 @@ function Get-NsxMacSet {
             #Get Mac sets by objectid
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Get mac sets by name
             [string]$Name,
         [Parameter (Mandatory=$false)]
@@ -25813,6 +25850,8 @@ function Get-NsxService {
             #Return service by objectId
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Return service by name
             [string]$Name,
         [Parameter (Mandatory=$false,ParameterSetName="Port",Position=1)]
@@ -26242,6 +26281,9 @@ Function Get-NsxServiceGroup {
         #Objectid of Service Group
         [string]$objectId,
     [Parameter (Mandatory=$true,Position=1,ParameterSetName="Name")]
+    [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+    [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
+        # Name of the Service Group
         [ValidateNotNullorEmpty()]
         [string]$Name,
     [Parameter (Mandatory=$false)]
