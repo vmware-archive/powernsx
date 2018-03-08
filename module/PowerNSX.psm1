@@ -8923,6 +8923,8 @@ function Get-NsxSegmentIdRange {
 
     param (
         [Parameter (Mandatory=$false,Position=1,ParameterSetName = "Name")]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Name of the segment ID range to return
             [string]$Name,
         [Parameter (Mandatory=$false, ParameterSetName = "ObjectId")]
@@ -9059,6 +9061,8 @@ function Get-NsxTransportZone {
     param (
 
         [Parameter (Mandatory=$true,Position=1,ParameterSetName = "Name")]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #TransportZoneName
             [string]$name,
         [Parameter (Mandatory=$true,ParameterSetName="objectId")]
@@ -9092,17 +9096,18 @@ function Get-NsxTransportZone {
         [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
 
         if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::vdnScopes/vdnScope")) {
-            if ( $PsBoundParameters.containsKey('name') ) {
-                $response.vdnscopes.vdnscope | where-object { $_.name -eq $name }
+            $return = $response.vdnscopes.vdnscope
+            if ( $psboundParameters.ContainsKey("Name") ) {
+                $return = $return | where-object { $_.name -eq $name }
             }
-            elseif ( $UniversalOnly ) {
-                $response.vdnscopes.vdnscope | where-object { $_.isUniversal -eq 'True' }
+            if ( $UniversalOnly ) {
+                $return | where-object { $_.isUniversal -eq 'True' }
             }
             elseif ( $LocalOnly ) {
-                $response.vdnscopes.vdnscope | where-object { $_.isUniversal -eq 'False' }
+                $return | where-object { $_.isUniversal -eq 'False' }
             }
             else {
-                $response.vdnscopes.vdnscope
+                $return
             }
         }
     }
@@ -22521,7 +22526,9 @@ function Get-NsxSecurityGroup {
         [Parameter (Mandatory=$false,ParameterSetName="objectId")]
             #Get SecurityGroups by objectid
             [string]$objectId,
-        [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$false,ParameterSetName="Name", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Get SecurityGroups by name
             [string]$name,
         [Parameter (Mandatory=$false)]
@@ -24896,6 +24903,8 @@ function Get-NsxIpSet {
             #Objectid of IPSet
             [string]$objectId,
         [Parameter (Mandatory=$true,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Name of IPSet
             [string]$Name,
         [Parameter (Mandatory=$false)]
@@ -25506,6 +25515,8 @@ function Get-NsxMacSet {
             #Get Mac sets by objectid
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Get mac sets by name
             [string]$Name,
         [Parameter (Mandatory=$false)]
@@ -25813,6 +25824,8 @@ function Get-NsxService {
             #Return service by objectId
             [string]$objectId,
         [Parameter (Mandatory=$false,ParameterSetName="Name",Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+        [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
             #Return service by name
             [string]$Name,
         [Parameter (Mandatory=$false,ParameterSetName="Port",Position=1)]
@@ -26242,6 +26255,9 @@ Function Get-NsxServiceGroup {
         #Objectid of Service Group
         [string]$objectId,
     [Parameter (Mandatory=$true,Position=1,ParameterSetName="Name")]
+    [Parameter (Mandatory=$false, ParameterSetName="UniversalOnly", Position=1)]
+    [Parameter (Mandatory=$false, ParameterSetName="LocalOnly", Position=1)]
+        # Name of the Service Group
         [ValidateNotNullorEmpty()]
         [string]$Name,
     [Parameter (Mandatory=$false)]

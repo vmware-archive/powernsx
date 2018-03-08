@@ -16,9 +16,9 @@ Describe "LogicalSwitching" {
         $script:lsPrefix = "pester_ls"
         $script:ls1_name = "$lsPrefix-ls1"
         $script:ls2_name = "$lsPrefix-ls2"
-        $script:tz2_name = "$tzPrefix-tz2"
-        $script:tz = Get-NsxTransportZone -LocalOnly | select -first 1
-        $script:tz2 = New-NsxTransportZone -Name $tz2_name -cluster (get-cluster | select -first 1) -ControlPlaneMode UNICAST_MODE
+        $script:tzLocal2_name = "$tzPrefix-tzlocal2"
+        $script:tzLocal = Get-NsxTransportZone -LocalOnly | select -first 1
+        $script:tzLocal2 = New-NsxTransportZone -Name $tzLocal2_name -cluster (get-cluster | select -first 1) -ControlPlaneMode UNICAST_MODE
 
     }
 
@@ -50,18 +50,18 @@ Describe "LogicalSwitching" {
         }
 
         it "Can retrive logical switches from a specific transport zone via pipeline" {
-            $ls1 = $tz | new-nsxlogicalswitch $ls1_name
-            $ls2 = $tz2 | New-NsxLogicalSwitch $ls2_name
-            $ls = $tz2 | Get-NsxLogicalSwitch
+            $ls1 = $tzlocal | new-nsxlogicalswitch $ls1_name
+            $ls2 = $tzlocal2 | New-NsxLogicalSwitch $ls2_name
+            $ls = $tzlocal2 | Get-NsxLogicalSwitch
             $ls | should not be $null
             @($ls).count | should be 1
             $ls.name | should be $ls2_name
         }
 
         it "Can retrive logical switches from a specific transport zone via vdnscope parameter" {
-            $ls1 = $tz | new-nsxlogicalswitch $ls1_name
-            $ls2 = $tz2 | New-NsxLogicalSwitch $ls2_name
-            $ls = Get-NsxLogicalSwitch -vdnscope $tz2
+            $ls1 = $tzlocal | new-nsxlogicalswitch $ls1_name
+            $ls2 = $tzlocal2 | New-NsxLogicalSwitch $ls2_name
+            $ls = Get-NsxLogicalSwitch -vdnscope $tzlocal2
             $ls | should not be $null
             @($ls).count | should be 1
             $ls.name | should be $ls2_name
@@ -71,8 +71,12 @@ Describe "LogicalSwitching" {
     Context "Transport Zones" {
 
         BeforeAll {
+
+            $script:tzPrefix = "pester_tz"
+            $script:tzMember_name = "$tzPrefix-tzmember"
+            $script:tzUniversal = Get-NsxTransportZone -UniversalOnly
             #Create the TZ we will modify.
-            $emptycl = ($tz).clusters.cluster.cluster.name | % {get-cluster $_ } | ? { ($_ | get-vm | measure).count -eq 0 }
+            $emptycl = ($tzLocal).clusters.cluster.cluster.name | % {get-cluster $_ } | ? { ($_ | get-vm | measure).count -eq 0 }
             if ( -not $emptycl ) {
                 write-warning "No cluster that is a member of an NSX TransportZone but not hosting any VMs could be found for Transport Zone membership addition/removal tests."
                 $script:SkipTzMember = $True
@@ -80,30 +84,63 @@ Describe "LogicalSwitching" {
             else {
                 $script:cl = $emptycl | select -First 1
                 $script:SkipTzMember = $False
-                $script:tz2 = New-NsxTransportZone -Name $tz2_name -cluster $cl -ControlPlaneMode UNICAST_MODE
-                write-warning "Using $($tz.Name) and cluster $cl for transportzone membership test"
+                $script:tzmember = New-NsxTransportZone -Name $tzmember_name -cluster $cl -ControlPlaneMode UNICAST_MODE
+                write-warning "Using $($tzmember.Name) and cluster $cl for transportzone membership test"
             }
+
         }
 
         AfterAll {
-            Get-NsxTransportZone $Tz2 | Remove-NsxTransportZone -confirm:$false
+            $Tzmember | Remove-NsxTransportZone -confirm:$false
         }
 
-        it "Can retrieve a transport zone" {
-            $temptz = Get-NsxTransportZone -objectId $tz2.objectId
+        it "Can retrieve a transport zone by id" -skip:$SkipTzMember {
+            $temptz = Get-NsxTransportZone -objectId $Tzmember.objectId
             $temptz | should not be $null
-            $temptz.objectId | should be $tz2.objectId
+            @($temptz).count | should be 1
+            $temptz.objectId | should be $Tzmember.objectId
+        }
+
+        it "Can retrieve a transport zone by name" -skip:$SkipTzMember {
+            $temptz = Get-NsxTransportZone -Name $tzmember.name
+            $temptz | should not be $null
+            @($temptz).count | should be 1
+            $temptz.Name | should be $Tzmember.Name
+        }
+
+        it "Can retrieve local and universal transport zones" -skip:$SkipTzMember {
+            $temptz = Get-NsxTransportZone
+            $temptz | should not be $null
+            @($temptz).count | should begreaterthan 1
+            $temptz | where-object { $_.IsUniversal -eq "false"}  | should not be $null
+            $temptz | where-object { $_.IsUniversal -eq "true"}  | should not be $null
+        }
+
+        it "Can retrieve localonly tz by name" -skip:$SkipTzMember {
+            $temptz = Get-NsxTransportZone -LocalOnly -Name $tzmember_name
+            $temptz | should not be $null
+            @($temptz).count | should be 1
+            $temptz.Name | should be $tzmember_name
+            $temptz.IsUniversal | should be "false"
+        }
+
+        it "Can retrieve universalonly tz by name" -skip:$SkipTzMember {
+            $temptz = Get-NsxTransportZone -UniversalOnly -Name $tzuniversal.name
+            $temptz | should not be $null
+            @($temptz).count | should be 1
+            $temptz.Name | should be $tzuniversal.name
+            $temptz.IsUniversal | should be "true"
         }
 
         it "Can remove a transportzone cluster" -skip:$SkipTzMember {
-            $tz2 | Remove-NsxTransportZoneMember -Cluster $cl
-            $updatedtz = Get-NsxTransportZone -objectId $tz2.objectId
+            $Tzmember | Remove-NsxTransportZoneMember -Cluster $cl
+            $updatedtz = Get-NsxTransportZone -objectId $Tzmember.objectId
             $updatedtz.clusters.cluster.cluster.name -contains $cl.name | should be $false
         }
 
         it "Can add a transportzone cluster" -skip:$SkipTzMember {
-            $tz2 | Add-NsxTransportZoneMember -Cluster $cl
-            $updatedtz = Get-NsxTransportZone -objectId $tz2.objectId
+            $Tzmember | Add-NsxTransportZoneMember -Cluster $cl
+            $updatedtz = Get-NsxTransportZone -objectId $Tzmember.objectId
             $updatedtz.clusters.cluster.cluster.name -contains $cl.name | should be $true
         }
     }
