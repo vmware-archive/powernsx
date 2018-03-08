@@ -3955,7 +3955,6 @@ function Invoke-NsxRestMethod {
         $port = $connection.Port
         $protocol = $connection.Protocol
         $uriprefix = $connection.UriPrefix
-
     }
 
     $headerDictionary = @{}
@@ -3979,7 +3978,6 @@ function Invoke-NsxRestMethod {
     }
 
     $FullURI = "$($protocol)://$($server):$($Port)$($UriPrefix)$($URI)"
-
     write-debug "$($MyInvocation.MyCommand.Name) : Method: $method, URI: $FullURI, URIPrefix: $UriPrefix, Body: `n$($body | Format-Xml)"
 
     if ( $pscmdlet.ParameterSetName -eq "ConnectionObj" ) {
@@ -4181,7 +4179,6 @@ function Invoke-NsxWebRequest {
         $port = $connection.Port
         $protocol = $connection.Protocol
         $uriprefix = $connection.UriPrefix
-
     }
 
     $headerDictionary = @{}
