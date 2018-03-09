@@ -329,7 +329,8 @@ $FunctionsToExport = @(
     'Remove-NsxEdgeCsr',
     'Get-NsxIPsec',
     'Set-NsxIPsec',
-    'Remove-NsxIPsec'
+    'Remove-NsxIPsec',
+    'Add-NsxIPsecSite'
 )
 
 #Manifest settings that are common to all platforms.
