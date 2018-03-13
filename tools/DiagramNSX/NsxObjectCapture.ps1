@@ -1,7 +1,7 @@
 #NSX Object Capture Script
 #Nick Bradford
 #nbradford@vmware.com
-#Version 0.1
+#Version 2.0.1
 
 
 <#
@@ -30,6 +30,9 @@ has its own license that is located in the source code of the respective compone
 #them to disk in order for topology reconstruction to be done by a sister script
 #NSXDiagram.ps1.
 
+# CHANGELOG
+# 2017-03-13: 2.0.1 - (dcoghlan) Modified version number handling
+
 param (
 
     [pscustomobject]$Connection=$DefaultNsxConnection
@@ -44,14 +47,7 @@ If ( (-not $Connection) -and ( -not $Connection.ViConnection.IsConnected ) ) {
 Set-StrictMode -Off
 
 # We set a version number here
-$version = "2.0.0"
-
-$versionObject = [PSCustomObject]@{
-        "bundleVersion" = $version
-        "majorVersion" = $version.split(".")[0]
-        "minorVersion" = $version.split(".")[1]
-        "patchVersion" = $version.split(".")[2]
-    }
+[version]$version = "2.0.1"
 
 #########################
 #Define Windows environment stuff
@@ -302,7 +298,7 @@ $ServiceGroupHash | export-clixml -depth $maxdepth $ServiceGroupExportFile
 $SecurityGroupHash | export-clixml -depth $maxdepth $SecurityGroupExportFile
 $SecurityTagHash | export-clixml -depth $maxdepth $SecurityTagExportFile
 $SecPolHash | export-clixml -depth $maxdepth $SecPolExportFile
-$versionObject | export-clixml -depth $maxdepth $bundleVersionExportFile
+$version | export-clixml -depth $maxdepth $bundleVersionExportFile
 
 # Create new PSCustomObject for the connection details, but remove the credentials
 $exportConnectionObject = New-Object psobject
