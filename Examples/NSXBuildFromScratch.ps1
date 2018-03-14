@@ -266,7 +266,7 @@ catch {
 If ( $deploy3ta ) {
 
     # Compute details - finds the host with the least used memory for deployment.
-    $DeploymentVMHost = $Computecluster | Get-VMHost | Sort MemoryUsageGB | Select -first 1
+    $DeploymentVMHost = $Computecluster | Get-VMHost | Sort-Object MemoryUsageGB | Select -first 1
     if ( -not ( Test-Connection $($DeploymentVMHost.name) -count 1 -ErrorAction Stop )) {
         throw "Unable to validate connection to ESX host $($DeploymentVMHost.Name) used to deploy OVF to."
     }
