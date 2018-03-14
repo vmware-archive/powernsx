@@ -141,7 +141,7 @@ if (($number_vms -lt $VM_Max) -and ($clone_vm -eq $true)) {
   $new_vm = "$VM_Clone_PrefixName$($number_vms-$VM_Min+1)"
   write-host -foregroundcolor "Green" "Adding new Clone_VM $new_vm..."
   "Adding new Clone_VM $new_vm..." >> $Output_File 
-  $vmhost = $cluster_compute | Get-vmhost | Sort MemoryUsageGB | Select -first 1
+  $vmhost = $cluster_compute | Get-vmhost | Sort-Object MemoryUsageGB | Select -first 1
   New-VM -Name $new_vm -Template $vm_template -vmhost $vmhost
   Start-VM -VM $new_vm
   
