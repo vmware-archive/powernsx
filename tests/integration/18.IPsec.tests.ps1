@@ -70,13 +70,6 @@ Describe "Edge IPsec" {
             $ipsec.logging.loglevel | should be "warning"
         }
 
-#        it "Enable IPsec Server" {
-#            #Enabled Server
-#            Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Set-NsxIPsec -Enabled
-#            #Check if the ipsec Server is enable
-#            (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec).enabled | should be true
-#        }
-
         it "Disabled logging" {
             #Disable logging
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Set-NsxIPsec -EnableLogging:$false
@@ -91,10 +84,46 @@ Describe "Edge IPsec" {
             (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec).logging.loglevel | should be "debug"
         }
 
+        it "Add First IPsec Site (with PSK)" {
+            #Add Ipsec with default settings
+            Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid1 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId peerid1 -peerIP 2.2.2.2 -peerSubnet 198.51.100.0/24 -psk VMware1!
+            #Check IPsec site config
+            $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
+            $ipsec.sites.site.localid | should be "localid1"
+            $ipsec.sites.site.localip | should be "1.1.1.1"
+            $ipsec.sites.site.localSubnets.subnet | should be "192.0.2.0/24"
+            $ipsec.sites.site.peerid | should be "peerid1"
+            $ipsec.sites.site.peerip | should be "2.2.2.2"
+            $ipsec.sites.site.peerSubnets.subnet | should be "198.51.100.0/24"
+        }
+
+        it "Enable IPsec Server" {
+            #Enabled Server
+            Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Set-NsxIPsec -Enabled
+            #Check if the ipsec Server is enable
+            (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec).enabled | should be true
+        }
+
+        it "Add Second IPsec Site (with PSK and disable pfs but use dh2 and encryption AES256)" {
+            #Add second IPsec
+            Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid2 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId peerid2 -peerIP 3.3.3.3 -peerSubnet 203.0.113.0/24 -psk VMware1! -enablepfs:$false -dhgroup dh2 -encryptionAlgorithm AES256
+            #Check IPsec (second) site config
+            $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
+            $ipsec.sites.site.localid[0] | should be "localid2"
+            $ipsec.sites.site.localip[0] | should be "1.1.1.1"
+            $ipsec.sites.site.localSubnets[0].subnet | should be "192.0.2.0/24"
+            $ipsec.sites.site.peerid[0] | should be "peerid2"
+            $ipsec.sites.site.peerip[0] | should be "3.3.3.3"
+            $ipsec.sites.site.peerSubnets[0].subnet | should be "203.0.113.0/24"
+            $ipsec.sites.site.enablePfs[0] | should be "false"
+            $ipsec.sites.site.dhgroup[0] | should be "dh2"
+            $ipsec.sites.site.encryptionAlgorithm[0] | should be "AES256"
+        }
+
         it "Remove IPsec Config" {
             #Remove ALL IPsec config
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Remove-NsxIPsec -NoConfirm:$true
-            #Check IPsec Log Level
+            #Check if there is no longer configuration
             $ipsec = Get-NsxEdge $ipsecedge1name | Get-NsxIPsec
             $ipsec.enabled | should be false
             $ipsec.global | should not be $null
