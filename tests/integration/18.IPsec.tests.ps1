@@ -127,6 +127,20 @@ Describe "Edge IPsec" {
             (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec).global.serviceCertificate | should be "certificate-1"
         }
 
+        it "Add Third IPsec Site (with certificate)" {
+            #Add third IPsec
+            Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid3 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId cn=peerid -peerIP 4.4.4.4 -peerSubnet 192.168.44.0/24 -authenticationMode x.509
+            #Check IPsec (second) site config
+            $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
+            $ipsec.sites.site.localid[0] | should be "localid3"
+            $ipsec.sites.site.localip[0] | should be "1.1.1.1"
+            $ipsec.sites.site.localSubnets[0].subnet | should be "192.0.2.0/24"
+            $ipsec.sites.site.peerid[0] | should be "cn=peerid"
+            $ipsec.sites.site.peerip[0] | should be "4.4.4.4"
+            $ipsec.sites.site.peerSubnets[0].subnet | should be "192.168.44.0/24"
+            $ipsec.sites.site.authenticationMode[0] | should be "x.509"
+        }
+
         it "Remove IPsec Config" {
             #Remove ALL IPsec config
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Remove-NsxIPsec -NoConfirm:$true
