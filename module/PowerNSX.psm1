@@ -35882,6 +35882,19 @@ function Set-NsxIPsec {
     Choose the log level (emergency, alert, critical, error, warning, notice, info, debug)
     of IPsec traffic logs.
 
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxIPsec | Set-NsxIPsec -psk VMWare1!
+
+    Specify a "global" PSK for IPsec tunnel
+
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxIPsec | Set-NsxIPsec -serviceCertificate certificate-1
+
+    Choose a (service)Certificate for IPsec tunnel
+
     #>
 
     param (
@@ -35896,6 +35909,12 @@ function Set-NsxIPsec {
         [Parameter (Mandatory=$False)]
             [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
             [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$psk,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [string]$serviceCertificate,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -35926,6 +35945,19 @@ function Set-NsxIPsec {
 
         if ( $PsBoundParameters.ContainsKey('LogLevel') ) {
             $_IPsec.logging.logLevel = $LogLevel
+        }
+
+        #Global Settings
+        if ( $PsBoundParameters.ContainsKey('psk') ) {
+            $_IPsec.global.psk = $psk
+        }
+
+        if ( $PsBoundParameters.ContainsKey('serviceCertificate') ) {
+            if ( invoke-xpathquery -node $_IPsec -querymethod SelectSingleNode -Query "child::global/serviceCertificate" ) {
+                $_IPsec.global.serviceCertificate = $serviceCertificate
+            } else {
+                Add-XmlElement -xmlroot  $_IPsec.global -xmlElementName "serviceCertificate" -xmlElementText $serviceCertificate
+            }
         }
 
         $URI = "/api/4.0/edges/$($edgeId)/ipsec/config"
