@@ -35536,7 +35536,7 @@ function Add-NsxIPsecSite {
 
     .EXAMPLE
 
-    Get-NsxEdge Edge01 | Get-NsxIPsec | Add-NsxIPsecSite -localID localid -localIP 1.1.1.1 -localSubnet 192.168.23.0/24 -peerId peerid -peerIP 2.2.2.2 -peerSubnet 192.168.44.0/24 -authenticationMode certificate
+    Get-NsxEdge Edge01 | Get-NsxIPsec | Add-NsxIPsecSite -localID localid -localIP 1.1.1.1 -localSubnet 192.168.23.0/24 -peerId peerid -peerIP 2.2.2.2 -peerSubnet 192.168.44.0/24 -authenticationMode x.509
 
     Add a IPsec Site using Certificate and default settings
     Need to have enable Certificate on IPsec Global
@@ -35583,7 +35583,7 @@ function Add-NsxIPsecSite {
             [ValidateSet("AES", "AES256", "3DES", "AES-GCM")]
             [string]$encryptionAlgorithm="AES",
         [Parameter (Mandatory=$false)]
-            [ValidateSet("PSK", "Certificate")]
+            [ValidateSet("PSK", "x.509")]
             [string]$authenticationMode="PSK",
         [Parameter (Mandatory=$false)]
             [switch]$enablepfs=$true,
