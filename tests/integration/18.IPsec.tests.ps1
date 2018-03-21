@@ -120,6 +120,13 @@ Describe "Edge IPsec" {
             $ipsec.sites.site.encryptionAlgorithm[0] | should be "AES256"
         }
 
+        it "Config global IPsec settings" {
+            #Specify a serviceCertificate
+            Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Set-NsxIPsec -serviceCertificate certificate-1
+            #Check if serviceCertificate it is set
+            (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec).global.serviceCertificate | should be "certificate-1"
+        }
+
         it "Remove IPsec Config" {
             #Remove ALL IPsec config
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Remove-NsxIPsec -NoConfirm:$true
