@@ -14284,6 +14284,14 @@ function New-NsxEdgeNatRule {
         [Parameter (Mandatory=$false)]
             [string]$IcmpType,
         [Parameter (Mandatory=$false)]
+            [string]$dnatMatchSourceAddress,
+        [Parameter (Mandatory=$false)]
+            [string]$snatMatchDestinationAddress,
+        [Parameter (Mandatory=$false)]
+            [string]$dnatMatchSourcePort,
+        [Parameter (Mandatory=$false)]
+            [string]$snatMatchDestinationPort,
+        [Parameter (Mandatory=$false)]
             [int]$AboveRuleId,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
@@ -14344,6 +14352,43 @@ function New-NsxEdgeNatRule {
         if ( $PsBoundParameters.ContainsKey("IcmpType") ) {
             Add-XmlElement -xmlRoot $Rule -xmlElementName "icmpType" -xmlElementText $IcmpType.ToString()
         }
+
+        if ( $PsBoundParameters.ContainsKey('dnatMatchSourceAddress') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option dnatMatchSourceAddress requires at least NSX version 6.3.0"
+            }
+            else {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "dnatMatchSourceAddress" -xmlElementText $dnatMatchSourceAddress.ToString()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('snatMatchDestinationAddress') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option snatMatchDestinationAddress requires at least NSX version 6.3.0"
+            }
+            else {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "snatMatchDestinationAddress" -xmlElementText $snatMatchDestinationAddress.ToString()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('dnatMatchSourcePort') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option dnatMatchSourcePort requires at least NSX version 6.3.0"
+            }
+            else {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "dnatMatchSourcePort" -xmlElementText $dnatMatchSourcePort.ToString()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('snatMatchDestinationPort') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option snatMatchDestinationPort requires at least NSX version 6.3.0"
+            }
+            else {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "snatMatchDestinationPort" -xmlElementText $snatMatchDestinationPort.ToString()
+            }
+        }
+
 
         if ( -not $PsBoundParameters.ContainsKey('AboveRuleId') ) {
             $body = $Rules.OuterXml
