@@ -107,7 +107,7 @@ Describe "Edge NAT" {
     }
 
     it "Can create an icmp dnat rule" {
-        $rule = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action dnat -Protocol icmp -Description "testing icmp nat from powernsx" -LoggingEnabled -Enabled -icmptype any
+        $rule = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action dnat -Protocol icmp -Description "testing icmp dnat from powernsx" -LoggingEnabled -Enabled -icmptype any
         $rule | should not be $null
         $rule = get-nsxedge $natedgename | get-nsxedgenat | Get-NsxEdgeNatRule
         @($rule).count | should be 1
@@ -133,8 +133,8 @@ Describe "Edge NAT" {
     }
 
     it "Can remove a single nat rule" {
-        $rule1 = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action snat -Description "testing icmp nat from powernsx" -LoggingEnabled -Enabled
-        $rule2 = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action dnat -Protocol icmp -Description "testing icmp nat from powernsx" -LoggingEnabled -Enabled -icmptype any
+        $rule1 = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action snat -Description "testing remove single nat rule from powernsx" -LoggingEnabled -Enabled
+        $rule2 = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action dnat -Protocol icmp -Description "testing remove single nat rule from powernsx" -LoggingEnabled -Enabled -icmptype any
         $rule1 | should not be $null
         $rule2 | should not be $null
         $rules = get-nsxedge $natedgename | get-nsxedgenat | get-nsxedgenatrule
@@ -148,8 +148,8 @@ Describe "Edge NAT" {
     }
 
     it "Can remove all nat rules" {
-        $rule1 = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action snat -Description "testing icmp nat from powernsx" -LoggingEnabled -Enabled
-        $rule2 = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action dnat -Protocol icmp -Description "testing icmp nat from powernsx" -LoggingEnabled -Enabled -icmptype any
+        $rule1 = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action snat -Description "testing remove all nat rules from powernsx" -LoggingEnabled -Enabled
+        $rule2 = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action dnat -Protocol icmp -Description "testing remove all nat rules from powernsx" -LoggingEnabled -Enabled -icmptype any
         $rule1 | should not be $null
         $rule2 | should not be $null
         $rules = get-nsxedge $natedgename | get-nsxedgenat | get-nsxedgenatrule
