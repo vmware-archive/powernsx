@@ -106,7 +106,7 @@ Describe "Edge NAT" {
         $rule.translatedPort | should be 1234
     }
 
-    it "Can create an immp dnat rule" {
+    it "Can create an icmp dnat rule" {
         $rule = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -Vnic 0 -OriginalAddress 1.2.3.4 -TranslatedAddress 2.3.4.5 -action dnat -Protocol icmp -Description "testing icmp nat from powernsx" -LoggingEnabled -Enabled -icmptype any
         $rule | should not be $null
         $rule = get-nsxedge $natedgename | get-nsxedgenat | Get-NsxEdgeNatRule
