@@ -57,6 +57,8 @@ Describe "Edge NAT" {
         $vnic1 = New-NsxEdgeInterfaceSpec -index 1 -Type internal -Name "vNic1" -ConnectedTo $testls2 -PrimaryAddress $natedgeIp2 -SubnetPrefixLength 24
         $script:natEdge = New-NsxEdge -Name $natedgename -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -hostname "pester-nat-edge1"
 
+        $script:VersionLessThan630 = [version]$DefaultNsxConnection.Version -lt [version]"6.3.0"
+
     }
 
     AfterAll {
@@ -156,5 +158,27 @@ Describe "Edge NAT" {
         @($rules).count | should be 2
         get-nsxedge $natedgename | get-nsxedgenat | get-nsxedgenatrule | remove-nsxedgenatrule -confirm:$false| should be $null
         get-nsxedge $natedgename | get-nsxedgenat | get-nsxedgenatrule | should be $null
+    }
+
+    it "Can create an snat rule (with snatMatchDestinationAddress and snatMatchDestinationPort) on NSX -ge 6.3.0" -Skip:$VersionLessThan630 {
+        $rule = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -action snat -OriginalAddress 192.168.44.0/24 -TranslatedAddress 198.51.100.1 -protocol tcp -snatMatchDestinationAddress 192.168.23.0/24 -snatMatchDestinationPort 22
+        $rule = get-nsxedge $natedgename | get-nsxedgenat | Get-NsxEdgeNatRule
+        @($rule).count | should be 1
+        $rule.action | should be snat
+        $rule.translatedAddress | should be 198.51.100.1
+        $rule.originalAddress | should be "192.168.44.0/24"
+        $rule.snatMatchDestinationAddress | should be "192.168.23.0/24"
+        $rule.snatMatchDestinationPort | should be "22"
+    }
+
+    it "Can create an dnat rule (with dnatMatchSourceAddress and dnatMatchSourcePort) on NSX -ge 6.3.0" -Skip:$VersionLessThan630 {
+        $rule = get-nsxedge $natedgename | get-nsxedgenat | new-nsxedgenatrule -action dnat -OriginalAddress 198.51.100.1 -TranslatedAddress 192.168.23.1 -protocol tcp -dnatMatchSourceAddress 192.168.44.0/24 -dnatMatchSourcePort 1024
+        $rule = get-nsxedge $natedgename | get-nsxedgenat | Get-NsxEdgeNatRule
+        @($rule).count | should be 1
+        $rule.action | should be dnat
+        $rule.translatedAddress | should be 192.168.23.1
+        $rule.originalAddress | should be "198.51.100.1"
+        $rule.dnatMatchSourceAddress | should be "192.168.44.0/24"
+        $rule.dnatMatchSourcePort | should be "1024"
     }
 }
