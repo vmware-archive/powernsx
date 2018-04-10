@@ -14137,6 +14137,10 @@ function Get-NsxEdgeNat {
     The Get-NsxEdgeNat cmdlet retreives the global NAT configuration of
     the specified Edge Services Gateway.
 
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat
+
+    Retrieve the global NAT configuration from ESG Edge01
     #>
 
     param (
@@ -14182,6 +14186,11 @@ function Get-NsxEdgeNatRule {
 
     The Get-NsxEdgeNatRule cmdlet retreives the nat rules from the
     nat configuration specified.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | Get-NsxEdgeNatRule
+
+    Retrieve the NAT rules from ESG Edge01
 
     #>
 
@@ -14250,6 +14259,37 @@ function New-NsxEdgeNatRule {
 
     The New-NsxEdgeNatRule cmdlet creates a new NAT rule in the nat
     configuration specified.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action snat -OriginalAddress 192.168.44.0/24 -TranslatedAddress 198.51.100.1
+
+    Add Source NAT from Original Address 192.168.44.0/24 with Translated Address 198.51.100.1
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action snat -OriginalAddress 192.168.23.0/24 -TranslatedAddress 198.51.100.2 -vnic 0 -LoggingEnabled -Enabled
+
+    Add Source NAT from Original Address 192.168.23.0/24 with Translated Address 198.51.100.2 on vnic 0 with Logging
+
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action dnat -OriginalAddress 198.51.100.1 -TranslatedAddress 192.168.44.1
+
+    Add Destination NAT from Original Address 198.51.100.1 with Translated Address 192.168.44.1 (All ports)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action dnat -OriginalAddress 198.51.100.2 -TranslatedAddress 192.168.23.1 -Protocol tcp -OriginalPort 22
+
+    Add Destination NAT from Original Address 198.51.100.2 with Translated Address 192.168.23.1 with tcp port 22
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action dnat -OriginalAddress 198.51.100.3 -TranslatedAddress 192.168.23.2 -Protocol tcp -OriginalPort 2222 -TranslatedPort 22
+
+    Add Destination NAT from Original Address 198.51.100.3 with Translated Address 192.168.23.2 with tcp port 2222 to translated Port 22
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action dnat -OriginalAddress 198.51.100.4 -TranslatedAddress 192.168.23.4 -Protocol icmp -icmptype 8 -description "dnat with only icmptype 8"
+
+    Add Destination NAT from Original Address 198.51.100.4 with Translated Address 192.168.23.4 with protocol icmp and icmp type 8 (icmp request) with a description
 
     #>
 
@@ -14429,6 +14469,22 @@ function Remove-NsxEdgeNatRule {
     Rules to be removed can be constructed via a PoSH pipline filter outputing
     rule objects as produced by Get-NsxEdgeNatRule and passing them on the
     pipeline to Remove-NsxEdgeNatRule.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNatRule | Remove-NsxEdgenatRule
+
+    Remove all NAT rule with confirmation
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNatRule | Remove-NsxEdgenatRule -confirm:$false
+
+    Remove all NAT rule without confirmation
+
+    .EXAMPLE
+    $rule = get-NsxEdge Edge01 | get-NsxEdgeNat | get-NsxEdgeNatRule -RuleId 196614
+    PS C:\>$rule | Remove-NsxEdgeNatRule -confirm:$false
+
+    Remove the NAT rule 196614 without confirmation
 
     #>
 
