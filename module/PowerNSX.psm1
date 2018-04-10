@@ -14291,6 +14291,18 @@ function New-NsxEdgeNatRule {
 
     Add Destination NAT from Original Address 198.51.100.4 with Translated Address 192.168.23.4 with protocol icmp and icmp type 8 (icmp request) with a description
 
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action snat -OriginalAddress 192.168.44.0/24 -TranslatedAddress 198.51.100.1 -protocol tcp -snatMatchDestinationAddress 192.168.23.0/24 -snatMatchDestinationPort 22
+
+    Add Source NAT from Original Address 192.168.44.0/24 with Translated Address 198.51.100.1 and Match Destination Address 192.168.23.0/24 on Match Destination Port 22
+    Need NSX >= 6.3.0
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | new-nsxedgenatrule -action dnat -OriginalAddress 198.51.100.1 -TranslatedAddress 192.168.23.1 -protocol tcp -dnatMatchSourceAddress 192.168.44.0/24 -dnatMatchSourcePort 1024
+
+    Add Destination NAT from Original Address 198.51.100.1 with Translated Address 192.168.23.1 and Match Source Address 192.168.44.0/24 on Match Source Port 1024
+    Need NSX >= 6.3.0
+
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
