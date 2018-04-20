@@ -209,6 +209,7 @@ $FunctionsToExport = @(
     'Remove-NsxFirewallSection',
     'Get-NsxFirewallRule',
     'New-NsxFirewallRule',
+    'Set-NsxFirewallRule',
     'Remove-NsxFirewallRule',
     'Get-NsxLoadBalancer',
     'Set-NsxLoadBalancer',
