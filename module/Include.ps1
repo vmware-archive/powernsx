@@ -281,6 +281,7 @@ $FunctionsToExport = @(
     'Add-NsxServiceGroupMember',
     'Get-NsxServiceGroup',
     'Get-NsxServiceGroupMember',
+    'Remove-NsxServiceGroupMember',
     'Remove-NsxServiceGroup',
     'Get-NsxLoadBalancerStats',
     'Get-NsxFirewallSavedConfiguration',
@@ -346,4 +347,3 @@ $Common = @{
 $CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
 $DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
 $GalleryRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
-

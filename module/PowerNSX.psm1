@@ -26667,6 +26667,77 @@ function Add-NsxServiceGroupMember {
     end {}
 }
 
+function Remove-NsxServiceGroupMember {
+
+    <#
+    .SYNOPSIS
+    Removes a single Service, numerous Services, or a Service Group to a Service
+    Group
+    
+    .DESCRIPTION
+    Removes the defined Service or Service Group to an NSX Service Groups. Service
+    groups contain a mixture of selected ports to represent a potential
+    grouping of like ports.
+    
+    This cmdlet removes the defined Services or Service Groups within a Service
+    Group for specific or all Service Groups 
+    
+    .EXAMPLE
+    Get-NsxServiceGroup Heartbeat | Remove-NsxServiceGroupMember -Member $Service1
+    
+    Remove all saved Service Group Members named Heartbeat in Service Group in $Service1
+    
+    Get-NsxServiceGroup Service-Group-4 | Remove-NsxServiceGroupMember $Service1,$Service2 -Confirm:$false
+    
+    Remove all saved Service Group Members named Heartbeat in Service Group in $Service1 and $Service2 without prompting for confirmation
+    
+    #>
+    
+    param (
+        #Mastergroup removed from Get-NsxServiceGroup
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ ValidateServiceGroup $_ })]
+            [System.Xml.XmlElement]$ServiceGroup,
+        [Parameter (Mandatory=$False)]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$true,Position=1)]
+            [ValidateScript({ ValidateServiceOrServiceGroup $_ })]
+            #The [] in XmlElement means it can expect more than one object!
+            [System.Xml.XmlElement[]]$Member,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )       
+    
+    begin {}
+    
+    process{
+        foreach ($Mem in $Member){
+            if ( $confirm ) {
+                $message  = "Removal of a Service Group Member is permanent."
+                $question = "Proceed with removal of Service Group Member $($Mem.name)?"
+                
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+                
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }   
+            else { $decision = 0 }
+            
+            if ($decision -eq 0) {
+                $URI = "/api/2.0/services/applicationgroup/$($ServiceGroup.objectId)/members/$($Mem.objectId)"
+                $null = invoke-nsxwebrequest -method "DELETE" -uri $URI -connection $connection
+                Write-Progress -activity "Removing Service or Service Group $($Mem) to Service Group $($ServiceGroup)"
+            }   
+        }   
+    }   
+    
+    end {}
+}   
+
 function Get-NsxApplicableMember {
 
     <#
