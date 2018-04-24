@@ -20,7 +20,7 @@ Describe "DFW" {
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | select -first 1
         write-warning "Using cluster $cl for edge appliance deployment"
-        $script:ds = $cl | get-datastore | select -first 1
+        $script:ds = $cl |  get-datastore | select -first 1
         write-warning "Using datastore $ds for edge appliance deployment"
         $script:dc = Get-Datacenter | select -first 1
         write-warning "Using Datacenter $dc for object identifier"
@@ -1936,6 +1936,21 @@ Describe "DFW" {
         it "Fail to insert a new rule to the bottom of the default layer 2 section" {
             $section = Get-NsxFirewallSection -sectionType layer2sections | Select-Object -last 1
             {$section | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom } | should throw
+        }
+
+        it "Can modified an l3 rule" {
+            $rule = $l3sec | New-NsxFirewallRule -Name "pester_dfw_rule1" -action deny -EnableLogging
+            $rule | should not be $null
+            $rule.name | should be "pester_dfw_rule1"
+            $rule.action | should be deny
+            $rule.disabled | should be "false"
+            $rule.logged | should be "true"
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1" | Set-NsxFirewallRule -name "modified_pester_dfw_rule1" -action allow -disabled:$true -logged:$false
+            $rule | should not be $null
+            $rule.name | should be "modified_pester_dfw_rule1"
+            $rule.action | should be allow
+            $rule.disabled | should be "true"
+            $rule.logged | should be "false"
         }
 
         BeforeEach {
