@@ -9949,28 +9949,23 @@ function Set-NsxLogicalSwitch {
     param (
 
         [Parameter (Mandatory = $true, ValueFromPipeline = $true)]
-        [ValidateScript( { ValidateLogicalSwitch $_ })]
-        [System.Xml.XmlElement]$LogicalSwitch,
-
+            [ValidateScript( { ValidateLogicalSwitch $_ })]
+            [System.Xml.XmlElement]$LogicalSwitch,
         [Parameter (Mandatory = $false, Position = 1)]
-        [ValidateNotNullOrEmpty()]
-        [string]$Name,
-
+            [ValidateNotNullOrEmpty()]
+            [string]$Name,
         [Parameter (Mandatory = $false)]
-        [string]$Description,
-
+            [string]$Description,
         [Parameter (Mandatory = $false)]
-        [ValidateSet("UNICAST_MODE", "MULTICAST_MODE", "HYBRID_MODE", IgnoreCase = $false)]
-        [string]$ControlPlaneMode,
-
+            [ValidateSet("UNICAST_MODE", "MULTICAST_MODE", "HYBRID_MODE", IgnoreCase = $false)]
+            [string]$ControlPlaneMode,
         [Parameter (Mandatory = $False)]
-        #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
-        [switch]$Confirm = $true,
-
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm = $true,
         [Parameter (Mandatory = $False)]
-        #PowerNSX Connection object
-        [ValidateNotNullOrEmpty()]
-        [PSCustomObject]$Connection = $defaultNSXConnection
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection = $defaultNSXConnection
     )
 
     begin {
