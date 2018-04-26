@@ -9923,84 +9923,97 @@ function Get-NsxLogicalSwitch {
     }
 }
 
-function New-NsxLogicalSwitch  {
+
+function Set-NsxLogicalSwitch {
 
     <#
     .SYNOPSIS
-    Creates a new Logical Switch
+    Configures an existing NSX Logical Switch.
 
     .DESCRIPTION
     An NSX Logical Switch provides L2 connectivity to VMs attached to it.
     A Logical Switch is 'bound' to a Transport Zone, and only hosts that are
     members of the Transport Zone are able to host VMs connected to a Logical
     Switch that is bound to it.  All Logical Switch operations require a
-    Transport Zone.  A new Logical Switch defaults to the control plane mode of
-    the Transport Zone it is created in, but CP mode can specified as required.
+    Transport Zone.
 
     .EXAMPLE
-    Get-NsxTransportZone | New-NsxLogicalSwitch -name LS6
+    Change the name on an existing Logical Switch (LS1 to LS2)
 
-    Create a Logical Switch with default control plane mode on all Transport Zones.
-
-    .EXAMPLE
-    Get-NsxTransportZone -LocalOnly | New-NsxLogicalSwitch -name LS6
-
-    Create a Logical Switch with default control plane mode on All Local Transport Zones.
-    (Use -UniversalOnly for create on Universal Transport Zones)
-
-    .EXAMPLE
-    Get-NsxTransportZone | New-NsxLogicalSwitch -name LS6 -ControlPlaneMode MULTICAST_MODE
-
-    Create a Logical Switch with a specific control plane mode on all Transport Zones.
+    PS C:\> $ls = Get-NsxLogicalSwitch -name LS1 | Set-NsxLogicalSwitch -name LS2
 
     #>
 
     [CmdletBinding()]
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter", "")] # Cant remove without breaking backward compatibility
     param (
 
-        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            [ValidateNotNullOrEmpty()]
-            [alias("vdnScope")]
-            [System.XML.XMLElement]$TransportZone,
-        [Parameter (Mandatory=$true,Position=1)]
-            [ValidateNotNullOrEmpty()]
-            [string]$Name,
-        [Parameter (Mandatory=$false)]
-            [ValidateNotNullOrEmpty()]
-            [string]$Description = "",
-        [Parameter (Mandatory=$false)]
-            [string]$TenantId = "",
-        [Parameter (Mandatory=$false)]
-            [ValidateSet("UNICAST_MODE","MULTICAST_MODE","HYBRID_MODE",IgnoreCase=$false)]
-            [string]$ControlPlaneMode,
-        [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
+        [Parameter (Mandatory = $true, ValueFromPipeline = $true)]
+        [ValidateScript( { ValidateLogicalSwitch $_ })]
+        [System.Xml.XmlElement]$LogicalSwitch,
+
+        [Parameter (Mandatory = $false, Position = 1)]
+        [ValidateNotNullOrEmpty()]
+        [string]$Name,
+
+        [Parameter (Mandatory = $false)]
+        [string]$Description,
+
+        [Parameter (Mandatory = $false)]
+        [ValidateSet("UNICAST_MODE", "MULTICAST_MODE", "HYBRID_MODE", IgnoreCase = $false)]
+        [string]$ControlPlaneMode,
+
+        [Parameter (Mandatory = $False)]
+        #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+        [switch]$Confirm = $true,
+
+        [Parameter (Mandatory = $False)]
+        #PowerNSX Connection object
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection = $defaultNSXConnection
     )
 
-    begin {}
-    process {
+    begin {
 
-        #Create the XMLRoot
-        [System.XML.XMLDocument]$xmlDoc = New-Object System.XML.XMLDocument
-        [System.XML.XMLElement]$xmlRoot = $XMLDoc.CreateElement("virtualWireCreateSpec")
-        $xmlDoc.appendChild($xmlRoot) | out-null
-
-        #Create an Element and append it to the root
-        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
-        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "description" -xmlElementText $Description
-        Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "tenantId" -xmlElementText $TenantId
-        if ( $ControlPlaneMode ) { Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "controlPlaneMode" -xmlElementText $ControlPlaneMode }
-
-        #Do the post
-        $body = $xmlroot.OuterXml
-        $URI = "/api/2.0/vdn/scopes/$($TransportZone.objectId)/virtualwires"
-        $response = invoke-nsxwebrequest -method "post" -uri $URI -body $body -connection $connection
-
-        #response only contains the vwire id, we have to query for it to get output consisten with get-nsxlogicalswitch
-        Get-NsxLogicalSwitch -virtualWireId $response.content -connection $connection
     }
+
+    process {
+        #Create a local copy of the logical switch
+        $_LogicalSwitch = $LogicalSwitch.CloneNode($true)
+
+        if ($PSBoundParameters.ContainsKey("Name")) {
+            $_LogicalSwitch.name = [string]$Name
+        }
+
+        if ($PSBoundParameters.ContainsKey("Description")) {
+            $_LogicalSwitch.description = [string]$Description
+        }
+
+        if ($PSBoundParameters.ContainsKey("ControlPlaneMode")) {
+            $_LogicalSwitch.controlPlaneMode = [string]$ControlPlaneMode
+        }
+
+        $URI = "/api/2.0/vdn/virtualwires/$($LogicalSwitch.objectId)"
+        $body = $_LogicalSwitch.OuterXml
+
+        if ( $confirm ) {
+            $message = "Logical Switch update will modify existing configuration."
+            $question = "Proceed with Update of Logical Switch $($LogicalSwitch.Name)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            Write-Progress -activity "Update Logical Switch $($_LogicalSwitch.Name)"
+            $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+            write-progress -activity "Update Logical Switch $($_LogicalSwitch.Name)" -completed
+            Get-NsxLogicalSwitch -objectId $($_LogicalSwitch.objectId) -connection $connection
+        }
+    }
+
     end {}
 }
 
