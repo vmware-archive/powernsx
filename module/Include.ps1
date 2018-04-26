@@ -60,6 +60,7 @@ $FunctionsToExport = @(
     'Add-NsxTransportZoneMember',
     'Remove-NsxTransportZoneMember',
     'Get-NsxLogicalSwitch',
+    'Set-NsxLogicalSwitch',
     'New-NsxLogicalSwitch',
     'Remove-NsxLogicalSwitch',
     'Get-NsxSpoofguardPolicy',
