@@ -26,7 +26,7 @@ $common.Remove("ProjectURI")
 
 #Create the manifest
 if ( $PSVersionTable.PSEdition -eq "Core" ) {
-    New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $GalleryRequiredModules -PowerShellVersion '3.0' @Common
+    New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $CoreRequiredModules -PowerShellVersion '3.0' @Common
 }
 else {
     New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $DesktopRequiredModules -PowerShellVersion '3.0' @Common
