@@ -102,7 +102,7 @@ Function _init {
         public class InternalHttpClientHandler : HttpClientHandler {
             public InternalHttpClientHandler(bool SkipCertificateCheck) {
                 if (SkipCertificateCheck) {
-                    ServerCertificateCustomValidationCallback = delegate { return true; };
+                    ServerCertificateCustomValidationCallback = HttpClientHandler.DangerousAcceptAnyServerCertificateValidator;
                 }
             }
         }
