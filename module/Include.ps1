@@ -327,23 +327,23 @@ $FunctionsToExport = @(
 
 #Manifest settings that are common to all platforms.
 $Common = @{
-    RootModule = 'PowerNSX.psm1'
-    GUID = 'ea3b0bdc-83a3-4cae-9920-7257beae8614'
-    Author = 'Nick Bradford'
-    CompanyName = 'VMware'
-    Copyright = 'Copyright 2015 VMware, Inc. All Rights Reserved.'
-    Description = $Description
+    RootModule             = 'PowerNSX.psm1'
+    GUID                   = 'ea3b0bdc-83a3-4cae-9920-7257beae8614'
+    Author                 = 'Nick Bradford'
+    CompanyName            = 'VMware'
+    Copyright              = 'Copyright 2015 VMware, Inc. All Rights Reserved.'
+    Description            = $Description
     DotNetFrameworkVersion = '4.0'
-    FunctionsToExport = $FunctionsToExport
-    CmdletsToExport = '*'
-    VariablesToExport = '*'
-    AliasesToExport = '*'
-    ProjectUri = 'https://powernsx.github.io/'
+    FunctionsToExport      = $FunctionsToExport
+    CmdletsToExport        = '*'
+    VariablesToExport      = '*'
+    AliasesToExport        = '*'
+    ProjectUri             = 'https://powernsx.github.io/'
 
 }
 
 # Required Modules for respective platforms.  These deps are defined in the resulting platform specific Manifest file.
-$CoreRequiredModules = @("PowerCLI.Vds","PowerCLI.ViCore")
-$DesktopRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
-$GalleryRequiredModules = @("VMware.VimAutomation.Core","VMware.VimAutomation.Vds")
+$DesktopRequiredModules = @("VMware.VimAutomation.Core", "VMware.VimAutomation.Vds")
+$GalleryRequiredModules = @("VMware.VimAutomation.Core", "VMware.VimAutomation.Vds")
+$CoreRequiredModules = $DesktopRequiredModules
 

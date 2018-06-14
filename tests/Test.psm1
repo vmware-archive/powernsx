@@ -27,6 +27,7 @@ $common.Remove("ProjectURI")
 #Create the manifest
 if ( $PSVersionTable.PSEdition -eq "Core" ) {
     New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $CoreRequiredModules -PowerShellVersion '3.0' @Common
+    $ProgressPreference = "SilentlyContinue"
 }
 else {
     New-ModuleManifest -Path "$there/PowerNSX.psd1" -RequiredModules $DesktopRequiredModules -PowerShellVersion '3.0' @Common
@@ -81,20 +82,20 @@ function Start-Test {
         ###
 
         # $message  = "Connection info and credentials can be saved (securely) for future invocations."
-        $message  = "Connection info and credentials can be saved (insecurely!) for future invocations."
+        $message = "Connection info and credentials can be saved (insecurely!) for future invocations."
         $question = "Save connection info?"
         $decision = $Host.UI.PromptForChoice($message, $question, $ynchoices, 0)
         if ( $decision -eq 0 ) {
             [pscustomobject]$export = @{
-                "vc" = $PNSXTestVC;
-                "nsx" = $PNSXTestNSX;
+                "vc"      = $PNSXTestVC;
+                "nsx"     = $PNSXTestNSX;
 
                 ###
                 #PowerShell Core has bug in ConvertFrom-SecureString that means we cant persist encrypted credentials to disk.
                 "nsxuser" = $PNSXTestDefMgrUsername;
-                "nsxpwd" = $PNSXTestDefMgrPassword;
-                "viuser" =  $PNSXTestDefViUserName;
-                "vipwd" = $PNSXTestDefViPassword
+                "nsxpwd"  = $PNSXTestDefMgrPassword;
+                "viuser"  = $PNSXTestDefViUserName;
+                "vipwd"   = $PNSXTestDefViPassword
 
                 #"nsxuser" = $PNSXTestDefMgrCred.UserName;
                 #"nsxpwd" = $PNSXTestDefMgrCred.Password | ConvertFrom-SecureString;
@@ -149,7 +150,7 @@ function Start-Test {
         #exclude env tests, plus any user specified on param.
         $ExcludeTag += "Environment"
         $pestersplat = @{
-            "testname" = $testname
+            "testname"   = $testname
             "ExcludeTag" = $ExcludeTag
             "EnableExit" = $EnableExit
         }
