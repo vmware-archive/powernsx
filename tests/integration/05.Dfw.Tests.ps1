@@ -1913,27 +1913,27 @@ Describe "DFW" {
             $section.rule[3].name | should be "pester_dfw_inserted"
         }
 
-        it "Fails to inset a new rule before another rule if anchorId is not supplied" {
+        it "Fails to insert a new rule before another rule if anchorId is not supplied" {
             {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position before} | should throw
         }
 
-        it "Fails to inset a new rule after another rule if anchorId is not supplied" {
+        it "Fails to insert a new rule after another rule if anchorId is not supplied" {
             {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position after} | should throw
         }
 
-        it "Fails to inset a new rule after another rule if anchorId does not exist within section" {
+        it "Fails to insert a new rule after another rule if anchorId does not exist within section" {
             {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position after -anchorId 9999} | should throw
         }
 
-        it "Fails to inset a new rule before another rule if anchorId does not exist within section" {
+        it "Fails to insert a new rule before another rule if anchorId does not exist within section" {
             {Get-NsxFirewallSection $l3sectionname  | New-NsxFirewallRule -Name "pester_dfw_inserted" -action allow -position before -anchorId 9999} | should throw
         }
 
-        it "Fail to insert a new rule to the bottom of the default layer 3 section" {
+        it "Fails to insert a new rule to the bottom of the default layer 3 section" {
             $section = Get-NsxFirewallSection -sectionType layer3sections | Select-Object -last 1
             {$section | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom } | should throw
         }
-        it "Fail to insert a new rule to the bottom of the default layer 2 section" {
+        it "Fails to insert a new rule to the bottom of the default layer 2 section" {
             $section = Get-NsxFirewallSection -sectionType layer2sections | Select-Object -last 1
             {$section | New-NsxFirewallRule -Name "pester_dfw_bottom" -action allow -position bottom } | should throw
         }
