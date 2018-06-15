@@ -17056,9 +17056,9 @@ function Get-NsxEdgeRouting {
     the specified Edge Services Gateway.
 
     .EXAMPLE
-    Get routing configuration for the ESG Edge01
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting
 
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting
+    Get routing configuration for the ESG Edge01
 
     #>
 
@@ -17109,9 +17109,9 @@ function Get-NsxEdgeStaticRoute {
     routing configuration specified.
 
     .EXAMPLE
-    Get static routes defining on ESG Edge01
+    Get-NsxEdge 01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute
 
-    PS C:\> Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute
+    Get static routes defining on ESG Edge01
 
     #>
 
