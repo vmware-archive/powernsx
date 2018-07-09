@@ -9602,9 +9602,9 @@ function Add-NsxLicense {
     the specified (or default) NSX connection.
 
     .EXAMPLE
-    Connect-NsxServer
     Add-NsxLicense "aaaa-bbbb-cccc-dddd-eeee"
 
+    Add the NSX License to vCenter
     #>
 
     param (
@@ -9655,9 +9655,9 @@ function Get-NsxLicense {
     associated with the specified (or default) NSX connection.
 
     .EXAMPLE
-    Connect-NsxServer
-    Add-NsxLicense "aaaa-bbbb-cccc-dddd-eeee"
+    Get-NsxLicense
 
+    Get information about NSX License
     #>
 
     param (
