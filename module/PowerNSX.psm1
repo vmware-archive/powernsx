@@ -9626,7 +9626,7 @@ function Add-NsxLicense {
     }
 
     process {
-        if ( $Connection.Version -gt 6.2.3) {
+        if ( [version]$Connection.Version -gt [version]"6.2.3") {
             try {
                 $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
                 $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection
@@ -9675,7 +9675,7 @@ function Get-NsxLicense {
     }
 
     process {
-        if ( $Connection.Version -gt 6.2.3) {
+        if ( [version]$Connection.Version -gt [version]"6.2.3") {
             try {
                 $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
                 $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection
