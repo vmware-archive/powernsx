@@ -170,7 +170,7 @@ Describe "NSXManager" {
         #Skipping due to broken behaviour on 622.
         it "Can get configured SSL Certificates" -skip {
             $certificates = Get-NsxManagerCertificate -connection $adminConnection
-            $( $certificates | measure ).count | should BeGreaterThan 0
+            $( $certificates | measure-Object ).count | should BeGreaterThan 0
             $certificates | should not be $null
         }
     }
