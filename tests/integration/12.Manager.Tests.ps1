@@ -159,7 +159,7 @@ Describe "NSXManager" {
             $TimeConfig = Set-NsxManagerTimeSettings -TimeZone $TimeZone -connection $adminConnection
             $TimeConfig.timezone | should be $Timezone
             $GetTimeConfig = Get-NsxManagerTimeSettings -connection $adminConnection
-            $TimeConfig.timezone | should be $Timezone
+            $GetTimeConfig.timezone | should be $Timezone
         }
     }
 
