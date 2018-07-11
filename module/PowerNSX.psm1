@@ -9602,9 +9602,9 @@ function Add-NsxLicense {
     the specified (or default) NSX connection.
 
     .EXAMPLE
-    Connect-NsxServer
     Add-NsxLicense "aaaa-bbbb-cccc-dddd-eeee"
 
+    Add the NSX License to vCenter
     #>
 
     param (
@@ -9626,7 +9626,7 @@ function Add-NsxLicense {
     }
 
     process {
-        if ( $Connection.Version -gt 6.2.3) {
+        if ( [version]$Connection.Version -gt [version]"6.2.3") {
             try {
                 $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
                 $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection
@@ -9655,9 +9655,9 @@ function Get-NsxLicense {
     associated with the specified (or default) NSX connection.
 
     .EXAMPLE
-    Connect-NsxServer
-    Add-NsxLicense "aaaa-bbbb-cccc-dddd-eeee"
+    Get-NsxLicense
 
+    Get information about NSX License
     #>
 
     param (
@@ -9675,7 +9675,7 @@ function Get-NsxLicense {
     }
 
     process {
-        if ( $Connection.Version -gt 6.2.3) {
+        if ( [version]$Connection.Version -gt [version]"6.2.3") {
             try {
                 $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
                 $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection

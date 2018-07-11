@@ -201,6 +201,14 @@ Describe "NSXManager" {
 
     }
 
+    Context "License" {
+
+        it "Can Get-NsxLicense info" {
+            {Get-NsxLicense | should not throw}
+        }
+
+    }
+
     AfterAll {
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
