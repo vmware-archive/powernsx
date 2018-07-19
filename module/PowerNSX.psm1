@@ -24671,8 +24671,8 @@ function Get-NsxSecurityTagAssignment {
             [ValidateScript( { ValidateSecurityTag $_ })]
             [System.Xml.XmlElement]$SecurityTag,
         [Parameter (Mandatory=$true, ValueFromPipeline=$true, ParameterSetName = "VirtualMachine")]
-            [ValidateScript( { ValidateVirtualMachineOrTemplate $_ })]
-            [object[]]$VirtualMachine,
+            [ValidateNotNullorEmpty()]
+            [VMware.VimAutomation.ViCore.Interop.V1.Inventory.VirtualMachineInterop[]]$VirtualMachine,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -24723,11 +24723,26 @@ function Get-NsxSecurityTagAssignment {
 
             'VirtualMachine' {
 
-                #I know this is inneficient, but attempt at refactoring has led down a rabbit hole I dont have time for at the moment.
-                # 'Ill be back...''
-                $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
-                Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)"
-                Get-NsxSecurityTag -connection $connection | Get-NsxSecurityTagAssignment -connection $connection | Where-Object {($_.VirtualMachine.id -replace "VirtualMachine-","") -eq $($vmMoid)}
+                $SecurityTags = Get-NSXSecurityTag -connection $connection
+                $count = 0
+                foreach ($SecurityTag in $SecurityTags) {
+                    $count++
+                    Write-Progress -Activity "Checking All Security Tags for Virtual Machine Assignments" -Status "Progress->" -PercentComplete ($count/$SecurityTags.Count*100)
+                    $URI = "/api/2.0/services/securitytags/tag/$($SecurityTag.objectId)/vm"
+                    [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                    if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::basicinfolist/basicinfo') ) {
+                        $nodes = (Invoke-XPathQuery -QueryMethod SelectNodes -Node $response -Query 'descendant::basicinfolist/basicinfo')
+                        foreach ($vm in $VirtualMachine) {
+                            $vmMoid = $vm.ExtensionData.MoRef.Value
+                            if ($vmMoid -In $nodes.objectId) {
+                                [pscustomobject]@{
+                                    "SecurityTag" = $SecurityTag;
+                                    "VirtualMachine" = $vm
+                                }
+                            }
+                        }                    
+                    }
+                }	
             }
         }
     }
