@@ -52,7 +52,12 @@ $Script:AllValidIcmpTypes = @("echo-reply", "destination-unreachable",
     "source-quench", "redirect", "echo-request", "time-exceeded",
     "parameter-problem", "timestamp-request", "timestamp-reply",
     "address-mask-request", "address-mask-reply","router-solicitation",
-    "router-advertisement"
+    "router-advertisement", "source-host-isolated", "pointer-to-error",
+    "redirect-host", "fragmentation-needed", "bad-length",
+    "destination-network-prohibited", "ttl-zero-transit",
+    "network-unreachable-tos", "network-unreachable", "host-unreachable",
+    "communication-prohibited", "destination-host-unknown",
+    "ttl-zero-reassembly", "port-unreachable", "address-mask-request"
 )
 
 set-strictmode -version Latest
