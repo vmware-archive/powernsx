@@ -409,7 +409,7 @@ ForEach ($LrId in $LrHash.Keys){
 				}
 			}
 			#Check if its VLAN backed (PG) or Logical Switch (virtualwire)
-			If ( $Interface.connectedToId -match 'virtualwire') {
+			If ( $Interface.connectedToId -match 'virtualwire|universalwire') {
 
 				[System.Xml.XmlDocument]$LogicalSwitch = $LsHash.item($Interface.connectedToId)
 				VisConnectTo-LogicalSwitch -LogicalSwitch $LogicalSwitch.virtualWire -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioLr
@@ -457,7 +457,7 @@ ForEach ($EdgeId in $EdgeHash.Keys){
 			}
 
 			#Check if its VLAN backed (PG) or Logical Switch (virtualwire)
-			If ( $Interface.portgroupId -match 'virtualwire') {
+			If ( $Interface.portgroupId -match 'virtualwire|universalwire') {
 
 				[System.Xml.XmlDocument]$LogicalSwitch = $LsHash.item($Interface.portgroupId)
 				VisConnectTo-LogicalSwitch -LogicalSwitch $LogicalSwitch.virtualWire -ConnectionText ("$($InterFace.Type): $IpAddresses") -VisioObj $VisioEdge
