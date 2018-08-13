@@ -24728,12 +24728,24 @@ function Get-NsxSecurityTagAssignment {
 
             'VirtualMachine' {
 
-                #I know this is inneficient, but attempt at refactoring has led down a rabbit hole I dont have time for at the moment.
-                # 'Ill be back...''
-                $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
-                Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)"
-                Get-NsxSecurityTag -connection $connection | Get-NsxSecurityTagAssignment -connection $connection | Where-Object {($_.VirtualMachine.id -replace "VirtualMachine-","") -eq $($vmMoid)}
-            }
+                ## for each VM object, get the NSX Security Tag(s) assigned to it, if any
+                $VirtualMachine | Foreach-Object {
+                    $oThisVM = $_
+                    Write-Progress -Activity "Fetching Security Tags assigned to Virtual Machine '$oThisVM'"
+                    ## make the URI to use; leverage the value of the top-level property ".Id", for minor speed improvement over accessing .ExtensionData; this REST method was introduced in NSX v6.3.0
+                    $URI = "/api/2.0/services/securitytags/vm/{0}" -f ($oThisVM.Id -replace "^VirtualMachine-", "")
+                    [System.Xml.XmlDocument]$oRestResponse = Invoke-NsxRestMethod -Method "GET" -Uri $URI -Connection $connection
+                    ## for each SecurityTag object in .securityTags property of the response (if any), return a new object with SecurityTag and VirtualMachine properties (in the same way that the by-Tag parameterset behaves)
+                    if (-not [System.String]::IsNullOrEmpty($oRestResponse.securityTags)) {
+                        $oRestResponse.securityTags | Foreach-Object {
+                            [pscustomobject]@{
+                                "SecurityTag" = $_.securityTag
+                                "VirtualMachine" = $oThisVM
+                            } ## end new-object
+                        } ## end new-object
+                    } ## end if
+                } ## end foreach-object
+            } ## end case
         }
     }
 
