@@ -28,20 +28,38 @@ Describe -Name "SecurityTagAssignment" -Tag "Get" -Fixture {
         #We load the mod and establish connection to NSX Manager here.
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
+        Write-Verbose -Verbose "Performing setup tasks for SecurityTag tests"
         Import-Module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
 
+        ## GUID to use as suffix for some temporary vSphere/NSX objects, so as to prevent any naming conflict with existing objects
+        $strSuffixGuid = [System.Guid]::NewGuid().Guid.Replace("-","")
+        Write-Verbose -Verbose "Using following GUID as suffix on temporary objects' names for ensuring unique object naming: '$strSuffixGuid'"
+
+        ## get some spot in which to create a couple of empty VMs, for use in tests (checking for SecurityTag assignments, for example)
+        $script:oVMHostToUse = Get-VMHost -State Connected | Get-Random
+        Write-Verbose -Verbose "Using VMHost '$oVMHostToUse' for temporary VM creation"
+        ## get the datastore mounted on this VMHost as readWrite (where .ExtensionData.Host.Key is this VMHost's ID, and where .ExtensionData.Host.MountInfo.AccessMode is "readWrite") and with the most FreespaceGB, on which to create some test VMs
+        $script:oDStoreToUse = $oVMHostToUse | Get-Datastore | Where-Object {$_.ExtensionData.Host | Where-Object {$_.Key -eq $oVMHostToUse.Id -and ($_.MountInfo.AccessMode -eq "readWrite")}} | Sort-Object -Property FreespaceGB -Descending | Select-Object -First 1
+        Write-Verbose -Verbose "Using datastore '$oDStoreToUse' for temporary VM creation"
+        ## hashtable of objects that the tests will create; hashtable will then be used as the colleciton of objects to delete at clean-up time
+        $script:hshTemporaryItemsToDelete = @{NsxSecurityTag = @(); VM = @()}
+
         ## get some items for testing
-        Write-Verbose -Verbose "Getting some SecurityTags and VMs for testing"
-        $arrAllSecurityTags = Get-NsxSecurityTag
-        ## get a security tag that has an assignment
-        $script:SecurityTagWithAssignment = $arrAllSecurityTags | Where-Object {$_.vmCount -gt 0} | Select-Object -First 1
-        ## get a security tag that has _no_ assignment
-        $script:SecurityTagWithoutAssignment = $arrAllSecurityTags | Where-Object {$_.vmCount -eq 0} | Select-Object -First 1
-        ## get a VM that has a security tag assigned
-        $script:VMWithSecurityTagAssignment = ($script:SecurityTagWithAssignment | Get-NsxSecurityTagAssignment | Select-Object -First 1).VirtualMachine
-        ## get a VM that has _no_ security tag assigned
-        $script:VMWithoutSecurityTagAssignment = Get-VM | Where-Object {-not ($_ | Get-NsxSecurityTagAssignment)} | Select-Object -First 1
+        Write-Verbose -Verbose "Getting some SecurityTags and VMs for testing (making some Tags/VMs in the process)"
+        $script:hshTemporaryItemsToDelete["NsxSecurityTag"] = 0..1 | Foreach-Object {New-NsxSecurityTag -Name "pesterTestTag${_}_toDelete-$strSuffixGuid" -Description "test Tag for Pester testing"}
+        $script:hshTemporaryItemsToDelete["VM"] = 0..1 | Foreach-Object {New-VM -Name "pesterTestVM${_}_toDelete-$strSuffixGuid" -Description "test VM for Pester testing" -VMHost $oVMHostToUse -Datastore $oDStoreToUse}
+
+        ## make a security tag assignment
+        New-NsxSecurityTagAssignment -VirtualMachine $hshTemporaryItemsToDelete["VM"][0] -ApplyToVm -SecurityTag $hshTemporaryItemsToDelete["NsxSecurityTag"][0]
+        ## a security tag that has an assignment
+        $script:SecurityTagWithAssignment = $hshTemporaryItemsToDelete["NsxSecurityTag"][0]
+        ## a security tag that has _no_ assignment
+        $script:SecurityTagWithoutAssignment = $hshTemporaryItemsToDelete["NsxSecurityTag"][1]
+        ## a VM that has a security tag assigned
+        $script:VMWithSecurityTagAssignment = $hshTemporaryItemsToDelete["VM"][0]
+        ## a VM that has _no_ security tag assigned
+        $script:VMWithoutSecurityTagAssignment = $hshTemporaryItemsToDelete["VM"][1]
     } ## end BeforeAll
 
     Context -Name "Get-NSXSecurityTagAssignment (by SecurityTag)" -Fixture {
@@ -69,11 +87,16 @@ Describe -Name "SecurityTagAssignment" -Tag "Get" -Fixture {
     } ## end context
 
     AfterAll {
-        #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
-        #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
-        #We kill the connection to NSX Manager here.
+        # AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
+        # Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
+        # We kill the connection to NSX Manager here.
 
         if ($pause) {Read-Host "pausing" }
+        ## remove the temporary, test SecurityTags
+        $hshTemporaryItemsToDelete["NsxSecurityTag"] | Foreach-Object {Remove-NsxSecurityTag -SecurityTag $_ -Confirm:$false -Verbose}
+        ## remove the temporary, test VMs (first make sure that there are some to remove)
+        if (($hshTemporaryItemsToDelete["VM"] | Measure-Object).Count -gt 0) {Remove-VM -VM $hshTemporaryItemsToDelete["VM"] -DeletePermanently -Confirm:$false -Verbose}
+
         Disconnect-NsxServer
     } ## end AfterAll
 } ## end Describe
