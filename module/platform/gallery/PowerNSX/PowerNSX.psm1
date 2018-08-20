@@ -51,7 +51,13 @@ $script:AllServicesValidSourcePort = @( "FTP", "MS_RPC_TCP", "MS_RPC_UDP",
 $Script:AllValidIcmpTypes = @("echo-reply", "destination-unreachable",
     "source-quench", "redirect", "echo-request", "time-exceeded",
     "parameter-problem", "timestamp-request", "timestamp-reply",
-    "address-mask-request", "address-mask-reply"
+    "address-mask-request", "address-mask-reply","router-solicitation",
+    "router-advertisement", "source-host-isolated", "pointer-to-error",
+    "redirect-host", "fragmentation-needed", "bad-length",
+    "destination-network-prohibited", "ttl-zero-transit",
+    "network-unreachable-tos", "network-unreachable", "host-unreachable",
+    "communication-prohibited", "destination-host-unknown",
+    "ttl-zero-reassembly", "port-unreachable", "address-mask-request"
 )
 
 set-strictmode -version Latest
@@ -4658,7 +4664,7 @@ function Connect-NsxServer {
             Throw "Connection to NSX server $NsxServer failed : $_"
         }
 
-        #Right - we got here, so now we try to build a connection object and retreive useful information
+        #Right - we got here, so now we try to build a connection object and retrieve useful information
         $URI = "/api/1.0/appliance-management/global/info"
 
         #Test NSX connection
@@ -4795,7 +4801,7 @@ function Connect-NsxServer {
             [string[]]$VersionCol = $NSXExtension.Client.Version -split "\."
             if ( -not  ($versionCol.count -eq 4 )) {
                 #Version string not as expected
-                throw "Version information for the registered NSX solution could not be retreived.  Raw version string $($NSXExtension.Client.Version)"
+                throw "Version information for the registered NSX solution could not be retrieved.  Raw version string $($NSXExtension.Client.Version)"
             }
             $Version = $VersionCol[0] + "." + $VersionCol[1] + "." + $VersionCol[2]
             $BuildNumber = $VersionCol[3]
@@ -4803,17 +4809,17 @@ function Connect-NsxServer {
             [string[]]$EndpointCol = $NSXExtension.Client.url -split "/"
             if ( -not  ($EndpointCol.count -eq 4 )) {
                 #Endpoint string not as expected
-                throw "Endpoint information for the registered NSX solution could not be retreived.  Raw endpoint URL $($NSXExtension.Client.Url)"
+                throw "Endpoint information for the registered NSX solution could not be retrieved.  Raw endpoint URL $($NSXExtension.Client.Url)"
             }
 
             if ( -not $EndpointCol[2] -match "^\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+$") {
                 #IP:Port not parsed
-                throw "Server information for the registered NSX solution could not be retreived.  Raw endpoint URL $($NSXExtension.Client.Url)"
+                throw "Server information for the registered NSX solution could not be retrieved.  Raw endpoint URL $($NSXExtension.Client.Url)"
             }
             [string[]]$ServerCol = $EndpointCol[2] -split ":"
             if ( -not ($ServerCol.count -eq 2)) {
                 #IP:Port not parsed
-                throw "Server information for the registered NSX solution could not be retreived.  Raw endpoint URL $($NSXExtension.Client.Url)"
+                throw "Server information for the registered NSX solution could not be retrieved.  Raw endpoint URL $($NSXExtension.Client.Url)"
             }
 
             if ( $PSBoundParameters.ContainsKey("NsxServerHint")) {
@@ -4827,7 +4833,7 @@ function Connect-NsxServer {
             $ProtocolCol = $EndpointCol[0] -split ":"
             if ( -not ($ProtocolCol.count -eq 2)) {
                 #IP:Port not parsed
-                throw "Protocol information for the registered NSX solution could not be retreived.  Raw endpoint URL $($NSXExtension.Client.Url)"
+                throw "Protocol information for the registered NSX solution could not be retrieved.  Raw endpoint URL $($NSXExtension.Client.Url)"
             }
             $Protocol = $ProtocolCol[0]
         }
@@ -5029,7 +5035,7 @@ function Wait-NsxJob {
             #ScriptBlock that is used to evaluate completion.  $job is the xml object returned from the API, so this should be something like { $job.controllerDeploymentInfo.status -eq "Failure" }.  Wait-NsxJob will return immediately if this tests true.
             [System.Management.Automation.ScriptBlock]$FailCriteria,
         [Parameter (Mandatory=$true)]
-            #Scriptblock that is used to retreive a status string.  $job is the xml object returned from the API, so this should be something like { $job.controllerDeploymentInfo.status }. Used only in status output (not in job completion criteria.)
+            #Scriptblock that is used to retrieve a status string.  $job is the xml object returned from the API, so this should be something like { $job.controllerDeploymentInfo.status }. Used only in status output (not in job completion criteria.)
             [System.Management.Automation.ScriptBlock]$StatusExpression,
         [Parameter (Mandatory=$false)]
             #ScriptBlock that is used to retrieve any error string.  Defaults to $StatusExpression.  $job is the xml object returned from the API, so this should be something like { $job.controllerDeploymentInfo.ExceptionMessage }.  This is only used in warning/error output (not in job completion criteria.)
@@ -5255,7 +5261,7 @@ function Get-NsxClusterStatus {
     param (
 
         [Parameter ( Mandatory=$true,ValueFromPipeline=$true)]
-            #Cluster Object to retreive status details for.
+            #Cluster Object to retrieve status details for.
             [ValidateNotNullOrEmpty()]
             [VMware.VimAutomation.ViCore.Interop.V1.Inventory.ClusterInterop]$Cluster,
         [Parameter (Mandatory=$False)]
@@ -5401,7 +5407,7 @@ function Get-NsxCliDfwFilter {
 
     <#
     .SYNOPSIS
-    Uses the NSX Centralised CLI to retreive the VMs VNIC filters.
+    Uses the NSX Centralised CLI to retrieve the VMs VNIC filters.
 
     .DESCRIPTION
     The NSX Centralised CLI is a feature first introduced in NSX 6.2.  It
@@ -5460,7 +5466,7 @@ function Get-NsxCliDfwRule {
 
     <#
     .SYNOPSIS
-    Uses the NSX Centralised CLI to retreive the rules configured for the
+    Uses the NSX Centralised CLI to retrieve the rules configured for the
     specified VMs vnics.
 
     .DESCRIPTION
@@ -5533,7 +5539,7 @@ function Get-NsxCliDfwAddrSet {
 
     <#
     .SYNOPSIS
-    Uses the NSX Centralised CLI to retreive the address sets configured
+    Uses the NSX Centralised CLI to retrieve the address sets configured
     for the specified VMs vnics.
 
     .DESCRIPTION
@@ -6245,7 +6251,7 @@ function Get-NsxManagerCertificate {
     .EXAMPLE
     Get-NsxManagerCertificate
 
-    Retreives the SSL Certificates from the connected NSX Manager
+    Retrieves the SSL Certificates from the connected NSX Manager
 
     Get-NsxManagerCertificate | where { $_.isCa -eq "false" } | select-object sha1Hash
 
@@ -6292,7 +6298,7 @@ function Get-NsxManagerSsoConfig {
     .EXAMPLE
     Get-NsxManagerSsoConfig
 
-    Retreives the SSO configuration from the connected NSX Manager
+    Retrieves the SSO configuration from the connected NSX Manager
     #>
 
     param (
@@ -6339,7 +6345,7 @@ function Get-NsxManagerVcenterConfig {
     .EXAMPLE
     Get-NsxManagerSsoConfig
 
-    Retreives the SSO configuration from the connected NSX Manager
+    Retrieves the SSO configuration from the connected NSX Manager
     #>
 
     param (
@@ -6381,7 +6387,7 @@ function Get-NsxManagerTimeSettings {
     .EXAMPLE
     Get-NsxManagerTimeSettings
 
-    Retreives the time configuration from the connected NSX Manager
+    Retrieves the time configuration from the connected NSX Manager
     #>
 
     param (
@@ -6568,7 +6574,7 @@ function Get-NsxManagerSyslogServer {
     .EXAMPLE
     Get-NsxManagerSyslogServer
 
-    Retreives the Syslog server configuration from the connected NSX Manager
+    Retrieves the Syslog server configuration from the connected NSX Manager
     #>
 
     param (
@@ -6625,7 +6631,7 @@ function Get-NsxManagerNetwork {
     .EXAMPLE
     Get-NsxManagerNetwork
 
-    Retreives the Syslog server configuration from the connected NSX Manager
+    Retrieves the Syslog server configuration from the connected NSX Manager
     #>
 
     param (
@@ -6719,7 +6725,7 @@ function Get-NsxManagerBackup {
     .EXAMPLE
     Get-NsxManagerBackup
 
-    Retreives the Backup server configuration from the connected NSX Manager
+    Retrieves the Backup server configuration from the connected NSX Manager
     #>
 
     param (
@@ -6783,7 +6789,7 @@ function Get-NsxManagerComponentSummary {
     .EXAMPLE
     Get-NsxManagerComponentSummary
 
-    Retreives the component summary information from the connected NSX Manager
+    Retrieves the component summary information from the connected NSX Manager
     #>
 
     param (
@@ -6889,7 +6895,7 @@ function Get-NsxManagerSystemSummary {
     .EXAMPLE
     Get-NsxManagerSystemSummary
 
-    Retreives the system summary information from the connected NSX Manager
+    Retrieves the system summary information from the connected NSX Manager
     #>
 
     param (
@@ -6954,7 +6960,7 @@ function Get-NsxManagerRole {
     .EXAMPLE
     Get-NsxManagerRole
 
-    Retreives the universal sync role from the connected NSX Manager
+    Retrieves the universal sync role from the connected NSX Manager
     #>
 
     param (
@@ -7468,7 +7474,7 @@ function Wait-NsxControllerJob {
     # The jobinstance returned is a 'parent' of the job we got from the API.  For a controller deployment job, there are multiple tasks that are executed.
     # Their status output doesnt exist until they are commenced though, which results in an increasing number of taskinstances that we need to track as deployment is performed.
     # A task instance state is either COMPLETED, at which time the next task is added, or EXECUTING, and has an interesting taskStatus property, or FAILED, and has an interesting taskMessage property (usually the cause of failure).  When all tasks are COMPLETED, the parent jobInstance is COMPLETED
-    # What makes this annoying is the deployment overall success/failure is only determinable from the parent job instance, however the current status and/or any error messages must be retreived from the task in a FAILED state.  The number of taskInstances is indeterminate
+    # What makes this annoying is the deployment overall success/failure is only determinable from the parent job instance, however the current status and/or any error messages must be retrieved from the task in a FAILED state.  The number of taskInstances is indeterminate
     # and grows as the job progresses...
     #
     # What we do here is declare state of the job we are monitoring on the jobinstance.status, but the output is obtained from the currently EXECUTING (status) or FAILED (error) child task
@@ -7711,7 +7717,7 @@ function Get-NsxController {
     .EXAMPLE
     Get-NsxController
 
-    Retreives all controller objects from NSX manager
+    Retrieves all controller objects from NSX manager
 
     .EXAMPLE
     Get-NsxController -objectId Controller-1
@@ -8117,7 +8123,7 @@ function Get-NsxVdsContext {
     Before it can be used for VXLAN, a VDS must be configured with appropriate
     teaming and MTU configuration.
 
-    The Get-NsxVdsContext cmdlet retreives VDS's that have been prepared for
+    The Get-NsxVdsContext cmdlet retrieves VDS's that have been prepared for
     VXLAN configuration.
 
     #>
@@ -8940,7 +8946,7 @@ function Get-NsxSegmentIdRange {
     Segment ID Ranges provide a method for NSX to allocate a unique identifier
     (VNI) to each logical switch created within NSX.
 
-    The Get-NsxSegmentIdRange cmdlet retreives Segment Ranges from the
+    The Get-NsxSegmentIdRange cmdlet retrieves Segment Ranges from the
     connected NSX manager.
 
     #>
@@ -9601,9 +9607,9 @@ function Add-NsxLicense {
     the specified (or default) NSX connection.
 
     .EXAMPLE
-    Connect-NsxServer
     Add-NsxLicense "aaaa-bbbb-cccc-dddd-eeee"
 
+    Add the NSX License to vCenter
     #>
 
     param (
@@ -9625,7 +9631,7 @@ function Add-NsxLicense {
     }
 
     process {
-        if ( $Connection.Version -gt 6.2.3) {
+        if ( [version]$Connection.Version -gt [version]"6.2.3") {
             try {
                 $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
                 $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection
@@ -9644,19 +9650,19 @@ function Add-NsxLicense {
 function Get-NsxLicense {
     <#
     .SYNOPSIS
-    Retreives configured NSX license from vCenter
+    Retrieves configured NSX license from vCenter
 
     .DESCRIPTION
     All 6.2.3 and higher deployments of NSX require a valid license in order
     to prepare the infrasturucture for NSX.
 
-    The Get-NsxLicense cmdlet retreives existing licenses from the vCenter
+    The Get-NsxLicense cmdlet retrieves existing licenses from the vCenter
     associated with the specified (or default) NSX connection.
 
     .EXAMPLE
-    Connect-NsxServer
-    Add-NsxLicense "aaaa-bbbb-cccc-dddd-eeee"
+    Get-NsxLicense
 
+    Get information about NSX License
     #>
 
     param (
@@ -9674,14 +9680,14 @@ function Get-NsxLicense {
     }
 
     process {
-        if ( $Connection.Version -gt 6.2.3) {
+        if ( [version]$Connection.Version -gt [version]"6.2.3") {
             try {
                 $ServiceInstance = Get-View ServiceInstance -server $Connection.VIConnection
                 $LicenseManager = Get-View $ServiceInstance.Content.licenseManager -Server $connection.VIConnection
                 $LicenseManager.Licenses | where-object { $_.EditionKey -match 'nsx' }
             }
             catch {
-                throw "Unable to retreive NSX license. $_"
+                throw "Unable to retrieve NSX license. $_"
             }
         }
     }
@@ -9772,7 +9778,7 @@ function Get-NsxUserRole {
             $result = Invoke-NsxRestMethod -method get -uri "/api/2.0/services/usermgmt/role/$UserName" -connection $connection
         }
         catch {
-            throw "Unable to retreive role details from NSX.  $_"
+            throw "Unable to retrieve role details from NSX.  $_"
         }
         $result.accessControlEntry
     }
@@ -10324,7 +10330,7 @@ function Get-NsxSpoofguardPolicy {
 
     <#
     .SYNOPSIS
-    Retreives Spoofguard policy objects from NSX.
+    Retrieves Spoofguard policy objects from NSX.
 
     .DESCRIPTION
     If a virtual machine has been compromised, its IP address can be spoofed
@@ -10336,7 +10342,7 @@ function Get-NsxSpoofguardPolicy {
     Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
-    Use the Get-NsxSpoofguardPolicy cmdlet to retreive existing SpoofGuard
+    Use the Get-NsxSpoofguardPolicy cmdlet to retrieve existing SpoofGuard
     Policy objects from NSX.
 
     .EXAMPLE
@@ -10393,7 +10399,7 @@ function Get-NsxSpoofguardPolicy {
                             $response.spoofguardPolicy
                         }
                         else {
-                            throw "Unable to retreive SpoofGuard policy $($pol.policyId)."
+                            throw "Unable to retrieve SpoofGuard policy $($pol.policyId)."
                         }
                     }
                 }
@@ -10734,7 +10740,7 @@ function Get-NsxSpoofguardNic {
 
     <#
     .SYNOPSIS
-    Retreives Spoofguard NIC details for the specified Spoofguard policy.
+    Retrieves Spoofguard NIC details for the specified Spoofguard policy.
 
     .DESCRIPTION
     If a virtual machine has been compromised, its IP address can be spoofed
@@ -10746,7 +10752,7 @@ function Get-NsxSpoofguardNic {
     Firewall rules, you can use SpoofGuard to block traffic determined to be
     spoofed.
 
-    Use the Get-NsxSpoofguardNic cmdlet to retreive Spoofguard NIC details for
+    Use the Get-NsxSpoofguardNic cmdlet to retrieve Spoofguard NIC details for
     the specified Spoofguard policy
 
     .EXAMPLE
@@ -14134,7 +14140,7 @@ function Get-NsxEdgeNat {
     privately addressed virtual machines.  There are two types of NAT rules that
     can be configured: SNAT and DNAT.
 
-    The Get-NsxEdgeNat cmdlet retreives the global NAT configuration of
+    The Get-NsxEdgeNat cmdlet retrieves the global NAT configuration of
     the specified Edge Services Gateway.
 
     #>
@@ -14167,7 +14173,7 @@ function Get-NsxEdgeNatRule {
 
     <#
     .SYNOPSIS
-    Retreives NAT rules from the specified NSX Edge Services Gateway NAT
+    Retrieves NAT rules from the specified NSX Edge Services Gateway NAT
     configuration.
 
     .DESCRIPTION
@@ -14180,7 +14186,7 @@ function Get-NsxEdgeNatRule {
     NSX Edge provides network address translation (NAT) service to protect the
     IP addresses of internal (private)  networks from the public network.
 
-    The Get-NsxEdgeNatRule cmdlet retreives the nat rules from the
+    The Get-NsxEdgeNatRule cmdlet retrieves the nat rules from the
     nat configuration specified.
 
     #>
@@ -15104,7 +15110,7 @@ function Get-NsxEdgeCsr {
     an SSL certificate and are the object that is signed by a Certificate
     Authority in order to provide a valid certificate
 
-    The Get-NsxEdgeCsr cmdlet retreives csr's definined on the specified Edge
+    The Get-NsxEdgeCsr cmdlet retrieves csr's definined on the specified Edge
     Services Gateway, or with the specified objectId
 
     #>
@@ -15368,7 +15374,7 @@ function Get-NsxEdgeCertificate{
     SSL Certificates are used to provide encyption and trust validation for the
     services that use them.
 
-    The Get-NsxEdgeCertificate cmdlet retreives certificates definined on the
+    The Get-NsxEdgeCertificate cmdlet retrieves certificates definined on the
     specified Edge Services Gateway, or with the specified objectId
 
     #>
@@ -15570,7 +15576,7 @@ function Get-NsxSslVpn {
     NSX Edge Services gateway and access servers and applications
     in the private networks.
 
-    The Get-NsxSslVpn cmdlet retreives the global SSLVPN configuration of
+    The Get-NsxSslVpn cmdlet retrieves the global SSLVPN configuration of
     the specified Edge Services Gateway.
 
     #>
@@ -15973,7 +15979,7 @@ function Get-NsxSslVpnAuthServer {
     Authentication Servers define how the SSL VPN server authenticates user
     connections
 
-    The Get-NsxSslVpnAuthServer cmdlet retreives the SSL VPN authentication
+    The Get-NsxSslVpnAuthServer cmdlet retrieves the SSL VPN authentication
     sources configured on the specified Edge Services Gateway.
 
     #>
@@ -17039,7 +17045,7 @@ function Get-NsxEdgeRouting {
 
     <#
     .SYNOPSIS
-    Retreives routing configuration for the specified NSX Edge Services Gateway.
+    Retrieves routing configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -17051,13 +17057,13 @@ function Get-NsxEdgeRouting {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgeRouting cmdlet retreives the routing configuration of
+    The Get-NsxEdgeRouting cmdlet retrieves the routing configuration of
     the specified Edge Services Gateway.
 
     .EXAMPLE
-    Get routing configuration for the ESG Edge01
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting
 
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting
+    Get routing configuration for the ESG Edge01
 
     #>
 
@@ -17091,7 +17097,7 @@ function Get-NsxEdgeStaticRoute {
 
     <#
     .SYNOPSIS
-    Retreives Static Routes from the specified NSX Edge Services Gateway Routing
+    Retrieves Static Routes from the specified NSX Edge Services Gateway Routing
     configuration.
 
     .DESCRIPTION
@@ -17104,13 +17110,13 @@ function Get-NsxEdgeStaticRoute {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgeStaticRoute cmdlet retreives the static routes from the
+    The Get-NsxEdgeStaticRoute cmdlet retrieves the static routes from the
     routing configuration specified.
 
     .EXAMPLE
-    Get static routes defining on ESG Edge01
+    Get-NsxEdge 01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute
 
-    PS C:\> Get-NsxEdge | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute
+    Get static routes defining on ESG Edge01
 
     #>
 
@@ -17388,7 +17394,7 @@ function Get-NsxEdgePrefix {
 
     <#
     .SYNOPSIS
-    Retreives IP Prefixes from the specified NSX Edge Services Gateway Routing
+    Retrieves IP Prefixes from the specified NSX Edge Services Gateway Routing
     configuration.
 
     .DESCRIPTION
@@ -17401,7 +17407,7 @@ function Get-NsxEdgePrefix {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgePrefix cmdlet retreives IP prefixes from the
+    The Get-NsxEdgePrefix cmdlet retrieves IP prefixes from the
     routing configuration specified.
 
     .EXAMPLE
@@ -17672,7 +17678,7 @@ function Get-NsxEdgeBgp {
 
     <#
     .SYNOPSIS
-    Retreives BGP configuration for the specified NSX Edge Services Gateway.
+    Retrieves BGP configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -17684,7 +17690,7 @@ function Get-NsxEdgeBgp {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgeBgp cmdlet retreives the bgp configuration of
+    The Get-NsxEdgeBgp cmdlet retrieves the bgp configuration of
     the specified Edge Services Gateway.
 
     .EXAMPLE
@@ -17914,7 +17920,7 @@ function Get-NsxEdgeBgpNeighbour {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgeBgpNeighbour cmdlet retreives the BGP neighbours from the
+    The Get-NsxEdgeBgpNeighbour cmdlet retrieves the BGP neighbours from the
     BGP configuration specified.
 
     .EXAMPLE
@@ -18232,7 +18238,7 @@ function Get-NsxEdgeOspf {
 
     <#
     .SYNOPSIS
-    Retreives OSPF configuration for the specified NSX Edge Services Gateway.
+    Retrieves OSPF configuration for the specified NSX Edge Services Gateway.
 
     .DESCRIPTION
     An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
@@ -18244,7 +18250,7 @@ function Get-NsxEdgeOspf {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgeOspf cmdlet retreives the OSPF configuration of
+    The Get-NsxEdgeOspf cmdlet retrieves the OSPF configuration of
     the specified Edge Services Gateway.
 
     .EXAMPLE
@@ -18454,7 +18460,7 @@ function Get-NsxEdgeOspfArea {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgeOspfArea cmdlet retreives the OSPF Areas from the OSPF
+    The Get-NsxEdgeOspfArea cmdlet retrieves the OSPF Areas from the OSPF
     configuration specified.
 
     .EXAMPLE
@@ -18762,7 +18768,7 @@ function Get-NsxEdgeOspfInterface {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgeOspfInterface cmdlet retreives the OSPF Area to interfaces
+    The Get-NsxEdgeOspfInterface cmdlet retrieves the OSPF Area to interfaces
     mappings from the OSPF configuration specified.
 
     .EXAMPLE
@@ -19086,7 +19092,7 @@ function Get-NsxEdgeRedistributionRule {
     ESGs perform ipv4 and ipv6 routing functions for connected networks and
     support both static and dynamic routing via OSPF, ISIS and BGP.
 
-    The Get-NsxEdgeRedistributionRule cmdlet retreives the route redistribution
+    The Get-NsxEdgeRedistributionRule cmdlet retrieves the route redistribution
     rules defined in the ospf and bgp configurations for the specified ESG.
 
     .EXAMPLE
@@ -19771,7 +19777,7 @@ function Get-NsxLogicalRouterRouting {
 
     <#
     .SYNOPSIS
-    Retreives routing configuration for the specified NSX LogicalRouter.
+    Retrieves routing configuration for the specified NSX LogicalRouter.
 
     .DESCRIPTION
     An NSX Logical Router is a distributed routing function implemented within
@@ -19780,7 +19786,7 @@ function Get-NsxLogicalRouterRouting {
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
 
-    The Get-NsxLogicalRouterRouting cmdlet retreives the routing configuration of
+    The Get-NsxLogicalRouterRouting cmdlet retrieves the routing configuration of
     the specified LogicalRouter.
 
     .EXAMPLE
@@ -19820,7 +19826,7 @@ function Get-NsxLogicalRouterStaticRoute {
 
     <#
     .SYNOPSIS
-    Retreives Static Routes from the specified NSX LogicalRouter Routing
+    Retrieves Static Routes from the specified NSX LogicalRouter Routing
     configuration.
 
     .DESCRIPTION
@@ -19830,7 +19836,7 @@ function Get-NsxLogicalRouterStaticRoute {
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
 
-    The Get-NsxLogicalRouterStaticRoute cmdlet retreives the static routes from the
+    The Get-NsxLogicalRouterStaticRoute cmdlet retrieves the static routes from the
     routing configuration specified.
 
     .EXAMPLE
@@ -20109,7 +20115,7 @@ function Get-NsxLogicalRouterPrefix {
 
     <#
     .SYNOPSIS
-    Retreives IP Prefixes from the specified NSX LogicalRouter Routing
+    Retrieves IP Prefixes from the specified NSX LogicalRouter Routing
     configuration.
 
     .DESCRIPTION
@@ -20119,7 +20125,7 @@ function Get-NsxLogicalRouterPrefix {
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
 
-    The Get-NsxLogicalRouterPrefix cmdlet retreives IP prefixes from the
+    The Get-NsxLogicalRouterPrefix cmdlet retrieves IP prefixes from the
     routing configuration specified.
 
     .EXAMPLE
@@ -20375,7 +20381,7 @@ function Get-NsxLogicalRouterBgp {
 
     <#
     .SYNOPSIS
-    Retreives BGP configuration for the specified NSX LogicalRouter.
+    Retrieves BGP configuration for the specified NSX LogicalRouter.
 
     .DESCRIPTION
     An NSX Logical Router is a distributed routing function implemented within
@@ -20384,7 +20390,7 @@ function Get-NsxLogicalRouterBgp {
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
 
-    The Get-NsxLogicalRouterBgp cmdlet retreives the bgp configuration of
+    The Get-NsxLogicalRouterBgp cmdlet retrieves the bgp configuration of
     the specified LogicalRouter.
 
     .EXAMPLE
@@ -20610,7 +20616,7 @@ function Get-NsxLogicalRouterBgpNeighbour {
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
 
-    The Get-NsxLogicalRouterBgpNeighbour cmdlet retreives the BGP neighbours from the
+    The Get-NsxLogicalRouterBgpNeighbour cmdlet retrieves the BGP neighbours from the
     BGP configuration specified.
 
     .EXAMPLE
@@ -20930,7 +20936,7 @@ function Get-NsxLogicalRouterOspf {
 
     <#
     .SYNOPSIS
-    Retreives OSPF configuration for the specified NSX LogicalRouter.
+    Retrieves OSPF configuration for the specified NSX LogicalRouter.
 
     .DESCRIPTION
     An NSX Logical Router is a distributed routing function implemented within
@@ -20939,7 +20945,7 @@ function Get-NsxLogicalRouterOspf {
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
 
-    The Get-NsxLogicalRouterOspf cmdlet retreives the OSPF configuration of
+    The Get-NsxLogicalRouterOspf cmdlet retrieves the OSPF configuration of
     the specified LogicalRouter.
 
     .EXAMPLE
@@ -21183,7 +21189,7 @@ function Get-NsxLogicalRouterOspfArea {
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
 
-    The Get-NsxLogicalRouterOspfArea cmdlet retreives the OSPF Areas from the OSPF
+    The Get-NsxLogicalRouterOspfArea cmdlet retrieves the OSPF Areas from the OSPF
     configuration specified.
 
     .EXAMPLE
@@ -21482,7 +21488,7 @@ function Get-NsxLogicalRouterOspfInterface {
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
 
-    The Get-NsxLogicalRouterOspfInterface cmdlet retreives the OSPF Area to interfaces
+    The Get-NsxLogicalRouterOspfInterface cmdlet retrieves the OSPF Area to interfaces
     mappings from the OSPF configuration specified.
 
     .EXAMPLE
@@ -21796,7 +21802,7 @@ function Get-NsxLogicalRouterRedistributionRule {
 
     Logical Routers perform ipv4 and ipv6 routing functions for connected
     networks and support both static and dynamic routing via OSPF and BGP.
-    The Get-NsxLogicalRouterRedistributionRule cmdlet retreives the route
+    The Get-NsxLogicalRouterRedistributionRule cmdlet retrieves the route
     redistribution rules defined in the ospf and bgp configurations for the
     specified LogicalRouter.
 
@@ -22138,7 +22144,7 @@ function Get-NsxLogicalRouterBridging {
 
     <#
     .SYNOPSIS
-    Retreives bridging configuration for the specified NSX LogicalRouter.
+    Retrieves bridging configuration for the specified NSX LogicalRouter.
 
     .DESCRIPTION
     An NSX Logical Router is a distributed routing function implemented within
@@ -22217,7 +22223,7 @@ function Set-NsxLogicalRouterBridging {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
-            #LogicalRouter Bridging object as retreived by Get-NsxLogicalRouterBridging
+            #LogicalRouter Bridging object as retrieved by Get-NsxLogicalRouterBridging
             [ValidateScript({ ValidateLogicalRouterBridging $_ })]
             [System.Xml.XmlElement]$LogicalRouterBridging,
         [Parameter (Mandatory=$False)]
@@ -22365,7 +22371,7 @@ function Get-NsxLogicalRouterBridge {
 
     <#
     .SYNOPSIS
-    Retreives bridge instances from the specified NSX LogicalRouter Bridging
+    Retrieves bridge instances from the specified NSX LogicalRouter Bridging
     configuration.
 
     .DESCRIPTION
@@ -22465,7 +22471,7 @@ function Remove-NsxLogicalRouterBridge {
     param (
 
         [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
-            #The bridge instance to remove as retreived by Get-NsxLogicalRouterBridge.
+            #The bridge instance to remove as retrieved by Get-NsxLogicalRouterBridge.
             [ValidateScript({ ValidateLogicalRouterBridge $_ })]
             [System.Xml.XmlElement]$BridgeInstance,
         [Parameter (Mandatory=$False)]
@@ -23835,7 +23841,7 @@ function Remove-NsxDynamicMemberSet {
     Member Sets, a match operator of ALL or ANY can be specified that determines
     how multiple Dynamic Criteria combine within the set to define a match.
 
-    This cmdlet removes the specified Dynamic Member Set as retreived by
+    This cmdlet removes the specified Dynamic Member Set as retrieved by
     Get-NsxDynamicMemberSet from the Security Group it is defined within.
 
     .EXAMPLE
@@ -23985,7 +23991,7 @@ function Add-NsxDynamicCriteria {
     how multiple Dynamic Criteria combine within the set to define a match.
 
     Add-NsxDynamicCriteria adds a new Dynamic Member Criteria to the specified
-    Dynamic Member Set as retreived by Get-NsxDynamicMemberSet.  You can pass
+    Dynamic Member Set as retrieved by Get-NsxDynamicMemberSet.  You can pass
     a Dynamic Member Spec as created by New-NsxDynamicMemberSpec, or explicitly
     specify the key, condition and value of the new Dynamic Criteria.
 
@@ -24134,7 +24140,7 @@ function Get-NsxDynamicCriteria {
     how multiple Dynamic Criteria combine within the set to define a match.
 
     Get-NsxDynamicCriteria retrieves Dynamic Member Criteria from the specified
-    Dynamic Member Set as retreived by Get-NsxDynamicMemberSet.  While
+    Dynamic Member Set as retrieved by Get-NsxDynamicMemberSet.  While
     Get-NsxDynamicMemberSet displays a text representation of the Dynamic
     Criteria that belong to it, this cmdlet outputs individual objects
     representing each criteria such that they can be filtered, and passed to
@@ -24152,7 +24158,7 @@ function Get-NsxDynamicCriteria {
     2                  2 webapp            SecurityTag  equals     webapp
     1                  3 webapp            ENTITY       belongs_to vm-3961
 
-    Retreives all Dynamic Criteria from ALL Dynamic Member Sets of the security group webapp.  This is probably not what you want to do.
+    Retrieves all Dynamic Criteria from ALL Dynamic Member Sets of the security group webapp.  This is probably not what you want to do.
     Output is formatted as a table.
     .EXAMPLE
     Get-NsxSecurityGroup webapp | Get-NsxDynamicMemberSet -index 1 | Get-NsxDynamicCriteria | ft
@@ -24163,7 +24169,7 @@ function Get-NsxDynamicCriteria {
     2                  1 webapp            SecurityTag  contains   webapp
     3                  1 webapp            ComputerName contains   webapp
 
-    Retreives all Dynamic Criteria from the first Dynamic Member Set of the security group webapp.  This probably IS what you want to do! :)
+    Retrieves all Dynamic Criteria from the first Dynamic Member Set of the security group webapp.  This probably IS what you want to do! :)
     Output is formatted as a table.
 
     #>
@@ -24260,7 +24266,7 @@ function Remove-NsxDynamicCriteria {
     Member Sets, a match operator of ALL or ANY can be specified that determines
     how multiple Dynamic Criteria combine within the set to define a match.
 
-    This cmdlet removes the specified Dynamic Criteria as retreived by
+    This cmdlet removes the specified Dynamic Criteria as retrieved by
     Get-NsxDynamicCriteria from the given Dymanic Member Set of which it is a
     member.
 
@@ -24722,12 +24728,24 @@ function Get-NsxSecurityTagAssignment {
 
             'VirtualMachine' {
 
-                #I know this is inneficient, but attempt at refactoring has led down a rabbit hole I dont have time for at the moment.
-                # 'Ill be back...''
-                $vmMoid = $VirtualMachine.ExtensionData.MoRef.Value
-                Write-Progress -activity "Fetching Security Tags assigned to Virtual Machine $($vmMoid)"
-                Get-NsxSecurityTag -connection $connection | Get-NsxSecurityTagAssignment -connection $connection | Where-Object {($_.VirtualMachine.id -replace "VirtualMachine-","") -eq $($vmMoid)}
-            }
+                ## for each VM object, get the NSX Security Tag(s) assigned to it, if any
+                $VirtualMachine | Foreach-Object {
+                    $oThisVM = $_
+                    Write-Progress -Activity "Fetching Security Tags assigned to Virtual Machine '$oThisVM'"
+                    ## make the URI to use; leverage the value of the top-level property ".Id", for minor speed improvement over accessing .ExtensionData; this REST method was introduced in NSX v6.3.0
+                    $URI = "/api/2.0/services/securitytags/vm/{0}" -f ($oThisVM.Id -replace "^VirtualMachine-", "")
+                    [System.Xml.XmlDocument]$oRestResponse = Invoke-NsxRestMethod -Method "GET" -Uri $URI -Connection $connection
+                    ## for each SecurityTag object in .securityTags property of the response (if any), return a new object with SecurityTag and VirtualMachine properties (in the same way that the by-Tag parameterset behaves)
+                    if (-not [System.String]::IsNullOrEmpty($oRestResponse.securityTags)) {
+                        $oRestResponse.securityTags | Foreach-Object {
+                            [pscustomobject]@{
+                                "SecurityTag" = $_.securityTag
+                                "VirtualMachine" = $oThisVM
+                            } ## end new-object
+                        } ## end new-object
+                    } ## end if
+                } ## end foreach-object
+            } ## end case
         }
     }
 
@@ -26676,12 +26694,12 @@ function Get-NsxApplicableMember {
 
     .DESCRIPTION
     Security Groups and Service Groups can contain members of specific types.
-    Basic information about all valid (applicable) members can be retreived
+    Basic information about all valid (applicable) members can be retrieved
     using a simple API call which is typically much less expensive than the
-    alternative of retreiving the complete configuration from the API for a
+    alternative of retrieving the complete configuration from the API for a
     specific type of object.
 
-    This cmdlet also exposes 'shortcut' functionality that lets you retreive
+    This cmdlet also exposes 'shortcut' functionality that lets you retrieve
     object name to objectId mapping of many object types in NSX that can improve
     the performance of scripts in high scale environments.
 
@@ -26755,7 +26773,7 @@ function Get-NsxApplicableMember {
             $response = Invoke-NsxWebRequest -Uri $Uri -method Get -connection $connection
         }
         catch {
-            throw "Failed retreiving applicable members.  $_"
+            throw "Failed retrieving applicable members.  $_"
         }
         if ( $response | get-member -membertype Property -Name Content ) {
             try {
@@ -26886,7 +26904,7 @@ function Add-NsxSourceDestMember {
 
 function New-NsxServiceNode {
 
-    #Internal function - Handles building the apliedto xml node for a given object.
+    #Internal function - Handles building the appliedto xml node for a given object.
 
     param (
 
@@ -26972,7 +26990,7 @@ function New-NsxEdgeServiceNode {
 
 function New-NsxAppliedToListNode {
 
-    #Internal function - Handles building the apliedto xml node for a given object.
+    #Internal function - Handles building the appliedto xml node for a given object.
 
     param (
 
@@ -27934,12 +27952,12 @@ function Get-NsxFirewallExclusionListMember {
     .EXAMPLE
     Get-NsxFirewallExclusionListMember
 
-    Retreives the entire contents of the exclusion list
+    Retrieves the entire contents of the exclusion list
 
     .EXAMPLE
     Get-NsxFirewallExclusionListMember | where-object { $_.name -match 'myvm'}
 
-    Retreives a specific vm from the exclusion list if it exists.
+    Retrieves a specific vm from the exclusion list if it exists.
 
     #>
 
@@ -29247,7 +29265,7 @@ function Get-NsxFirewallPublishStatus {
     enforced on each hypervisor at the point where the VMs NIC connects to the
     portgroup or logical switch.
 
-    The Get-NsxFirewallPublishStatus cmdet retreives the current publishign
+    The Get-NsxFirewallPublishStatus cmdet retrieves the current publishign
     status for each DFW enabled cluster.
 
     .EXAMPLE
@@ -31793,7 +31811,7 @@ function New-NsxSecurityPolicy   {
             [ValidateScript({ ValidateSecPolNiSpec $_ })]
             [System.Xml.XmlElement[]]$NetworkIntrospectionSpec,
         [Parameter (Mandatory=$false)]
-            # Return only the objectId of the newly create policy (avoids an aditional get to the API to retreive the newly created object)
+            # Return only the objectId of the newly create policy (avoids an aditional get to the API to retrieve the newly created object)
             [switch]$ReturnObjectIdOnly=$false,
         [Parameter (Mandatory=$false)]
             # Manually define the precedence number of the newly created policy.  This defaults to the highest currently inuse precedence + 1000 (like the UI)
@@ -34509,7 +34527,7 @@ function Get-NsxApplicableSecurityAction {
     [CmdLetBinding()]
     param (
         [Parameter (Mandatory=$True, ValueFromPipeline=$true)]
-            # Object(s) to retreive applicable rules for.  Can be a SecurityGroup, Security Policy or Virtual Machine
+            # Object(s) to retrieve applicable rules for.  Can be a SecurityGroup, Security Policy or Virtual Machine
             [ValidateScript( {
                 $arg = $_
                 try {
