@@ -26651,9 +26651,17 @@ function Add-NsxServiceGroupMember {
     Group for specific or all Service Groups
 
     .EXAMPLE
-    PS C:\> Get-NsxServiceGroup Heartbeat | Add-NsxServiceGroupMember -Member $Service1
+    $Service1 = Get-NsxService http -LocalOnly
+    PS C:\> Get-NsxServiceGroup SG_PowerNSX | Add-NsxServiceGroupMember -Member $Service1
 
-    PS C:\> get-nsxservicegroup Service-Group-4 | Add-NsxServiceGroupMember $Service1,$Service2
+    Add service http to Service Group SG_PowerNSX
+
+    .EXAMPLE
+    $Service1 = Get-NsxService http -LocalOnly
+    PS C:\> $Service2 = Get-NsxService https -LocalOnly
+    PS C:\> Get-NsxServiceGroup SG_PowerNSX2 | Add-NsxServiceGroupMember $Service1, $Service2
+
+    Add service http and https to Service Group SG_PowerNSX2
 
     #>
 
