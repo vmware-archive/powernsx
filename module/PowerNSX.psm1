@@ -27865,6 +27865,106 @@ function New-NsxFirewallRule  {
     end {}
 }
 
+function Set-NsxFirewallRule {
+
+    <#
+    .SYNOPSIS
+    Set configuration for a NSX Distributed Firewall Rule.
+
+    .DESCRIPTION
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
+
+    This cmdlet accepts a firewall rule object returned from Get-NsxFirewallRule
+    and set configuration (disabled, name, action...)
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -disabled:$true
+
+    Disabled the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -logged:$true
+
+    Enable logging on the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -name "My Distributed Firewall Rule"
+
+    Set/Update the description of the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -action deny
+
+    Change action to deny to RuleId 1007
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # DFW rule as returned by Get-NsxFirewallRule / New-NsxFirewallRule
+            [ValidateScript({ ValidateFirewallRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$false)]
+            [boolean]$disabled,
+        [Parameter (Mandatory=$false)]
+            [boolean]$logged,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$name,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("Allow","Deny", "Reject")]
+            [string]$action,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        $sectionId = $FirewallRule.ParentNode.Id
+        $RuleId = $FirewallRule.id
+        $generationNumber = $FirewallRule.ParentNode.generationnumber
+
+        #Clone the xml so we dont modify source...
+        $_FirewallRule = $FirewallRule.CloneNode($true)
+
+        if ( $PsBoundParameters.ContainsKey('disabled') ) {
+            $_FirewallRule.disabled = $disabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('logged') ) {
+            $_FirewallRule.logged = $logged.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('name') ) {
+            $_FirewallRule.name = $name
+        }
+
+        if ( $PsBoundParameters.ContainsKey('action') ) {
+            $_FirewallRule.action = $action
+        }
+
+        $uri = "/api/4.0/firewall/globalroot-0/config/layer3sections/$sectionId/rules/$Ruleid"
+        #Need the IfMatch header to specify the current section generation id
+        $IfMatchHeader = @{"If-Match"=$generationNumber}
+        try {
+            $response = Invoke-NsxWebRequest -method put -Uri $uri -body $_FirewallRule.OuterXml -extraheader $IfMatchHeader -connection $connection
+            [xml]$ruleElem = $response.Content
+            Get-NsxFirewallRule -RuleId $ruleElem.rule.id
+        }
+        catch {
+            throw "Failed to modify the specified rule.  $_"
+        }
+    }
+
+    end {}
+}
+
 function Remove-NsxFirewallRule {
 
     <#
