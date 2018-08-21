@@ -24737,9 +24737,9 @@ function Get-NsxSecurityTagAssignment {
                     [System.Xml.XmlDocument]$oRestResponse = Invoke-NsxRestMethod -Method "GET" -Uri $URI -Connection $connection
                     ## for each SecurityTag object in .securityTags property of the response (if any), return a new object with SecurityTag and VirtualMachine properties (in the same way that the by-Tag parameterset behaves)
                     if (-not [System.String]::IsNullOrEmpty($oRestResponse.securityTags)) {
-                        $oRestResponse.securityTags | Foreach-Object {
+                        $oRestResponse.securityTags.securityTag | Foreach-Object {
                             [pscustomobject]@{
-                                "SecurityTag" = $_.securityTag
+                                "SecurityTag" = $_
                                 "VirtualMachine" = $oThisVM
                             } ## end new-object
                         } ## end new-object

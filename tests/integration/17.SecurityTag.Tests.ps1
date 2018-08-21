@@ -1,5 +1,4 @@
-#PowerNSX Test template.
-#Nick Bradford : nbradford@vmware.com
+#From the PowerNSX Test template by Nick Bradford : nbradford@vmware.com
 
 #Because PowerNSX is an API consumption tool, its test framework is limited to
 #exercising cmdlet functionality against a functional NSX and vSphere API
@@ -47,42 +46,66 @@ Describe -Name "SecurityTagAssignment" -Tag "Get" -Fixture {
 
         ## get some items for testing
         Write-Verbose -Verbose "Getting some SecurityTags and VMs for testing (making some Tags/VMs in the process)"
-        $script:hshTemporaryItemsToDelete["NsxSecurityTag"] = 0..1 | Foreach-Object {New-NsxSecurityTag -Name "pesterTestTag${_}_toDelete-$strSuffixGuid" -Description "test Tag for Pester testing"}
-        $script:hshTemporaryItemsToDelete["VM"] = 0..1 | Foreach-Object {New-VM -Name "pesterTestVM${_}_toDelete-$strSuffixGuid" -Description "test VM for Pester testing" -VMHost $oVMHostToUse -Datastore $oDStoreToUse}
+        $script:hshTemporaryItemsToDelete["NsxSecurityTag"] = 0..2 | Foreach-Object {New-NsxSecurityTag -Name "pesterTestTag${_}_toDelete-$strSuffixGuid" -Description "test Tag for Pester testing"}
+        $script:hshTemporaryItemsToDelete["VM"] = 0..2 | Foreach-Object {New-VM -Name "pesterTestVM${_}_toDelete-$strSuffixGuid" -Description "test VM for Pester testing" -VMHost $oVMHostToUse -Datastore $oDStoreToUse}
 
-        ## make a security tag assignment
-        New-NsxSecurityTagAssignment -VirtualMachine $hshTemporaryItemsToDelete["VM"][0] -ApplyToVm -SecurityTag $hshTemporaryItemsToDelete["NsxSecurityTag"][0]
-        ## a security tag that has an assignment
-        $script:SecurityTagWithAssignment = $hshTemporaryItemsToDelete["NsxSecurityTag"][0]
+        ## make some security tag assignments:
+        #    tag0 will have 0 assignments, tag1 will have 1 assignment, tag2 will have 2 assignments:  tag1 --> vm2; tag2 --> vm1 & vm2
+        #    vm0 will have 0 assignments, vm1 will have 1 assignment, vm2 will have 2 assignments:  vm1 <--> tag2; vm2 <--> tag1 & tag2
+        ## apply tag2 to vm1
+        New-NsxSecurityTagAssignment -VirtualMachine $hshTemporaryItemsToDelete["VM"][1] -ApplyToVm -SecurityTag $hshTemporaryItemsToDelete["NsxSecurityTag"][2]
+        ## apply tag1 and tag2 to vm2
+        New-NsxSecurityTagAssignment -VirtualMachine $hshTemporaryItemsToDelete["VM"][2] -ApplyToVm -SecurityTag $hshTemporaryItemsToDelete["NsxSecurityTag"][1..2]
+
+        ## update the NSX Tag objects after the tag-assignment operations, so that the "vmCount" property value is current/correct for each (not used further, here, but could be helpful for future troubleshooting of tests)
+        0..($hshTemporaryItemsToDelete["NsxSecurityTag"].Count - 1) | ForEach-Object {$hshTemporaryItemsToDelete["NsxSecurityTag"][$_] = Get-NsxSecurityTag -objectId $hshTemporaryItemsToDelete["NsxSecurityTag"][$_].objectId}
+
         ## a security tag that has _no_ assignment
-        $script:SecurityTagWithoutAssignment = $hshTemporaryItemsToDelete["NsxSecurityTag"][1]
-        ## a VM that has a security tag assigned
-        $script:VMWithSecurityTagAssignment = $hshTemporaryItemsToDelete["VM"][0]
+        $script:SecurityTagWithoutAssignment = $hshTemporaryItemsToDelete["NsxSecurityTag"][0]
+        ## a security tag that has one assignment
+        $script:SecurityTagWithOneAssignment = $hshTemporaryItemsToDelete["NsxSecurityTag"][1]
+        ## a security tag that has two assignments
+        $script:SecurityTagWithTwoAssignments = $hshTemporaryItemsToDelete["NsxSecurityTag"][2]
+
         ## a VM that has _no_ security tag assigned
-        $script:VMWithoutSecurityTagAssignment = $hshTemporaryItemsToDelete["VM"][1]
+        $script:VMWithoutSecurityTagAssignment = $hshTemporaryItemsToDelete["VM"][0]
+        ## a VM that has one security tag assigned
+        $script:VMWithOneSecurityTagAssignment = $hshTemporaryItemsToDelete["VM"][1]
+        ## a VM that has two security tag assigned
+        $script:VMWithTwoSecurityTagAssignments = $hshTemporaryItemsToDelete["VM"][2]
     } ## end BeforeAll
 
     Context -Name "Get-NSXSecurityTagAssignment (by SecurityTag)" -Fixture {
-        It -Name "Gets security tag assignment by security tag" -Test {
-            $bGetsSecurityTagAssignmentBySecurityTag = $null -ne ($script:SecurityTagWithAssignment | Get-NSXSecurityTagAssignment)
-            $bGetsSecurityTagAssignmentBySecurityTag | Should Be $true
-        } ## end it
-
         It -Name "Gets `$null when getting security tag assignment by security tag that has no assignments" -Test {
             $bGetsNullForSecurityTagAssignmentBySecurityTagWithNoAssignment = $null -eq ($script:SecurityTagWithoutAssignment | Get-NSXSecurityTagAssignment)
             $bGetsNullForSecurityTagAssignmentBySecurityTagWithNoAssignment | Should Be $true
         } ## end it
+
+        It -Name "Gets security tag assignment by security tag -- single tag for tag that is assigned just once" -Test {
+            $bGetsSecurityTagAssignmentBySecurityTag = ($script:SecurityTagWithOneAssignment | Get-NSXSecurityTagAssignment | Measure-Object).Count -eq 1
+            $bGetsSecurityTagAssignmentBySecurityTag | Should Be $true
+        } ## end it
+
+        It -Name "Gets security tag assignment by security tag -- multiple tag assignments for tag that is assigned more than once" -Test {
+            $bGetsSecurityTagAssignmentBySecurityTag = ($script:SecurityTagWithTwoAssignments | Get-NSXSecurityTagAssignment | Measure-Object).Count -eq 2
+            $bGetsSecurityTagAssignmentBySecurityTag | Should Be $true
+        } ## end it
     } ## end context
 
     Context -Name "Get-NSXSecurityTagAssignment (by VirtualMachine)" -Fixture {
-        It -Name "Gets security tag assignment by VM" -Test {
-            $bGetsSecurityTagAssignmentByVirtualMachine = $null -ne ($script:VMWithSecurityTagAssignment | Get-NSXSecurityTagAssignment)
-            $bGetsSecurityTagAssignmentByVirtualMachine | Should Be $true
-        } ## end it
-
         It -Name "Gets `$null when getting security tag assignment by VM that has no assignments" -Test {
             $bGetsNullForSecurityTagAssignmentByVMWithNoAssignment = $null -eq ($script:VMWithoutSecurityTagAssignment | Get-NSXSecurityTagAssignment)
             $bGetsNullForSecurityTagAssignmentByVMWithNoAssignment | Should Be $true
+        } ## end it
+
+        It -Name "Gets single security tag assignment by VM -- VM with single tag assignment" -Test {
+            $bGetsSingleSecurityTagAssignmentByVirtualMachine = ($script:VMWithOneSecurityTagAssignment | Get-NSXSecurityTagAssignment | Measure-Object).Count -eq 1
+            $bGetsSingleSecurityTagAssignmentByVirtualMachine | Should Be $true
+        } ## end it
+
+        It -Name "Gets multiple security tag assignment by VM -- VM with multiple tag assignments" -Test {
+            $bGetsMultipleSecurityTagAssignmentsByVirtualMachine = ($script:VMWithTwoSecurityTagAssignments | Get-NSXSecurityTagAssignment | Measure-Object).Count -eq 2
+            $bGetsMultipleSecurityTagAssignmentsByVirtualMachine | Should Be $true
         } ## end it
     } ## end context
 
