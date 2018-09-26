@@ -246,6 +246,11 @@ Describe "SecurityGroups" {
             $script:MemberDcName1 = "pester_member_dc1"
             $script:MemberDcName2 = "pester_member_dc2"
 
+            #Cluster
+            $script:ParentDcName1 = "pester_parent_dc1"
+            $script:MemberClusterName1 = "pester_member_cluster1"
+            $script:MemberClusterName2 = "pester_member_cluster2"
+
             #SecurityTag
             $Script:MemberSTName1 = "pester_member_sectag1"
             $Script:MemberSTName2 = "pester_member_sectag2"
@@ -307,6 +312,10 @@ Describe "SecurityGroups" {
             Get-Datacenter $MemberDCName1 -ErrorAction SilentlyContinue | Remove-Datacenter -Confirm:$false
             Get-Datacenter $MemberDCName2 -ErrorAction SilentlyContinue | Remove-Datacenter -Confirm:$false
 
+            Get-Cluster $MemberClusterName1 -ErrorAction SilentlyContinue | Remove-Cluster -Confirm:$false
+            Get-Cluster $MemberClusterName2 -ErrorAction SilentlyContinue | Remove-Cluster -Confirm:$false
+            Get-Datacenter $ParentDcName1 -ErrorAction SilentlyContinue | Remove-Datacenter -Confirm:$false
+
             Get-VDPortgroup $MemberVdPortGroupName1 -ErrorAction SilentlyContinue | Remove-VDPortGroup -Confirm:$false
             Get-VDPortgroup $MemberVdPortGroupName2 -ErrorAction SilentlyContinue | Remove-VDPortGroup -Confirm:$false
 
@@ -347,6 +356,10 @@ Describe "SecurityGroups" {
             $script:MemberDC1 = get-folder Datacenters | New-Datacenter -Name $MemberDcName1
             $script:MemberDC2 = get-folder Datacenters | New-Datacenter -Name $MemberDcName2
 
+            $script:ParentDC1 = get-folder Datacenters | New-Datacenter -Name $ParentDcName1
+            $script:MemberCluster1 = New-Cluster -Name $MemberClusterName1 -Location $ParentDC1
+            $script:MemberCluster2 = New-Cluster -Name $MemberClusterName2 -Location $ParentDC1
+
             $Script:MemberVnic1 = $MemberVM1 | Get-NetworkAdapter
             $Script:MemberVnic2 = $MemberVM2 | Get-NetworkAdapter
 
@@ -368,6 +381,10 @@ Describe "SecurityGroups" {
 
             Get-Datacenter $MemberDCName1 -ErrorAction SilentlyContinue | Remove-Datacenter -Confirm:$false
             Get-Datacenter $MemberDCName2 -ErrorAction SilentlyContinue | Remove-Datacenter -Confirm:$false
+
+            Get-Cluster $MemberClusterName1 -ErrorAction SilentlyContinue | Remove-Cluster -Confirm:$false
+            Get-Cluster $MemberClusterName2 -ErrorAction SilentlyContinue | Remove-Cluster -Confirm:$false
+            Get-Datacenter $ParentDcName1 -ErrorAction SilentlyContinue | Remove-Datacenter -Confirm:$false
 
             Get-VDPortgroup $MemberVdPortGroupName1 -ErrorAction SilentlyContinue | Remove-VDPortGroup -Confirm:$false
             Get-VDPortgroup $MemberVdPortGroupName2 -ErrorAction SilentlyContinue | Remove-VDPortGroup -Confirm:$false
@@ -603,6 +620,30 @@ Describe "SecurityGroups" {
             $get.member | should beoftype System.xml.xmlelement
             $get.member.name | should be $MemberDcName1
             $get.member.objectId | should be $MemberDc1.ExtensionData.MoRef.Value
+
+        }
+
+        it "Can add a Cluster member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            $get.member | should beoftype System.xml.xmlelement
+            $get.member.name | should be $MemberClusterName1
+            $get.member.objectId | should be $MemberCluster1.ExtensionData.MoRef.Value
+
+        }
+
+        it "Can add a Cluster member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1.ExtensionData.MoRef.Value
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            $get.member | should beoftype System.xml.xmlelement
+            $get.member.name | should be $MemberClusterName1
+            $get.member.objectId | should be $MemberCluster1.ExtensionData.MoRef.Value
 
         }
 
