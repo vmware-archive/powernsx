@@ -2214,8 +2214,8 @@ Function ValidateSecurityGroupMember {
     }
 
     #check if we are valid type
-    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
-        #argument is moref string and refers to vm, resource pool or dvportgroup.
+    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$|^domain-c\d+$" )) {
+        #argument is moref string and refers to vm, resource pool, dvportgroup, directory group or cluster.
         $true
     }
     elseif ( ($argument -is [string]) -and ( $NsxMemberTypes -contains ($argument -replace "-\d+$"))) {
@@ -23026,7 +23026,7 @@ function Add-NsxSecurityGroupMember {
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
                 }
-                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$|^domain-c\d+$" )) {
                     $MemberMoref = $_Member
                 }
                 elseif ( ($_Member -is [string] ) -and ( [guid]::tryparse(($_Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
