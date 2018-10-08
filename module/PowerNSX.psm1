@@ -27725,7 +27725,7 @@ function New-NsxFirewallSection {
             #Marks the firewall section to be universal or not
             [switch]$Universal,
         [Parameter (Mandatory=$false)]
-            #Identifies where to insert the newly created section. insert_after & insert_before must specify an existing section id as the anchor.
+            #Identifies where to insert the newly created section. after & before must specify an existing section id as the anchor.
             [ValidateSet("top","bottom","after","before",ignorecase=$false)]
             [string]$position="top",
         [Parameter (Mandatory=$False)]
