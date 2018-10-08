@@ -28095,7 +28095,7 @@ function New-NsxFirewallRule  {
          "Testing creating a rule before an existing rule"
         -Position before -anchorId 1024
 
-    Add a new Layer 3 rule immediatley after rule id 1024 in the section called
+    Add a new Layer 3 rule immediatley before rule id 1024 in the section called
     TestSection
 
     .EXAMPLE
