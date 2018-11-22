@@ -35989,7 +35989,7 @@ function Remove-NsxIPsec {
     traffic, and no dynamic routing protocol are supported between the NSX Edge
     instance and remote VPN routers.
 
-    The Remove-NsxDns cmdlet unconfigures the global DNS configuration of
+    The Remove-NsxIPsec cmdlet unconfigures the global IPsec configuration of
     the specified Edge Services Gateway.
 
     .EXAMPLE
