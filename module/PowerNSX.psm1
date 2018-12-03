@@ -22975,8 +22975,8 @@ function Add-NsxSecurityGroupMember {
     supported by the IncludeMember and ExcludeMember parameters.
     
     .EXAMPLE
-    $vms = @(Get-VM -Name vmname*) # fetch the VMs to be added to the NSX security group
-    $sg = Get-NsxSecurityGroup -name "securitygroupname" # fetch the Securty group
+    $vms = @(Get-VM -Name vmname*) 
+    $sg = Get-NsxSecurityGroup -name "securitygroupname" 
     Add-NsxSecurityGroupMember -SecurityGroup $sg -Member $vms -Verbose
 
     This example shows how to add a bunch of vms to a NSX Security group.
