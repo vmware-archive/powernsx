@@ -79,7 +79,7 @@ Function _init {
         $script:PNsxPSTarget = "Desktop"
     }
 
-    if ( ( $script:PNsxPSTarget -eq "Core" ) -and ( $PSVersionTable.GitCommitId -notmatch '^v6.[\d].[\d]+$') ) {
+    if ( ( $script:PNsxPSTarget -eq "Core" ) -and ( $PSVersionTable.GitCommitId -notmatch '^v6.[\d].[\d]+$|6.[\d].[\d]+$') ) {
 
         if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
             write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
