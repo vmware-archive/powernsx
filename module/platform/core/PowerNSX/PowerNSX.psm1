@@ -23178,9 +23178,9 @@ function Remove-NsxSecurityGroupMember {
                     #To support the prior functionality of failIfAbsent, we have to check ourselves...
 
                     $existingMember = (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -query "child::member[objectId=`"$MemberMoref`"]" )
-					if ( $existingMember -eq $null ){
-						$existingMember = (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -query "child::excludeMember[objectId=`"$MemberMoref`"]" )
-					}
+                    if ( $existingMember -eq $null ){
+                        $existingMember = (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -query "child::excludeMember[objectId=`"$MemberMoref`"]" )
+                    }
 
                     if ( $existingMember -eq $null ) {
                         throw "Member $($_Member.Name) ($MemberMoref) is not a member of the specified SecurityGroup."
