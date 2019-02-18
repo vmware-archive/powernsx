@@ -1210,8 +1210,16 @@ Describe "SecurityPolicy" {
         }
         AfterEach { 
             Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
-            sleep 15
-            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -confirm:$false
+            try {
+                Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -confirm:$false
+            }
+            Catch {
+                Write-Verbose "Caught error when cleaning up services."
+                Write-Verbose "$_"
+                Write-Verbose "Going to sleep for 10 secs to wait for NSX Manager to do its thing."
+                sleep 10
+                Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -confirm:$false
+            }
         }
 
         it "Can add a service to a security policy firewall rule" { 
