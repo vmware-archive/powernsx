@@ -1210,6 +1210,7 @@ Describe "SecurityPolicy" {
         }
         AfterEach { 
             Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            sleep 15
             Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -confirm:$false
         }
 
