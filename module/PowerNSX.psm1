@@ -17789,9 +17789,9 @@ function Set-NsxEdgeBgp {
         }
 
         # Check bgp enablement
-            if ($PsBoundParameters.ContainsKey('EnableBGP')) {
-                # BGP option is specified
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
+        if ($PsBoundParameters.ContainsKey('EnableBGP')) {
+            # BGP option is specified
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
                 #Enabled element exists.  Update it.
                 $bgp.enabled = $EnableBGP.ToString().ToLower()
             }
@@ -17824,64 +17824,64 @@ function Set-NsxEdgeBgp {
 
             if ($PsBoundParameters.ContainsKey("RouterId")) {
             #Set Routerid...
-            if ($xmlRouterId) {
-                $xmlRouterId = $RouterId.IPAddresstoString
+                if ($xmlRouterId) {
+                    $xmlRouterId = $RouterId.IPAddresstoString
+                }
+                else{
+                    Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                }
             }
-            else{
-                Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+        }
+
+        if ( $PsBoundParameters.ContainsKey("LocalAS")) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) {
+                #LocalAS element exists, update it.
+                $bgp.localAS = $LocalAS.ToString()
+            }
+            else {
+                #LocalAS element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
             }
         }
-    }
-
-    if ( $PsBoundParameters.ContainsKey("LocalAS")) {
-        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) {
-            #LocalAS element exists, update it.
-            $bgp.localAS = $LocalAS.ToString()
+        elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) -and $EnableBGP  )) {
+            throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
         }
-        else {
-            #LocalAS element does not exist...
-            Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
-        }
-    }
-    elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) -and $EnableBGP  )) {
-        throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
-    }
 
-    if ( $PsBoundParameters.ContainsKey("GracefulRestart")) {
-        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::gracefulRestart')) {
-            #element exists, update it.
-            $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
+        if ( $PsBoundParameters.ContainsKey("GracefulRestart")) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::gracefulRestart')) {
+                #element exists, update it.
+                $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
+            }
+            else {
+                #element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+            }
         }
-        else {
-            #element does not exist...
-            Add-XmlElement -xmlRoot $bgp -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+
+        if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::defaultOriginate')) {
+                #element exists, update it.
+                $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+            }
+            else {
+                #element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
+            }
         }
-    }
 
-    if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) {
-        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::defaultOriginate')) {
-            #element exists, update it.
-            $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+        $body = $_EdgeRouting.OuterXml
+
+        if ( $confirm ) {
+            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
         }
-        else {
-            #element does not exist...
-            Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
-        }
-    }
-
-    $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
-    $body = $_EdgeRouting.OuterXml
-
-    if ( $confirm ) {
-        $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
-        $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-    }
-    else { $decision = 0 }
+        else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
             $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
