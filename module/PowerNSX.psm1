@@ -79,16 +79,6 @@ Function _init {
         $script:PNsxPSTarget = "Desktop"
     }
 
-    if ( ( $script:PNsxPSTarget -eq "Core" ) -and ( $PSVersionTable.GitCommitId -notmatch '^v6.[\d].[\d]+$') ) {
-
-        if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
-            write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
-            if ( $PSVersionTable.PSVersion -ne '6.0.0-alpha') {
-                throw "The PowerShell Core Beta has known issues that cause PowerNSX to fail.  Refusing to load module."
-            }
-        }
-    }
-
     ## Define class required for certificate validation override.  Version dependant.
     ## For whatever reason, this does not work when contained within a function?
     $TrustAllCertsPolicy = @"
