@@ -66,7 +66,7 @@ Describe "Edge" {
         $script:vnics += New-NsxEdgeInterfaceSpec -index 2 -Type internal -Name "vNic2" -ConnectedTo $lswitches[1] -PrimaryAddress $ip2 -SubnetPrefixLength 24
         $script:vnics += New-NsxEdgeInterfaceSpec -index 3 -Type trunk -Name "vNic3" -ConnectedTo $pg1
         $script:preexistingrulename = "pester_e_testrule1"
-        $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest" 
+        $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
         $edge | get-nsxedgefirewall | new-nsxedgefirewallrule -name $preexistingrulename -action accept | out-null
         $script:scopedservice = New-NsxService -scope $edge.id -Name "pester_e_scopedservice" -Protocol "TCP" -port "1234"
         $script:VersionLessThan623 = [version]$DefaultNsxConnection.Version -lt [version]"6.2.3"
@@ -545,13 +545,13 @@ Describe "Edge" {
         }
 
         It "Can add an edge firewall rule with deny action" {
-            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule18" -comment "testrule16"  -action deny
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule18" -comment "testrule18" -action deny
             $rule | should not be $null
             $rule.action | should be "deny"
         }
 
         It "Can add an edge firewall rule with reject action" {
-            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule19" -comment "testrule16" -action reject
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule19" -comment "testrule19" -action reject
             $rule | should not be $null
             $rule.action | should be "reject"
         }
@@ -678,7 +678,7 @@ Describe "Edge" {
         }
     }
 
-    Context "Misc" { 
+    Context "Misc" {
 
         it "Can enable firewall via Set-NsxEdge" {
             $edge = Get-NsxEdge $name
