@@ -556,6 +556,23 @@ Describe "Edge" {
             $rule.action | should be "reject"
         }
 
+        It "Can modifiy an edge firewall rule" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule20" -comment "testrule20" -action accept
+            $rule | should not be $null
+            $rule.enabled | should be $true
+            $rule.loggingEnabled | should be "false"
+            $rule.action | should be "accept"
+            $rule.name | should be "testrule20"
+            $rule.description | should be "testrule20"
+            $rule = $rule | Set-NsxEdgeFirewallRule -name "testrule21" -comment "testrule21" -loggingEnabled $true -enabled $false -action deny
+            $rule | should not be $null
+            $rule.enabled | should be $false
+            $rule.loggingEnabled | should be "true"
+            $rule.action | should be "deny"
+            $rule.name | should be "testrule21"
+            $rule.description | should be "testrule21"
+        }
+
         It "Can disable the edge firewall" {
             $config = Get-NsxEdge $name | Get-NsxEdgeFirewall | Set-NsxEdgeFirewall -Enabled:$false -NoConfirm
             $config.enabled | should be "false"
