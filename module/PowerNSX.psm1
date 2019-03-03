@@ -14999,7 +14999,124 @@ function New-NsxEdgeFirewallRule {
 
     end {}
 }
+function Set-NsxEdgeFirewallRule {
 
+    <#
+    .SYNOPSIS
+    Set configuration for a Firewall Rule from the specified ESGs FirewallRule configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The NSX Edge provides layer 3/4 firewall services to protect connected
+    networks.  the Edge firewall is separate from, and can be used to
+    complement the NSX distributed firewall.
+
+    This cmdlet accepts a Edge firewall rule object returned from Get-NsxEdgeFirewallRule
+    and set configuration (disabled, name, action...)
+
+
+    .EXAMPLE
+    Get-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -enabled:$false
+
+    Disabled the RuleId 1007 of NSX Edge 01
+
+    .EXAMPLE
+    GGet-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -loggingEnabled:$true
+
+    Enable logging on the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -name "My Edge Firewall Rule"
+
+    Set/Update the name of the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -comment "My comment on this Edge Firewall Rule"
+
+    Set/Update the description of the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -action deny
+
+    Change action to deny to RuleId 1007
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # Edge FW rule as returned by Get-NsxEdgeFirewallRule / New-NsxEdgeFirewallRule
+            [ValidateScript({ ValidateEdgeFwRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$false)]
+            [boolean]$enabled,
+        [Parameter (Mandatory=$false)]
+            [boolean]$loggingEnabled,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$comment,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("Accept", "Deny", "Reject")]
+            [string]$action,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        $ruleId = $FirewallRule.Id
+
+        #Clone the xml so we dont modify source...
+        $_FirewallRule = $FirewallRule.CloneNode($true)
+
+        $edgeId = $FirewallRule.edgeId
+        $_FirewallRule.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_FirewallRule -Query 'descendant::edgeId')) ) | out-null
+
+        if ( $PsBoundParameters.ContainsKey('enabled') ) {
+            $_FirewallRule.enabled = $enabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('loggingEnabled') ) {
+            $_FirewallRule.loggingEnabled = $loggingEnabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('name') ) {
+            $_FirewallRule.name = $name
+        }
+
+        if ( $PsBoundParameters.ContainsKey('comment') ) {
+            $_FirewallRule.description = $comment
+        }
+
+        if ( $PsBoundParameters.ContainsKey('action') ) {
+            $_FirewallRule.action = $action
+        }
+
+        $URI = "/api/4.0/edges/$EdgeId/firewall/config/rules/$ruleId"
+
+        try {
+            $response = Invoke-NsxWebRequest -method put -Uri $uri -body $_FirewallRule.OuterXml -connection $connection
+            [xml]$ruleElem = $response.Content
+            Get-NsxEdge -Object $EdgeId | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -RuleId $ruleId
+        }
+        catch {
+            throw "Failed to modify the specified rule.  $_"
+        }
+    }
+
+    end {}
+}
 function Remove-NsxEdgeFirewallRule {
 
     <#

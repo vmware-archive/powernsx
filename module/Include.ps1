@@ -106,6 +106,7 @@ $FunctionsToExport = @(
     'Get-NsxEdgeFirewall',
     'Get-NsxEdgeFirewallRule',
     'New-NsxEdgeFirewallRule',
+    'Set-NsxEdgeFirewallRule',
     'Remove-NsxEdgeFirewallRule',
     'Get-NsxEdgeCsr',
     'New-NsxEdgeCsr',
