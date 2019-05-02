@@ -31093,7 +31093,7 @@ function Add-NsxLoadBalancerPoolMember {
 
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $port
-        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $port
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $monitorPort
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "minConn" -xmlElementText $MinimumConnections
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "maxConn" -xmlElementText $MaximumConnections
 
