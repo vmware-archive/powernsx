@@ -13469,6 +13469,10 @@ function New-NsxEdge {
             [ValidateNotNullOrEmpty()]
             [switch]$EnableSSH=$false,
         [Parameter (Mandatory=$false)]
+            #Enable FIPs mode
+            [ValidateNotNullOrEmpty()]
+            [switch]$EnableFIPS=$false,
+        [Parameter (Mandatory=$false)]
             #Enable autogeneration of edge firewall rules for enabled services.  Defaults to $true
             [ValidateNotNullOrEmpty()]
             [switch]$AutoGenerateRules=$true,
@@ -13524,6 +13528,11 @@ function New-NsxEdge {
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "fqdn" -xmlElementText $Hostname
+
+        #Enable FIPs mode
+        if ( $EnableFIPS ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "enableFips" -xmlElementText "true"
+        }
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
         if ($PSBoundParameters.ContainsKey("Tenant")) {
