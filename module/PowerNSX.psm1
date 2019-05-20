@@ -17421,13 +17421,14 @@ function Remove-NsxEdgeStaticRoute {
     pipeline to Remove-NsxEdgeStaticRoute.
 
     .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxEdgeStaticRoute
+
     Remove a route to 1.1.1.0/24 via 10.0.0.100 from ESG Edge01
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxEdgeStaticRoute
 
     .EXAMPLE
-    Remove all routes to 1.1.1.0/24 from ESG Edge01
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' } | Remove-NsxEdgeStaticRoute
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' } | Remove-NsxEdgeStaticRoute
 
+    Remove all routes to 1.1.1.0/24 from ESG Edge01
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
