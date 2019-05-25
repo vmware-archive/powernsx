@@ -8319,7 +8319,7 @@ function New-NsxClusterVxlanConfig {
     Use New-NsxVdsContext to configure a VDS for use with NSX.
 
     If the specified cluster is not prepared with the necessary VIBs installed,
-    then installation occurs automatically.  Use Install-NsxClusterVibs to
+    then installation occurs automatically.  Use Install-NsxCluster to
     prepare a clusters hosts for use with NSX without configuring VXLAN
 
     If an IP Pool is not specified, DHCP will be used to configure the host
