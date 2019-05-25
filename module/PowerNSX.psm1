@@ -8578,7 +8578,8 @@ function Install-NsxCluster {
                 if ( $decision -eq 1 ) {
                     Throw "$($cluster.name) cluster preparation failed or timed out."
                 }
-                $Timer = 0            }
+                $Timer = 0
+            }
         }
 
         Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
