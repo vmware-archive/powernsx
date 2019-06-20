@@ -20020,10 +20020,9 @@ function New-NsxLogicalRouterStaticRoute {
     configuration of the specified LogicalRouter.
 
     .EXAMPLE
-    Add a new static route to LogicalRouter LogicalRouter01 for 1.1.1.0/24 via 10.0.0.200
-
     PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterStaticRoute -Network 1.1.1.0/24 -NextHop 10.0.0.200
 
+    Add a new static route to LogicalRouter LogicalRouter01 for 1.1.1.0/24 via 10.0.0.200
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
