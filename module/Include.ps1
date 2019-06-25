@@ -62,6 +62,7 @@ $FunctionsToExport = @(
     'Get-NsxLogicalSwitch',
     'New-NsxLogicalSwitch',
     'Remove-NsxLogicalSwitch',
+    'Set-NsxLogicalSwitch',
     'Get-NsxSpoofguardPolicy',
     'New-NsxSpoofguardPolicy',
     'Remove-NsxSpoofguardPolicy',
