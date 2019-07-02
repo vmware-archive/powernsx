@@ -6164,7 +6164,7 @@ function Set-NsxManager {
             }
             catch {
                 #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
-                $thumbprintMatch = "<details>(([A-F0-9]{2}:)+[A-F0-9]{2})<\/details>"
+                $thumbprintMatch = '[<"]details[>"]:*"*(([A-F0-9]{2}:)+[A-F0-9]{2})'
                 if (($AcceptAnyThumbprint) -and ($_ -match $thumbprintMatch))  {
                     #API responded with a thumbprint
                     write-warning "Using thumbprint presented by the SSO server: $($Matches[1])"
@@ -6206,7 +6206,7 @@ function Set-NsxManager {
             }
             catch {
                 #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
-                $thumbprintMatch = "<details>(([A-F0-9]{2}:)+[A-F0-9]{2})<\/details>"
+                $thumbprintMatch = '[<"]details[>"]:*"*(([A-F0-9]{2}:)+[A-F0-9]{2})'
                 if (($AcceptAnyThumbprint) -and ($_ -match $thumbprintMatch))  {
                     #API responded with a thumbprint
                     write-warning "Using thumbprint presented by the vCenter server: $($Matches[1])"
