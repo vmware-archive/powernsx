@@ -8319,7 +8319,7 @@ function New-NsxClusterVxlanConfig {
     Use New-NsxVdsContext to configure a VDS for use with NSX.
 
     If the specified cluster is not prepared with the necessary VIBs installed,
-    then installation occurs automatically.  Use Install-NsxClusterVibs to
+    then installation occurs automatically.  Use Install-NsxCluster to
     prepare a clusters hosts for use with NSX without configuring VXLAN
 
     If an IP Pool is not specified, DHCP will be used to configure the host
@@ -8578,7 +8578,8 @@ function Install-NsxCluster {
                 if ( $decision -eq 1 ) {
                     Throw "$($cluster.name) cluster preparation failed or timed out."
                 }
-                $Timer = 0            }
+                $Timer = 0
+            }
         }
 
         Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
@@ -20019,10 +20020,9 @@ function New-NsxLogicalRouterStaticRoute {
     configuration of the specified LogicalRouter.
 
     .EXAMPLE
-    Add a new static route to LogicalRouter LogicalRouter01 for 1.1.1.0/24 via 10.0.0.200
-
     PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterStaticRoute -Network 1.1.1.0/24 -NextHop 10.0.0.200
 
+    Add a new static route to LogicalRouter LogicalRouter01 for 1.1.1.0/24 via 10.0.0.200
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
