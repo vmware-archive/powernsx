@@ -10077,6 +10077,79 @@ function Remove-NsxLogicalSwitch {
     end {}
 }
 
+function Set-NsxLogicalSwitch {
+
+    <#
+    .SYNOPSIS
+    Configure a Logical Switch
+
+    .DESCRIPTION
+    An NSX Logical Switch provides L2 connectivity to VMs attached to it.
+    A Logical Switch is 'bound' to a Transport Zone, and only hosts that are
+    members of the Transport Zone are able to host VMs connected to a Logical
+    Switch that is bound to it.  All Logical Switch operations require a
+    Transport Zone.
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalSwitch LS6 | Set-NsxLogicalSwitch -name "LS6-new"
+
+    Rename the LogicalSwitch LS6 to LS6-new
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalSwitch LS6 | Set-NsxLogicalSwitch -description "My Logical Switch Number 6"
+
+    Configure LogicalSwitch LS6 Description (to My Logical Switch Number 6)
+
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$virtualWire,
+            [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$name,
+            [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$description,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        $ObjectId = $virtualWire.ObjectId
+
+        #Clone the xml so we dont modify source...
+        $_virtualWire = $virtualWire.CloneNode($true)
+
+        if ( $PsBoundParameters.ContainsKey('name') ) {
+            $_virtualWire.name = $name
+        }
+
+        if ( $PsBoundParameters.ContainsKey('description') ) {
+            $_virtualWire.description = $description
+        }
+
+        $uri = "/api/2.0/vdn/virtualwires/$($ObjectId)"
+        $null = Invoke-NsxWebRequest -method put -Uri $uri -body $_virtualWire.OuterXml -connection $connection
+        Get-NsxlogicalSwitch -ObjectId $ObjectId
+
+    }
+
+    end {}
+}
+
 function Connect-NsxLogicalSwitch {
     <#
     .SYNOPSIS
