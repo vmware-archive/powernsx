@@ -35166,6 +35166,56 @@ function Get-NsxApplicableSecurityAction {
     end {}
 }
 
+######
+# IPsec
+function Get-NsxIPsecStats{
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Edge VPN IPsec statistics
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as
+    firewall, NAT, DHCP, VPN, load balancing, and high availability.
+
+    The NSX Edge load balancer enables network traffic to follow multiple
+    paths to a specific destination. It distributes incoming service requests
+    evenly among multiple servers in such a way that the load distribution is
+    transparent to users. Load balancing thus helps in achieving optimal
+    resource utilization, maximizing throughput, minimizing response time, and
+    avoiding overload. NSX Edge provides load balancing up to Layer 7.
+    This cmdlet retrieves NSX Edge VPN IPSec statistics
+
+    .EXAMPLE
+    Get-NsxEdge edge01 | Get-NsxIPsecStats
+
+    Retrieves the VPN IPsec stats on Edge01
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ ValidateEdge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+        )
+
+    begin {}
+
+    process {
+        $URI = "/api/4.0/edges/$($Edge.Id)/ipsec/statistics"
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::ipsecStatusAndStats")) {
+            $response.ipsecStatusAndStats
+        }
+    }
+
+    end {}
+}
+
 ########
 ########
 # Extra functions - here we try to extend on the capability of the base API, rather than just exposing it...
