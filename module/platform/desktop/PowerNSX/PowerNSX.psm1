@@ -79,16 +79,6 @@ Function _init {
         $script:PNsxPSTarget = "Desktop"
     }
 
-    if ( ( $script:PNsxPSTarget -eq "Core" ) -and ( $PSVersionTable.GitCommitId -notmatch '^v6.[\d].[\d]+$') ) {
-
-        if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
-            write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
-            if ( $PSVersionTable.PSVersion -ne '6.0.0-alpha') {
-                throw "The PowerShell Core Beta has known issues that cause PowerNSX to fail.  Refusing to load module."
-            }
-        }
-    }
-
     ## Define class required for certificate validation override.  Version dependant.
     ## For whatever reason, this does not work when contained within a function?
     $TrustAllCertsPolicy = @"
@@ -2214,8 +2204,8 @@ Function ValidateSecurityGroupMember {
     }
 
     #check if we are valid type
-    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
-        #argument is moref string and refers to vm, resource pool or dvportgroup.
+    if ( ($argument -is [string]) -and ($argument -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$|^domain-c\d+$" )) {
+        #argument is moref string and refers to vm, resource pool, dvportgroup, directory group or cluster.
         $true
     }
     elseif ( ($argument -is [string]) -and ( $NsxMemberTypes -contains ($argument -replace "-\d+$"))) {
@@ -23026,7 +23016,7 @@ function Add-NsxSecurityGroupMember {
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
                 }
-                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$|^domain-c\d+$" )) {
                     $MemberMoref = $_Member
                 }
                 elseif ( ($_Member -is [string] ) -and ( [guid]::tryparse(($_Member -replace ".\d{3}$",""), [ref][guid]::Empty)) )  {
@@ -26651,9 +26641,17 @@ function Add-NsxServiceGroupMember {
     Group for specific or all Service Groups
 
     .EXAMPLE
-    PS C:\> Get-NsxServiceGroup Heartbeat | Add-NsxServiceGroupMember -Member $Service1
+    $Service1 = Get-NsxService http -LocalOnly
+    PS C:\> Get-NsxServiceGroup SG_PowerNSX | Add-NsxServiceGroupMember -Member $Service1
 
-    PS C:\> get-nsxservicegroup Service-Group-4 | Add-NsxServiceGroupMember $Service1,$Service2
+    Add service http to Service Group SG_PowerNSX
+
+    .EXAMPLE
+    $Service1 = Get-NsxService http -LocalOnly
+    PS C:\> $Service2 = Get-NsxService https -LocalOnly
+    PS C:\> Get-NsxServiceGroup SG_PowerNSX2 | Add-NsxServiceGroupMember $Service1, $Service2
+
+    Add service http and https to Service Group SG_PowerNSX2
 
     #>
 
@@ -27854,6 +27852,106 @@ function New-NsxFirewallRule  {
             write-warning 'The -ReturnRule:$false option is deprecated and will be removed in a future version.  Please update your scripts so that they accept the return object of New-NsxFirewallRule to be the newly created rule rather than the full section.'
         }
     }
+    end {}
+}
+
+function Set-NsxFirewallRule {
+
+    <#
+    .SYNOPSIS
+    Set configuration for a NSX Distributed Firewall Rule.
+
+    .DESCRIPTION
+    An NSX Distributed Firewall Rule defines a typical 5 tuple rule and is
+    enforced on each hypervisor at the point where the VMs NIC connects to the
+    portgroup or logical switch.
+
+    This cmdlet accepts a firewall rule object returned from Get-NsxFirewallRule
+    and set configuration (disabled, name, action...)
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -disabled:$true
+
+    Disabled the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -logged:$true
+
+    Enable logging on the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -name "My Distributed Firewall Rule"
+
+    Set/Update the description of the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -action deny
+
+    Change action to deny to RuleId 1007
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # DFW rule as returned by Get-NsxFirewallRule / New-NsxFirewallRule
+            [ValidateScript({ ValidateFirewallRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$false)]
+            [boolean]$disabled,
+        [Parameter (Mandatory=$false)]
+            [boolean]$logged,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$name,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("Allow","Deny", "Reject")]
+            [string]$action,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        $sectionId = $FirewallRule.ParentNode.Id
+        $RuleId = $FirewallRule.id
+        $generationNumber = $FirewallRule.ParentNode.generationnumber
+
+        #Clone the xml so we dont modify source...
+        $_FirewallRule = $FirewallRule.CloneNode($true)
+
+        if ( $PsBoundParameters.ContainsKey('disabled') ) {
+            $_FirewallRule.disabled = $disabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('logged') ) {
+            $_FirewallRule.logged = $logged.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('name') ) {
+            $_FirewallRule.name = $name
+        }
+
+        if ( $PsBoundParameters.ContainsKey('action') ) {
+            $_FirewallRule.action = $action
+        }
+
+        $uri = "/api/4.0/firewall/globalroot-0/config/layer3sections/$sectionId/rules/$Ruleid"
+        #Need the IfMatch header to specify the current section generation id
+        $IfMatchHeader = @{"If-Match"=$generationNumber}
+        try {
+            $response = Invoke-NsxWebRequest -method put -Uri $uri -body $_FirewallRule.OuterXml -extraheader $IfMatchHeader -connection $connection
+            [xml]$ruleElem = $response.Content
+            Get-NsxFirewallRule -RuleId $ruleElem.rule.id
+        }
+        catch {
+            throw "Failed to modify the specified rule.  $_"
+        }
+    }
+
     end {}
 }
 

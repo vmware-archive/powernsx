@@ -37,7 +37,7 @@ Describe "NSXManager" {
 
         #Test if required test SSO account exists in VC
         try {
-            $dummyconn = Connect-VIServer $PNSXTestVC -NotDefault -username $TestSSOAccount -Password $TestSSOPassword -ErrorAction Stop
+            Connect-VIServer $PNSXTestVC -NotDefault -username $TestSSOAccount -Password $TestSSOPassword -ErrorAction Stop | Out-Null
             $Global:SkipSSOTests = $false
         }
         catch {
@@ -83,7 +83,7 @@ Describe "NSXManager" {
         BeforeEach {
             #ensure the NSX user account is removed.
             try {
-                $result = Invoke-NsxRestMethod -method delete -uri "/api/2.0/services/usermgmt/role/$TestSSOAccount"
+                Invoke-NsxRestMethod -method delete -uri "/api/2.0/services/usermgmt/role/$TestSSOAccount" | Out-Null
             }
             catch {
                 #Do nothing
@@ -110,7 +110,7 @@ Describe "NSXManager" {
             $resourceIdElem.AppendChild($resourceNode) | out-null
 
             #make test user auditor
-            $result = Invoke-NsxRestMethod -method post -uri "/api/2.0/services/usermgmt/role/$TestSSOAccount" -body $ace.outerxml -connection $adminConnection
+            Invoke-NsxRestMethod -method post -uri "/api/2.0/services/usermgmt/role/$TestSSOAccount" -body $ace.outerxml -connection $adminConnection | Out-Null
 
             $testconn = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -DefaultConnection:$false
 
@@ -159,7 +159,7 @@ Describe "NSXManager" {
             $TimeConfig = Set-NsxManagerTimeSettings -TimeZone $TimeZone -connection $adminConnection
             $TimeConfig.timezone | should be $Timezone
             $GetTimeConfig = Get-NsxManagerTimeSettings -connection $adminConnection
-            $TimeConfig.timezone | should be $Timezone
+            $GetTimeConfig.timezone | should be $Timezone
         }
     }
 
@@ -170,7 +170,7 @@ Describe "NSXManager" {
         #Skipping due to broken behaviour on 622.
         it "Can get configured SSL Certificates" -skip {
             $certificates = Get-NsxManagerCertificate -connection $adminConnection
-            $( $certificates | measure ).count | should BeGreaterThan 0
+            $( $certificates | measure-Object ).count | should BeGreaterThan 0
             $certificates | should not be $null
         }
     }

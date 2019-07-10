@@ -7,3 +7,4 @@ module/PowerNSX.psd1
 # Ignore legacy path for module and manifest
 PowerNSX.psd1
 PowerNSX.psm1
+.DS_Store

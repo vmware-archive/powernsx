@@ -99,6 +99,13 @@ $content = Get-Content "$GalleryPath/PowerNSX/PowerNSX.psd1"
 #Generate Help Doc
 if ( Get-Module powernsx ) { remove-module powernsx }
 Import-Module ./platform/desktop/PowerNSX/PowerNSX.psd1
+
+#Invoke the doc generation via psDoc. Need to clone this submodule too.
+#New repo/clone
+#git clone --recursive https://github.com/vmware/powernsx.git
+#
+#Existing cloned repo
+#git submodule update --init --recursive
 ../psDoc/src/psDoc.ps1 -moduleName PowerNSX -template ..\psDoc\src\out-html-template.ps1 -outputDir ..\doc\
 
 Publish-Module -NuGetApiKey $NugetAPIKey -Path "$GalleryPath/PowerNSX"

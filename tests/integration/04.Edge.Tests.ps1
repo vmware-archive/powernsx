@@ -66,7 +66,7 @@ Describe "Edge" {
         $script:vnics += New-NsxEdgeInterfaceSpec -index 2 -Type internal -Name "vNic2" -ConnectedTo $lswitches[1] -PrimaryAddress $ip2 -SubnetPrefixLength 24
         $script:vnics += New-NsxEdgeInterfaceSpec -index 3 -Type trunk -Name "vNic3" -ConnectedTo $pg1
         $script:preexistingrulename = "pester_e_testrule1"
-        $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest" 
+        $edge = New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
         $edge | get-nsxedgefirewall | new-nsxedgefirewallrule -name $preexistingrulename -action accept | out-null
         $script:scopedservice = New-NsxService -scope $edge.id -Name "pester_e_scopedservice" -Protocol "TCP" -port "1234"
         $script:VersionLessThan623 = [version]$DefaultNsxConnection.Version -lt [version]"6.2.3"
@@ -87,6 +87,37 @@ Describe "Edge" {
         }
         get-vdportgroup $pg1_name | Remove-VDPortGroup -Confirm:$false
         disconnect-nsxserver
+    }
+
+    Context "Edge Status" {
+
+        BeforeAll{
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0],$vnics[1],$vnics[2] -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -Hostname "pestertest"
+            }
+        }
+
+        It "Get Edge Status" {
+            $status = Get-NsxEdge $name | Get-NsxEdgeStatus
+            $status | should not be $null
+            $status.systemStatus| should not be $null
+            $status.edgeStatus | should not be $null
+            $status.publishStatus| should not be $null
+        }
+
+        It "Get Edge Service Status" {
+            $service = Get-NsxEdge $name | Get-NsxEdgeStatus
+            $service | should not be $null
+            $service.featureStatuses.featureStatus | should not be $null
+        }
+
+        It "Get Edge Service Firewall Status" {
+            $service = Get-NsxEdge $name | Get-NsxEdgeStatus
+            $service | should not be $null
+            $service.featureStatuses.featureStatus | should not be $null
+            ($service.featureStatuses.featureStatus | where-object { $_.service -eq 'firewall' }).status | should not be $null
+        }
+
     }
 
     Context "Interfaces" {
@@ -545,15 +576,32 @@ Describe "Edge" {
         }
 
         It "Can add an edge firewall rule with deny action" {
-            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule18" -comment "testrule16"  -action deny
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule18" -comment "testrule18" -action deny
             $rule | should not be $null
             $rule.action | should be "deny"
         }
 
         It "Can add an edge firewall rule with reject action" {
-            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule19" -comment "testrule16" -action reject
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule19" -comment "testrule19" -action reject
             $rule | should not be $null
             $rule.action | should be "reject"
+        }
+
+        It "Can modifiy an edge firewall rule" {
+            $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | New-NsxEdgeFirewallRule -name "testrule20" -comment "testrule20" -action accept
+            $rule | should not be $null
+            $rule.enabled | should be "true"
+            $rule.loggingEnabled | should be "false"
+            $rule.action | should be "accept"
+            $rule.name | should be "testrule20"
+            $rule.description | should be "testrule20"
+            $rule = $rule | Set-NsxEdgeFirewallRule -name "testrule21" -comment "testrule21" -loggingEnabled $true -enabled $false -action deny
+            $rule | should not be $null
+            $rule.enabled | should be "false"
+            $rule.loggingEnabled | should be "true"
+            $rule.action | should be "deny"
+            $rule.name | should be "testrule21"
+            $rule.description | should be "testrule21"
         }
 
         It "Can disable the edge firewall" {
@@ -678,7 +726,7 @@ Describe "Edge" {
         }
     }
 
-    Context "Misc" { 
+    Context "Misc" {
 
         it "Can enable firewall via Set-NsxEdge" {
             $edge = Get-NsxEdge $name

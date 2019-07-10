@@ -79,16 +79,6 @@ Function _init {
         $script:PNsxPSTarget = "Desktop"
     }
 
-    if ( ( $script:PNsxPSTarget -eq "Core" ) -and ( $PSVersionTable.GitCommitId -notmatch '^v6.[\d].[\d]+$') ) {
-
-        if ( $PSVersionTable.GitCommitId -ne 'v6.0.0-alpha.18') {
-            write-warning "This build of PowerShell core has known issues that affect PowerNSX.  The only recommended build of PowerShell Core at this stage is alpha-18."
-            if ( $PSVersionTable.PSVersion -ne '6.0.0-alpha') {
-                throw "The PowerShell Core Beta has known issues that cause PowerNSX to fail.  Refusing to load module."
-            }
-        }
-    }
-
     ## Define class required for certificate validation override.  Version dependant.
     ## For whatever reason, this does not work when contained within a function?
     $TrustAllCertsPolicy = @"
@@ -3441,6 +3431,41 @@ function ValidateFirewallSavedConfiguration {
 
 }
 
+Function ValidateEdgeDns {
+
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) {
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name cacheSize -Membertype Properties)) {
+            throw "XML Element specified does not contain an cacheSize property."
+        }
+        if ( -not ( $argument | get-member -name listeners -Membertype Properties)) {
+            throw "XML Element specified does not contain an listeners property."
+        }
+        if ( -not ( $argument | get-member -name dnsViews -Membertype Properties)) {
+            throw "XML Element specified does not contain an dnsViews property."
+        }
+        if ( -not ( $argument | get-member -name logging -Membertype Properties)) {
+            throw "XML Element specified does not contain a logging property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) {
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Edge DNS object."
+    }
+}
+
 ##########
 ##########
 # Helper functions
@@ -6174,7 +6199,7 @@ function Set-NsxManager {
             }
             catch {
                 #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
-                $thumbprintMatch = "<details>(([A-F0-9]{2}:)+[A-F0-9]{2})<\/details>"
+                $thumbprintMatch = '[<"]details[>"]:*"*(([A-F0-9]{2}:)+[A-F0-9]{2})'
                 if (($AcceptAnyThumbprint) -and ($_ -match $thumbprintMatch))  {
                     #API responded with a thumbprint
                     write-warning "Using thumbprint presented by the SSO server: $($Matches[1])"
@@ -6216,7 +6241,7 @@ function Set-NsxManager {
             }
             catch {
                 #it sucks that at the moment I can't parse the response body as xml :(  I really need to fix this.
-                $thumbprintMatch = "<details>(([A-F0-9]{2}:)+[A-F0-9]{2})<\/details>"
+                $thumbprintMatch = '[<"]details[>"]:*"*(([A-F0-9]{2}:)+[A-F0-9]{2})'
                 if (($AcceptAnyThumbprint) -and ($_ -match $thumbprintMatch))  {
                     #API responded with a thumbprint
                     write-warning "Using thumbprint presented by the vCenter server: $($Matches[1])"
@@ -8329,7 +8354,7 @@ function New-NsxClusterVxlanConfig {
     Use New-NsxVdsContext to configure a VDS for use with NSX.
 
     If the specified cluster is not prepared with the necessary VIBs installed,
-    then installation occurs automatically.  Use Install-NsxClusterVibs to
+    then installation occurs automatically.  Use Install-NsxCluster to
     prepare a clusters hosts for use with NSX without configuring VXLAN
 
     If an IP Pool is not specified, DHCP will be used to configure the host
@@ -8588,7 +8613,8 @@ function Install-NsxCluster {
                 if ( $decision -eq 1 ) {
                     Throw "$($cluster.name) cluster preparation failed or timed out."
                 }
-                $Timer = 0            }
+                $Timer = 0
+            }
         }
 
         Write-Progress -parentid 1 -id 2 -activity "Vib Install Status: $hostprep" -completed
@@ -10081,6 +10107,79 @@ function Remove-NsxLogicalSwitch {
             write-progress -activity "Remove Logical Switch $($virtualWire.Name)" -completed
 
         }
+    }
+
+    end {}
+}
+
+function Set-NsxLogicalSwitch {
+
+    <#
+    .SYNOPSIS
+    Configure a Logical Switch
+
+    .DESCRIPTION
+    An NSX Logical Switch provides L2 connectivity to VMs attached to it.
+    A Logical Switch is 'bound' to a Transport Zone, and only hosts that are
+    members of the Transport Zone are able to host VMs connected to a Logical
+    Switch that is bound to it.  All Logical Switch operations require a
+    Transport Zone.
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalSwitch LS6 | Set-NsxLogicalSwitch -name "LS6-new"
+
+    Rename the LogicalSwitch LS6 to LS6-new
+
+    .EXAMPLE
+    Get-NsxTransportZone | Get-NsxLogicalSwitch LS6 | Set-NsxLogicalSwitch -description "My Logical Switch Number 6"
+
+    Configure LogicalSwitch LS6 Description (to My Logical Switch Number 6)
+
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateNotNullOrEmpty()]
+            [System.Xml.XmlElement]$virtualWire,
+            [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$name,
+            [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$description,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        $ObjectId = $virtualWire.ObjectId
+
+        #Clone the xml so we dont modify source...
+        $_virtualWire = $virtualWire.CloneNode($true)
+
+        if ( $PsBoundParameters.ContainsKey('name') ) {
+            $_virtualWire.name = $name
+        }
+
+        if ( $PsBoundParameters.ContainsKey('description') ) {
+            $_virtualWire.description = $description
+        }
+
+        $uri = "/api/2.0/vdn/virtualwires/$($ObjectId)"
+        $null = Invoke-NsxWebRequest -method put -Uri $uri -body $_virtualWire.OuterXml -connection $connection
+        Get-NsxlogicalSwitch -ObjectId $ObjectId
+
     }
 
     end {}
@@ -13642,7 +13741,7 @@ function New-NsxEdge {
             [System.XML.XMLElement]$xmlDnsClient = $XMLDoc.CreateElement("dnsClient")
             $xmlRoot.appendChild($xmlDnsClient) | out-null
             if ( $PsBoundParameters.ContainsKey('PrimaryDnsServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "primaryDns" -xmlElementText $PrimaryDnsServer }
-            if ( $PsBoundParameters.ContainsKey('SecondaryDNSServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "secondaryDns" -xmlElementText $SecondaryDNSServer }
+            if ( $PsBoundParameters.ContainsKey('SecondaryDnsServer') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "secondaryDns" -xmlElementText $SecondaryDNSServer }
             if ( $PsBoundParameters.ContainsKey('DNSDomainName') ) { Add-XmlElement -xmlRoot $xmlDnsClient -xmlElementName "domainName" -xmlElementText $DNSDomainName }
         }
 
@@ -13854,11 +13953,11 @@ function Remove-NsxEdge {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    This cmdlet removes the specified ESG.
-    .EXAMPLE
 
-    PS C:\> Get-NsxEdge Edge01 | Remove-NsxEdge
-        -confirm:$false
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Remove-NsxEdge -confirm:$false
+
+    This cmdlet removes the specified ESG.
 
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -13906,6 +14005,63 @@ function Remove-NsxEdge {
     end {}
 }
 
+function Get-NsxEdgeStatus {
+
+    <#
+    .SYNOPSIS
+    Retrieves NSX Edge status
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    This cmdlet retrieves NSX Edge Status.
+
+    The edgeStatus has the following possible states:
+    * GREEN: Health checks are successful, status is good.
+    * YELLOW: Intermittent health check failure. If health check fails for five
+      consecutive times for all appliances, status will turn RED.
+    * GREY: unknown status.
+    * RED: None of the appliances for this NSX Edge are in a serving state.
+
+    Get also the status (UP / Down / Applied / Not Configured) of each ESG Service (DNS,
+    Firewall, Routing, VPN...)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeStatus
+
+    Get NSX Edge Status
+
+    .EXAMPLE
+    ((Get-NsxEdge Edge01 | Get-NsxEdgeStatus).featureStatuses.featureStatus | where-object { $_.service -eq 'dns' }).status
+
+    Get only status of DNS service
+
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            [ValidateScript({ ValidateEdge $_ })]
+            [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+    process {
+
+        $URI = "/api/4.0/edges/$($Edge.Id)/status"
+        [system.xml.xmldocument]$response = invoke-nsxrestmethod -method "GET" -uri $URI -connection $connection
+        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query "child::edgeStatus")) {
+            $response.edgeStatus
+        }
+    }
+    end {}
+}
+
 function Enable-NsxEdgeSsh {
 
     <#
@@ -13924,9 +14080,9 @@ function Enable-NsxEdgeSsh {
     automatically configured to allow incoming connections.
 
     .EXAMPLE
-    Enable SSH on edge Edge01
+    Get-NsxEdge Edge01 | Enable-NsxEdgeSsh
 
-    C:\PS> Get-NsxEdge Edge01 | Enable-NsxEdgeSsh
+    Enable SSH on edge Edge01
 
     #>
     param (
@@ -13973,9 +14129,9 @@ function Disable-NsxEdgeSsh {
     This cmdlet disables the ssh server on the specified Edge Services Gateway.
 
     .EXAMPLE
-    Disable SSH on edge Edge01
+    Get-NsxEdge Edge01 | Disable-NsxEdgeSsh
 
-    C:\PS> Get-NsxEdge Edge01 | Disable-NsxEdgeSsh
+    Disable SSH on edge Edge01
 
     #>
 
@@ -14143,6 +14299,10 @@ function Get-NsxEdgeNat {
     The Get-NsxEdgeNat cmdlet retrieves the global NAT configuration of
     the specified Edge Services Gateway.
 
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat
+
+    Retrieve the global NAT configuration from ESG Edge01
     #>
 
     param (
@@ -14188,6 +14348,11 @@ function Get-NsxEdgeNatRule {
 
     The Get-NsxEdgeNatRule cmdlet retrieves the nat rules from the
     nat configuration specified.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | Get-NsxEdgeNatRule
+
+    Retrieve the NAT rules from ESG Edge01
 
     #>
 
@@ -14257,6 +14422,49 @@ function New-NsxEdgeNatRule {
     The New-NsxEdgeNatRule cmdlet creates a new NAT rule in the nat
     configuration specified.
 
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action snat -OriginalAddress 192.168.44.0/24 -TranslatedAddress 198.51.100.1
+
+    Add Source NAT from Original Address 192.168.44.0/24 with Translated Address 198.51.100.1
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action snat -OriginalAddress 192.168.23.0/24 -TranslatedAddress 198.51.100.2 -vnic 0 -LoggingEnabled -Enabled
+
+    Add Source NAT from Original Address 192.168.23.0/24 with Translated Address 198.51.100.2 on vnic 0 with Logging
+
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action dnat -OriginalAddress 198.51.100.1 -TranslatedAddress 192.168.44.1
+
+    Add Destination NAT from Original Address 198.51.100.1 with Translated Address 192.168.44.1 (All ports)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action dnat -OriginalAddress 198.51.100.2 -TranslatedAddress 192.168.23.1 -Protocol tcp -OriginalPort 22
+
+    Add Destination NAT from Original Address 198.51.100.2 with Translated Address 192.168.23.1 with tcp port 22
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action dnat -OriginalAddress 198.51.100.3 -TranslatedAddress 192.168.23.2 -Protocol tcp -OriginalPort 2222 -TranslatedPort 22
+
+    Add Destination NAT from Original Address 198.51.100.3 with Translated Address 192.168.23.2 with tcp port 2222 to translated Port 22
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action dnat -OriginalAddress 198.51.100.4 -TranslatedAddress 192.168.23.4 -Protocol icmp -icmptype 8 -description "dnat with only icmptype 8"
+
+    Add Destination NAT from Original Address 198.51.100.4 with Translated Address 192.168.23.4 with protocol icmp and icmp type 8 (icmp request) with a description
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | New-NsxEdgeNatRule -action snat -OriginalAddress 192.168.44.0/24 -TranslatedAddress 198.51.100.1 -protocol tcp -snatMatchDestinationAddress 192.168.23.0/24 -snatMatchDestinationPort 22
+
+    Add Source NAT from Original Address 192.168.44.0/24 with Translated Address 198.51.100.1 and Match Destination Address 192.168.23.0/24 on Match Destination Port 22
+    Need NSX >= 6.3.0
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNat | new-nsxedgenatrule -action dnat -OriginalAddress 198.51.100.1 -TranslatedAddress 192.168.23.1 -protocol tcp -dnatMatchSourceAddress 192.168.44.0/24 -dnatMatchSourcePort 1024
+
+    Add Destination NAT from Original Address 198.51.100.1 with Translated Address 192.168.23.1 and Match Source Address 192.168.44.0/24 on Match Source Port 1024
+    Need NSX >= 6.3.0
+
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -14289,6 +14497,14 @@ function New-NsxEdgeNatRule {
             [string]$TranslatedPort,
         [Parameter (Mandatory=$false)]
             [string]$IcmpType,
+        [Parameter (Mandatory=$false)]
+            [string]$dnatMatchSourceAddress,
+        [Parameter (Mandatory=$false)]
+            [string]$snatMatchDestinationAddress,
+        [Parameter (Mandatory=$false)]
+            [string]$dnatMatchSourcePort,
+        [Parameter (Mandatory=$false)]
+            [string]$snatMatchDestinationPort,
         [Parameter (Mandatory=$false)]
             [int]$AboveRuleId,
         [Parameter (Mandatory=$False)]
@@ -14351,6 +14567,43 @@ function New-NsxEdgeNatRule {
             Add-XmlElement -xmlRoot $Rule -xmlElementName "icmpType" -xmlElementText $IcmpType.ToString()
         }
 
+        if ( $PsBoundParameters.ContainsKey('dnatMatchSourceAddress') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option dnatMatchSourceAddress requires at least NSX version 6.3.0"
+            }
+            else {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "dnatMatchSourceAddress" -xmlElementText $dnatMatchSourceAddress.ToString()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('snatMatchDestinationAddress') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option snatMatchDestinationAddress requires at least NSX version 6.3.0"
+            }
+            else {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "snatMatchDestinationAddress" -xmlElementText $snatMatchDestinationAddress.ToString()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('dnatMatchSourcePort') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option dnatMatchSourcePort requires at least NSX version 6.3.0"
+            }
+            else {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "dnatMatchSourcePort" -xmlElementText $dnatMatchSourcePort.ToString()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('snatMatchDestinationPort') ) {
+            if ( [version]$Connection.Version -lt [version]"6.3.0") {
+                write-warning "The option snatMatchDestinationPort requires at least NSX version 6.3.0"
+            }
+            else {
+                Add-XmlElement -xmlRoot $Rule -xmlElementName "snatMatchDestinationPort" -xmlElementText $snatMatchDestinationPort.ToString()
+            }
+        }
+
+
         if ( -not $PsBoundParameters.ContainsKey('AboveRuleId') ) {
             $body = $Rules.OuterXml
         }
@@ -14390,6 +14643,22 @@ function Remove-NsxEdgeNatRule {
     Rules to be removed can be constructed via a PoSH pipline filter outputing
     rule objects as produced by Get-NsxEdgeNatRule and passing them on the
     pipeline to Remove-NsxEdgeNatRule.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNatRule | Remove-NsxEdgenatRule
+
+    Remove all NAT rule with confirmation
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeNatRule | Remove-NsxEdgenatRule -confirm:$false
+
+    Remove all NAT rule without confirmation
+
+    .EXAMPLE
+    $rule = get-NsxEdge Edge01 | get-NsxEdgeNat | get-NsxEdgeNatRule -RuleId 196614
+    PS C:\>$rule | Remove-NsxEdgeNatRule -confirm:$false
+
+    Remove the NAT rule 196614 without confirmation
 
     #>
 
@@ -15009,7 +15278,124 @@ function New-NsxEdgeFirewallRule {
 
     end {}
 }
+function Set-NsxEdgeFirewallRule {
 
+    <#
+    .SYNOPSIS
+    Set configuration for a Firewall Rule from the specified ESGs FirewallRule configuration.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    The NSX Edge provides layer 3/4 firewall services to protect connected
+    networks.  the Edge firewall is separate from, and can be used to
+    complement the NSX distributed firewall.
+
+    This cmdlet accepts a Edge firewall rule object returned from Get-NsxEdgeFirewallRule
+    and set configuration (disabled, name, action...)
+
+
+    .EXAMPLE
+    Get-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -enabled:$false
+
+    Disabled the RuleId 1007 of NSX Edge 01
+
+    .EXAMPLE
+    GGet-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -loggingEnabled:$true
+
+    Enable logging on the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -name "My Edge Firewall Rule"
+
+    Set/Update the name of the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -comment "My comment on this Edge Firewall Rule"
+
+    Set/Update the description of the RuleId 1007
+
+    .EXAMPLE
+    Get-NsxEdge 01 | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -Ruleid 1007 | Set-NsxEdgeFirewallRule -action deny
+
+    Change action to deny to RuleId 1007
+    #>
+
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true)]
+            # Edge FW rule as returned by Get-NsxEdgeFirewallRule / New-NsxEdgeFirewallRule
+            [ValidateScript({ ValidateEdgeFwRule $_ })]
+            [System.Xml.XmlElement]$FirewallRule,
+        [Parameter (Mandatory=$false)]
+            [boolean]$enabled,
+        [Parameter (Mandatory=$false)]
+            [boolean]$loggingEnabled,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$name,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$comment,
+        [Parameter (Mandatory=$false)]
+            [ValidateSet("Accept", "Deny", "Reject")]
+            [string]$action,
+        [Parameter (Mandatory=$false)]
+            #PowerNSX Connection object.
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {}
+
+    process {
+
+        $ruleId = $FirewallRule.Id
+
+        #Clone the xml so we dont modify source...
+        $_FirewallRule = $FirewallRule.CloneNode($true)
+
+        $edgeId = $FirewallRule.edgeId
+        $_FirewallRule.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_FirewallRule -Query 'descendant::edgeId')) ) | out-null
+
+        if ( $PsBoundParameters.ContainsKey('enabled') ) {
+            $_FirewallRule.enabled = $enabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('loggingEnabled') ) {
+            $_FirewallRule.loggingEnabled = $loggingEnabled.ToString().ToLower()
+        }
+
+        if ( $PsBoundParameters.ContainsKey('name') ) {
+            $_FirewallRule.name = $name
+        }
+
+        if ( $PsBoundParameters.ContainsKey('comment') ) {
+            $_FirewallRule.description = $comment
+        }
+
+        if ( $PsBoundParameters.ContainsKey('action') ) {
+            $_FirewallRule.action = $action
+        }
+
+        $URI = "/api/4.0/edges/$EdgeId/firewall/config/rules/$ruleId"
+
+        try {
+            $response = Invoke-NsxWebRequest -method put -Uri $uri -body $_FirewallRule.OuterXml -connection $connection
+            [xml]$ruleElem = $response.Content
+            Get-NsxEdge -Object $EdgeId | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule -RuleId $ruleId
+        }
+        catch {
+            throw "Failed to modify the specified rule.  $_"
+        }
+    }
+
+    end {}
+}
 function Remove-NsxEdgeFirewallRule {
 
     <#
@@ -16733,6 +17119,88 @@ function Remove-NsxSslVpnClientInstallationPackage {
     end {}
 }
 
+
+function Remove-NsxSslVpn {
+
+    <#
+    .SYNOPSIS
+    Remove the global SSLVPN configuration of an existing NSX Edge Services
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability. Each NSX Edge virtual
+    appliance can have a total of ten uplink and internal network interfaces and
+    up to 200 subinterfaces.  Multiple external IP addresses can be configured
+    for load balancer, site‐to‐site VPN, and NAT services.
+
+    SSL VPN allows remote users to connect securely to private networks behind an
+    NSX Edge Services gateway and access servers and applications
+    in the private networks.
+
+    The Remove-NsxSslVpn cmdlet unconfigures the global SSLVPN configuration of
+    the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxSslVpn | Remove-NsxSslVpn
+
+    Remove all NSX SSL VPN configuration with confirmation
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxSslVpn | Remove-NsxSslVpn -NoConfirm:$true
+
+    Remove all NSX SSL VPN configuration without confirmation
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #NSX Edge SslVpn to remove
+            [ValidateScript({ ValidateEdgeSslVpn $_ })]
+            [System.Xml.XmlElement]$SslVpn,
+        [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
+    }
+
+    process {
+        $edgeId = $SslVpn.edgeId
+        if ( -not ( $Noconfirm )) {
+            $message  = "Edge SslVpn removal is permanent."
+            $question = "Proceed with removal of Edge SslVpn $($EdgeId) ?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/edges/$($EdgeId)/sslvpn/config"
+            Write-Progress -activity "Remove SSL VPN for Edge $($EdgeId)"
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            Write-Progress -activity "Remove SSL VPN for Edge $($EdgeId)" -completed
+        }
+    }
+
+    end {}
+}
+
 #########
 #########
 # Edge Routing related functions
@@ -17314,13 +17782,14 @@ function Remove-NsxEdgeStaticRoute {
     pipeline to Remove-NsxEdgeStaticRoute.
 
     .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxEdgeStaticRoute
+
     Remove a route to 1.1.1.0/24 via 10.0.0.100 from ESG Edge01
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' -and $_.nextHop -eq '10.0.0.100' } | Remove-NsxEdgeStaticRoute
 
     .EXAMPLE
-    Remove all routes to 1.1.1.0/24 from ESG Edge01
-    PS C:\> Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' } | Remove-NsxEdgeStaticRoute
+    Get-NsxEdge Edge01 | Get-NsxEdgeRouting | Get-NsxEdgeStaticRoute | where-object { $_.network -eq '1.1.1.0/24' } | Remove-NsxEdgeStaticRoute
 
+    Remove all routes to 1.1.1.0/24 from ESG Edge01
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -17799,9 +18268,9 @@ function Set-NsxEdgeBgp {
         }
 
         # Check bgp enablement
-            if ($PsBoundParameters.ContainsKey('EnableBGP')) {
-                # BGP option is specified
-                if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
+        if ($PsBoundParameters.ContainsKey('EnableBGP')) {
+            # BGP option is specified
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::enabled')) {
                 #Enabled element exists.  Update it.
                 $bgp.enabled = $EnableBGP.ToString().ToLower()
             }
@@ -17834,64 +18303,64 @@ function Set-NsxEdgeBgp {
 
             if ($PsBoundParameters.ContainsKey("RouterId")) {
             #Set Routerid...
-            if ($xmlRouterId) {
-                $xmlRouterId = $RouterId.IPAddresstoString
+                if ($xmlRouterId) {
+                    $xmlRouterId = $RouterId.IPAddresstoString
+                }
+                else{
+                    Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+                }
             }
-            else{
-                Add-XmlElement -xmlRoot $xmlGlobalConfig -xmlElementName "routerId" -xmlElementText $RouterId.IPAddresstoString
+        }
+
+        if ( $PsBoundParameters.ContainsKey("LocalAS")) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) {
+                #LocalAS element exists, update it.
+                $bgp.localAS = $LocalAS.ToString()
+            }
+            else {
+                #LocalAS element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
             }
         }
-    }
-
-    if ( $PsBoundParameters.ContainsKey("LocalAS")) {
-        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) {
-            #LocalAS element exists, update it.
-            $bgp.localAS = $LocalAS.ToString()
+        elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) -and $EnableBGP  )) {
+            throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
         }
-        else {
-            #LocalAS element does not exist...
-            Add-XmlElement -xmlRoot $bgp -xmlElementName "localAS" -xmlElementText $LocalAS.ToString()
-        }
-    }
-    elseif ( (-not ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::localAS')) -and $EnableBGP  )) {
-        throw "Existing configuration has no Local AS number specified.  Local AS must be set to enable BGP."
-    }
 
-    if ( $PsBoundParameters.ContainsKey("GracefulRestart")) {
-        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::gracefulRestart')) {
-            #element exists, update it.
-            $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
+        if ( $PsBoundParameters.ContainsKey("GracefulRestart")) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::gracefulRestart')) {
+                #element exists, update it.
+                $bgp.gracefulRestart = $GracefulRestart.ToString().ToLower()
+            }
+            else {
+                #element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+            }
         }
-        else {
-            #element does not exist...
-            Add-XmlElement -xmlRoot $bgp -xmlElementName "gracefulRestart" -xmlElementText $GracefulRestart.ToString().ToLower()
+
+        if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::defaultOriginate')) {
+                #element exists, update it.
+                $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+            }
+            else {
+                #element does not exist...
+                Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
+            }
         }
-    }
 
-    if ( $PsBoundParameters.ContainsKey("DefaultOriginate")) {
-        if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $bgp -Query 'descendant::defaultOriginate')) {
-            #element exists, update it.
-            $bgp.defaultOriginate = $DefaultOriginate.ToString().ToLower()
+        $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
+        $body = $_EdgeRouting.OuterXml
+
+        if ( $confirm ) {
+            $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
+            $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
         }
-        else {
-            #element does not exist...
-            Add-XmlElement -xmlRoot $bgp -xmlElementName "defaultOriginate" -xmlElementText $DefaultOriginate.ToString().ToLower()
-        }
-    }
-
-    $URI = "/api/4.0/edges/$($EdgeId)/routing/config"
-    $body = $_EdgeRouting.OuterXml
-
-    if ( $confirm ) {
-        $message  = "Edge Services Gateway routing update will modify existing Edge configuration."
-        $question = "Proceed with Update of Edge Services Gateway $($EdgeId)?"
-        $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
-        $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
-
-        $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
-    }
-    else { $decision = 0 }
+        else { $decision = 0 }
         if ($decision -eq 0) {
             Write-Progress -activity "Update Edge Services Gateway $($EdgeId)"
             $null = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
@@ -19912,10 +20381,9 @@ function New-NsxLogicalRouterStaticRoute {
     configuration of the specified LogicalRouter.
 
     .EXAMPLE
-    Add a new static route to LogicalRouter LogicalRouter01 for 1.1.1.0/24 via 10.0.0.200
-
     PS C:\> Get-NsxLogicalRouter LogicalRouter01 | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterStaticRoute -Network 1.1.1.0/24 -NextHop 10.0.0.200
 
+    Add a new static route to LogicalRouter LogicalRouter01 for 1.1.1.0/24 via 10.0.0.200
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -24737,9 +25205,9 @@ function Get-NsxSecurityTagAssignment {
                     [System.Xml.XmlDocument]$oRestResponse = Invoke-NsxRestMethod -Method "GET" -Uri $URI -Connection $connection
                     ## for each SecurityTag object in .securityTags property of the response (if any), return a new object with SecurityTag and VirtualMachine properties (in the same way that the by-Tag parameterset behaves)
                     if (-not [System.String]::IsNullOrEmpty($oRestResponse.securityTags)) {
-                        $oRestResponse.securityTags | Foreach-Object {
+                        $oRestResponse.securityTags.securityTag | Foreach-Object {
                             [pscustomobject]@{
-                                "SecurityTag" = $_.securityTag
+                                "SecurityTag" = $_
                                 "VirtualMachine" = $oThisVM
                             } ## end new-object
                         } ## end new-object
@@ -30986,7 +31454,7 @@ function Add-NsxLoadBalancerPoolMember {
 
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "weight" -xmlElementText $Weight
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "port" -xmlElementText $port
-        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $port
+        Add-XmlElement -xmlRoot $xmlMember -xmlElementName "monitorPort" -xmlElementText $monitorPort
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "minConn" -xmlElementText $MinimumConnections
         Add-XmlElement -xmlRoot $xmlMember -xmlElementName "maxConn" -xmlElementText $MaximumConnections
 
@@ -36467,5 +36935,280 @@ function Copy-NsxEdge{
     end {}
 }
 
+function Get-NsxDns {
+
+    <#
+    .SYNOPSIS
+    Retrieves the DNS configuration from a specified Edge.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    The NSX Edge DNS add DNS server (relay) on the Edge
+
+    This cmdlet retrieves the DNS configuration from a specified Edge.
+    .EXAMPLE
+
+    PS C:\> Get-NsxEdge edge01 | Get-NsxDns
+
+    #>
+
+    [CmdLetBinding(DefaultParameterSetName="Name")]
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateEdge $_ })]
+            [System.Xml.XmlElement]$Edge
+    )
+
+    begin {}
+
+    process {
+        $_DNS = $Edge.features.dns.CloneNode($True)
+        Add-XmlElement -xmlRoot $_DNS -xmlElementName "edgeId" -xmlElementText $Edge.Id
+        $_DNS
+    }
+
+}
+
+function Set-NsxDns {
+
+    <#
+    .SYNOPSIS
+    Configures an NSX DNS.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    The NSX Edge DNS add DNS server (relay) on the Edge
+
+    This cmdlet sets the basic DNS configuration of an NSX Edge.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxDns | Set-NsxDns -Enabled
+
+    Enabled the DNS server on ESG
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxDns | Set-NsxDns -Enabled:$false
+
+    Disabled the DNS server on ESG
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxDns | Set-NsxDns -DNSServer 192.0.2.2
+
+    Set the DNS Server to 192.0.2.2
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxDns | Set-NsxDns -CacheSize 32
+
+    Change DNS Cache Size to 32 (Mb)
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Set-NsxDNS -EnableLogging
+
+    Enabled DNS traffic logs.
+
+    .EXAMPLE
+
+    Get-NsxEdge Edge01 | Get-NsxLoadBalancer | Set-NsxDNS -LogLevel debug
+
+    Choose the log level (emergency, alert, critical, error, warning, notice, info, debug)
+    of DNS logs.
+
+    #>
+
+    param (
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            [ValidateScript({ ValidateEdgeDNS $_ })]
+            [System.Xml.XmlElement]$DNS,
+        [Parameter (Mandatory=$False)]
+            [switch]$Enabled,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [ipaddress[]]$DNSServer,
+        [Parameter (Mandatory=$False)]
+            [ValidateRange(1,8196)]
+            [int]$CacheSize,
+        [Parameter (Mandatory=$False)]
+            [ValidateNotNullOrEmpty()]
+            [switch]$EnableLogging,
+        [Parameter (Mandatory=$False)]
+            [ValidateSet("emergency","alert","critical","error","warning","notice","info","debug")]
+            [string]$LogLevel,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin { }
+
+    process {
+        #Create private xml element
+        $_Dns = $DNS.CloneNode($true)
+
+        #Store the edgeId and remove it from the XML as we need to post it...
+        $edgeId = $_Dns.edgeId
+        $_Dns.RemoveChild( $((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Dns -Query 'descendant::edgeId')) ) | out-null
+
+        #Using PSBoundParamters.ContainsKey lets us know if the user called us with a given parameter.
+        #If the user did not specify a given parameter, we dont want to modify from the existing value.
+
+        if ( $PsBoundParameters.ContainsKey('Enabled') ) {
+            if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::enabled" ) {
+                $_Dns.enabled = $Enabled.ToString().ToLower()
+            } else {
+                Add-XmlElement -xmlroot  $_Dns -xmlElementName "enabled" -xmlElementText $Enabled.ToString().ToLower()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('CacheSize') ) {
+            if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::cacheSize" ) {
+                $_Dns.CacheSize = $CacheSize.ToString()
+            } else {
+                Add-XmlElement -xmlroot  $_Dns -xmlElementName "cacheSize" -xmlElementText $CacheSize.ToString()
+            }
+        }
+
+        if ( Invoke-XpathQuery -Node $_Dns -QueryMethod SelectSingleNode -query "child::dnsViews/dnsView") {
+            if ( $PSBoundParameters.ContainsKey("DNSServer")) {
+                if ( Invoke-XpathQuery -Node $_Dns -QueryMethod SelectSingleNode -query "child::dnsViews/dnsView/forwarders" ) {
+
+                    write-warning "Existing DNS servers configured are removed"
+
+                    #Remove DNS Server list...
+                    $_Dns.dnsViews.dnsview.RemoveChild((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Dns -Query 'child::dnsViews/dnsView/forwarders')) | out-null
+                    [System.XML.XMLElement]$xmlDNSlist = $_Dns.OwnerDocument.CreateElement('forwarders')
+                    $_Dns.dnsViews.dnsView.Appendchild($xmlDNSlist) | out-null
+
+                    #Add list of new DNS Server
+                    foreach ($Server in $DNSServer) {
+                        Add-XmlElement -xmlRoot $xmlDNSlist -xmlElementName "ipAddress" -xmlElementText $Server.ToString()
+                    }
+                }
+                else {
+
+                    [System.XML.XMLElement]$xmlDNSlist = $_Dns.OwnerDocument.CreateElement('forwarders')
+                    $_Dns.dnsViews.dnsView.Appendchild($xmlDNSlist) | out-null
+                    foreach ($Server in $DNSServer) {
+                        Add-XmlElement -xmlRoot $xmlDNSlist -xmlElementName "ipAddress" -xmlElementText $Server.ToString()
+                    }
+                }
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('EnableLogging') ) {
+            if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::logging/enable" ) {
+                $_Dns.logging.enable = $EnableLogging.ToString().ToLower()
+            } else {
+                Add-XmlElement -xmlroot  $_Dns -xmlElementName "enable" -xmlElementText $EnableLogging
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('LogLevel') ) {
+            if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::logging/logLevel" ) {
+                $_Dns.logging.LogLevel = $LogLevel
+            } else {
+                Add-XmlElement -xmlroot  $_Dns -xmlElementName "logLevel" -xmlElementText $LogLevel
+            }
+        }
+
+        $URI = "/api/4.0/edges/$($edgeId)/dns/config"
+        $body = $_Dns.OuterXml
+
+        Write-Progress -activity "Update Edge Services Gateway $($edgeId)"
+        $response = invoke-nsxwebrequest -method "put" -uri $URI -body $body -connection $connection
+        Write-Progress -activity "Update Edge Services Gateway $($edgeId)" -completed
+        Get-NsxEdge -objectId $($edgeId)  -connection $connection | Get-NsxDns
+    }
+
+    end{ }
+}
+
+function Remove-NsxDns {
+
+    <#
+
+    .SYNOPSIS
+    Remove the global DNS configuration of an existing NSX Edge Services
+    Gateway.
+
+    .DESCRIPTION
+    An NSX Edge Service Gateway provides all NSX Edge services such as firewall,
+    NAT, DHCP, VPN, load balancing, and high availability.
+
+    The NSX Edge DNS add DNS server (relay) on the Edge
+
+    The Remove-NsxDns cmdlet unconfigures the global DNS configuration of
+    the specified Edge Services Gateway.
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxDNS | Remove-NsxDns
+
+    Remove all NSX DNS configuration with confirmation
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Get-NsxDNS | Remove-NsxDns -NoConfirm:$true
+
+    Remove all NSX DNS configuration without confirmation
+
+    #>
+
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
+    [CmdletBinding(DefaultParameterSetName="Default")]
+    param (
+
+        [Parameter (Mandatory=$true,ValueFromPipeline=$true,Position=1)]
+            #NSX Edge DNS to remove
+            [ValidateScript({ ValidateEdgeDNS $_ })]
+            [System.Xml.XmlElement]$DNS,
+        [Parameter (Mandatory=$False, ParameterSetName="LegacyConfirm")]
+            #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+            [switch]$Confirm=$true,
+        [Parameter (Mandatory=$False, ParameterSetName="Default")]
+            #Disable Prompt for confirmation.
+            [switch]$NoConfirm,
+        [Parameter (Mandatory=$False)]
+            #PowerNSX Connection object
+            [ValidateNotNullOrEmpty()]
+            [PSCustomObject]$Connection=$defaultNSXConnection
+    )
+
+    begin {
+        If ( $PSCmdlet.ParameterSetName -eq "LegacyConfirm") {
+            write-warning "The -confirm switch is deprecated and will be removed in a future release.  Use -NoConfirm instead."
+            $NoConfirm = ( -not $confirm )
+        }
+    }
+
+    process {
+        $edgeId = $DNS.edgeId
+        if ( -not ( $Noconfirm )) {
+            $message  = "Edge DNS removal is permanent."
+            $question = "Proceed with removal of Edge DNS $($EdgeId) ?"
+            $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+            $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+            $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+        }
+        else { $decision = 0 }
+        if ($decision -eq 0) {
+            $URI = "/api/4.0/edges/$($EdgeId)/dns/config"
+            Write-Progress -activity "Remove DNS for Edge $($EdgeId)"
+            $null = invoke-nsxwebrequest -method "delete" -uri $URI -connection $connection
+            Write-Progress -activity "Remove DNS for Edge $($EdgeId)" -completed
+        }
+    }
+
+    end {}
+}
 #Call Init function
 _init
