@@ -324,7 +324,10 @@ $FunctionsToExport = @(
     'Get-NsxLogicalRouterBridge',
     'Remove-NsxLogicalRouterBridge',
     'Remove-NsxEdgeCsr',
-    'Get-NsxIPsecStats'
+    'Get-NsxIPsecStats',
+    'Get-NsxDns',
+    'Set-NsxDns',
+    'Remove-NsxDns'
 )
 
 #Manifest settings that are common to all platforms.
