@@ -13918,11 +13918,11 @@ function Remove-NsxEdge {
     up to 200 subinterfaces.  Multiple external IP addresses can be configured
     for load balancer, site‐to‐site VPN, and NAT services.
 
-    This cmdlet removes the specified ESG.
-    .EXAMPLE
 
-    PS C:\> Get-NsxEdge Edge01 | Remove-NsxEdge
-        -confirm:$false
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Remove-NsxEdge -confirm:$false
+
+    This cmdlet removes the specified ESG.
 
     #>
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -13988,9 +13988,9 @@ function Enable-NsxEdgeSsh {
     automatically configured to allow incoming connections.
 
     .EXAMPLE
-    Enable SSH on edge Edge01
+    Get-NsxEdge Edge01 | Enable-NsxEdgeSsh
 
-    C:\PS> Get-NsxEdge Edge01 | Enable-NsxEdgeSsh
+    Enable SSH on edge Edge01
 
     #>
     param (
@@ -14037,9 +14037,9 @@ function Disable-NsxEdgeSsh {
     This cmdlet disables the ssh server on the specified Edge Services Gateway.
 
     .EXAMPLE
-    Disable SSH on edge Edge01
+    Get-NsxEdge Edge01 | Disable-NsxEdgeSsh
 
-    C:\PS> Get-NsxEdge Edge01 | Disable-NsxEdgeSsh
+    Disable SSH on edge Edge01
 
     #>
 
