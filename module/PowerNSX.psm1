@@ -36421,7 +36421,7 @@ function Set-NsxDns {
 
         if ( $PsBoundParameters.ContainsKey('CacheSize') ) {
             if ( invoke-xpathquery -node $_Dns -querymethod SelectSingleNode -Query "child::cacheSize" ) {
-                $_Dns.CacheSize = $CacheSize
+                $_Dns.CacheSize = $CacheSize.ToString()
             } else {
                 Add-XmlElement -xmlroot  $_Dns -xmlElementName "cacheSize" -xmlElementText $CacheSize.ToString()
             }
