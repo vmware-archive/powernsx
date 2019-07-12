@@ -89,12 +89,14 @@ Describe "Edge IPsec" {
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid1 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId peerid1 -peerIP 2.2.2.2 -peerSubnet 198.51.100.0/24 -psk VMware1!
             #Check IPsec site config
             $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
-            $ipsec.sites.site.localid | should be "localid1"
-            $ipsec.sites.site.localip | should be "1.1.1.1"
-            $ipsec.sites.site.localSubnets.subnet | should be "192.0.2.0/24"
-            $ipsec.sites.site.peerid | should be "peerid1"
-            $ipsec.sites.site.peerip | should be "2.2.2.2"
-            $ipsec.sites.site.peerSubnets.subnet | should be "198.51.100.0/24"
+            $ipsecSite1 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid1}
+            $ipsecSite1 | Should not be $null
+            $ipsecSite1.localid | should be "localid1"
+            $ipsecSite1.localip | should be "1.1.1.1"
+            $ipsecSite1.localSubnets -contains "192.0.2.0/24" | should be true
+            $ipsecSite1.peerid | should be "peerid1"
+            $ipsecSite1.peerip | should be "2.2.2.2"
+            $ipsecSite1.peerSubnets -contains "198.51.100.0/24" | should be true
         }
 
         it "Enable IPsec Server" {
@@ -109,15 +111,17 @@ Describe "Edge IPsec" {
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid2 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId peerid2 -peerIP 3.3.3.3 -peerSubnet 203.0.113.0/24 -psk VMware1! -enablepfs:$false -dhgroup dh2 -encryptionAlgorithm AES256
             #Check IPsec (second) site config
             $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
-            $ipsec.sites.site.localid[0] | should be "localid2"
-            $ipsec.sites.site.localip[0] | should be "1.1.1.1"
-            $ipsec.sites.site.localSubnets[0].subnet | should be "192.0.2.0/24"
-            $ipsec.sites.site.peerid[0] | should be "peerid2"
-            $ipsec.sites.site.peerip[0] | should be "3.3.3.3"
-            $ipsec.sites.site.peerSubnets[0].subnet | should be "203.0.113.0/24"
-            $ipsec.sites.site.enablePfs[0] | should be "false"
-            $ipsec.sites.site.dhgroup[0] | should be "dh2"
-            $ipsec.sites.site.encryptionAlgorithm[0] | should be "AES256"
+            $ipsecSite2 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid2}
+            $ipsecSite2 | Should not be $null
+            $ipsecSite2.localid | should be "localid2"
+            $ipsecSite2.localip | should be "1.1.1.1"
+            $ipsecSite2.localSubnets -contains "192.0.2.0/24" | should be true
+            $ipsecSite2.peerid | should be "peerid2"
+            $ipsecSite2.peerip | should be "3.3.3.3"
+            $ipsecSite2.peerSubnets -contains "203.0.113.0/24" | should be true
+            $ipsecSite2.enablePfs | should be "false"
+            $ipsecSite2.dhgroup | should be "dh2"
+            $ipsecSite2.encryptionAlgorithm | should be "AES256"
         }
 
         it "Config global IPsec settings" {
@@ -132,13 +136,17 @@ Describe "Edge IPsec" {
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid3 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId cn=peerid -peerIP 4.4.4.4 -peerSubnet 192.168.44.0/24 -authenticationMode x.509
             #Check IPsec (second) site config
             $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
-            $ipsec.sites.site.localid[0] | should be "localid3"
-            $ipsec.sites.site.localip[0] | should be "1.1.1.1"
-            $ipsec.sites.site.localSubnets[0].subnet | should be "192.0.2.0/24"
-            $ipsec.sites.site.peerid[0] | should be "cn=peerid"
-            $ipsec.sites.site.peerip[0] | should be "4.4.4.4"
-            $ipsec.sites.site.peerSubnets[0].subnet | should be "192.168.44.0/24"
-            $ipsec.sites.site.authenticationMode[0] | should be "x.509"
+            $ipsecSite3 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid3}
+            $ipsecSite3 | Should not be $null
+            $ipsecSite3.localid | should be "localid3"
+            $ipsecSite3.localip | should be "1.1.1.1"
+            $ipsecSite3.localSubnets -contains "192.0.2.0/24" | should be true
+            $ipsecSite3.peerid | should be "cn=peerid"
+            $ipsecSite3.peerip | should be "4.4.4.4"
+            $ipsecSite3.peerSubnets -contains "192.168.44.0/24" | should be true
+            $ipsecSite3.enablePfs | should be "false"
+            $ipsecSite3.dhgroup | should be "dh2"
+            $ipsecSite3.authenticationMode | should be "x.509"
         }
 
         it "Remove IPsec Config" {
