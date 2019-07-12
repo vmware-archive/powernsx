@@ -89,7 +89,7 @@ Describe "Edge IPsec" {
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid1 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId peerid1 -peerIP 2.2.2.2 -peerSubnet 198.51.100.0/24 -psk VMware1!
             #Check IPsec site config
             $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
-            $ipsecSite1 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid1}
+            $ipsecSite1 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid1"}
             $ipsecSite1 | Should not be $null
             $ipsecSite1.localid | should be "localid1"
             $ipsecSite1.localip | should be "1.1.1.1"
@@ -111,7 +111,7 @@ Describe "Edge IPsec" {
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid2 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId peerid2 -peerIP 3.3.3.3 -peerSubnet 203.0.113.0/24 -psk VMware1! -enablepfs:$false -dhgroup dh2 -encryptionAlgorithm AES256
             #Check IPsec (second) site config
             $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
-            $ipsecSite2 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid2}
+            $ipsecSite2 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid2"}
             $ipsecSite2 | Should not be $null
             $ipsecSite2.localid | should be "localid2"
             $ipsecSite2.localip | should be "1.1.1.1"
@@ -136,7 +136,7 @@ Describe "Edge IPsec" {
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid3 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId cn=peerid -peerIP 4.4.4.4 -peerSubnet 192.168.44.0/24 -authenticationMode x.509
             #Check IPsec (second) site config
             $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
-            $ipsecSite3 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid3}
+            $ipsecSite3 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid3"}
             $ipsecSite3 | Should not be $null
             $ipsecSite3.localid | should be "localid3"
             $ipsecSite3.localip | should be "1.1.1.1"
