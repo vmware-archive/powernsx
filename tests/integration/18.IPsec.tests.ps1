@@ -93,10 +93,10 @@ Describe "Edge IPsec" {
             $ipsecSite1 | Should not be $null
             $ipsecSite1.localid | should be "localid1"
             $ipsecSite1.localip | should be "1.1.1.1"
-            $ipsecSite1.localSubnets -contains "192.0.2.0/24" | should be true
+            $ipsecSite1.localSubnets.subnet -contains "192.0.2.0/24" | should be true
             $ipsecSite1.peerid | should be "peerid1"
             $ipsecSite1.peerip | should be "2.2.2.2"
-            $ipsecSite1.peerSubnets -contains "198.51.100.0/24" | should be true
+            $ipsecSite1.peerSubnets.subnet -contains "198.51.100.0/24" | should be true
         }
 
         it "Enable IPsec Server" {
@@ -115,10 +115,10 @@ Describe "Edge IPsec" {
             $ipsecSite2 | Should not be $null
             $ipsecSite2.localid | should be "localid2"
             $ipsecSite2.localip | should be "1.1.1.1"
-            $ipsecSite2.localSubnets -contains "192.0.2.0/24" | should be true
+            $ipsecSite2.localSubnets.subnet -contains "192.0.2.0/24" | should be true
             $ipsecSite2.peerid | should be "peerid2"
             $ipsecSite2.peerip | should be "3.3.3.3"
-            $ipsecSite2.peerSubnets -contains "203.0.113.0/24" | should be true
+            $ipsecSite2.peerSubnets.subnet -contains "203.0.113.0/24" | should be true
             $ipsecSite2.enablePfs | should be "false"
             $ipsecSite2.dhgroup | should be "dh2"
             $ipsecSite2.encryptionAlgorithm | should be "AES256"
@@ -140,10 +140,10 @@ Describe "Edge IPsec" {
             $ipsecSite3 | Should not be $null
             $ipsecSite3.localid | should be "localid3"
             $ipsecSite3.localip | should be "1.1.1.1"
-            $ipsecSite3.localSubnets -contains "192.0.2.0/24" | should be true
+            $ipsecSite3.localSubnets.subnet -contains "192.0.2.0/24" | should be true
             $ipsecSite3.peerid | should be "cn=peerid"
             $ipsecSite3.peerip | should be "4.4.4.4"
-            $ipsecSite3.peerSubnets -contains "192.168.44.0/24" | should be true
+            $ipsecSite3.peerSubnets.subnet -contains "192.168.44.0/24" | should be true
             $ipsecSite3.enablePfs | should be "false"
             $ipsecSite3.dhgroup | should be "dh2"
             $ipsecSite3.authenticationMode | should be "x.509"
