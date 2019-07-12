@@ -25311,12 +25311,12 @@ function Remove-NsxSecurityTagAssignment {
     This cmdlet assigns is used to remove NSX Security Tags assigned to a virtual machine
 
     .EXAMPLE
-    Get-NsxSecurityTag ST-WEB-DMZ | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment
+    Get-NsxSecurityTag ST-WEB-DMZ | Get-NsxSecurityTagAssignment | Remove-NsxSecurityTagAssignment
 
-    Gets all assigment of Security Tag ST-WEB-DMZ and removes its assignment from all VMs with confirmation.
+    Gets all assignment of Security Tag ST-WEB-DMZ and removes its assignment from all VMs with confirmation.
 
     .EXAMPLE
-    Get-VM Web01 | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment
+    Get-VM Web01 | Get-NsxSecurityTagAssignment | Remove-NsxSecurityTagAssignment
 
     Removes all security tags assigned to Web01 virtual machine.
 
