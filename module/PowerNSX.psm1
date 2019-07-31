@@ -3431,13 +3431,47 @@ function ValidateFirewallSavedConfiguration {
 
 }
 
-Function ValidateIPsec {
+Function ValidateEdgeDns {
+
     Param (
         [Parameter (Mandatory=$true)]
         [object]$argument
     )
 
     #Check if it looks like an Edge routing element
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name enabled -Membertype Properties)) {
+            throw "XML Element specified does not contain an enabled property."
+        }
+        if ( -not ( $argument | get-member -name cacheSize -Membertype Properties)) {
+            throw "XML Element specified does not contain an cacheSize property."
+        }
+        if ( -not ( $argument | get-member -name listeners -Membertype Properties)) {
+            throw "XML Element specified does not contain an listeners property."
+        }
+        if ( -not ( $argument | get-member -name dnsViews -Membertype Properties)) {
+            throw "XML Element specified does not contain an dnsViews property."
+        }
+        if ( -not ( $argument | get-member -name logging -Membertype Properties)) {
+            throw "XML Element specified does not contain a logging property."
+        }
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) {
+            throw "XML Element specified does not contain an edgeId property."
+        }
+        $true
+    }
+    else {
+        throw "Specify a valid Edge DNS object."
+    }
+}
+
+Function ValidateIPsec {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
     if ($argument -is [System.Xml.XmlElement] ) {
 
         if ( -not ( $argument | get-member -name enabled -Membertype Properties)) {
@@ -3460,35 +3494,6 @@ Function ValidateIPsec {
     }
     else {
         throw "Specify a valid Edge IPsec object."
-    }
-}
-
-Function ValidateEdgeDns {
-    Param (
-        [Parameter (Mandatory=$true)]
-        [object]$argument
-    )
-    if ($argument -is [System.Xml.XmlElement] ) {
-
-        if ( -not ( $argument | get-member -name cacheSize -Membertype Properties)) {
-            throw "XML Element specified does not contain an cacheSize property."
-        }
-        if ( -not ( $argument | get-member -name listeners -Membertype Properties)) {
-            throw "XML Element specified does not contain an listeners property."
-        }
-        if ( -not ( $argument | get-member -name dnsViews -Membertype Properties)) {
-            throw "XML Element specified does not contain an dnsViews property."
-        }
-        if ( -not ( $argument | get-member -name logging -Membertype Properties)) {
-            throw "XML Element specified does not contain a logging property."
-        }
-        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) {
-            throw "XML Element specified does not contain an edgeId property."
-        }
-        $true
-    }
-    else {
-        throw "Specify a valid Edge DNS object."
     }
 }
 
