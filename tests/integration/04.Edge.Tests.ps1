@@ -730,7 +730,7 @@ Describe "Edge" {
 
         it "Can retrieve cliSettings" {
             $edge =  Get-NsxEdge $name
-            $edge.cliSettings | should not be NULL
+            $edge.cliSettings | should not be $null
             #By default it is admin
             $edge.cliSettings.userName | should be "admin"
             #By default it is 99999
