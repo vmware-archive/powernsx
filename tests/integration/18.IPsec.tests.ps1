@@ -144,7 +144,7 @@ Describe "Edge IPsec" {
             $ipsecSite3.peerid | should be "cn=peerid"
             $ipsecSite3.peerip | should be "4.4.4.4"
             $ipsecSite3.peerSubnets.subnet -contains "192.168.44.0/24" | should be true
-            $ipsecSite3.enablePfs | should be "false"
+            $ipsecSite3.enablePfs | should be "true"
             $ipsecSite3.dhgroup | should be "dh2"
             $ipsecSite3.authenticationMode | should be "x.509"
         }
