@@ -25311,12 +25311,12 @@ function Remove-NsxSecurityTagAssignment {
     This cmdlet assigns is used to remove NSX Security Tags assigned to a virtual machine
 
     .EXAMPLE
-    Get-NsxSecurityTag ST-WEB-DMZ | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment
+    Get-NsxSecurityTag ST-WEB-DMZ | Get-NsxSecurityTagAssignment | Remove-NsxSecurityTagAssignment
 
-    Gets all assigment of Security Tag ST-WEB-DMZ and removes its assignment from all VMs with confirmation.
+    Gets all assignment of Security Tag ST-WEB-DMZ and removes its assignment from all VMs with confirmation.
 
     .EXAMPLE
-    Get-VM Web01 | Get-NsxSecurityTagAssigment | Remove-NsxSecurityTagAssignment
+    Get-VM Web01 | Get-NsxSecurityTagAssignment | Remove-NsxSecurityTagAssignment
 
     Removes all security tags assigned to Web01 virtual machine.
 
@@ -27725,7 +27725,7 @@ function New-NsxFirewallSection {
             #Marks the firewall section to be universal or not
             [switch]$Universal,
         [Parameter (Mandatory=$false)]
-            #Identifies where to insert the newly created section. insert_after & insert_before must specify an existing section id as the anchor.
+            #Identifies where to insert the newly created section. after & before must specify an existing section id as the anchor.
             [ValidateSet("top","bottom","after","before",ignorecase=$false)]
             [string]$position="top",
         [Parameter (Mandatory=$False)]
@@ -28095,7 +28095,7 @@ function New-NsxFirewallRule  {
          "Testing creating a rule before an existing rule"
         -Position before -anchorId 1024
 
-    Add a new Layer 3 rule immediatley after rule id 1024 in the section called
+    Add a new Layer 3 rule immediatley before rule id 1024 in the section called
     TestSection
 
     .EXAMPLE
