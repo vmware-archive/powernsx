@@ -14057,7 +14057,7 @@ function Set-NsxEdge {
             if ( invoke-xpathquery -node $_Edge -querymethod SelectSingleNode -Query "child::cliSettings/passwordExpiry" ) {
                 $_Edge.cliSettings.passwordExpiry = $passwordExpiry
             } else {
-                Add-XmlElement -xmlroot $_Edge.cliSettings -xmlElementName "passwordExpiry" -xmlElementText $passwordExpiry
+                Add-XmlElement -xmlroot $_Edge.cliSettings -xmlElementName "passwordExpiry" -xmlElementText $passwordExpiry.ToString()
             }
         }
 
