@@ -134,7 +134,7 @@ Describe "Edge IPsec" {
         it "Add Third IPsec Site (with certificate)" {
             #Add third IPsec
             Get-NsxEdge $ipsecedge1name | Get-NsxIPsec | Add-NsxIPsecSite -localID localid3 -localIP 1.1.1.1 -localSubnet 192.0.2.0/24 -peerId cn=peerid -peerIP 4.4.4.4 -peerSubnet 192.168.44.0/24 -authenticationMode x.509
-            #Check IPsec (second) site config
+            #Check IPsec (third) site config
             $ipsec = (Get-NsxEdge $ipsecedge1name | Get-NsxIPsec)
             $ipsecSite3 = $ipsec.sites.site | Where-Object {$_.localid -eq "localid3"}
             $ipsecSite3 | Should not be $null
@@ -145,7 +145,7 @@ Describe "Edge IPsec" {
             $ipsecSite3.peerip | should be "4.4.4.4"
             $ipsecSite3.peerSubnets.subnet -contains "192.168.44.0/24" | should be true
             $ipsecSite3.enablePfs | should be "true"
-            $ipsecSite3.dhgroup | should be "dh2"
+            $ipsecSite3.dhgroup | should be "dh14"
             $ipsecSite3.authenticationMode | should be "x.509"
         }
 
