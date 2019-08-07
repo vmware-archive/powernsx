@@ -331,7 +331,11 @@ $FunctionsToExport = @(
     'Get-NsxIPsecStats',
     'Get-NsxDns',
     'Set-NsxDns',
-    'Remove-NsxDns'
+    'Remove-NsxDns',
+    'Get-NsxIPsec',
+    'Set-NsxIPsec',
+    'Remove-NsxIPsec',
+    'Add-NsxIPsecSite'
 )
 
 #Manifest settings that are common to all platforms.
