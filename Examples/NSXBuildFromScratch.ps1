@@ -48,7 +48,7 @@ has its own license that is located in the source code of the respective compone
 param (
     [switch]$buildnsx=$false,
     [switch]$deploy3ta=$false,
-	[switch]$nukeit=$false
+    [switch]$nukeit=$false
 )
 
 #vApp (3-Tier App)
@@ -392,7 +392,7 @@ if ( $buildnsx ) {
         Write-Output "  -> Establishing full connection to NSX Manager and vCenter" | timestamp
         #Update the connection with VI connection details...
         Connect-NsxServer -server $NsxManagerIpAddress -Username 'admin' -password $NsxManagerPassword -VIUsername $vCenterUserName -VIPassword $vCenterPassword -ViWarningAction Ignore -DebugLogging | out-null
-	    Write-Output "`n"
+        Write-Output "`n"
     }
     catch {
 
@@ -551,15 +551,15 @@ if ( $deploy3ta ) {
 
     ## Creates four logical switches
     Write-Output "  -> Creating $TransitLsName" | timestamp
-	$TransitLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TransitLsName
+    $TransitLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TransitLsName
     Write-Output "  -> Creating $WebLsName" | timestamp
-	$WebLs = Get-NsxTransportZone | New-NsxLogicalSwitch $WebLsName
+    $WebLs = Get-NsxTransportZone | New-NsxLogicalSwitch $WebLsName
     Write-Output "  -> Creating $AppLsName" | timestamp
-	$AppLs = Get-NsxTransportZone | New-NsxLogicalSwitch $AppLsName
+    $AppLs = Get-NsxTransportZone | New-NsxLogicalSwitch $AppLsName
     Write-Output "  -> Creating $DbLsName" | timestamp
-	$DbLs = Get-NsxTransportZone | New-NsxLogicalSwitch $DbLsName
+    $DbLs = Get-NsxTransportZone | New-NsxLogicalSwitch $DbLsName
     Write-Output "  -> Creating $MgmtLsName" | timestamp
-	$MgmtLs = Get-NsxTransportZone | New-NsxLogicalSwitch $MgmtLsName
+    $MgmtLs = Get-NsxTransportZone | New-NsxLogicalSwitch $MgmtLsName
     Write-Output "`n"
 
 
@@ -601,8 +601,8 @@ if ( $deploy3ta ) {
     Write-Output "Deploying NSX Edge Services Gateway ($EdgeName) ..." | timestamp
     $Edge1 = New-NsxEdge -name $EdgeName -cluster $EdgeCluster -datastore $EdgeDataStore -Interface $edgevnic0, $edgevnic1 -Password $AppliancePassword -FwDefaultPolicyAllow
 
-	##Configure Edge DGW
-	Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
+    ##Configure Edge DGW
+    Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
 
     #####################################
     # Load LoadBalancer
@@ -789,46 +789,46 @@ if ( $deploy3ta ) {
     #Default rule that wraps around all VMs within the topology - application specific DENY ALL
     $vAppDenyAll = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "$vAppName Default Rule" -Action $DenyTraffic -AppliedTo $vAppSg -position bottom -EnableLogging -tag "$vAppSg"
 
-	Write-Output "Successfully completed the deployment of vApp $vAppName.`n" | timestamp
+    Write-Output "Successfully completed the deployment of vApp $vAppName.`n" | timestamp
 
 }
 
 if ( $nukeit -and ( -not $buildnsx ) ) {
 
-	Write-Output "Clean up started..." | timestamp
+    Write-Output "Clean up started..." | timestamp
 
-	Write-Output "  -> Stopping vApp" | timestamp
-	Get-VApp | ? {$_.name -eq ($vAppName)} | Stop-VApp -Force -Confirm:$false | out-null
-	Write-Output "  -> Removing vApp" | timestamp
-	Get-VApp | ? {$_.name -eq ($vAppName)} | Remove-VApp -DeletePermanently -Confirm:$false | out-null
+    Write-Output "  -> Stopping vApp" | timestamp
+    Get-VApp | ? {$_.name -eq ($vAppName)} | Stop-VApp -Force -Confirm:$false | out-null
+    Write-Output "  -> Removing vApp" | timestamp
+    Get-VApp | ? {$_.name -eq ($vAppName)} | Remove-VApp -DeletePermanently -Confirm:$false | out-null
 
     Write-Output "  -> Deleting edges" | timestamp
-	Get-NsxEdge | ? {$_.name -eq ($EdgeName)} | Remove-NsxEdge -Confirm:$false | out-null
-	Get-NsxLogicalRouter | ? {$_.name -eq ($LdrName)} | Remove-NsxLogicalRouter -Confirm:$false | out-null
-	#Start-Sleep 10
+    Get-NsxEdge | ? {$_.name -eq ($EdgeName)} | Remove-NsxEdge -Confirm:$false | out-null
+    Get-NsxLogicalRouter | ? {$_.name -eq ($LdrName)} | Remove-NsxLogicalRouter -Confirm:$false | out-null
+    #Start-Sleep 10
 
-	Write-Output "  -> Deleting DFW rules" | timestamp
-	Get-NsxFirewallSection | ? {$_.name -eq ($vAppName)} | Remove-NsxFirewallSection -force -Confirm:$false | out-null
+    Write-Output "  -> Deleting DFW rules" | timestamp
+    Get-NsxFirewallSection | ? {$_.name -eq ($vAppName)} | Remove-NsxFirewallSection -force -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting security tags" | timestamp
-	Get-NsxSecurityTag | ? {$_.name -eq ($vAppName)} | Remove-NsxSecurityTag -Confirm:$false | out-null
+    Write-Output "  -> Deleting security tags" | timestamp
+    Get-NsxSecurityTag | ? {$_.name -eq ($vAppName)} | Remove-NsxSecurityTag -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting IP sets" | timestamp
-	Get-NsxIpSet | ? {$_.name -eq ($vAppName)} | Remove-NsxIpSet -Confirm:$false | out-null
+    Write-Output "  -> Deleting IP sets" | timestamp
+    Get-NsxIpSet | ? {$_.name -eq ($vAppName)} | Remove-NsxIpSet -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting security groups" | timestamp
-	Get-NsxSecurityGroup | ? {$_.name -eq ($vAppName)} | Remove-NsxSecurityGroup -Confirm:$false | out-null
+    Write-Output "  -> Deleting security groups" | timestamp
+    Get-NsxSecurityGroup | ? {$_.name -eq ($vAppName)} | Remove-NsxSecurityGroup -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting service definitions" | timestamp
-	Get-NsxService | ? {$_.name -eq ($vAppName)} | Remove-NsxService -Confirm:$false | out-null
+    Write-Output "  -> Deleting service definitions" | timestamp
+    Get-NsxService | ? {$_.name -eq ($vAppName)} | Remove-NsxService -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting switches" | timestamp
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($TransitLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($WebLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($AppLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($DbLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($MgmtLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Write-Output "  -> Deleting switches" | timestamp
+    Get-NsxLogicalSwitch | ? {$_.name -eq ($TransitLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Get-NsxLogicalSwitch | ? {$_.name -eq ($WebLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Get-NsxLogicalSwitch | ? {$_.name -eq ($AppLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Get-NsxLogicalSwitch | ? {$_.name -eq ($DbLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Get-NsxLogicalSwitch | ? {$_.name -eq ($MgmtLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
 
-	Write-Output "Clean up finished.`n" | timestamp
+    Write-Output "Clean up finished.`n" | timestamp
 
 }
