@@ -52,7 +52,7 @@ param (
 )
 
 #vApp (3-Tier App)
-# NB: No spaces allowed (hyphens OK) 
+# NB: No spaces allowed (hyphens OK)
 $vAppName = "Books"
 
 ##########################################################################
@@ -672,7 +672,7 @@ if ( $deploy3ta ) {
     Get-NsxLogicalRouter $LdrName | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfInterface -AreaId $TransitOspfAreaId -vNic $LdrTransitInt.index -confirm:$false | out-null
     Write-Output "`n"
 
-	
+
     ####################################
     # OVF Application
 
@@ -788,7 +788,7 @@ if ( $deploy3ta ) {
     Write-Output "  -> Creating default deny rule to $vAppSgName`n" | timestamp
     #Default rule that wraps around all VMs within the topology - application specific DENY ALL
     $vAppDenyAll = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "$vAppName Default Rule" -Action $DenyTraffic -AppliedTo $vAppSg -position bottom -EnableLogging -tag "$vAppSg"
-    
+
 	Write-Output "Successfully completed the deployment of vApp $vAppName.`n" | timestamp
 
 }
@@ -801,7 +801,7 @@ if ( $nukeit -and ( -not $buildnsx ) ) {
 	Get-VApp | ? {$_.name -eq ($vAppName)} | Stop-VApp -Force -Confirm:$false | out-null
 	Write-Output "  -> Removing vApp" | timestamp
 	Get-VApp | ? {$_.name -eq ($vAppName)} | Remove-VApp -DeletePermanently -Confirm:$false | out-null
-	
+
     Write-Output "  -> Deleting edges" | timestamp
 	Get-NsxEdge | ? {$_.name -eq ($EdgeName)} | Remove-NsxEdge -Confirm:$false | out-null
 	Get-NsxLogicalRouter | ? {$_.name -eq ($LdrName)} | Remove-NsxLogicalRouter -Confirm:$false | out-null
@@ -821,14 +821,14 @@ if ( $nukeit -and ( -not $buildnsx ) ) {
 
 	Write-Output "  -> Deleting service definitions" | timestamp
 	Get-NsxService | ? {$_.name -eq ($vAppName)} | Remove-NsxService -Confirm:$false | out-null
-	
+
 	Write-Output "  -> Deleting switches" | timestamp
 	Get-NsxLogicalSwitch | ? {$_.name -eq ($TransitLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
 	Get-NsxLogicalSwitch | ? {$_.name -eq ($WebLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
 	Get-NsxLogicalSwitch | ? {$_.name -eq ($AppLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
 	Get-NsxLogicalSwitch | ? {$_.name -eq ($DbLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
 	Get-NsxLogicalSwitch | ? {$_.name -eq ($MgmtLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	
+
 	Write-Output "Clean up finished.`n" | timestamp
 
 }
