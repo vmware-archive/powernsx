@@ -32,9 +32,9 @@ Describe "Edge IPsec" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefMgrCred -ViWarningAction "Ignore"
-        $script:cl = get-cluster | select -first 1
+        $script:cl = get-cluster | Select-Object -first 1
         write-warning "Using cluster $cl for clustery stuff"
-        $script:ds = $cl | get-datastore | select -first 1
+        $script:ds = $cl | get-datastore | Select-Object -first 1
         write-warning "Using datastore $ds for datastorey stuff"
 
         #Put any script scope variables you need to reference in your tests.
@@ -47,8 +47,8 @@ Describe "Edge IPsec" {
         $script:ipsecinternallsname = "pester_ipsec_internal_ls"
 
         #Create Logical Switch
-        $script:ipsecuplinkls = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $ipsecuplinklsname
-        $script:ipsecinternalls = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $ipsecinternallsname
+        $script:ipsecuplinkls = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $ipsecuplinklsname
+        $script:ipsecinternalls = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $ipsecinternallsname
 
         #Create Edge Interface
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $ipsecuplinkls -PrimaryAddress $ipsecedge1ipuplink -SubnetPrefixLength 24

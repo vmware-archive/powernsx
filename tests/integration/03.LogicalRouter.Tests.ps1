@@ -12,10 +12,10 @@ Describe "Logical Routing" {
 
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
-        $script:cl = get-cluster | select -first 1
+        $script:cl = get-cluster | Select-Object -first 1
         write-warning "Using cluster $cl for logical router appliance deployment"
 
-        $script:ds = $cl | get-datastore | select -first 1
+        $script:ds = $cl | get-datastore | Select-Object -first 1
         write-warning "Using datastore $ds for logical router appliance deployment"
 
         $script:name = "pester_lr_lr1"
@@ -40,7 +40,7 @@ Describe "Logical Routing" {
         $script:PrefixName = "pester_lr_prefix"
         $script:PrefixNetwork = "1.2.3.0/24"
         $script:TenantName = "pester_tenant"
-        $tz = get-nsxtransportzone -LocalOnly | select -first 1
+        $tz = get-nsxtransportzone -LocalOnly | Select-Object -first 1
         $script:lswitches = @()
         $script:lswitches += $tz | new-nsxlogicalswitch $ls1_name
         $script:lswitches += $tz | new-nsxlogicalswitch $ls2_name
@@ -59,7 +59,7 @@ Describe "Logical Routing" {
         $script:uls3_name1 = "pester_ulr1_uls3"
         $script:uls4_name1 = "pester_ulr1_uls4"
         $script:uls5_name1 = "pester_ulr1_uls5"
-        $utz = get-nsxtransportzone -UniversalOnly | select -first 1
+        $utz = get-nsxtransportzone -UniversalOnly | Select-Object -first 1
         $script:ulswitches1 = @()
         $script:ulswitches1 += $utz | new-nsxlogicalswitch $uls1_name1
         $script:ulswitches1 += $utz | new-nsxlogicalswitch $uls2_name1
@@ -77,7 +77,7 @@ Describe "Logical Routing" {
         $script:uls3_name2 = "pester_ulr2_uls3"
         $script:uls4_name2 = "pester_ulr2_uls4"
         $script:uls5_name2 = "pester_ulr2_uls5"
-        $utz = get-nsxtransportzone -UniversalOnly | select -first 1
+        $utz = get-nsxtransportzone -UniversalOnly | Select-Object -first 1
         $script:ulswitches2 = @()
         $script:ulswitches2 += $utz | new-nsxlogicalswitch $uls1_name2
         $script:ulswitches2 += $utz | new-nsxlogicalswitch $uls2_name2
@@ -90,9 +90,9 @@ Describe "Logical Routing" {
         $script:uvnics2 += New-NsxLogicalRouterInterfaceSpec -Type internal -Name vNic2 -ConnectedTo $ulswitches2[2] -PrimaryAddress 3.3.3.1 -SubnetPrefixLength 24
 
         #bridging setup
-        $script:bridgeportgroup1 = Get-VDSwitch | select -First 1 | New-VDPortgroup -VlanId 1234 -Name "pester_bridge_pg1"
+        $script:bridgeportgroup1 = Get-VDSwitch | Select-Object -First 1 | New-VDPortgroup -VlanId 1234 -Name "pester_bridge_pg1"
         $script:bridgels1 = $tz | New-NsxLogicalSwitch -Name "pester_bridge_ls1"
-        $script:bridgeportgroup2 = Get-VDSwitch | select -First 1 | New-VDPortgroup -VlanId 1235 -Name "pester_bridge_pg2"
+        $script:bridgeportgroup2 = Get-VDSwitch | Select-Object -First 1 | New-VDPortgroup -VlanId 1235 -Name "pester_bridge_pg2"
         $script:bridgels2 = $tz | New-NsxLogicalSwitch -Name "pester_bridge_ls2"
 
         if ($script:DefaultNsxConnection.version -ge [version]"6.3.0") {
@@ -174,7 +174,7 @@ Describe "Logical Routing" {
         }
     }
 
-    Context "Bridging"  { 
+    Context "Bridging"  {
 
         AfterEach{
             Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge | Remove-NSxLogicalRouterBridge -Confirm:$false
@@ -197,7 +197,7 @@ Describe "Logical Routing" {
             $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_2" -PortGroup $BridgePortGroup2 -LogicalSwitch $bridgels2
             $bridge | should not be $null
             $GetBridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge -Name "pester_bridge_2"
-            ($GetBridge | measure).count | should be 1
+            ($GetBridge | Measure-Object).count | should be 1
             $GetBridge.Name| should be "pester_bridge_2"
         }
 
@@ -206,7 +206,7 @@ Describe "Logical Routing" {
             $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_2" -PortGroup $BridgePortGroup2 -LogicalSwitch $bridgels2
             $bridge | should not be $null
             $GetBridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge -bridgeId $bridge.bridgeId
-            ($GetBridge | measure).count | should be 1
+            ($GetBridge | Measure-Object).count | should be 1
             $GetBridge.bridgeId| should be $bridge.bridgeId
         }
 
@@ -215,7 +215,7 @@ Describe "Logical Routing" {
             $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | New-NsxLogicalRouterBridge -Name "pester_bridge_2" -PortGroup $BridgePortGroup2 -LogicalSwitch $bridgels2
             Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge -bridgeId $bridge.bridgeId | Remove-NsxLogicalRouterBridge -Confirm:$false
             $bridge = Get-NsxLogicalRouter $name | Get-NsxLogicalRouterBridging | Get-NsxLogicalRouterBridge
-            ($bridge | measure).count | should be 1
+            ($bridge | Measure-Object).count | should be 1
             $bridge.bridgeId| should be $firstbridge.bridgeId
         }
 
@@ -252,7 +252,7 @@ Describe "Logical Routing" {
 
         it "Can enable route redistribution into Ospf" {
             Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterRedistributionRule -PrefixName $PrefixName -Learner ospf -FromConnected -FromStatic -Action permit -confirm:$false
-            $rule = Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner ospf  | ? { $_.prefixName -eq $PrefixName }
+            $rule = Get-NsxLogicalRouter $Name | Get-NsxLogicalRouterRouting | Get-NsxLogicalRouterRedistributionRule -learner ospf  | Where-Object { $_.prefixName -eq $PrefixName }
             $rule.from.connected | should be "true"
             $rule.from.static | should be "true"
         }
@@ -439,7 +439,7 @@ Describe "Logical Routing" {
         $bridgels1 | Remove-NSxLogicalSwitch -Confirm:$false
         $bridgels2 | Remove-NSxLogicalSwitch -Confirm:$false
         Get-vdPortGroup pester* | Remove-VDPortGroup -Confirm:$false
-        
+
         disconnect-nsxserver
     }
 }

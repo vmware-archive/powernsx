@@ -23,7 +23,7 @@ Describe -Tag 'Slow' "Controller" {
             $script:ds = Get-Datastore -Id ("$($ctrlview.Datastore.type)-$($ctrlview.Datastore.Value)")
 
             #Yup - this is dodgy... going to create Find-NsxControllerIpPool using ip matchs to search existing pools one of these days, as you cant reverse engineer this from the controller API response. :(
-            $script:pool = Get-NSxIpPool | ? { $_.name -match "controller" }
+            $script:pool = Get-NSxIpPool | Where-Object { $_.name -match "controller" }
             write-warning "Using existing controller ds, portgroup and resourcepool config for additional controller deployment"
             $script:SkipCtrlTest = $False
         }
@@ -45,7 +45,7 @@ Describe -Tag 'Slow' "Controller" {
         $currentCtrl.status | should be "RUNNING"
     }
     It "Can remove a controllers" -Skip:$SkipCtrlTest {
-        $ctrlToRemove = @(Get-NSxController | ? { $_.id -ne $ctrl.id })
+        $ctrlToRemove = @(Get-NSxController | Where-Object { $_.id -ne $ctrl.id })
         {$CtrlToRemove | Remove-NsxController -Wait -Confirm:$false} | should not throw
         foreach ( $ctrl in $ctrlToRemove ) {
             Get-NsxController -ObjectId $ctrl.id  | should be $null
