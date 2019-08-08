@@ -62,6 +62,10 @@ Describe "Edge IPsec" {
 
         #Group related tests together.
 
+        it "Get IPsec stats" {
+            (Get-NsxEdge ipsecedge1name | Get-NsxIPsecStats).timestamp | should not be null
+        }
+
         it "Can retrieve IPsec Config" {
             $ipsec = Get-NsxEdge $ipsecedge1name | Get-NsxIPsec
             $ipsec.enabled | should be false
