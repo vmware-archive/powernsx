@@ -48,11 +48,11 @@ has its own license that is located in the source code of the respective compone
 param (
     [switch]$buildnsx=$false,
     [switch]$deploy3ta=$false,
-	[switch]$nukeit=$false
+    [switch]$nukeit=$false
 )
 
 #vApp (3-Tier App)
-# NB: No spaces allowed (hyphens OK) 
+# NB: No spaces allowed (hyphens OK)
 $vAppName = "Books"
 
 ##########################################################################
@@ -275,7 +275,7 @@ catch {
 If ( $deploy3ta ) {
 
     # Compute details - finds the host with the least used memory for deployment.
-    $DeploymentVMHost = $Computecluster | Get-VMHost | Sort-Object MemoryUsageGB | Select -first 1
+    $DeploymentVMHost = $Computecluster | Get-VMHost | Sort-Object MemoryUsageGB | Select-Object -first 1
     if ( -not ( Test-Connection $($DeploymentVMHost.name) -count 1 -ErrorAction Stop )) {
         throw "Unable to validate connection to target ESX host $($DeploymentVMHost.Name) used to deploy OVF."
     }
@@ -392,7 +392,7 @@ if ( $buildnsx ) {
         Write-Output "  -> Establishing full connection to NSX Manager and vCenter" | timestamp
         #Update the connection with VI connection details...
         Connect-NsxServer -server $NsxManagerIpAddress -Username 'admin' -password $NsxManagerPassword -VIUsername $vCenterUserName -VIPassword $vCenterPassword -ViWarningAction Ignore -DebugLogging | out-null
-	    Write-Output "`n"
+        Write-Output "`n"
     }
     catch {
 
@@ -551,15 +551,15 @@ if ( $deploy3ta ) {
 
     ## Creates four logical switches
     Write-Output "  -> Creating $TransitLsName" | timestamp
-	$TransitLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TransitLsName
+    $TransitLs = Get-NsxTransportZone | New-NsxLogicalSwitch $TransitLsName
     Write-Output "  -> Creating $WebLsName" | timestamp
-	$WebLs = Get-NsxTransportZone | New-NsxLogicalSwitch $WebLsName
+    $WebLs = Get-NsxTransportZone | New-NsxLogicalSwitch $WebLsName
     Write-Output "  -> Creating $AppLsName" | timestamp
-	$AppLs = Get-NsxTransportZone | New-NsxLogicalSwitch $AppLsName
+    $AppLs = Get-NsxTransportZone | New-NsxLogicalSwitch $AppLsName
     Write-Output "  -> Creating $DbLsName" | timestamp
-	$DbLs = Get-NsxTransportZone | New-NsxLogicalSwitch $DbLsName
+    $DbLs = Get-NsxTransportZone | New-NsxLogicalSwitch $DbLsName
     Write-Output "  -> Creating $MgmtLsName" | timestamp
-	$MgmtLs = Get-NsxTransportZone | New-NsxLogicalSwitch $MgmtLsName
+    $MgmtLs = Get-NsxTransportZone | New-NsxLogicalSwitch $MgmtLsName
     Write-Output "`n"
 
 
@@ -585,7 +585,7 @@ if ( $deploy3ta ) {
     Write-Output "  -> $LdrName`: Setting default route next-hop to $EdgeInternalPrimaryAddress" | timestamp
 
     ##The first line pulls the uplink name coz we cant assume we know the index ID
-    $LdrTransitInt = get-nsxlogicalrouter | get-nsxlogicalrouterinterface | ? { $_.name -eq $TransitLsName}
+    $LdrTransitInt = get-nsxlogicalrouter | get-nsxlogicalrouterinterface | Where-Object { $_.name -eq $TransitLsName}
     Get-NsxLogicalRouter $LdrName | Get-NsxLogicalRouterRouting | Set-NsxLogicalRouterRouting -DefaultGatewayVnic $LdrTransitInt.index -DefaultGatewayAddress $EdgeInternalPrimaryAddress -confirm:$false | out-null
     Write-Output "`n"
 
@@ -601,8 +601,8 @@ if ( $deploy3ta ) {
     Write-Output "Deploying NSX Edge Services Gateway ($EdgeName) ..." | timestamp
     $Edge1 = New-NsxEdge -name $EdgeName -cluster $EdgeCluster -datastore $EdgeDataStore -Interface $edgevnic0, $edgevnic1 -Password $AppliancePassword -FwDefaultPolicyAllow
 
-	##Configure Edge DGW
-	Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
+    ##Configure Edge DGW
+    Get-NSXEdge $EdgeName | Get-NsxEdgeRouting | Set-NsxEdgeRouting -DefaultGatewayAddress $EdgeDefaultGW -confirm:$false | out-null
 
     #####################################
     # Load LoadBalancer
@@ -668,11 +668,11 @@ if ( $deploy3ta ) {
     Get-NsxLogicalRouter $LdrName | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfArea -AreaId $TransitOspfAreaId -Type normal -confirm:$false | out-null
 
     #Area to interface mapping
-    $LdrTransitInt = get-nsxlogicalrouter | get-nsxlogicalrouterinterface | ? { $_.name -eq $TransitLsName}
+    $LdrTransitInt = get-nsxlogicalrouter | get-nsxlogicalrouterinterface | Where-Object { $_.name -eq $TransitLsName}
     Get-NsxLogicalRouter $LdrName | Get-NsxLogicalRouterRouting | New-NsxLogicalRouterOspfInterface -AreaId $TransitOspfAreaId -vNic $LdrTransitInt.index -confirm:$false | out-null
     Write-Output "`n"
 
-	
+
     ####################################
     # OVF Application
 
@@ -685,9 +685,9 @@ if ( $deploy3ta ) {
     # First work out the VDS used in the compute cluster (This assumes you only have a single VDS per cluster.
     # If that isn't the case, we need to get the VDS by name....:
 
-    $WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
-    $AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
-    $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where { $_.VDSwitch -eq $CompVds }
+    $WebNetwork = get-nsxtransportzone | get-nsxlogicalswitch $WebLsName | Get-NsxBackingPortGroup | Where-Object { $_.VDSwitch -eq $CompVds }
+    $AppNetwork = get-nsxtransportzone | get-nsxlogicalswitch $AppLsName | Get-NsxBackingPortGroup | Where-Object { $_.VDSwitch -eq $CompVds }
+    $DbNetwork = get-nsxtransportzone | get-nsxlogicalswitch $DbLsName | Get-NsxBackingPortGroup | Where-Object { $_.VDSwitch -eq $CompVds }
 
     # Get OVF configuration so we can modify it.
     $OvfConfiguration = Get-OvfConfiguration -Ovf $3TiervAppLocation
@@ -755,9 +755,9 @@ if ( $deploy3ta ) {
     $vAppSg = New-NsxSecurityGroup -name $vAppSgName -description $vAppSgName -includemember $WebSg, $AppSg, $DbSg
 
     # Apply Security Tag to VM's for Security Group membership
-    $WebVMs = Get-Vm | ? {$_.name -match ("web0")}
-    $AppVMs = Get-Vm | ? {$_.name -match ("app0")}
-    $DbVMs = Get-Vm | ? {$_.name -match ("db0")}
+    $WebVMs = Get-Vm | Where-Object {$_.name -match ("web0")}
+    $AppVMs = Get-Vm | Where-Object {$_.name -match ("app0")}
+    $DbVMs = Get-Vm | Where-Object {$_.name -match ("db0")}
 
     $WebSt | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $WebVMs | Out-Null
     $AppSt | New-NsxSecurityTagAssignment -ApplyToVm -VirtualMachine $AppVMs | Out-Null
@@ -788,47 +788,47 @@ if ( $deploy3ta ) {
     Write-Output "  -> Creating default deny rule to $vAppSgName`n" | timestamp
     #Default rule that wraps around all VMs within the topology - application specific DENY ALL
     $vAppDenyAll = get-nsxfirewallsection $FirewallSectionName | New-NsxFirewallRule -Name "$vAppName Default Rule" -Action $DenyTraffic -AppliedTo $vAppSg -position bottom -EnableLogging -tag "$vAppSg"
-    
-	Write-Output "Successfully completed the deployment of vApp $vAppName.`n" | timestamp
+
+    Write-Output "Successfully completed the deployment of vApp $vAppName.`n" | timestamp
 
 }
 
 if ( $nukeit -and ( -not $buildnsx ) ) {
 
-	Write-Output "Clean up started..." | timestamp
+    Write-Output "Clean up started..." | timestamp
 
-	Write-Output "  -> Stopping vApp" | timestamp
-	Get-VApp | ? {$_.name -eq ($vAppName)} | Stop-VApp -Force -Confirm:$false | out-null
-	Write-Output "  -> Removing vApp" | timestamp
-	Get-VApp | ? {$_.name -eq ($vAppName)} | Remove-VApp -DeletePermanently -Confirm:$false | out-null
-	
+    Write-Output "  -> Stopping vApp" | timestamp
+    Get-VApp | Where-Object {$_.name -eq ($vAppName)} | Stop-VApp -Force -Confirm:$false | out-null
+    Write-Output "  -> Removing vApp" | timestamp
+    Get-VApp | Where-Object {$_.name -eq ($vAppName)} | Remove-VApp -DeletePermanently -Confirm:$false | out-null
+
     Write-Output "  -> Deleting edges" | timestamp
-	Get-NsxEdge | ? {$_.name -eq ($EdgeName)} | Remove-NsxEdge -Confirm:$false | out-null
-	Get-NsxLogicalRouter | ? {$_.name -eq ($LdrName)} | Remove-NsxLogicalRouter -Confirm:$false | out-null
-	#Start-Sleep 10
+    Get-NsxEdge | Where-Object {$_.name -eq ($EdgeName)} | Remove-NsxEdge -Confirm:$false | out-null
+    Get-NsxLogicalRouter | Where-Object {$_.name -eq ($LdrName)} | Remove-NsxLogicalRouter -Confirm:$false | out-null
+    #Start-Sleep 10
 
-	Write-Output "  -> Deleting DFW rules" | timestamp
-	Get-NsxFirewallSection | ? {$_.name -eq ($vAppName)} | Remove-NsxFirewallSection -force -Confirm:$false | out-null
+    Write-Output "  -> Deleting DFW rules" | timestamp
+    Get-NsxFirewallSection | Where-Object {$_.name -eq ($vAppName)} | Remove-NsxFirewallSection -force -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting security tags" | timestamp
-	Get-NsxSecurityTag | ? {$_.name -eq ($vAppName)} | Remove-NsxSecurityTag -Confirm:$false | out-null
+    Write-Output "  -> Deleting security tags" | timestamp
+    Get-NsxSecurityTag | Where-Object {$_.name -eq ($vAppName)} | Remove-NsxSecurityTag -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting IP sets" | timestamp
-	Get-NsxIpSet | ? {$_.name -eq ($vAppName)} | Remove-NsxIpSet -Confirm:$false | out-null
+    Write-Output "  -> Deleting IP sets" | timestamp
+    Get-NsxIpSet | Where-Object {$_.name -eq ($vAppName)} | Remove-NsxIpSet -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting security groups" | timestamp
-	Get-NsxSecurityGroup | ? {$_.name -eq ($vAppName)} | Remove-NsxSecurityGroup -Confirm:$false | out-null
+    Write-Output "  -> Deleting security groups" | timestamp
+    Get-NsxSecurityGroup | Where-Object {$_.name -eq ($vAppName)} | Remove-NsxSecurityGroup -Confirm:$false | out-null
 
-	Write-Output "  -> Deleting service definitions" | timestamp
-	Get-NsxService | ? {$_.name -eq ($vAppName)} | Remove-NsxService -Confirm:$false | out-null
-	
-	Write-Output "  -> Deleting switches" | timestamp
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($TransitLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($WebLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($AppLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($DbLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	Get-NsxLogicalSwitch | ? {$_.name -eq ($MgmtLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
-	
-	Write-Output "Clean up finished.`n" | timestamp
+    Write-Output "  -> Deleting service definitions" | timestamp
+    Get-NsxService | Where-Object {$_.name -eq ($vAppName)} | Remove-NsxService -Confirm:$false | out-null
+
+    Write-Output "  -> Deleting switches" | timestamp
+    Get-NsxLogicalSwitch | Where-Object {$_.name -eq ($TransitLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Get-NsxLogicalSwitch | Where-Object {$_.name -eq ($WebLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Get-NsxLogicalSwitch | Where-Object {$_.name -eq ($AppLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Get-NsxLogicalSwitch | Where-Object {$_.name -eq ($DbLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+    Get-NsxLogicalSwitch | Where-Object {$_.name -eq ($MgmtLsName)} | Remove-NsxLogicalSwitch -Confirm:$false | out-null
+
+    Write-Output "Clean up finished.`n" | timestamp
 
 }
