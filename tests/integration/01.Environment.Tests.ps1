@@ -14,7 +14,7 @@ Describe "Environment" -Tags "Environment" {
         it "Can find a VI cluster to deploy to" {
             $global:cl = get-cluster | Select-Object -first 1
             $cl | should not be $null
-            ($cl | get-vmhost | Where-Object { $_.ConnectionState -eq 'Connected'} | Measure-Object-Object).count | should BeGreaterThan 0
+            ($cl | get-vmhost | Where-Object { $_.ConnectionState -eq 'Connected'} | Measure-Object).count | should BeGreaterThan 0
             write-warning "Subsequent tests that deploy appliances will use cluster $cl"
         }
 
@@ -29,7 +29,7 @@ Describe "Environment" -Tags "Environment" {
             $controllers = Get-NSxController
             $controllers | should not be $null
             $controllers.status -contains 'RUNNING' | should be $true
-            ($controllers.status | sort-object -Unique | Measure-Object-Object).count | should be 1
+            ($controllers.status | sort-object -Unique | Measure-Object).count | should be 1
         }
 
         It "Has all clusters in healthy state" {
