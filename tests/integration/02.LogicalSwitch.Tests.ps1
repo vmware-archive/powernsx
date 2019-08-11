@@ -17,14 +17,14 @@ Describe "LogicalSwitching" {
         $script:ls1_name = "$lsPrefix-ls1"
         $script:ls2_name = "$lsPrefix-ls2"
         $script:tzLocal2_name = "$tzPrefix-tzlocal2"
-        $script:tzLocal = Get-NsxTransportZone -LocalOnly | select -first 1
-        $script:tzLocal2 = New-NsxTransportZone -Name $tzLocal2_name -cluster (get-cluster | select -first 1) -ControlPlaneMode UNICAST_MODE
+        $script:tzLocal = Get-NsxTransportZone -LocalOnly | Select-Object -first 1
+        $script:tzLocal2 = New-NsxTransportZone -Name $tzLocal2_name -cluster (get-cluster | Select-Object -first 1) -ControlPlaneMode UNICAST_MODE
 
     }
 
     AfterAll {
 
-        Get-NsxTransportZone | ? {$_.name -match $tzPrefix } | remove-NsxTransportZone -confirm:$false
+        Get-NsxTransportZone | Where-Object {$_.name -match $tzPrefix } | remove-NsxTransportZone -confirm:$false
 
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #We kill the connection to NSX Manager here.
@@ -33,18 +33,18 @@ Describe "LogicalSwitching" {
 
     AfterEach {
         # Cleanup Testing Logical Switches
-        Get-NsxTransportZone | Get-NsxLogicalSwitch | ? {$_.name -match $lsPrefix} | Remove-NsxLogicalSwitch -confirm:$false
+        Get-NsxTransportZone | Get-NsxLogicalSwitch | Where-Object {$_.name -match $lsPrefix} | Remove-NsxLogicalSwitch -confirm:$false
 
     }
 
     Context "Logical Switches" {
         it "Can create a logical switch" {
-            Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
+            Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | new-nsxlogicalswitch $ls1_name
             get-nsxlogicalswitch $ls1_name | should not be $null
         }
 
         it "Can remove a logical switch"{
-            Get-NsxTransportZone -LocalOnly | select -first 1 | new-nsxlogicalswitch $ls1_name
+            Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | new-nsxlogicalswitch $ls1_name
             get-nsxlogicalswitch $ls1_name | Remove-NsxLogicalSwitch -Confirm:$false
             get-nsxlogicalswitch $ls1_name | should be $null
         }
@@ -85,13 +85,13 @@ Describe "LogicalSwitching" {
             $script:tzMember_name = "$tzPrefix-tzmember"
             $script:tzUniversal = Get-NsxTransportZone -UniversalOnly
             #Create the TZ we will modify.
-            $emptycl = ($tzLocal).clusters.cluster.cluster.name | % {get-cluster $_ } | ? { ($_ | get-vm | measure).count -eq 0 }
+            $emptycl = ($tzLocal).clusters.cluster.cluster.name | ForEach-Object {get-cluster $_ } | Where-Object { ($_ | get-vm | Measure-Object).count -eq 0 }
             if ( -not $emptycl ) {
                 write-warning "No cluster that is a member of an NSX TransportZone but not hosting any VMs could be found for Transport Zone membership addition/removal tests."
                 $script:SkipTzMember = $True
             }
             else {
-                $script:cl = $emptycl | select -First 1
+                $script:cl = $emptycl | Select-Object -First 1
                 $script:SkipTzMember = $False
                 $script:tzmember = New-NsxTransportZone -Name $tzmember_name -cluster $cl -ControlPlaneMode UNICAST_MODE
                 write-warning "Using $($tzmember.Name) and cluster $cl for transportzone membership test"

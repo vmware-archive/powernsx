@@ -5,21 +5,21 @@ If ( -not $PNSXTestVC ) {
 
 Describe "Environment" -Tags "Environment" {
 
-    Context "Base Environment Checks" { 
+    Context "Base Environment Checks" {
         it "Establishes a default PowerNSX Connection" {
             # Using VI based SSO connection now.
             $global:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         }
 
         it "Can find a VI cluster to deploy to" {
-            $global:cl = get-cluster | select -first 1
+            $global:cl = get-cluster | Select-Object -first 1
             $cl | should not be $null
-            ($cl | get-vmhost | ? { $_.ConnectionState -eq 'Connected'} | measure).count | should BeGreaterThan 0
+            ($cl | get-vmhost | Where-Object { $_.ConnectionState -eq 'Connected'} | Measure-Object).count | should BeGreaterThan 0
             write-warning "Subsequent tests that deploy appliances will use cluster $cl"
         }
 
         it "Can find a VI Datastore to deploy to" {
-            $global:ds = $cl | get-datastore | select -first 1
+            $global:ds = $cl | get-datastore | Select-Object -first 1
             $ds | should not be $null
             $ds.FreeSpaceGB | should BeGreaterThan 1
             write-warning "Subsequent tests that deploy appliances will use datastore $ds"
@@ -29,7 +29,7 @@ Describe "Environment" -Tags "Environment" {
             $controllers = Get-NSxController
             $controllers | should not be $null
             $controllers.status -contains 'RUNNING' | should be $true
-            ($controllers.status | sort-object -Unique | measure).count | should be 1
+            ($controllers.status | sort-object -Unique | Measure-Object).count | should be 1
         }
 
         It "Has all clusters in healthy state" {
@@ -43,13 +43,13 @@ Describe "Environment" -Tags "Environment" {
     }
 
     Context "Partial test run object cleanup" {
-    
-        BeforeAll { 
+
+        BeforeAll {
             #cleanup any left over test objects...
             #Edges
-            Get-NsxEdge | ? { $_.name -match 'pester'} | Remove-NsxEdge -confirm:$false
+            Get-NsxEdge | Where-Object { $_.name -match 'pester'} | Remove-NsxEdge -confirm:$false
             #DLRs
-            Get-NsxLogicalRouter | ? { $_.name -match 'pester'} | Remove-NsxLogicalRouter -confirm:$false
+            Get-NsxLogicalRouter | Where-Object { $_.name -match 'pester'} | Remove-NsxLogicalRouter -confirm:$false
             #ensure dlr/edge is gone properly!
             start-sleep -Seconds 5
             #vAPPs
@@ -57,33 +57,33 @@ Describe "Environment" -Tags "Environment" {
             #VMs
             Get-Vm pester* | Remove-VM -Confirm:$false -DeletePermanently
             #FirewallRules
-            Get-NsxFirewallSection | ? { $_.name -match 'pester'} | Remove-NsxFirewallSection -Confirm:$false -force
+            Get-NsxFirewallSection | Where-Object { $_.name -match 'pester'} | Remove-NsxFirewallSection -Confirm:$false -force
             #Policies
-            Get-NsxSecurityPolicy | ? { $_.name -match 'pester'} | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxSecurityPolicy | Where-Object { $_.name -match 'pester'} | Remove-NsxSecurityPolicy -Confirm:$false
             #LogicalSwitches
-            Get-NsxLogicalSwitch | ? { $_.name -match 'pester'} | Remove-NsxLogicalSwitch -Confirm:$false
+            Get-NsxLogicalSwitch | Where-Object { $_.name -match 'pester'} | Remove-NsxLogicalSwitch -Confirm:$false
             #SecurityGroup
-            Get-NsxSecurityGroup | ? { $_.name -match 'pester'} | Remove-NsxSecurityGroup -confirm:$false
+            Get-NsxSecurityGroup | Where-Object { $_.name -match 'pester'} | Remove-NsxSecurityGroup -confirm:$false
             #IpSets
-            Get-NsxIpSet | ? { $_.name -match 'pester'} | Remove-NsxIpSet -confirm:$false
+            Get-NsxIpSet | Where-Object { $_.name -match 'pester'} | Remove-NsxIpSet -confirm:$false
             #Pools
-            Get-NsxIpPool | ? { $_.name -match 'pester'} | Remove-NsxIpPool -Confirm:$false
+            Get-NsxIpPool | Where-Object { $_.name -match 'pester'} | Remove-NsxIpPool -Confirm:$false
             #Controllers (2/3)
-            
+
             #MacSets
-            Get-NsxMacSet | ? { $_.name -match 'pester'} | Remove-NsxMacSet -confirm:$false
+            Get-NsxMacSet | Where-Object { $_.name -match 'pester'} | Remove-NsxMacSet -confirm:$false
             #ServiceGroups
-            Get-NsxServiceGroup | ? { $_.name -match 'pester'} | Remove-NsxServicegroup -Confirm:$false
+            Get-NsxServiceGroup | Where-Object { $_.name -match 'pester'} | Remove-NsxServicegroup -Confirm:$false
             #Services
-            Get-NsxService | ? { $_.name -match 'pester'} | Remove-NsxService -Confirm:$false
+            Get-NsxService | Where-Object { $_.name -match 'pester'} | Remove-NsxService -Confirm:$false
             #SecurityTags
-            Get-NsxSecurityTag | ? { $_.name -match 'pester'} | Remove-NsxSecurityTag -Confirm:$false
+            Get-NsxSecurityTag | Where-Object { $_.name -match 'pester'} | Remove-NsxSecurityTag -Confirm:$false
             #LogicalSwitches
-            Get-NsxLogicalSwitch | ? { $_.name -match 'pester'} | Remove-NsxLogicalSwitch -Confirm:$false
+            Get-NsxLogicalSwitch | Where-Object { $_.name -match 'pester'} | Remove-NsxLogicalSwitch -Confirm:$false
             #PortGroups
             Get-vdportGroup pester* | Remove-VDPortGroup -Confirm:$false
             #TransportZones
-            Get-NsxTransportZone | ? { $_.name -match 'pester'} | Remove-NsxTransportZone -confirm:$false
+            Get-NsxTransportZone | Where-Object { $_.name -match 'pester'} | Remove-NsxTransportZone -confirm:$false
             #Datacenters
             Get-Datacenter pester* | remove-datacenter -Confirm:$false
             #Resource Pools
@@ -92,29 +92,29 @@ Describe "Environment" -Tags "Environment" {
         }
 
         It "Has a single local TransportZone" {
-            $Tz = Get-NsxTransportZone | ? { $_.isUniversal -eq 'false'}
+            $Tz = Get-NsxTransportZone | Where-Object { $_.isUniversal -eq 'false'}
             $tz | should not be $null
-            ($tz | measure).count | should be 1
+            ($tz | Measure-Object).count | should be 1
         }
 
         It "Has a single local SegmentID range defined" {
             $Segment = Get-NsxSegmentIdRange -LocalOnly
             $Segment.isUniversal  | should be "false"
             $Segment | should not be $null
-            ($Segment | measure).count | should be 1
+            ($Segment | Measure-Object).count | should be 1
         }
 
         It "Has a single universal TransportZone" {
-            $Tz = Get-NsxTransportZone | ? { $_.isUniversal -eq 'true'}
+            $Tz = Get-NsxTransportZone | Where-Object { $_.isUniversal -eq 'true'}
             $tz | should not be $null
-            ($tz | measure).count | should be 1
+            ($tz | Measure-Object).count | should be 1
         }
 
         It "Has a single universal SegmentID range defined" {
             $Segment = Get-NsxSegmentIdRange -UniversalOnly
             $Segment.isUniversal  | should be "true"
             $Segment | should not be $null
-            ($Segment | measure).count | should be 1
+            ($Segment | Measure-Object).count | should be 1
         }
 
         it "Destroys default NSX connection" {

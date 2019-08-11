@@ -32,9 +32,9 @@ Describe "sslvpn" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
-        $script:cl = get-cluster | select -first 1
+        $script:cl = get-cluster | Select-Object -first 1
         write-warning "Using cluster $cl for sslvpn edge deployment"
-        $script:ds = $cl | get-datastore | select -first 1
+        $script:ds = $cl | get-datastore | Select-Object -first 1
         write-warning "Using datastore $ds for sslvpn edge deployment"
 
         #Put any script scope variables you need to reference in your tests.
@@ -61,8 +61,8 @@ Describe "sslvpn" {
         $script:serverPort = "443"
 
         #Logical Switch
-        $script:testls1 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testls1name
-        $script:testls2 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $testls2name
+        $script:testls1 = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $testls1name
+        $script:testls2 = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $testls2name
 
         #Create Edge
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $testls1 -PrimaryAddress $ssledgeIp1 -SubnetPrefixLength 24

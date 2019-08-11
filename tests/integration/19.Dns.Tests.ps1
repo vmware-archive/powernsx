@@ -32,9 +32,9 @@ Describe "Edge DNS" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefMgrCred -ViWarningAction "Ignore"
-        $script:cl = get-cluster | select -first 1
+        $script:cl = get-cluster | Select-Object -first 1
         write-warning "Using cluster $cl for clustery stuff"
-        $script:ds = $cl | get-datastore | select -first 1
+        $script:ds = $cl | get-datastore | Select-Object -first 1
         write-warning "Using datastore $ds for datastorey stuff"
 
         #Put any script scope variables you need to reference in your tests.
@@ -47,8 +47,8 @@ Describe "Edge DNS" {
         $script:dnsinternallsname = "pester_dns_internal_ls"
 
         #Create Logical Switch
-        $script:dnsuplinkls = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $dnsuplinklsname
-        $script:dnsinternalls = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $dnsinternallsname
+        $script:dnsuplinkls = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $dnsuplinklsname
+        $script:dnsinternalls = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $dnsinternallsname
 
         #Create Edge Interface
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $dnsuplinkls -PrimaryAddress $dnsedge1ipuplink -SubnetPrefixLength 24

@@ -38,7 +38,7 @@ Describe "IPSets" {
         $script:IpSetPrefix = "pester_ipset_"
 
         #Clean up any existing ipsets from previous runs...
-        get-nsxipset | ? { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
+        get-nsxipset | Where-Object { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
 
 
     }
@@ -48,7 +48,7 @@ Describe "IPSets" {
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
         #We kill the connection to NSX Manager here.
 
-        get-nsxipset | ? { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
+        get-nsxipset | Where-Object { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
 
         disconnect-nsxserver
     }
@@ -79,32 +79,32 @@ Describe "IPSets" {
 
          It "Can retrieve both universal and global IpSets" {
             $ipsets = Get-NsxIpSet
-            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve universal only IpSets" {
             $ipsets = Get-NsxIpSet -UniversalOnly
-            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
          }
 
          It "Can retrieve local only IpSets" {
             $ipsets = Get-NsxIpSet -LocalOnly
-            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
-            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
          it "Can retrieve IpSets from scopeid of globalroot-0" {
             $ipsets = Get-NsxIpSet -scopeId globalroot-0
-            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
-            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
          it "Can retrieve IpSets from scopeid of universalroot-0" {
             $ipsets = Get-NsxIpSet -scopeId universalroot-0
-            ($ipsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($ipsets | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($ipsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
          }
 
     }
@@ -112,7 +112,7 @@ Describe "IPSets" {
     Context "Successful IpSet Creation (Legacy)" {
 
         AfterAll {
-            get-nsxipset | ? { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
+            get-nsxipset | Where-Object { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
         }
 
         it "Can create an ipset with single address" {
@@ -220,7 +220,7 @@ Describe "IPSets" {
     Context "Successful IpSet Creation" {
 
         AfterAll {
-            get-nsxipset | ? { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
+            get-nsxipset | Where-Object { $_.name -match $IpSetPrefix } | remove-nsxipset -confirm:$false
         }
 
         it "Can create an ipset with single address" {
@@ -314,7 +314,7 @@ Describe "IPSets" {
         It "Creates only a single ipset when used as the first part of a pipeline (#347)" {
             New-NsxIpSet -Name "$IpSetPrefix-test-347"
             $IpSet = Get-NsxIpSet "$IpSetPrefix-test-347" | ForEach-Object { New-NsxIpSet -Name $_.name -Universal}
-            ($IpSet | measure).count | should be 1
+            ($IpSet | Measure-Object).count | should be 1
         }
     }
 

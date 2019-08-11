@@ -39,8 +39,8 @@ Describe "Services" {
         $script:svcPrefix = "pester_svc_"
 
         #Clean up any existing services from previous runs...
-        get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
-        get-nsxservice -scopeId universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+        get-nsxservice | Where-Object { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+        get-nsxservice -scopeId universalroot-0 | Where-Object { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
 
         #Define valid services to align with PowerNSX
         $Script:AllValidServices = @("AARP", "AH", "ARPATALK", "ATMFATE", "ATMMPOA",
@@ -57,7 +57,7 @@ Describe "Services" {
         "MS_RPC_TCP", "MS_RPC_UDP", "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS",
         "SUN_RPC_TCP", "SUN_RPC_UDP" )
 
-        $script:AllServicesNotRequiringPort = $Script:AllValidServices | ? { $AllServicesRequiringPort -notcontains $_ }
+        $script:AllServicesNotRequiringPort = $Script:AllValidServices | Where-Object { $AllServicesRequiringPort -notcontains $_ }
 
         $script:AllServicesValidSourcePort = @( "FTP", "MS_RPC_TCP", "MS_RPC_UDP",
         "NBDG_BROADCAST", "NBNS_BROADCAST", "ORACLE_TNS", "SUN_RPC_TCP", "SUN_RPC_UDP",
@@ -85,8 +85,8 @@ Describe "Services" {
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
         #We kill the connection to NSX Manager here.
 
-        get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
-        get-nsxservice -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+        get-nsxservice | Where-Object { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+        get-nsxservice -scopeid universalroot-0 | Where-Object { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
 
         disconnect-nsxserver
     }
@@ -121,50 +121,50 @@ Describe "Services" {
          It "Can retrieve both universal and global Services" -skip:(-not $universalSyncEnabled ) {
             {Get-NsxService} | should not throw
             $svc = Get-NsxService
-            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
-            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($svc | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
+            ($svc | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve universal only Services" -skip:(-not $universalSyncEnabled ) {
             {Get-NsxService -universalOnly} | should not throw
             $svc = Get-NsxService -universalOnly
-            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
-            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($svc | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
+            ($svc | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve local only Services" {
             {Get-NsxService -localOnly} | should not throw
             $svc = Get-NsxService -localOnly
-            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
-            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+            ($svc | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
+            ($svc | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
          }
 
          It "Can retrieve universal only Services with scopeId" -skip:(-not $universalSyncEnabled ) {
             {Get-NsxService -scopeId universalroot-0} | should not throw
             $svc = Get-NsxService -scopeId universalroot-0
-            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
-            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($svc | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
+            ($svc | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve local only Services with scopeId" {
             {Get-NsxService -scopeId globalroot-0} | should not throw
             $svc = Get-NsxService -scopeId globalroot-0
-            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
-            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+            ($svc | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
+            ($svc | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
          }
 
          It "Can retrieve global Service by name with scopeId" {
             {Get-NsxService $svcName -scopeId globalroot-0} | should not throw
             $svc = Get-NsxService $svcName -scopeId globalroot-0
-            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
-            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+            ($svc | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
+            ($svc | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
          }
 
          It "Can retrieve universal Service by name with scopeId" -skip:(-not $universalSyncEnabled ) {
             {Get-NsxService $svcNameUniversal -scopeId universalroot-0} | should not throw
             $svc = Get-NsxService $svcNameUniversal -scopeId universalroot-0
-            ($svc | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
-            ($svc | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($svc | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
+            ($svc | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
          }
 
     }
@@ -172,11 +172,11 @@ Describe "Services" {
     Context "Successful Service Creation" {
 
         AfterAll {
-            get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
-            get-nsxservice -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+            get-nsxservice | Where-Object { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+            get-nsxservice -scopeid universalroot-0 | Where-Object { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
         }
 
-        foreach ( $svc in ($AllServicesRequiringPort | ? {"ICMP", "L2_OTHERS", "L3_OTHERS" -notcontains $_ } ) ) {
+        foreach ( $svc in ($AllServicesRequiringPort | Where-Object {"ICMP", "L2_OTHERS", "L3_OTHERS" -notcontains $_ } ) ) {
             it "Can create $svc service with port" {
                 $svcName = "$svcPrefix-$svc-1234"
                 $svcDesc = "PowerNSX Pester Test $svc service"
@@ -321,15 +321,15 @@ Describe "Services" {
         It "Creates only a single service when used as the first part of a pipeline (#347)" {
             New-NsxService -Name "$SvcPrefix-test-347" -protocol tcp -port 1234
             $Svc = Get-NsxService "$SvcPrefix-test-347" | ForEach-Object { New-NsxService -Name $_.name -Protocol $_.element.applicationProtocol -port $_.element.value -Universal}
-            ($Svc | measure).count | should be 1
+            ($Svc | Measure-Object).count | should be 1
         }
     }
 
     Context "Unsuccessful Service Creation" {
 
         BeforeAll {
-            get-nsxservice | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
-            get-nsxservice -scopeId universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+            get-nsxservice | Where-Object { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
+            get-nsxservice -scopeId universalroot-0 | Where-Object { $_.name -match $svcPrefix } | remove-nsxservice -confirm:$false
         }
 
         it "Fails to create a service with an invalid protocol" {
@@ -370,7 +370,7 @@ Describe "Services" {
             }
         }
 
-        foreach ( $svc in ($AllValidServices | ? { $AllServicesValidSourcePort -notcontains $_})) {
+        foreach ( $svc in ($AllValidServices | Where-Object { $AllServicesValidSourcePort -notcontains $_})) {
             it "Fails to create a $svc service when specifying a source port number" {
 
                 $svcName = "$svcPrefix-invalid"
@@ -380,7 +380,7 @@ Describe "Services" {
             }
         }
 
-        foreach ( $svc in $AllServicesNotRequiringPort | ? { $_ -notmatch "ICMP|TCP|UDP" }) {
+        foreach ( $svc in $AllServicesNotRequiringPort | Where-Object { $_ -notmatch "ICMP|TCP|UDP" }) {
             it "Fails to create a non port defined service - $svc - when specifying a port number" {
                 $svcName = "$svcPrefix-invalid"
                 $svcDesc = "PowerNSX Pester Test Invalid service"

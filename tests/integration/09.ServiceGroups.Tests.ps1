@@ -39,8 +39,8 @@ Describe "ServiceGroups" {
         $script:svcPrefix = "pester_svcgrp_"
 
         #Clean up any existing services from previous runs...
-        get-nsxservicegroup | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
-        get-nsxservicegroup -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
+        get-nsxservicegroup | Where-Object { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
+        get-nsxservicegroup -scopeid universalroot-0 | Where-Object { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
 
         #Set flag used to determine if universal objects should be tested.
         $NsxManagerRole = Get-NsxManagerRole
@@ -58,8 +58,8 @@ Describe "ServiceGroups" {
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
         #We kill the connection to NSX Manager here.
 
-        get-nsxservicegroup | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
-        get-nsxservicegroup -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
+        get-nsxservicegroup | Where-Object { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
+        get-nsxservicegroup -scopeid universalroot-0 | Where-Object { $_.name -match $svcPrefix } | remove-nsxservicegroup -confirm:$false
 
         disconnect-nsxserver
     }
@@ -76,21 +76,21 @@ Describe "ServiceGroups" {
             {Get-NsxServiceGroup -localonly} | should not throw
             $sg = Get-NsxServiceGroup -localonly
             $sg | should not be $null
-            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($sg | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve both local and universal ServiceGroup" {
             {Get-NsxServiceGroup} | should not throw
             $sg = Get-NsxServiceGroup
             $sg | should not be $null
-            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($sg | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
         it "Can retreive a group by name" {
             {Get-NsxServiceGroup -Name $svcGrpName} | should not throw
             $sg = Get-NsxServiceGroup -Name $svcGrpName
             $sg | should not be $null
-            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($sg | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
             $sg.name | should be $svcGrpName
          }
 
@@ -99,7 +99,7 @@ Describe "ServiceGroups" {
             $sg = Get-NsxServiceGroup -Name $svcGrpName -scopeid globalroot-0
             $sg | should not be $null
             $sg.name | should be $svcGrpName
-            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should be 1
+            ($sg | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 1
          }
 
         it "Can retreive a local service group by id" {
@@ -126,24 +126,24 @@ Describe "ServiceGroups" {
             {Get-NsxServiceGroup -universalonly} | should not throw
             $sg = Get-NsxServiceGroup -universalonly
             $sg | should not be $null
-            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
-            ($sg | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
+            ($sg | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
+            ($sg | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve both local and universal ServiceGroup" -skip:(-not $universalSyncEnabled ) {
             {Get-NsxServiceGroup} | should not throw
             $sg = Get-NsxServiceGroup
             $sg | should not be $null
-            ($sg | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($sg | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($sg | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
         it "Can retreive all service groups by name" -skip:(-not $universalSyncEnabled ) {
             {Get-NsxServiceGroup -Name $svcGrpName} | should not throw
             $sg = Get-NsxServiceGroup -Name $svcGrpName
             $sg | should not be $null
-            ($sg | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($sg | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($sg | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
         it "Can retreive a universal service group by name with scopeid" -skip:(-not $universalSyncEnabled ) {
@@ -151,8 +151,8 @@ Describe "ServiceGroups" {
             $sg = Get-NsxServiceGroup -scopeid universalroot-0 -Name $svcGrpName
             $sg | should not be $null
             $sg.name | should be $svcGrpName
-            ($sg | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
-            ($sg | ? { $_.isUniversal -eq 'True'} | measure).count | should be 1
+            ($sg | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
+            ($sg | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 1
          }
 
         it "Can retreive a universal service group by id" -skip:(-not $universalSyncEnabled ) {
@@ -168,7 +168,7 @@ Describe "ServiceGroups" {
     Context "Successful Local Service Group Creation" {
 
         AfterAll {
-            get-nsxserviceGroup | ? { $_.name -match $svcPrefix } | remove-nsxserviceGroup -confirm:$false
+            get-nsxserviceGroup | Where-Object { $_.name -match $svcPrefix } | remove-nsxserviceGroup -confirm:$false
         }
 
         it "Can create a service group" {
@@ -212,7 +212,7 @@ Describe "ServiceGroups" {
         It "Creates only a single servicegroup when used as the first part of a pipeline (#347)" {
             New-NsxServiceGroup -Name "$SvcPrefix-test-347"
             $SvcGrp = Get-NsxServiceGroup "$SvcPrefix-test-347" | ForEach-Object { New-NsxServiceGroup -Name $_.name -Universal}
-            ($SvcGrp | measure).count | should be 1
+            ($SvcGrp | Measure-Object).count | should be 1
         }
 
     }
@@ -220,7 +220,7 @@ Describe "ServiceGroups" {
     Context "Successful Universal Service Group Creation" {
 
         AfterAll {
-            get-nsxserviceGroup -scopeid universalroot-0 | ? { $_.name -match $svcPrefix } | remove-nsxserviceGroup -confirm:$false
+            get-nsxserviceGroup -scopeid universalroot-0 | Where-Object { $_.name -match $svcPrefix } | remove-nsxserviceGroup -confirm:$false
         }
 
         it "Can create a universal service group" {
@@ -269,8 +269,8 @@ Describe "ServiceGroups" {
             $UsvcName1 = "$svcPrefix-testservice-1-Universal"
 
             # Remove any previosuly created ones
-            Get-NsxServiceGroup | ? { $_.name -match $svcPrefix } | Remove-NsxServiceGroup -Confirm:$false
-            Get-NsxService | ? { $_.name -match $svcPrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | Where-Object { $_.name -match $svcPrefix } | Remove-NsxServiceGroup -Confirm:$false
+            Get-NsxService | Where-Object { $_.name -match $svcPrefix } | Remove-NsxService -Confirm:$false
 
             # Create stuff
             $script:MemberSvcGrp1 = New-NsxServiceGroup -Name $svcgrpName1
@@ -281,17 +281,17 @@ Describe "ServiceGroups" {
         }
 
         AfterAll {
-            Get-NsxServiceGroup | ? { $_.name -match $svcPrefix } | Remove-NsxServiceGroup -Confirm:$false
-            Get-NsxService | ? { $_.name -match $svcPrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | Where-Object { $_.name -match $svcPrefix } | Remove-NsxServiceGroup -Confirm:$false
+            Get-NsxService | Where-Object { $_.name -match $svcPrefix } | Remove-NsxService -Confirm:$false
         }
 
         it "Can retrieve local Service Group Service applicable members" {
             { Get-NsxApplicableMember -ServiceGroupApplicableMembers } | should not throw
             $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $svcName1}
+            $item = $results | Where-Object {$_.name -eq $svcName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "Application"
             $item.isUniversal | should be "false"
         }
@@ -300,9 +300,9 @@ Describe "ServiceGroups" {
             { Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $svcName1}
+            $item = $results | Where-Object {$_.name -eq $svcName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "Application"
             $item.isUniversal | should be "false"
         }
@@ -311,9 +311,9 @@ Describe "ServiceGroups" {
             { Get-NsxApplicableMember -ServiceGroupApplicableMembers } | should not throw
             $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $svcgrpName1}
+            $item = $results | Where-Object {$_.name -eq $svcgrpName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "ApplicationGroup"
             $item.isUniversal | should be "false"
         }
@@ -322,9 +322,9 @@ Describe "ServiceGroups" {
             { Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $svcgrpName1}
+            $item = $results | Where-Object {$_.name -eq $svcgrpName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "ApplicationGroup"
             $item.isUniversal | should be "false"
         }
@@ -334,9 +334,9 @@ Describe "ServiceGroups" {
             { Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal } | should not throw
             $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UsvcName1}
+            $item = $results | Where-Object {$_.name -eq $UsvcName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "Application"
             $item.isUniversal | should be "true"
         }
@@ -345,9 +345,9 @@ Describe "ServiceGroups" {
             { Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId universalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId universalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UsvcName1}
+            $item = $results | Where-Object {$_.name -eq $UsvcName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "Application"
             $item.isUniversal | should be "true"
         }
@@ -356,9 +356,9 @@ Describe "ServiceGroups" {
             { Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal } | should not throw
             $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -Universal
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UsvcgrpName1}
+            $item = $results | Where-Object {$_.name -eq $UsvcgrpName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "ApplicationGroup"
             $item.isUniversal | should be "true"
         }
@@ -367,9 +367,9 @@ Describe "ServiceGroups" {
             { Get-NsxApplicableMember -ServiceGroupApplicableMembers  -scopeId universalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -ServiceGroupApplicableMembers -scopeId universalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UsvcgrpName1}
+            $item = $results | Where-Object {$_.name -eq $UsvcgrpName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "ApplicationGroup"
             $item.isUniversal | should be "true"
         }

@@ -32,9 +32,9 @@ Describe "SecurityGroups" {
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
         $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred
-        $script:cl = get-cluster | select -first 1
+        $script:cl = get-cluster | Select-Object -first 1
         write-warning "Using cluster $cl for edge appliance deployment"
-        $script:ds = $cl | get-datastore | select -first 1
+        $script:ds = $cl | get-datastore | Select-Object -first 1
         write-warning "Using datastore $ds for edge appliance deployment"
 
         #Put any script scope variables you need to reference in your tests.
@@ -43,7 +43,7 @@ Describe "SecurityGroups" {
         $script:sgPrefix = "pester_secgrp"
 
         #Clean up any existing SGs from previous runs...
-        get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
+        get-nsxsecuritygroup | Where-Object { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
 
         #Set flag used in tests we have to tag out for 6.3.0 and above only...
         if ( [version]$DefaultNsxConnection.Version -ge [version]"6.3.0" )  {
@@ -85,7 +85,7 @@ Describe "SecurityGroups" {
         if ( get-vm $testVMName1 -ErrorAction Ignore ) {
             remove-vm $testVMName1 -DeletePermanently -Confirm:$false
         }
-        $vmhost = $cl | get-vmhost | select -first 1
+        $vmhost = $cl | get-vmhost | Select-Object -first 1
         $folder = get-folder -type VM -name vm
         $vmsplat = @{
             "VMHost" = $vmhost
@@ -108,8 +108,8 @@ Describe "SecurityGroups" {
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
         #We kill the connection to NSX Manager here.
 
-        get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
-        Get-vm | ? { $_.name -eq $testVMName1 } | Remove-vm -DeletePermanently -Confirm:$false
+        get-nsxsecuritygroup | Where-Object { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
+        Get-vm | Where-Object { $_.name -eq $testVMName1 } | Remove-vm -DeletePermanently -Confirm:$false
         disconnect-nsxserver
     }
 
@@ -138,20 +138,20 @@ Describe "SecurityGroups" {
 
         it "Can retrieve only local SecurityGroups" {
             $secGrp = Get-nsxsecuritygroup -localonly
-            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
-            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
         }
 
         it "Can retrieve only local SecurityGroups via scopeid" {
             $secGrp = Get-nsxsecuritygroup -scopeid globalroot-0
-            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
-            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
         }
 
         It "Can retrieve securitygroups by virtual machine" {
             $sg = $testvm1 | Get-NsxSecurityGroup
             $sg | should not be $null
-            ($sg | measure).count | should be 1
+            ($sg | Measure-Object).count | should be 1
             $sg.name | should be $secGrpName
         }
 
@@ -160,7 +160,7 @@ Describe "SecurityGroups" {
     Context "Successful SecurityGroup Creation" {
 
         AfterAll {
-            get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
+            get-nsxsecuritygroup | Where-Object { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
         }
 
         it "Can create a SecurityGroup" {
@@ -189,7 +189,7 @@ Describe "SecurityGroups" {
         It "Creates only a single securityGroup when used as the first part of a pipeline (#347)" {
             New-NsxSecurityGroup -Name "$sgPrefix-test-347"
             $sg = Get-NsxSecurityGroup "$sgPrefix-test-347" | ForEach-Object { New-NsxSecurityGroup -Name $_.name -Universal}
-            ($sg | measure).count | should be 1
+            ($sg | Measure-Object).count | should be 1
         }
     }
 
@@ -211,7 +211,7 @@ Describe "SecurityGroups" {
             #VMs
             $script:MemberVMName1 = "pester_member_vm1"
             $script:MemberVMName2 = "pester_member_vm2"
-            $vmhost = $cl | get-vmhost | select -first 1
+            $vmhost = $cl | get-vmhost | Select-Object -first 1
             $folder = get-folder -type VM -name vm
             $vmsplat = @{
                 "VMHost" = $vmhost
@@ -336,8 +336,8 @@ Describe "SecurityGroups" {
             $script:MemberSG1 = New-NsxSecurityGroup -Name $SecGrpMemberName1 -Description $SecGrpMemberDesc1
             $script:MemberSG2 = New-NsxSecurityGroup -Name $SecGrpMemberName2 -Description $SecGrpMemberDesc2
 
-            $script:MemberLS1 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $MemberLSName1
-            $script:MemberLS2 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $MemberLSName2
+            $script:MemberLS1 = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $MemberLSName1
+            $script:MemberLS2 = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $MemberLSName2
 
             $script:MemberVM1 = new-vm -name $MemberVMName1 @vmsplat
             $script:MemberVM2 = new-vm -name $MemberVMName2 @vmsplat
@@ -347,11 +347,11 @@ Describe "SecurityGroups" {
             $script:MemberIpSet1 = New-NsxIpSet -Name $MemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddress $testIPs
             $script:MemberIpSet2 = New-NsxIpSet -Name $MemberIpSetName2 -Description $MemberIpSetDesc2 -IpAddress $testIPs
 
-            $script:MemberResPool1 = Get-cluster | select -First 1 | New-ResourcePool -Name $MemberResPoolName1
-            $script:MemberResPool2 = Get-cluster | select -First 1 | New-ResourcePool -Name $MemberResPoolName2
+            $script:MemberResPool1 = Get-cluster | Select-Object -First 1 | New-ResourcePool -Name $MemberResPoolName1
+            $script:MemberResPool2 = Get-cluster | Select-Object -First 1 | New-ResourcePool -Name $MemberResPoolName2
 
-            $script:MemberVdPortGroup1 = Get-VDSwitch | Select -first 1 | New-VDPortgroup -Name $MemberVdPortGroupName1
-            $script:MemberVdPortGroup2 = Get-VDSwitch | Select -first 1 | New-VDPortgroup -Name $MemberVdPortGroupName2
+            $script:MemberVdPortGroup1 = Get-VDSwitch | Select-Object -first 1 | New-VDPortgroup -Name $MemberVdPortGroupName1
+            $script:MemberVdPortGroup2 = Get-VDSwitch | Select-Object -first 1 | New-VDPortgroup -Name $MemberVdPortGroupName2
 
             $script:MemberDC1 = get-folder Datacenters | New-Datacenter -Name $MemberDcName1
             $script:MemberDC2 = get-folder Datacenters | New-Datacenter -Name $MemberDcName2
@@ -409,7 +409,7 @@ Describe "SecurityGroups" {
         }
 
         AfterEach {
-            get-nsxsecuritygroup | ? { $_.name -match "$sgPrefix-mod" } | remove-nsxsecuritygroup -confirm:$false
+            get-nsxsecuritygroup | Where-Object { $_.name -match "$sgPrefix-mod" } | remove-nsxsecuritygroup -confirm:$false
         }
 
         it "Can modify a SecurityGroup membership by object" {
@@ -760,20 +760,20 @@ Describe "SecurityGroups" {
             }
         }
 
-        It "Can add a dynamic member set to an existing security group." { 
+        It "Can add a dynamic member set to an existing security group." {
             $val = "$sgprefix-dynamic1"
             $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val
             $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
             $update = Get-NsxSecurityGroup $secGrpName
             $update.objectId | should be $secGrp.objectId
-            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
-            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet | Measure-Object).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | Measure-Object).count | should be 1
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["ComputerName"]
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["equals"]
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value | should be $val
         }
 
-        It "Can add multiple dynamic criteria in a new Dynamic Member Set to an existing security group." { 
+        It "Can add multiple dynamic criteria in a new Dynamic Member Set to an existing security group." {
             $val1 = "$sgprefix-dynamic1"
             $val2 = "$sgprefix-dynamic2"
             $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
@@ -781,8 +781,8 @@ Describe "SecurityGroups" {
             $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1,$spec2
             $update = Get-NsxSecurityGroup $secGrpName
             $update.objectId | should be $secGrp.objectId
-            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
-            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 2
+            ($update.dynamicMemberDefinition.dynamicSet | Measure-Object).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | Measure-Object).count | should be 2
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["ComputerName"] | should be $true
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["equals"] | should be $true
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val1 | should be $true
@@ -791,7 +791,7 @@ Describe "SecurityGroups" {
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val2 | should be $true
         }
 
-        It "Can add multiple dynamic member sets to an existing security group." { 
+        It "Can add multiple dynamic member sets to an existing security group." {
             $val1 = "$sgprefix-dynamic1"
             $val2 = "$sgprefix-dynamic2"
             $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
@@ -801,9 +801,9 @@ Describe "SecurityGroups" {
             $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -SetOperator AND -DynamicCriteriaSpec $spec2
             $update = Get-NsxSecurityGroup $secGrpName
             $update.objectId | should be $secGrp.objectId
-            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 2
-            ($update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria | measure).count | should be 1
-            ($update.dynamicMemberDefinition.dynamicSet[1].dynamicCriteria | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet | Measure-Object).count | should be 2
+            ($update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria | Measure-Object).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet[1].dynamicCriteria | Measure-Object).count | should be 1
             $update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["ComputerName"]
             $update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["equals"]
             $update.dynamicMemberDefinition.dynamicSet[0].dynamicCriteria.value | should be $val1
@@ -812,17 +812,17 @@ Describe "SecurityGroups" {
             $update.dynamicMemberDefinition.dynamicSet[1].dynamicCriteria.value | should be $val2
         }
 
-        It "Can add a new dynamic criteria spec to an existing member set." { 
+        It "Can add a new dynamic criteria spec to an existing member set." {
             $val1 = "$sgprefix-dynamic1"
             $val2 = "$sgprefix-dynamic2"
             $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
             $spec2 = New-NsxDynamicCriteriaSpec -key OSName -condition ends_with -value $val2
             $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
-            Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Add-NsxDynamicCriteria -DynamicCriteriaSpec $spec2 
+            Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Add-NsxDynamicCriteria -DynamicCriteriaSpec $spec2
             $update = Get-NsxSecurityGroup $secGrpName
             $update.objectId | should be $secGrp.objectId
-            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
-            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 2
+            ($update.dynamicMemberDefinition.dynamicSet | Measure-Object).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | Measure-Object).count | should be 2
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["ComputerName"] | should be $true
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["equals"] | should be $true
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val1 | should be $true
@@ -831,16 +831,16 @@ Describe "SecurityGroups" {
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val2 | should be $true
         }
 
-        It "Can add a new dynamic criteria to an existing member set by key/condition/val." { 
+        It "Can add a new dynamic criteria to an existing member set by key/condition/val." {
             $val1 = "$sgprefix-dynamic1"
             $val2 = "$sgprefix-dynamic2"
             $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
             $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
-            Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Add-NsxDynamicCriteria -key OSName -condition ends_with -value $val2 
+            Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Add-NsxDynamicCriteria -key OSName -condition ends_with -value $val2
             $update = Get-NsxSecurityGroup $secGrpName
             $update.objectId | should be $secGrp.objectId
-            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
-            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 2
+            ($update.dynamicMemberDefinition.dynamicSet | Measure-Object).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | Measure-Object).count | should be 2
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key -contains $DynamicCriteriaKeySubstitute["ComputerName"] | should be $true
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria -contains $DynamicCriteriaConditionSubstitute["equals"] | should be $true
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val1 | should be $true
@@ -849,26 +849,26 @@ Describe "SecurityGroups" {
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value -contains $val2 | should be $true
         }
 
-        It "Can remove an existing dynamic criteria from a dynamic member set." { 
+        It "Can remove an existing dynamic criteria from a dynamic member set." {
             $val1 = "$sgprefix-dynamic1"
             $val2 = "$sgprefix-dynamic2"
             $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
             $spec2 = New-NsxDynamicCriteriaSpec -key OSName -condition ends_with -value $val2
             $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1,$spec2
             $secGrp = Get-NsxSecurityGroup $secGrpName
-            $MemberSetToRemove = Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Get-NsxDynamicCriteria | ? { (($_.key -eq 'ComputerName') -AND
+            $MemberSetToRemove = Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Get-NsxDynamicCriteria | Where-Object { (($_.key -eq 'ComputerName') -AND
             ($_.condition -eq 'equals') -AND ($_.value -eq $val1)) }
             $secGrp | Get-NsxDynamicMemberSet -index 1 | Get-NsxDynamicCriteria -index $MemberSetToRemove.index | Remove-NsxDynamicCriteria -Noconfirm
             $update = Get-NsxSecurityGroup $secGrpName
             $update.objectId | should be $secGrp.objectId
-            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
-            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 1
-            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["OSName"] 
+            ($update.dynamicMemberDefinition.dynamicSet | Measure-Object).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | Measure-Object).count | should be 1
+            $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["OSName"]
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["ends_With"]
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value | should be $val2
         }
 
-        It "Can remove an existing dynamic member set from an existing security group." { 
+        It "Can remove an existing dynamic member set from an existing security group." {
             $val1 = "$sgprefix-dynamic1"
             $val2 = "$sgprefix-dynamic2"
             $spec1 = New-NsxDynamicCriteriaSpec -key ComputerName -condition equals -value $val1
@@ -876,16 +876,16 @@ Describe "SecurityGroups" {
             $secGrp | Add-NsxDynamicMemberSet -CriteriaOperator ANY -DynamicCriteriaSpec $spec1
             Get-NsxSecurityGroup $SecGrpName | Add-NsxDynamicMemberSet -CriteriaOperator ANY -SetOperator AND -DynamicCriteriaSpec $spec2
             $update = Get-NsxSecurityGroup $secGrpName
-            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 2
+            ($update.dynamicMemberDefinition.dynamicSet | Measure-Object).count | should be 2
             Get-NsxSecurityGroup $SecGrpName | Get-NsxDynamicMemberSet -index 1 | Remove-NsxDynamicMemberSet -Noconfirm
             $update = Get-NsxSecurityGroup $secGrpName
             $update.objectId | should be $secGrp.objectId
-            ($update.dynamicMemberDefinition.dynamicSet | measure).count | should be 1
-            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | measure).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet | Measure-Object).count | should be 1
+            ($update.dynamicMemberDefinition.dynamicSet.dynamicCriteria | Measure-Object).count | should be 1
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.key | should be $DynamicCriteriaKeySubstitute["OSName"]
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.criteria | should be $DynamicCriteriaConditionSubstitute["ends_With"]
             $update.dynamicMemberDefinition.dynamicSet.dynamicCriteria.value | should be $val2
-        }       
+        }
     }
 
     Context "SecurityGroup Deletion" {
@@ -914,25 +914,25 @@ Describe "SecurityGroups" {
         }
 
         AfterAll {
-            get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
+            get-nsxsecuritygroup | Where-Object { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
         }
 
         it "Can retrieve both local and universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
             $secGrp = Get-nsxsecuritygroup
-            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
         }
 
         it "Can retrieve only universal SecurityGroups" -skip:(-not $universalSyncEnabled ) {
             $secGrp = Get-nsxsecuritygroup -universalOnly
-            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
         }
 
         it "Can retrieve only universal SecurityGroups via scopeid" -skip:(-not $universalSyncEnabled ) {
             $secGrp = Get-nsxsecuritygroup -scopeid universalroot-0
-            ($secGrp | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($secGrp | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($secGrp | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
         }
 
     }
@@ -946,8 +946,8 @@ Describe "SecurityGroups" {
         }
 
         AfterAll {
-            get-nsxsecuritygroup | ? { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
-            get-nsxsecuritytag | ? { $_.name -match $sgPrefix } | Remove-NsxSecurityTag -Confirm:$false
+            get-nsxsecuritygroup | Where-Object { $_.name -match $sgPrefix } | remove-nsxsecuritygroup -confirm:$false
+            get-nsxsecuritytag | Where-Object { $_.name -match $sgPrefix } | Remove-NsxSecurityTag -Confirm:$false
         }
 
 
@@ -972,7 +972,7 @@ Describe "SecurityGroups" {
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
             $get.description | should be $secGrp.description
-            $localMembersOnly = $get.extendedAttributes.extendedAttribute | ? { $_.name -eq "localMembersOnly" }
+            $localMembersOnly = $get.extendedAttributes.extendedAttribute | Where-Object { $_.name -eq "localMembersOnly" }
             $localMembersOnly.value | should be "true"
             $get.member.name | should be $UST.name
         }
@@ -999,7 +999,7 @@ Describe "SecurityGroups" {
 
             #VMs
             $script:MemberVMName1 = "pester_member_vm1"
-            $vmhost = $cl | get-vmhost | select -first 1
+            $vmhost = $cl | get-vmhost | Select-Object -first 1
             $folder = get-folder -type VM -name vm
             $vmsplat = @{
                 "VMHost" = $vmhost
@@ -1069,7 +1069,7 @@ Describe "SecurityGroups" {
             $script:MemberSG1 = New-NsxSecurityGroup -Name $SecGrpMemberName1 -Description $SecGrpMemberDesc1
             $script:UMemberSG1 = New-NsxSecurityGroup -Name $USecGrpMemberName1 -Description $SecGrpMemberDesc1 -universal
 
-            $script:MemberLS1 = Get-NsxTransportZone -LocalOnly | select -first 1 | New-NsxLogicalSwitch $MemberLSName1
+            $script:MemberLS1 = Get-NsxTransportZone -LocalOnly | Select-Object -first 1 | New-NsxLogicalSwitch $MemberLSName1
 
             $script:MemberVM1 = new-vm -name $MemberVMName1 @vmsplat
             $MemberVM1 | Connect-NsxLogicalSwitch -LogicalSwitch $MemberLS1
@@ -1077,9 +1077,9 @@ Describe "SecurityGroups" {
             $script:MemberIpSet1 = New-NsxIpSet -Name $MemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddress $testIPs
             $script:UMemberIpSet1 = New-NsxIpSet -Name $UMemberIpSetName1 -Description $MemberIpSetDesc1 -IpAddress $testIPs -Universal
 
-            $script:MemberResPool1 = Get-cluster | select -First 1 | New-ResourcePool -Name $MemberResPoolName1
+            $script:MemberResPool1 = Get-cluster | Select-Object -First 1 | New-ResourcePool -Name $MemberResPoolName1
 
-            $script:MemberVdPortGroup1 = Get-VDSwitch | Select -first 1 | New-VDPortgroup -Name $MemberVdPortGroupName1
+            $script:MemberVdPortGroup1 = Get-VDSwitch | Select-Object -first 1 | New-VDPortgroup -Name $MemberVdPortGroupName1
 
             $script:MemberDC1 = get-folder Datacenters | New-Datacenter -Name $MemberDcName1
 
@@ -1126,9 +1126,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberIpSetName1}
+            $item = $results | Where-Object {$_.name -eq $MemberIpSetName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "IPSet"
             $item.isUniversal | should be "false"
         }
@@ -1137,9 +1137,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberIpSetName1}
+            $item = $results | Where-Object {$_.name -eq $MemberIpSetName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "IPSet"
             $item.isUniversal | should be "false"
         }
@@ -1148,9 +1148,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $cl.name}
+            $item = $results | Where-Object {$_.name -eq $cl.name}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "ClusterComputeResource"
         }
 
@@ -1158,9 +1158,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ClusterComputeResource -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $cl.name}
+            $item = $results | Where-Object {$_.name -eq $cl.name}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "ClusterComputeResource"
         }
 
@@ -1168,9 +1168,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberLSName1}
+            $item = $results | Where-Object {$_.name -eq $MemberLSName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "VirtualWire"
             $item.isUniversal | should be "false"
         }
@@ -1179,9 +1179,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualWire -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberLSName1}
+            $item = $results | Where-Object {$_.name -eq $MemberLSName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "VirtualWire"
             $item.isUniversal | should be "false"
         }
@@ -1190,9 +1190,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberVMName1}
+            $item = $results | Where-Object {$_.name -eq $MemberVMName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "VirtualMachine"
         }
 
@@ -1200,9 +1200,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType VirtualMachine -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberVMName1}
+            $item = $results | Where-Object {$_.name -eq $MemberVMName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "VirtualMachine"
         }
 
@@ -1224,9 +1224,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $SecGrpMemberName1}
+            $item = $results | Where-Object {$_.name -eq $SecGrpMemberName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "SecurityGroup"
             $item.isUniversal | should be "false"
         }
@@ -1235,9 +1235,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $SecGrpMemberName1}
+            $item = $results | Where-Object {$_.name -eq $SecGrpMemberName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "SecurityGroup"
             $item.isUniversal | should be "false"
         }
@@ -1254,9 +1254,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberResPool1}
+            $item = $results | Where-Object {$_.name -eq $MemberResPool1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "ResourcePool"
         }
 
@@ -1264,9 +1264,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType ResourcePool -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberResPool1}
+            $item = $results | Where-Object {$_.name -eq $MemberResPool1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "ResourcePool"
         }
 
@@ -1274,9 +1274,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberVdPortGroup1}
+            $item = $results | Where-Object {$_.name -eq $MemberVdPortGroup1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "DistributedVirtualPortgroup"
         }
 
@@ -1284,9 +1284,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DistributedVirtualPortgroup -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberVdPortGroup1}
+            $item = $results | Where-Object {$_.name -eq $MemberVdPortGroup1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "DistributedVirtualPortgroup"
         }
 
@@ -1294,9 +1294,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberDC1}
+            $item = $results | Where-Object {$_.name -eq $MemberDC1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "Datacenter"
         }
 
@@ -1304,9 +1304,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Datacenter -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberDC1}
+            $item = $results | Where-Object {$_.name -eq $MemberDC1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "Datacenter"
         }
 
@@ -1320,9 +1320,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic
             $results | should not be $null
-            $item = $results | select -first 1
+            $item = $results | Select-Object -first 1
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "Vnic"
         }
 
@@ -1330,9 +1330,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType Vnic -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | select -first 1
+            $item = $results | Select-Object -first 1
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "Vnic"
         }
 
@@ -1340,9 +1340,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberSTName1}
+            $item = $results | Where-Object {$_.name -eq $MemberSTName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "SecurityTag"
             $item.isUniversal | should be "false"
         }
@@ -1351,9 +1351,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberSTName1}
+            $item = $results | Where-Object {$_.name -eq $MemberSTName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "SecurityTag"
             $item.isUniversal | should be "false"
         }
@@ -1362,9 +1362,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberMacSetName1}
+            $item = $results | Where-Object {$_.name -eq $MemberMacSetName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "MACSet"
             $item.isUniversal | should be "false"
         }
@@ -1373,9 +1373,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId GlobalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId GlobalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $MemberMacSetName1}
+            $item = $results | Where-Object {$_.name -eq $MemberMacSetName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "MACSet"
             $item.isUniversal | should be "false"
         }
@@ -1386,9 +1386,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -universal } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -universal
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UMemberIpSetName1}
+            $item = $results | Where-Object {$_.name -eq $UMemberIpSetName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "IPSet"
             $item.isUniversal | should be "true"
         }
@@ -1397,9 +1397,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId universalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType IPSet -scopeId universalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UMemberIpSetName1}
+            $item = $results | Where-Object {$_.name -eq $UMemberIpSetName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "IPSet"
             $item.isUniversal | should be "true"
         }
@@ -1408,9 +1408,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag  -universal} | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -universal
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UMemberSTName1}
+            $item = $results | Where-Object {$_.name -eq $UMemberSTName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "SecurityTag"
             $item.isUniversal | should be "true"
         }
@@ -1419,9 +1419,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId universalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityTag -scopeId universalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UMemberSTName1}
+            $item = $results | Where-Object {$_.name -eq $UMemberSTName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "SecurityTag"
             $item.isUniversal | should be "true"
         }
@@ -1430,9 +1430,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet  -universal} | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -universal
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UMemberMacSetName1}
+            $item = $results | Where-Object {$_.name -eq $UMemberMacSetName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "MACSet"
             $item.isUniversal | should be "true"
         }
@@ -1441,9 +1441,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId universalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType MACSet -scopeId universalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $UMemberMacSetName1}
+            $item = $results | Where-Object {$_.name -eq $UMemberMacSetName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "MACSet"
             $item.isUniversal | should be "true"
         }
@@ -1452,9 +1452,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup  -universal} | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -universal
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $USecGrpMemberName1}
+            $item = $results | Where-Object {$_.name -eq $USecGrpMemberName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "SecurityGroup"
             $item.isUniversal | should be "true"
         }
@@ -1463,9 +1463,9 @@ Describe "SecurityGroups" {
             { Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId universalRoot-0 } | should not throw
             $results = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType SecurityGroup -scopeId universalRoot-0
             $results | should not be $null
-            $item = $results | ? {$_.name -eq $USecGrpMemberName1}
+            $item = $results | Where-Object {$_.name -eq $USecGrpMemberName1}
             $item | should not be $null
-            @($item | measure).count | should be 1
+            @($item | Measure-Object).count | should be 1
             $item.objectTypeName | should be "SecurityGroup"
             $item.isUniversal | should be "true"
         }
@@ -1489,7 +1489,7 @@ Describe "SecurityGroups" {
         }
 
         AfterAll {
-            Get-Template | ? {$_.name -match "^pester"} | Remove-Template -confirm:$false
+            Get-Template | Where-Object {$_.name -match "^pester"} | Remove-Template -confirm:$false
         }
 
         BeforeEach {
@@ -1505,7 +1505,7 @@ Describe "SecurityGroups" {
             Get-VM $testVMName1 | New-NsxSecurityTagAssignment -ApplyTag $testTag
             $assignment = $testTag | Get-NsxSecurityTagAssignment
             $assignment | should not be $null
-            ($assignment | measure).count | should be 1
+            ($assignment | Measure-Object).count | should be 1
             $assignment.VirtualMachine.name | should be $testVMName1
         }
 
@@ -1513,7 +1513,7 @@ Describe "SecurityGroups" {
             Get-VM $testVMName1 | New-NsxSecurityTagAssignment -ApplyTag $testTag
             $assignment = Get-VM $testVMName1 | Get-NsxSecurityTagAssignment
             $assignment | should not be $null
-            ($assignment | measure).count | should be 1
+            ($assignment | Measure-Object).count | should be 1
             $assignment.VirtualMachine.name | should be $testVMName1
         }
         it "Can get security tag assignment from a Template" {
@@ -1529,7 +1529,7 @@ Describe "SecurityGroups" {
 
             $assignment = Get-Template $testtemplate1 | Get-NsxSecurityTagAssignment
             $assignment | should not be $null
-            ($assignment | measure).count | should be 1
+            ($assignment | Measure-Object).count | should be 1
             $assignment.VirtualMachine.name | should be $testTemplateName
         }
     }
