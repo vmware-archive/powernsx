@@ -110,13 +110,7 @@ Describe "Edge Load Balancer" {
         }
     }
 
-    Context "Load Balancer" {
-
-        it "Enable Load Balancer" {
-            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled
-            $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
-            $lb.enabled | Should be $true
-        }
+    Context "Load Balancer App Profile" {
 
         it "Add LB AppProfile" {
             #Create LB App Profile
@@ -129,6 +123,22 @@ Describe "Edge Load Balancer" {
             $lb_app_profile.sslPassthrough | should be "false"
         }
 
+        AfterAll {
+            #Remove All LB App Profile
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile | Remove-NsxLoadBalancerApplicationProfile -confirm:$false
+
+        }
+    }
+    Context "Load Balancer" {
+
+        it "Enable Load Balancer" {
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled
+            $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
+            $lb.enabled | Should be $true
+        }
+
+
+
         it "Add LB VIP" {
             #Create LB Pool
             $pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name pester_lb_pool2 -Description "Pester LB Pool 2" -Transparent:$true -Algorithm ip-hash -Monitor $Monitor
@@ -136,6 +146,9 @@ Describe "Edge Load Balancer" {
             # ... And now add the pool members
             $pool = $pool | Add-NsxLoadBalancerPoolMember -name "VM03" -IpAddress 2.2.2.3 -Port 80
             $pool = $pool | Add-NsxLoadBalancerPoolMember -name "VM04" -IpAddress 2.2.2.4 -Port 80
+
+            #Create LB App Profile
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationProfile -Name pester_lb_app_profile -Type http
 
             #Finally add VIP
             $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
