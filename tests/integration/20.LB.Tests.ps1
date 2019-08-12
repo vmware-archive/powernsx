@@ -60,14 +60,7 @@ Describe "Edge Load Balancer" {
         $script:monitor =  get-nsxedge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name default_http_monitor
 
     }
-
-    Context "Load Balancer" {
-
-        it "Enable Load Balancer" {
-            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled
-            $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
-            $lb.enabled | Should be $true
-        }
+    Context "Load Balancer Pool" {
 
         it "Add LB Pool (via New-NsxLoadBalancerMemberSpec)" {
             #Add 2 server on LB Pool
@@ -101,6 +94,30 @@ Describe "Edge Load Balancer" {
             $lb_pool.member[1].name | Should be "VM04"
         }
 
+        it "Remove LB Pool " {
+            #Remove LB Pool
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name pester_lb_pool1 |  Remove-NsxLoadBalancerPool -confirm:$false
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name pester_lb_pool2 |  Remove-NsxLoadBalancerPool -confirm:$false
+
+            $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool
+            $lb_pool | should be $null
+        }
+
+        AfterAll {
+            #Remove All LB Pool
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool | Remove-NsxLoadBalancerPool -confirm:$false
+
+        }
+    }
+
+    Context "Load Balancer" {
+
+        it "Enable Load Balancer" {
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled
+            $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
+            $lb.enabled | Should be $true
+        }
+
         it "Add LB AppProfile" {
             #Create LB App Profile
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationProfile -Name pester_lb_app_profile -Type http
@@ -113,6 +130,14 @@ Describe "Edge Load Balancer" {
         }
 
         it "Add LB VIP" {
+            #Create LB Pool
+            $pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name pester_lb_pool2 -Description "Pester LB Pool 2" -Transparent:$true -Algorithm ip-hash -Monitor $Monitor
+
+            # ... And now add the pool members
+            $pool = $pool | Add-NsxLoadBalancerPoolMember -name "VM03" -IpAddress 2.2.2.3 -Port 80
+            $pool = $pool | Add-NsxLoadBalancerPoolMember -name "VM04" -IpAddress 2.2.2.4 -Port 80
+
+            #Finally add VIP
             $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
             $lb_app_profile = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile -Name pester_lb_app_profile
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -name "pester_vip" -Description "Pester VIP" -ipaddress 1.1.1.1 -Protocol http -Port 80 -ApplicationProfile $lb_app_profile -DefaultPool $lb_pool -AccelerationEnable
