@@ -77,6 +77,15 @@ Describe "Edge Load Balancer" {
             $lb_pool.member[1].name | Should be "VM02"
         }
 
+        it "Configure LB Pool" {
+            #Configure Pool to LB
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name pester_lb_pool1 | Set-NsxLoadBalancerPool -name pester_lb_pool3 -Description "Pester LB Pool 3" -Transparent:$true -Algorithm ip-hash
+            $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool3
+            $lb_pool.name | Should be "pester_lb_pool3"
+            $lb_pool.description | Should be "Pester LB Pool 3"
+            $lb_pool.algorithm | Should be "ip-hash"
+            $lb_pool.transparent | Should be "true"
+        }
         it "Add LB Pool (via Add-NsxLoadBalancerPoolMember)" {
             #Create LB Pool
             $Pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name pester_lb_pool2 -Description "Pester LB Pool 2" -Transparent:$true -Algorithm ip-hash -Monitor $Monitor
