@@ -54,7 +54,7 @@ Describe "Edge IPsec" {
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $ipsecuplinkls -PrimaryAddress $ipsecedge1ipuplink -SubnetPrefixLength 24
 
         #Create Edge
-        $script:sslEdge = New-NsxEdge -Name $ipsecedge1name -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -enablessh -hostname $ipsecedge1name
+        $script:ipsecEdge = New-NsxEdge -Name $ipsecedge1name -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -enablessh -hostname $ipsecedge1name
 
     }
 

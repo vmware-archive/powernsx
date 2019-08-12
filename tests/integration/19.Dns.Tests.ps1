@@ -54,7 +54,7 @@ Describe "Edge DNS" {
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $dnsuplinkls -PrimaryAddress $dnsedge1ipuplink -SubnetPrefixLength 24
 
         #Create Edge
-        $script:sslEdge = New-NsxEdge -Name $dnsedge1name -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -enablessh -hostname $dnsedge1name
+        $script:dnsEdge = New-NsxEdge -Name $dnsedge1name -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -enablessh -hostname $dnsedge1name
 
     }
 
