@@ -54,7 +54,6 @@ Describe "Edge NAT" {
 
         #Create Edge
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $testls1 -PrimaryAddress $natedgeIp1 -SubnetPrefixLength 24
-        $vnic1 = New-NsxEdgeInterfaceSpec -index 1 -Type internal -Name "vNic1" -ConnectedTo $testls2 -PrimaryAddress $natedgeIp2 -SubnetPrefixLength 24
         $script:natEdge = New-NsxEdge -Name $natedgename -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -hostname "pester-nat-edge1"
 
         $script:VersionLessThan630 = [version]$DefaultNsxConnection.Version -lt [version]"6.3.0"

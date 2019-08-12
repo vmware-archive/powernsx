@@ -43,10 +43,10 @@ Describe "MacSets" {
         #Set flag used to determine if universal objects should be tested.
         $NsxManagerRole = Get-NsxManagerRole
         if ( ( $NsxManagerRole.role -eq "PRIMARY") -or ($NsxManagerRole.role -eq "SECONDARY") ) {
-            $universalSyncEnabled = $true
+            $script:universalSyncEnabled = $true
         }
         else {
-            $universalSyncEnabled = $false
+            $script:universalSyncEnabled = $false
         }
 
     }

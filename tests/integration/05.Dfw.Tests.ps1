@@ -7,8 +7,6 @@ If ( -not $PNSXTestVC ) {
 Describe "DFW" {
 
 
-    $brokenSpecificAppliedTo = $true
-
     BeforeAll {
 
         #BeforeAll block runs _once_ at invocation regardless of number of tests/contexts/describes.
@@ -169,7 +167,7 @@ Describe "DFW" {
         BeforeEach {
             $section = New-NsxFirewallSection "pester_drafts"
             sleep 1
-            $rule1 = $section | New-NsxFirewallRule -Name "pester_draft_rule" -Action allow
+            $section | New-NsxFirewallRule -Name "pester_draft_rule" -Action allow
             sleep 1
         }
 
@@ -399,7 +397,7 @@ Describe "DFW" {
         }
 
         it "Can create an L3 section at bottom (insert_before_default)" {
-            $sectionTop = New-NsxFirewallSection "pester_dfw_top"
+            New-NsxFirewallSection "pester_dfw_top"
             $section = New-NsxFirewallSection $l3sectionname -position bottom
             $section | should not be $null
             $section = Get-NsxFirewallSection
@@ -407,9 +405,9 @@ Describe "DFW" {
         }
 
         it "Can insert an L3 section before a given section" {
-            $section3 = New-NsxFirewallSection "pester_dfw_3"
+            New-NsxFirewallSection "pester_dfw_3"
             $section2 = New-NsxFirewallSection "pester_dfw_2"
-            $section1 = New-NsxFirewallSection "pester_dfw_1"
+            New-NsxFirewallSection "pester_dfw_1"
             $section = New-NsxFirewallSection $l3sectionname -position before -anchorId $section2.id
             $section | should not be $null
             $section = Get-NsxFirewallSection
@@ -417,9 +415,9 @@ Describe "DFW" {
         }
 
         it "Can insert an L3 section after a given section" {
-            $section3 = New-NsxFirewallSection "pester_dfw_3"
+            New-NsxFirewallSection "pester_dfw_3"
             $section2 = New-NsxFirewallSection "pester_dfw_2"
-            $section1 = New-NsxFirewallSection "pester_dfw_1"
+            New-NsxFirewallSection "pester_dfw_1"
             $section = New-NsxFirewallSection $l3sectionname -position after -anchorId $section2.id
             $section | should not be $null
             $section = Get-NsxFirewallSection
@@ -496,7 +494,7 @@ Describe "DFW" {
         }
 
         it "Can create an L2 section at bottom (insert_before_default)" {
-            $sectionTop = New-NsxFirewallSection "pester_dfw_top" -sectionType layer2sections
+            New-NsxFirewallSection "pester_dfw_top" -sectionType layer2sections
             $section = New-NsxFirewallSection $l2sectionname -position bottom -sectionType layer2sections
             $section | should not be $null
             $section = Get-NsxFirewallSection -sectionType layer2sections
@@ -504,9 +502,9 @@ Describe "DFW" {
         }
 
         it "Can insert an L3 section before a given section" {
-            $section3 = New-NsxFirewallSection "pester_dfw_3" -sectionType layer2sections
+            New-NsxFirewallSection "pester_dfw_3" -sectionType layer2sections
             $section2 = New-NsxFirewallSection "pester_dfw_2" -sectionType layer2sections
-            $section1 = New-NsxFirewallSection "pester_dfw_1" -sectionType layer2sections
+            New-NsxFirewallSection "pester_dfw_1" -sectionType layer2sections
             $section = New-NsxFirewallSection $l2sectionname -position before -anchorId $section2.id -sectionType layer2sections
             $section | should not be $null
             $section = Get-NsxFirewallSection -sectionType layer2sections
@@ -514,9 +512,9 @@ Describe "DFW" {
         }
 
         it "Can insert an L3 section after a given section" {
-            $section3 = New-NsxFirewallSection "pester_dfw_3" -sectionType layer2sections
+            New-NsxFirewallSection "pester_dfw_3" -sectionType layer2sections
             $section2 = New-NsxFirewallSection "pester_dfw_2" -sectionType layer2sections
-            $section1 = New-NsxFirewallSection "pester_dfw_1" -sectionType layer2sections
+            New-NsxFirewallSection "pester_dfw_1" -sectionType layer2sections
             $section = New-NsxFirewallSection $l2sectionname -position after -anchorId $section2.id -sectionType layer2sections
             $section | should not be $null
             $section = Get-NsxFirewallSection -sectionType layer2sections
@@ -1199,7 +1197,6 @@ Describe "DFW" {
             $rule.sources | should be $null
             $rule.destination | should be $null
             $rule.appliedToList.appliedTo.Name | should be $testdvportgroupname
-            $rpid = $testdvPortgroup.id -replace "Resourcepool-",""
             #$rule.appliedToList.appliedTo.Value | should not be $null
             $rule.appliedToList.appliedTo.Type | should be "DistributedVirtualPortgroup"
             #$rule.appliedToList.appliedTo.isValue | should not be $null
@@ -2146,13 +2143,13 @@ Describe "DFW" {
         }
 
         it "Can remove all destinations from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Destination | Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
+            Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember -MemberType Destination | Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
             ($rule.Destinations.Destination.Name).count | should be 0
         }
 
         it "Can remove all members (source/destination) from an existing L3 rule" {
-            $member = Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember | Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
+            Get-NsxFirewallRule -ruleid $l3modrule1.id | Get-NsxFirewallRuleMember | Remove-NsxFirewallRuleMember -confirm:$false -SayHello2Heaven
             $rule = Get-NsxFirewallRule -Ruleid $l3modrule1.id
             ($rule.Sources.Source.Name).count | should be 0
             ($rule.Destinations.Destination.Name).count | should be 0

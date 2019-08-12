@@ -194,7 +194,7 @@ Describe "SecurityPolicy" {
             $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1"
             $sp = new-nsxsecuritypolicy -Name $polname -FirewallRuleSpec $spec
             $sg = new-nsxsecuritygroup -name $grpname -IncludeMember $testvm1
-            $newsp = $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
+            $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
             #We have to sleep as it takes time for NSX to do the needful
             start-sleep -Seconds 5
             $actions = $testvm1 | Get-NsxApplicableSecurityAction
@@ -208,7 +208,7 @@ Describe "SecurityPolicy" {
             $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1"
             $sp = new-nsxsecuritypolicy -Name $polname -FirewallRuleSpec $spec
             $sg = new-nsxsecuritygroup -name $grpname
-            $newsp = $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
+            $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
             #We have to sleep as it takes time for NSX to do the needful
             start-sleep -Seconds 5
             $actions = $sg | Get-NsxApplicableSecurityAction
@@ -908,7 +908,7 @@ Describe "SecurityPolicy" {
             $gispec = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec2") -Description "Pester GI Spec 1"  -ServiceType ANTIVIRUS
             $nispec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "nispec3") -Description "Pester NI Spec 1" -Source Any -ServiceProfile $nisp
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec -GuestIntrospectionSpec $gispec -NetworkIntrospectionSpec $nispec
-            $rules = $sp | get-nsxsecuritypolicyrule
+            $sp | get-nsxsecuritypolicyrule
             ($sp | get-nsxsecuritypolicyrule).class -contains "firewallSecurityAction" | should be $true
             ($sp | get-nsxsecuritypolicyrule).class -contains "endpointSecurityAction" | should be $true
             ($sp | get-nsxsecuritypolicyrule).class -contains "trafficSteeringSecurityAction" | should be $true
@@ -1106,8 +1106,6 @@ Describe "SecurityPolicy" {
             $fwspec2 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec2") -Description "Pester FW Spec 2" -Source Any
             $fwspec3 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec3") -Description "Pester FW Spec 3" -Source Any
             $gispec1 = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec1") -Description "Pester GI Spec 1"  -ServiceType ANTIVIRUS
-            $gispec2 = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec2") -Description "Pester GI Spec 2"  -ServiceType ANTIVIRUS
-            $gispec3 = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec3") -Description "Pester GI Spec 3"  -ServiceType ANTIVIRUS
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1, $fwspec2, $fwspec3 -GuestIntrospectionSpec $gispec1
             $rule = $sp | get-nsxsecuritypolicyrule -ruletype firewall | Select-Object -First 1
             $newrule = $rule | set-nsxsecuritypolicyfirewallrule -loggingEnabled $true -NoConfirm
@@ -1172,7 +1170,6 @@ Describe "SecurityPolicy" {
 
             it "Can remove a group from a security policy firewall rule" -skip:( -not $EnableDodgyTests) {
             $grp1 = new-nsxsecuritygroup -name ($SPNamePrefix + "grp1")
-            $grp2 = new-nsxsecuritygroup -name ($SPNamePrefix + "grp2")
             $fwspec1 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source $grp1
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1
             $rule = $sp | get-nsxsecuritypolicyrule -ruletype firewall | Select-Object -first 1
@@ -1193,7 +1190,6 @@ Describe "SecurityPolicy" {
 
         it "Can remove a group from a security policy network introspection rule" -skip:( -not ($EnableNiTests -and $EnableDodgyTests ))  {
             $grp1 = new-nsxsecuritygroup -name ($SPNamePrefix + "grp1")
-            $grp2 = new-nsxsecuritygroup -name ($SPNamePrefix + "grp2")
             $fwspec1 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source $grp1
             $nispec1 = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "nispec1") -Description "Pester NI Spec 1" -Source $grp1 -ServiceProfile $nisp
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1 -NetworkIntrospectionSpec $nispec1
@@ -1234,7 +1230,6 @@ Describe "SecurityPolicy" {
 
         it "Can remove a service from a security policy firewall rule" {
             $svc1 = new-nsxservice -name ($SPNamePrefix + "svc1") -Protocol TCP -port 80
-            $svc2 = new-nsxservice -name ($SPNamePrefix + "svc2") -Protocol TCP -port 80
             $fwspec1 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source any -service $svc1
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1
             $rule = $sp | get-nsxsecuritypolicyrule -ruletype firewall | Select-Object -first 1
@@ -1255,7 +1250,6 @@ Describe "SecurityPolicy" {
 
         it "Can remove a service from a security policy network introspection rule" -skip:( -not $EnableNiTests ) {
             $svc1 = new-nsxservice -name ($SPNamePrefix + "svc1") -Protocol TCP -port 80
-            $svc2 = new-nsxservice -name ($SPNamePrefix + "svc2") -Protocol TCP -port 80
             $fwspec1 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source any -service $svc1
             $nispec1 = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "nispec1") -Description "Pester NI Spec 1" -Source any -ServiceProfile $nisp -service $svc1
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1 -NetworkIntrospectionSpec $nispec1
