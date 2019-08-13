@@ -138,12 +138,21 @@ Describe "Edge Load Balancer" {
             $lb_app_profile.sslPassthrough | should be "false"
         }
 
+        it "Remove LB AppProfile" {
+            #Remove LB App Profile
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile -Name pester_lb_app_profile | Remove-NsxLoadBalancerApplicationProfile -confirm:$false
+
+            $lb_app_profile = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile -Name pester_lb_app_profile
+            $lb_app_profile | Should be $null
+        }
+
         AfterAll {
             #Remove All LB App Profile
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile | Remove-NsxLoadBalancerApplicationProfile -confirm:$false
 
         }
     }
+
     Context "Load Balancer" {
 
         it "Enable Load Balancer" {
