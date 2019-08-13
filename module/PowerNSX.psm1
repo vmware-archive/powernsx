@@ -3464,6 +3464,39 @@ Function ValidateEdgeDns {
     else {
         throw "Specify a valid Edge DNS object."
     }
+
+}
+
+function ValidateCliSettings {
+    Param (
+        [Parameter (Mandatory=$true)]
+        [object]$argument
+    )
+
+    if ($argument -is [System.Xml.XmlElement] ) {
+
+        if ( -not ( $argument | get-member -name edgeId -Membertype Properties)) {
+            throw "XML Element specified does not contain an edgeId property."
+        }
+
+        if ( -not ( $argument | get-member -name remoteAccess -Membertype Properties)) {
+            throw "XML Element specified does not contain an remoteAccess property."
+        }
+
+        if ( -not ( $argument | get-member -name sshLoginBannerText -Membertype Properties)) {
+            throw "XML Element specified does not contain an sshLoginBannerText property."
+        }
+
+        if ( -not ( $argument | get-member -name passwordExpiry -Membertype Properties)) {
+            throw "XML Element specified does not contain an passwordExpiry property."
+        }
+
+        $true
+    }
+    else {
+        throw "Specify a valid CliSettings Configuration object."
+    }
+
 }
 
 Function ValidateIPsec {
@@ -13914,6 +13947,31 @@ function Set-NsxEdge {
 
     Disable the Edge Firewall on ESG Edge01
 
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -password Vmware1!Vmware1!
+
+    Change the SSH Password
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -remoteAccess:$true
+
+    Enable the SSH on ESG (you can use also use Enable-NsxSSHEdgeSSH)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -username powernsx -password Vmware1!Vmware1!
+
+    Set the SSH username to PowerNSX (You need to change/set the password on the sametime)
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -sshLoginBannerText "My Login Banner"
+
+    Change the SSH Login Banner
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Set-NsxEdge -passwordExpiry 30
+
+    Change the SSH Password Expiration to 30 (days)
+
     #>
 
     [CmdletBinding()]
@@ -13926,6 +13984,25 @@ function Set-NsxEdge {
         [Parameter (Mandatory=$False)]
             #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
             [switch]$Confirm=$true,
+
+        #cliSettings
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$userName,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [String]$password,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [boolean]$remoteAccess,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [ValidateRange(1,99999)]
+            [int]$passwordExpiry,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullorEmpty()]
+            [string]$sshLoginBannerText,
+
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -13945,6 +14022,51 @@ function Set-NsxEdge {
         $edgeSummary = (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_Edge -Query 'descendant::edgeSummary')
         if ( $edgeSummary ) {
             $_Edge.RemoveChild($edgeSummary) | out-null
+        }
+
+        #cliSettings
+        if ( $PsBoundParameters.ContainsKey('userName') ) {
+            if ( $PsBoundParameters.ContainsKey('password') ) {
+                if ( invoke-xpathquery -node $_Edge -querymethod SelectSingleNode -Query "child::cliSettings/userName" ) {
+                    $_Edge.cliSettings.username = $userName
+                } else {
+                    Add-XmlElement -xmlroot $_Edge.cliSettings -xmlElementName "userName" -xmlElementText $userName
+                }
+            } else {
+                throw "You need to specify a password for change username..."
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('password') ) {
+            if ( invoke-xpathquery -node $_Edge -querymethod SelectSingleNode -Query "child::cliSettings/password" ) {
+                $_Edge.cliSettings.password = $password
+            } else {
+                Add-XmlElement -xmlRoot $_Edge.cliSettings -xmlElementName "password" -xmlElementText $password
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('remoteAccess') ) {
+            if ( invoke-xpathquery -node $_Edge -querymethod SelectSingleNode -Query "child::cliSettings/remoteAccess" ) {
+                $_Edge.cliSettings.remoteAccess = $remoteAccess.ToString().ToLower()
+            } else {
+                Add-XmlElement -xmlroot $_Edge.cliSettings -xmlElementName "remoteAccess" -xmlElementText $remoteAccess.ToString().ToLower()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('passwordExpiry') ) {
+            if ( invoke-xpathquery -node $_Edge -querymethod SelectSingleNode -Query "child::cliSettings/passwordExpiry" ) {
+                $_Edge.cliSettings.passwordExpiry = $passwordExpiry.ToString()
+            } else {
+                Add-XmlElement -xmlroot $_Edge.cliSettings -xmlElementName "passwordExpiry" -xmlElementText $passwordExpiry.ToString()
+            }
+        }
+
+        if ( $PsBoundParameters.ContainsKey('sshLoginBannerText') ) {
+            if ( invoke-xpathquery -node $_Edge -querymethod SelectSingleNode -Query "child::cliSettings/sshLoginBannerText" ) {
+                $_Edge.cliSettings.sshLoginBannerText = $sshLoginBannerText
+            } else {
+                Add-XmlElement -xmlroot $_Edge.cliSettings -xmlElementName "sshLoginBannerText" -xmlElementText $sshLoginBannerText
+            }
         }
 
         $URI = "/api/4.0/edges/$($_Edge.Id)"
