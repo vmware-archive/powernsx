@@ -153,6 +153,32 @@ Describe "Edge Load Balancer" {
         }
     }
 
+    Context "Load Balancer Monitor" {
+
+        it "Add LB Monitor" {
+            #Create LB Monitor
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerMonitor -Name pester_lb_monitor -Typehttps -interval 10 -Timeout 10 -maxretries 2 -Method GET -url "api/status" -Expected "200 OK"
+
+            $lb_monitor = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name pester_lb_monitor
+            $lb_monitor.name | Should be "pester_lb_monitor"
+            $lb_monitor.type | Should be "https"
+            $lb_monitor.interval | Should be 10
+            $lb_monitor.timeout | Should be 10
+            $lb_monitor.maxretries | Should be 2
+            $lb_monitor.method | Should be "GET"
+            $lb_monitor.url | Should be "api/status"
+        }
+
+        it "Remove LB Monitor" {
+            #Remove LB Monitor
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name pester_lb_monitor | Remove-NsxLoadBalancerMonitor -confirm:$false
+
+            $lb_monitor = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name pester_lb_monitor
+            $lb_monitor | Should be $null
+        }
+
+    }
+
     Context "Load Balancer" {
 
         it "Enable Load Balancer" {
