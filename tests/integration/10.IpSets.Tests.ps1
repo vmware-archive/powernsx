@@ -421,7 +421,7 @@ Describe "IPSets" {
             $hostCidr = "1.2.3.4/32"
             $dummyIpAddress = "9.9.9.9"
             get-nsxipset $ipsetName | remove-nsxipset -Confirm:$false
-            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddress,$iprange,$cidr,$hostCidr,$dummyIpAddress
+            $script:remove = New-nsxipset -Name $ipsetName -Description $ipsetDesc -IPAddress $ipaddress,$iprange,$cidr,$hostCidr
 
         }
 
