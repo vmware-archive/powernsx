@@ -90,23 +90,6 @@ Describe "Edge Load Balancer" {
             $lb_pool.transparent | Should be "true"
         }
 
-        it "Add LB Pool (via Add-NsxLoadBalancerPoolMember)" {
-            #Create LB Pool
-            $Pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name pester_lb_pool2 -Description "Pester LB Pool 2" -Transparent:$true -Algorithm ip-hash -Monitor $Monitor
-
-            # ... And now add the pool members
-            $pool = $pool | Add-NsxLoadBalancerPoolMember -name "VM03" -IpAddress 2.2.2.3 -Port 80
-            $pool = $pool | Add-NsxLoadBalancerPoolMember -name "VM04" -IpAddress 2.2.2.4 -Port 80
-
-            $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
-            $lb_pool.name | Should be "pester_lb_pool2"
-            $lb_pool.description | Should be "Pester LB Pool 2"
-            $lb_pool.algorithm | Should be "ip-hash"
-            $lb_pool.transparent | Should be "true"
-            $lb_pool.member[0].name | Should be "VM03"
-            $lb_pool.member[1].name | Should be "VM04"
-        }
-
         it "Remove LB Pool " {
 
             #Add LB Pool
@@ -121,8 +104,81 @@ Describe "Edge Load Balancer" {
         AfterEach {
             #Remove All LB Pool
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool | Remove-NsxLoadBalancerPool -confirm:$false
+        }
+    }
+
+    Context 'Load Balancer Pool Member' {
+        BeforeAll {
+            #Create LB Pool
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name pester_lb_pool2 -Description "Pester LB Pool 2" -Transparent:$true -Algorithm ip-hash -Monitor $Monitor
 
         }
+
+        it "Add (First) LB Pool Member (via Add-NsxLoadBalancerPoolMember)" {
+
+            $pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
+            $pool | Add-NsxLoadBalancerPoolMember -name "VM03" -IpAddress 2.2.2.3 -Port 80
+
+            $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
+
+            $lb_pool.name | Should be "pester_lb_pool2"
+            $lb_pool.description | Should be "Pester LB Pool 2"
+            $lb_pool.algorithm | Should be "ip-hash"
+            $lb_pool.transparent | Should be "true"
+            $lb_pool_member = $lb_pool | Get-NsxLoadBalancerPoolMember VM03
+            $lb_pool_member.name | Should be "VM03"
+        }
+
+        it "Add (Second) LB Pool Member (via Add-NsxLoadBalancerPoolMember)" {
+
+            $pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
+            $pool | Add-NsxLoadBalancerPoolMember -name "VM04" -IpAddress 2.2.2.4 -Port 80
+
+            $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
+            $lb_pool.name | Should be "pester_lb_pool2"
+            $lb_pool.description | Should be "Pester LB Pool 2"
+            $lb_pool.algorithm | Should be "ip-hash"
+            $lb_pool.transparent | Should be "true"
+            $lb_pool_member = $lb_pool | Get-NsxLoadBalancerPoolMember VM03
+            $lb_pool_member.name | Should be "VM03"
+            $lb_pool_member = $lb_pool | Get-NsxLoadBalancerPoolMember VM04
+            $lb_pool_member.name | Should be "VM04"
+        }
+
+        it "Remove (Second) LB Pool Member" {
+
+            $pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
+            $pool | Get-NsxLoadBalancerPoolMember -name "VM04" | Remove-NsxLoadBalancerPoolMember -confirm:$false
+
+            $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
+            $lb_pool.name | Should be "pester_lb_pool2"
+            $lb_pool.description | Should be "Pester LB Pool 2"
+            $lb_pool.algorithm | Should be "ip-hash"
+            $lb_pool.transparent | Should be "true"
+            $lb_pool_member = $lb_pool | Get-NsxLoadBalancerPoolMember VM03
+            $lb_pool_member.name | Should be "VM03"
+            $lb_pool_member = $lb_pool | Get-NsxLoadBalancerPoolMember VM04
+            $lb_pool_member.name | Should be $null
+        }
+
+        it "Configure LB Pool Member" {
+
+            $pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
+            $pool | Get-NsxLoadBalancerPoolMember -name "VM03" | Set-NsxLoadBalancerPoolMember -confirm:$false -weight 2 -port 81 -state disabled
+
+            $lb_pool_member = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2 | Get-NsxLoadBalancerPoolMember VM03
+            $lb_pool_member.name| Should be "VM03"
+            $lb_pool_member.ipaddress | Should be "2.2.2.3"
+            $lb_pool_member.weight | Should be 2
+            $lb_pool_member.port | Should be 81
+            $lb_pool_member.condition | Should be "disabled"
+        }
+
+        AfterAll {
+            #Remove All LB Pool (and LB Pool Member...)
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool | Remove-NsxLoadBalancerPool -confirm:$false
+        }
+
     }
 
     Context "Load Balancer App Profile" {
