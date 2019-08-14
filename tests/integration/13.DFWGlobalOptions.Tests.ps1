@@ -44,10 +44,10 @@ Describe "DFW Global Properties" {
 
         #Set flag used in tests we have to tag out for 6.2.3 and above only...
         if ( [version]$DefaultNsxConnection.Version -ge [version]"6.2.3" )  {
-            $ver_gt_623 = $true
+            $script:ver_gt_623 = $true
         }
         else {
-            $ver_gt_623 = $false
+            $script:ver_gt_623 = $false
         }
     }
 

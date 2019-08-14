@@ -31,7 +31,7 @@ Describe "SecurityPolicy" {
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefMgrCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | Select-Object -first 1
         write-warning "Using cluster $cl for clustery stuff"
         $script:ds = $cl | get-datastore | Select-Object -first 1
@@ -133,7 +133,7 @@ Describe "SecurityPolicy" {
             $SD = Get-NsxServiceDefinition | Select-Object -first 1
             $getSD = Get-NsxServiceDefinition -objectId $SD.objectID
             $getSD | should not be $null
-            ($getSD | measure).count | should be 1
+            ($getSD | Measure-Object).count | should be 1
             $getSD.objectId | should be $sd.objectId
         }
 
@@ -142,14 +142,14 @@ Describe "SecurityPolicy" {
             $SD = Get-NsxServiceDefinition | Select-Object -first 1
             $NameSd = Get-NsxServiceDefinition -Name $SD.Name
             $NameSD | should not be $null
-            ($NameSD | measure).count | should be 1
+            ($NameSD | Measure-Object).count | should be 1
             $NameSD.Name | should be $SD.Name
         }
 
         it "Can retrieve a service profile by service definition (on pipeline)" -skip:( -not $EnableNiTests) {
             #The default definitions should always exist, so we just get them.
             $SDP = Get-NsxServiceDefinition  $pester_sd_ni_name | Get-NsxServiceProfile
-            ($SDP | measure).count | should be 1
+            ($SDP | Measure-Object).count | should be 1
             $SDP | should not be $null
         }
 
@@ -157,7 +157,7 @@ Describe "SecurityPolicy" {
             $SDP = Get-NsxServiceDefinition  $pester_sd_ni_name | Get-NsxServiceProfile
             $GetSDP = Get-NsxServiceProfile -Name $SDP.Name
             $GetSDP | should not be $null
-            ($GetSDP | measure).count | should be 1
+            ($GetSDP | Measure-Object).count | should be 1
             $SDP.Name| should be $SDP.Name
         }
 
@@ -165,7 +165,7 @@ Describe "SecurityPolicy" {
             $SDP = Get-NsxServiceDefinition  $pester_sd_ni_name | Get-NsxServiceProfile
             $GetSDP = Get-NsxServiceProfile -ObjectId $SDP.objectID
             $GetSDP | should not be $null
-            ($GetSDP | measure).count | should be 1
+            ($GetSDP | Measure-Object).count | should be 1
             $SDP.objectId | should be $SDP.objectID
         }
     }
@@ -176,16 +176,16 @@ Describe "SecurityPolicy" {
         }
 
         AfterEach {
-            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
-            $grps = Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix }
+            Get-NsxSecurityPolicy | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            $grps = Get-NsxSecurityGroup | Where-Object { $_.name -match $spNamePrefix }
             while ( $grps | Get-NsxApplicableSecurityAction ) {
                 #Wait for api to catch up
                 start-sleep -Seconds 1
-                $grps = Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix }
+                $grps = Get-NsxSecurityGroup | Where-Object { $_.name -match $spNamePrefix }
             }
             $grps | Remove-NsxSecurityGroup -Confirm:$false
-            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
-            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+            Get-NsxService | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
 
             It "Can get actions applicable to a VM" -skip:( -not $EnableDodgyTests) {
@@ -194,11 +194,11 @@ Describe "SecurityPolicy" {
             $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1"
             $sp = new-nsxsecuritypolicy -Name $polname -FirewallRuleSpec $spec
             $sg = new-nsxsecuritygroup -name $grpname -IncludeMember $testvm1
-            $newsp = $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
+            $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
             #We have to sleep as it takes time for NSX to do the needful
             start-sleep -Seconds 5
             $actions = $testvm1 | Get-NsxApplicableSecurityAction
-            ($actions | measure).count | should be 1
+            ($actions | Measure-Object).count | should be 1
             $actions.category | should be "firewall"
             $actions.securitypolicy.objectid | should be $sp.objectid
         }
@@ -208,11 +208,11 @@ Describe "SecurityPolicy" {
             $spec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "spec") -Description "Pester Spec 1"
             $sp = new-nsxsecuritypolicy -Name $polname -FirewallRuleSpec $spec
             $sg = new-nsxsecuritygroup -name $grpname
-            $newsp = $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
+            $sp | New-NsxSecurityPolicyAssignment -SecurityGroup $sg
             #We have to sleep as it takes time for NSX to do the needful
             start-sleep -Seconds 5
             $actions = $sg | Get-NsxApplicableSecurityAction
-            ($actions | measure).count | should be 1
+            ($actions | Measure-Object).count | should be 1
             $actions.category | should be "firewall"
             $actions.securitypolicy.objectid | should be $sp.objectid
         }
@@ -223,7 +223,7 @@ Describe "SecurityPolicy" {
             #We have to sleep as it takes time for NSX to do the needful
             start-sleep -Seconds 5
             $actions = $sp | Get-NsxApplicableSecurityAction
-            ($actions | measure).count | should be 1
+            ($actions | Measure-Object).count | should be 1
             $actions.category | should be "firewall"
             $actions.securitypolicy.objectid | should be $sp.objectid
         }
@@ -234,16 +234,16 @@ Describe "SecurityPolicy" {
         }
 
         AfterEach {
-            # Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
-            # $grps = Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix }
+            # Get-NsxSecurityPolicy | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            # $grps = Get-NsxSecurityGroup | Where-Object { $_.name -match $spNamePrefix }
             # while ( $grps | Get-NsxApplicableSecurityAction ) {
             #     #Wait for api to catch up
             #     start-sleep -Seconds 1
-            #     $grps = Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix }
+            #     $grps = Get-NsxSecurityGroup | Where-Object { $_.name -match $spNamePrefix }
             # }
             # $grps | Remove-NsxSecurityGroup -Confirm:$false
-            # Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
-            # Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+            # Get-NsxService | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            # Get-NsxServiceGroup | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
 
         it "Can create a security policy firewall spec - intra - mode1 (Source/Dest w/PSG based)" {
@@ -718,9 +718,9 @@ Describe "SecurityPolicy" {
         }
 
         AfterEach {
-            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
-            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
-            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+            Get-NsxSecurityPolicy | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-NsxService | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
 
         It "Can create an empty security policy"  {
@@ -736,7 +736,7 @@ Describe "SecurityPolicy" {
             $pol = New-NsxSecurityPolicy -Name $polName -Description "Pester Policy" -FirewallRuleSpec $spec
             $pol.Name | should be $polName
             $pol.Description | should be "Pester Policy"
-            ($pol.actionsByCategory | ? { $_.category -eq 'firewall'}).action.name -contains $spec.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'firewall'}).action.name -contains $spec.Name | should be $true
         }
 
         It "Can create a security policy with multiple firewall rules" {
@@ -746,8 +746,8 @@ Describe "SecurityPolicy" {
             $pol = New-NsxSecurityPolicy -Name $polName -Description "Pester Policy" -FirewallRuleSpec $spec1,$spec2
             $pol.Name | should be $polName
             $pol.Description | should be "Pester Policy"
-            ($pol.actionsByCategory | ? { $_.category -eq 'firewall'}).action.name -contains $spec1.Name | should be $true
-            ($pol.actionsByCategory | ? { $_.category -eq 'firewall'}).action.name -contains $spec2.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'firewall'}).action.name -contains $spec1.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'firewall'}).action.name -contains $spec2.Name | should be $true
         }
 
         It "Can create a security policy with correct default precedence" {
@@ -771,7 +771,7 @@ Describe "SecurityPolicy" {
             $pol = New-NsxSecurityPolicy -Name $polName -Description "Pester Policy" -GuestIntrospectionSpec $spec
             $pol.Name | should be $polName
             $pol.Description | should be "Pester Policy"
-            ($pol.actionsByCategory | ? { $_.category -eq 'endpoint'}).action.name -contains $spec.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'endpoint'}).action.name -contains $spec.Name | should be $true
         }
 
         It "Can create a security policy with multiple guest introspection rules." {
@@ -781,8 +781,8 @@ Describe "SecurityPolicy" {
             $pol = New-NsxSecurityPolicy -Name $polName -Description "Pester Policy" -GuestIntrospectionSpec $spec1,$spec2
             $pol.Name | should be $polName
             $pol.Description | should be "Pester Policy"
-            ($pol.actionsByCategory | ? { $_.category -eq 'endpoint'}).action.name -contains $spec1.Name | should be $true
-            ($pol.actionsByCategory | ? { $_.category -eq 'endpoint'}).action.name -contains $spec2.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'endpoint'}).action.name -contains $spec1.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'endpoint'}).action.name -contains $spec2.Name | should be $true
         }
 
         It "Can create a security policy with a network introspection rule."  -skip:( -not $EnableNiTests){
@@ -791,7 +791,7 @@ Describe "SecurityPolicy" {
             $pol = New-NsxSecurityPolicy -Name $polName -Description "Pester Policy" -NetworkIntrospectionSpec $spec
             $pol.Name | should be $polName
             $pol.Description | should be "Pester Policy"
-            ($pol.actionsByCategory | ? { $_.category -eq 'traffic_steering'}).action.name -contains $spec.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'traffic_steering'}).action.name -contains $spec.Name | should be $true
         }
 
         It "Can create a security policy with multiple network introspection rules." -skip:( -not $EnableNiTests) {
@@ -801,8 +801,8 @@ Describe "SecurityPolicy" {
             $pol = New-NsxSecurityPolicy -Name $polName -Description "Pester Policy" -NetworkIntrospectionSpec $spec1,$spec2
             $pol.Name | should be $polName
             $pol.Description | should be "Pester Policy"
-            ($pol.actionsByCategory | ? { $_.category -eq 'traffic_steering'}).action.name -contains $spec1.Name | should be $true
-            ($pol.actionsByCategory | ? { $_.category -eq 'traffic_steering'}).action.name -contains $spec2.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'traffic_steering'}).action.name -contains $spec1.Name | should be $true
+            ($pol.actionsByCategory | Where-Object { $_.category -eq 'traffic_steering'}).action.name -contains $spec2.Name | should be $true
         }
 
 
@@ -813,16 +813,16 @@ Describe "SecurityPolicy" {
         }
 
         AfterEach {
-            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
-            $grps = Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix }
+            Get-NsxSecurityPolicy | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            $grps = Get-NsxSecurityGroup | Where-Object { $_.name -match $spNamePrefix }
             while ( $grps | Get-NsxApplicableSecurityAction ) {
                 #Wait for api to catch up
                 start-sleep -Seconds 1
-                $grps = Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix }
+                $grps = Get-NsxSecurityGroup | Where-Object { $_.name -match $spNamePrefix }
             }
             $grps | Remove-NsxSecurityGroup -Confirm:$false
-            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
-            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+            Get-NsxService | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
 
         It "Can assign a policy to a Security Group" {
@@ -864,7 +864,7 @@ Describe "SecurityPolicy" {
             $script:inheritsp = new-nsxsecuritypolicy -Name $inheritspname
         }
         AfterEach {
-            Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-nsxsecuritypolicy  | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
         }
 
         it "Can set an existing policy name" {
@@ -900,7 +900,7 @@ Describe "SecurityPolicy" {
 
         }
         AfterEach {
-            Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-nsxsecuritypolicy  | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
         }
 
         it "Can retrieve a policy rule of all three types" -skip:( -not $EnableNiTests ) {
@@ -908,7 +908,7 @@ Describe "SecurityPolicy" {
             $gispec = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec2") -Description "Pester GI Spec 1"  -ServiceType ANTIVIRUS
             $nispec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "nispec3") -Description "Pester NI Spec 1" -Source Any -ServiceProfile $nisp
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec -GuestIntrospectionSpec $gispec -NetworkIntrospectionSpec $nispec
-            $rules = $sp | get-nsxsecuritypolicyrule
+            $sp | get-nsxsecuritypolicyrule
             ($sp | get-nsxsecuritypolicyrule).class -contains "firewallSecurityAction" | should be $true
             ($sp | get-nsxsecuritypolicyrule).class -contains "endpointSecurityAction" | should be $true
             ($sp | get-nsxsecuritypolicyrule).class -contains "trafficSteeringSecurityAction" | should be $true
@@ -950,14 +950,14 @@ Describe "SecurityPolicy" {
         }
 
         AfterEach {
-            Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-nsxsecuritypolicy  | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
         }
 
         it "Can add a firewall rule to an existing policy" {
             $fwspec = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source Any
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix
             $newsp = $sp | Add-NsxSecurityPolicyRule -FirewallRuleSpec $fwspec
-            $fwrules = $newsp.actionsByCategory.action | ? { $_.class -eq 'firewallSecurityAction'}
+            $fwrules = $newsp.actionsByCategory.action | Where-Object { $_.class -eq 'firewallSecurityAction'}
             $fwrules.name -contains $fwspec.name | should be $true
         }
 
@@ -965,7 +965,7 @@ Describe "SecurityPolicy" {
             $gispec = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec2") -Description "Pester GI Spec 1" -ServiceType ANTIVIRUS
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix
             $newsp = $sp | Add-NsxSecurityPolicyRule -GuestIntrospectionSpec $gispec
-            $girules = $newsp.actionsByCategory.action | ? { $_.class -eq 'endpointSecurityAction'}
+            $girules = $newsp.actionsByCategory.action | Where-Object { $_.class -eq 'endpointSecurityAction'}
             $girules.name -contains $gispec.name | should be $true
         }
 
@@ -973,7 +973,7 @@ Describe "SecurityPolicy" {
             $nispec = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "nispec3") -Description "Pester NI Spec 1" -Source Any -ServiceProfile $nisp
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix
             $newsp = $sp | Add-NsxSecurityPolicyRule -NetworkIntrospectionSpec $nispec
-            $nirules = $newsp.actionsByCategory.action | ? { $_.class -eq 'trafficSteeringSecurityAction'}
+            $nirules = $newsp.actionsByCategory.action | Where-Object { $_.class -eq 'trafficSteeringSecurityAction'}
             $nirules.name -contains $nispec.name | should be $true
         }
 
@@ -996,7 +996,7 @@ Describe "SecurityPolicy" {
 
         }
         AfterAll {
-            Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-nsxsecuritypolicy  | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
         }
 
         it "Can remove a rule from an existing security policy" {
@@ -1017,7 +1017,7 @@ Describe "SecurityPolicy" {
         BeforeEach {
             }
         AfterEach {
-            Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-nsxsecuritypolicy  | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
         }
 
         it "Can move a firewall rule to the top" {
@@ -1064,7 +1064,7 @@ Describe "SecurityPolicy" {
 
         }
         AfterEach {
-            Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-nsxsecuritypolicy  | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
         }
 
         it "Can modify the name of an existing firewall rule" {
@@ -1106,8 +1106,6 @@ Describe "SecurityPolicy" {
             $fwspec2 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec2") -Description "Pester FW Spec 2" -Source Any
             $fwspec3 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec3") -Description "Pester FW Spec 3" -Source Any
             $gispec1 = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec1") -Description "Pester GI Spec 1"  -ServiceType ANTIVIRUS
-            $gispec2 = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec2") -Description "Pester GI Spec 2"  -ServiceType ANTIVIRUS
-            $gispec3 = New-NsxSecurityPolicyGuestIntrospectionSpec -Name ($SpNamePrefix + "gispec3") -Description "Pester GI Spec 3"  -ServiceType ANTIVIRUS
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1, $fwspec2, $fwspec3 -GuestIntrospectionSpec $gispec1
             $rule = $sp | get-nsxsecuritypolicyrule -ruletype firewall | Select-Object -First 1
             $newrule = $rule | set-nsxsecuritypolicyfirewallrule -loggingEnabled $true -NoConfirm
@@ -1148,16 +1146,16 @@ Describe "SecurityPolicy" {
         }
 
         AfterEach {
-            Get-NsxSecurityPolicy | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
-            $grps = Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix }
+            Get-NsxSecurityPolicy | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            $grps = Get-NsxSecurityGroup | Where-Object { $_.name -match $spNamePrefix }
             while ( $grps | Get-NsxApplicableSecurityAction ) {
                 #Wait for api to catch up
                 start-sleep -Seconds 1
-                $grps = Get-NsxSecurityGroup | ? { $_.name -match $spNamePrefix }
+                $grps = Get-NsxSecurityGroup | Where-Object { $_.name -match $spNamePrefix }
             }
             $grps | Remove-NsxSecurityGroup -Confirm:$false
-            Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
-            Get-NsxServiceGroup | ? { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
+            Get-NsxService | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxService -Confirm:$false
+            Get-NsxServiceGroup | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxServiceGroup -Confirm:$false
         }
 
         it "Can add a group to a security policy firewall rule" -skip:( -not $EnableDodgyTests) {
@@ -1172,7 +1170,6 @@ Describe "SecurityPolicy" {
 
             it "Can remove a group from a security policy firewall rule" -skip:( -not $EnableDodgyTests) {
             $grp1 = new-nsxsecuritygroup -name ($SPNamePrefix + "grp1")
-            $grp2 = new-nsxsecuritygroup -name ($SPNamePrefix + "grp2")
             $fwspec1 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source $grp1
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1
             $rule = $sp | get-nsxsecuritypolicyrule -ruletype firewall | Select-Object -first 1
@@ -1193,7 +1190,6 @@ Describe "SecurityPolicy" {
 
         it "Can remove a group from a security policy network introspection rule" -skip:( -not ($EnableNiTests -and $EnableDodgyTests ))  {
             $grp1 = new-nsxsecuritygroup -name ($SPNamePrefix + "grp1")
-            $grp2 = new-nsxsecuritygroup -name ($SPNamePrefix + "grp2")
             $fwspec1 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source $grp1
             $nispec1 = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "nispec1") -Description "Pester NI Spec 1" -Source $grp1 -ServiceProfile $nisp
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1 -NetworkIntrospectionSpec $nispec1
@@ -1209,16 +1205,16 @@ Describe "SecurityPolicy" {
 
         }
         AfterEach {
-            Get-nsxsecuritypolicy  | ? { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
+            Get-nsxsecuritypolicy  | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxSecurityPolicy -Confirm:$false
             try {
-                Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -confirm:$false
+                Get-NsxService | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxService -confirm:$false
             }
             Catch {
                 Write-Verbose "Caught error when cleaning up services."
                 Write-Verbose "$_"
                 Write-Verbose "Going to sleep for 10 secs to wait for NSX Manager to do its thing."
                 sleep 10
-                Get-NsxService | ? { $_.name -match $spNamePrefix } | Remove-NsxService -confirm:$false
+                Get-NsxService | Where-Object { $_.name -match $spNamePrefix } | Remove-NsxService -confirm:$false
             }
         }
 
@@ -1234,7 +1230,6 @@ Describe "SecurityPolicy" {
 
         it "Can remove a service from a security policy firewall rule" {
             $svc1 = new-nsxservice -name ($SPNamePrefix + "svc1") -Protocol TCP -port 80
-            $svc2 = new-nsxservice -name ($SPNamePrefix + "svc2") -Protocol TCP -port 80
             $fwspec1 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source any -service $svc1
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1
             $rule = $sp | get-nsxsecuritypolicyrule -ruletype firewall | Select-Object -first 1
@@ -1255,7 +1250,6 @@ Describe "SecurityPolicy" {
 
         it "Can remove a service from a security policy network introspection rule" -skip:( -not $EnableNiTests ) {
             $svc1 = new-nsxservice -name ($SPNamePrefix + "svc1") -Protocol TCP -port 80
-            $svc2 = new-nsxservice -name ($SPNamePrefix + "svc2") -Protocol TCP -port 80
             $fwspec1 = New-NsxSecurityPolicyFirewallRuleSpec -Name ($SpNamePrefix + "fwspec1") -Description "Pester FW Spec 1" -Source any -service $svc1
             $nispec1 = New-NsxSecurityPolicyNetworkIntrospectionSpec -Name ($SpNamePrefix + "nispec1") -Description "Pester NI Spec 1" -Source any -ServiceProfile $nisp -service $svc1
             $sp = new-nsxsecuritypolicy -Name $spNamePrefix -FirewallRuleSpec $fwspec1 -NetworkIntrospectionSpec $nispec1

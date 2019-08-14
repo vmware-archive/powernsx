@@ -59,8 +59,8 @@ Describe "LogicalSwitching" {
         }
 
         it "Can retrive logical switches from a specific transport zone via pipeline" {
-            $ls1 = $tzlocal | new-nsxlogicalswitch $ls1_name
-            $ls2 = $tzlocal2 | New-NsxLogicalSwitch $ls2_name
+            $tzlocal | new-nsxlogicalswitch $ls1_name
+            $tzlocal2 | New-NsxLogicalSwitch $ls2_name
             $ls = $tzlocal2 | Get-NsxLogicalSwitch
             $ls | should not be $null
             @($ls).count | should be 1
@@ -68,8 +68,8 @@ Describe "LogicalSwitching" {
         }
 
         it "Can retrive logical switches from a specific transport zone via vdnscope parameter" {
-            $ls1 = $tzlocal | new-nsxlogicalswitch $ls1_name
-            $ls2 = $tzlocal2 | New-NsxLogicalSwitch $ls2_name
+            $tzlocal | new-nsxlogicalswitch $ls1_name
+            $tzlocal2 | New-NsxLogicalSwitch $ls2_name
             $ls = Get-NsxLogicalSwitch -vdnscope $tzlocal2
             $ls | should not be $null
             @($ls).count | should be 1

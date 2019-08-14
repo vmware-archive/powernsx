@@ -65,10 +65,10 @@ Describe "SecurityGroups" {
         # Set flag for greater the 6.3.0 AND universal sync enabled
         # Initial use case is for Universal Security Tags introduced in 6.3.0
         if ( ($ver_gt_630) -and ($universalSyncEnabled) ) {
-            $ver_gt_630_universalSyncEnabled = $true
+            $script:ver_gt_630_universalSyncEnabled = $true
         }
         else {
-            $ver_gt_630_universalSyncEnabled = $false
+            $script:ver_gt_630_universalSyncEnabled = $false
         }
 
         #LDAP Directory Groups - Check to see if this setup is integrated with LDAP
@@ -1485,7 +1485,7 @@ Describe "SecurityGroups" {
     Context "Security Tag Assignments" {
         BeforeAll {
             $testTemplateName = "Pester_sg_template_1"
-            $testtemplate1 = New-Template -VM $testvm1 -Name $testTemplateName -Datastore $ds -Location $folder
+            $script:testtemplate1 = New-Template -VM $testvm1 -Name $testTemplateName -Datastore $ds -Location $folder
         }
 
         AfterAll {
@@ -1494,7 +1494,7 @@ Describe "SecurityGroups" {
 
         BeforeEach {
             $testTagName = "pester_tag_1"
-            $testTag = New-NsxSecurityTag -Name $testTagName
+            $script:testTag = New-NsxSecurityTag -Name $testTagName
         }
 
         AfterEach {

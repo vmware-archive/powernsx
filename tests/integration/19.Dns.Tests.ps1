@@ -31,7 +31,7 @@ Describe "Edge DNS" {
 
         #Put any setup tasks in here that are required to perform your tests.  Typical defaults:
         import-module $pnsxmodule
-        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefMgrCred -ViWarningAction "Ignore"
+        $script:DefaultNsxConnection = Connect-NsxServer -vCenterServer $PNSXTestVC -NsxServerHint $PNSXTestNSX -Credential $PNSXTestDefViCred -ViWarningAction "Ignore"
         $script:cl = get-cluster | Select-Object -first 1
         write-warning "Using cluster $cl for clustery stuff"
         $script:ds = $cl | get-datastore | Select-Object -first 1
@@ -54,7 +54,7 @@ Describe "Edge DNS" {
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $dnsuplinkls -PrimaryAddress $dnsedge1ipuplink -SubnetPrefixLength 24
 
         #Create Edge
-        $script:sslEdge = New-NsxEdge -Name $dnsedge1name -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -enablessh -hostname $dnsedge1name
+        $script:dnsEdge = New-NsxEdge -Name $dnsedge1name -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -enablessh -hostname $dnsedge1name
 
     }
 

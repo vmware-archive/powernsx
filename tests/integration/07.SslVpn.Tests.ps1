@@ -66,7 +66,6 @@ Describe "sslvpn" {
 
         #Create Edge
         $vnic0 = New-NsxEdgeInterfaceSpec -index 0 -Type uplink -Name "vNic0" -ConnectedTo $testls1 -PrimaryAddress $ssledgeIp1 -SubnetPrefixLength 24
-        $vnic1 = New-NsxEdgeInterfaceSpec -index 1 -Type internal -Name "vNic1" -ConnectedTo $testls2 -PrimaryAddress $ssledgeIp2 -SubnetPrefixLength 24
         $script:sslEdge = New-NsxEdge -Name $ssledgename -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -tenant $tenant -enablessh -hostname "pester-ssl-edge1"
 
     }

@@ -38,15 +38,15 @@ Describe "MacSets" {
         $script:MacSetPrefix = "pester_macset_"
 
         #Clean up any existing macsets from previous runs...
-        get-nsxmacset | ? { $_.name -match $macsetPrefix } | remove-nsxmacset -confirm:$false
+        get-nsxmacset | Where-Object { $_.name -match $macsetPrefix } | remove-nsxmacset -confirm:$false
 
         #Set flag used to determine if universal objects should be tested.
         $NsxManagerRole = Get-NsxManagerRole
         if ( ( $NsxManagerRole.role -eq "PRIMARY") -or ($NsxManagerRole.role -eq "SECONDARY") ) {
-            $universalSyncEnabled = $true
+            $script:universalSyncEnabled = $true
         }
         else {
-            $universalSyncEnabled = $false
+            $script:universalSyncEnabled = $false
         }
 
     }
@@ -56,7 +56,7 @@ Describe "MacSets" {
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
         #We kill the connection to NSX Manager here.
 
-        get-nsxmacset | ? { $_.name -match $macsetPrefix } | remove-nsxmacset -confirm:$false
+        get-nsxmacset | Where-Object { $_.name -match $macsetPrefix } | remove-nsxmacset -confirm:$false
 
         disconnect-nsxserver
     }
@@ -90,37 +90,37 @@ Describe "MacSets" {
 
          It "Can retrieve global macsets" {
             $macsets = Get-Nsxmacset
-            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve both universal and global macsets"  -skip:(-not $universalSyncEnabled ) {
             $macsets = Get-Nsxmacset
-            ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve universal only macsets" -skip:(-not $universalSyncEnabled ) {
             $macsets = Get-Nsxmacset -UniversalOnly
-            ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
          }
 
          It "Can retrieve local only macsets" {
             $macsets = Get-Nsxmacset -LocalOnly
-            ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
-            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
          It "Can retrieve universal only macsets with scopeid" -skip:(-not $universalSyncEnabled )  {
             $macsets = Get-Nsxmacset -scopeid universalroot-0
-            ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should begreaterthan 0
-            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should be 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should begreaterthan 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should be 0
          }
 
          It "Can retrieve local only macsets with scopeid" {
             $macsets = Get-Nsxmacset -scopeid globalroot-0
-            ($macsets | ? { $_.isUniversal -eq 'True'} | measure).count | should be 0
-            ($macsets | ? { $_.isUniversal -eq 'False'} | measure).count | should begreaterthan 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'True'} | Measure-Object).count | should be 0
+            ($macsets | Where-Object { $_.isUniversal -eq 'False'} | Measure-Object).count | should begreaterthan 0
          }
 
     }
@@ -128,7 +128,7 @@ Describe "MacSets" {
     Context "Successful macset Creation" {
 
         AfterAll {
-            get-nsxmacset | ? { $_.name -match $macsetPrefix } | remove-nsxmacset -confirm:$false
+            get-nsxmacset | Where-Object { $_.name -match $macsetPrefix } | remove-nsxmacset -confirm:$false
         }
 
         it "Can create a macset with single address" {
@@ -176,7 +176,7 @@ Describe "MacSets" {
         It "Creates only a single macse when used as the first part of a pipeline (#347)" {
             New-NsxMacSet -Name "$macsetPrefix-test-347"
             $MacSet = Get-NsxMacSet "$macsetPrefix-test-347" | ForEach-Object { New-NsxMacSet -Name $_.name -Universal}
-            ($MacSet | measure).count | should be 1
+            ($MacSet | Measure-Object).count | should be 1
         }
     }
 
