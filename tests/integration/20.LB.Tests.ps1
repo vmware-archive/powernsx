@@ -57,7 +57,7 @@ Describe "Edge Load Balancer" {
         $script:lbEdge = New-NsxEdge -Name $lbedge1name -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -enablessh -hostname $lbedge1name
 
         #Get default monitor.
-        $script:monitor =  Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name default_http_monitor
+        $script:monitor = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name default_http_monitor
 
     }
     Context "Load Balancer Pool" {
@@ -91,11 +91,10 @@ Describe "Edge Load Balancer" {
         }
 
         it "Remove LB Pool " {
-
             #Add LB Pool
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name pester_lb_pool1 -Description "Pester LB Pool 1" -Transparent:$false -Algorithm round-robin -Monitor $Monitor
             #Remove LB Pool
-            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name pester_lb_pool1 |  Remove-NsxLoadBalancerPool -confirm:$false
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name pester_lb_pool1 | Remove-NsxLoadBalancerPool -confirm:$false
 
             $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool
             $lb_pool | should be $null
@@ -105,13 +104,13 @@ Describe "Edge Load Balancer" {
             #Remove All LB Pool
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool | Remove-NsxLoadBalancerPool -confirm:$false
         }
+
     }
 
     Context 'Load Balancer Pool Member' {
         BeforeAll {
             #Create LB Pool
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name pester_lb_pool2 -Description "Pester LB Pool 2" -Transparent:$true -Algorithm ip-hash -Monitor $Monitor
-
         }
 
         it "Add (First) LB Pool Member (via Add-NsxLoadBalancerPoolMember)" {
@@ -167,7 +166,7 @@ Describe "Edge Load Balancer" {
             $pool | Get-NsxLoadBalancerPoolMember -name "VM03" | Set-NsxLoadBalancerPoolMember -confirm:$false -weight 2 -port 81 -state disabled
 
             $lb_pool_member = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2 | Get-NsxLoadBalancerPoolMember VM03
-            $lb_pool_member.name| Should be "VM03"
+            $lb_pool_member.name | Should be "VM03"
             $lb_pool_member.ipaddress | Should be "2.2.2.3"
             $lb_pool_member.weight | Should be 2
             $lb_pool_member.port | Should be 81
@@ -293,14 +292,14 @@ Describe "Edge Load Balancer" {
             $lb.enableServiceInsertion | should be "false"
             $lb.accelerationEnabled | should be "false"
             $lb.logging.logLevel | should be "info"
-            $lb.logging.enable |should be "false"
+            $lb.logging.enable | should be "false"
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled -EnableAcceleration -EnableLogging -LogLevel "debug"
             $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
             $lb.enabled | Should be "true"
             $lb.enableServiceInsertion | should be "false"
             $lb.accelerationEnabled | should be "true"
             $lb.logging.logLevel | should be "debug"
-            $lb.logging.enable |should be "true"
+            $lb.logging.enable | should be "true"
         }
 
     }
