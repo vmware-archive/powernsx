@@ -57,7 +57,7 @@ Describe "Edge Load Balancer" {
         $script:lbEdge = New-NsxEdge -Name $lbedge1name -Interface $vnic0 -Cluster $cl -Datastore $ds -password $password -enablessh -hostname $lbedge1name
 
         #Get default monitor.
-        $script:monitor =  get-nsxedge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name default_http_monitor
+        $script:monitor =  Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerMonitor -Name default_http_monitor
 
     }
     Context "Load Balancer Pool" {
@@ -178,18 +178,9 @@ Describe "Edge Load Balancer" {
         }
 
     }
+    Context "Load Balancer VIP" {
+        BeforeAll {
 
-    Context "Load Balancer" {
-
-        it "Enable Load Balancer" {
-            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled
-            $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
-            $lb.enabled | Should be $true
-        }
-
-
-
-        it "Add LB VIP" {
             #Create LB Pool
             $pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name pester_lb_pool2 -Description "Pester LB Pool 2" -Transparent:$true -Algorithm ip-hash -Monitor $Monitor
 
@@ -199,6 +190,9 @@ Describe "Edge Load Balancer" {
 
             #Create LB App Profile
             Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationProfile -Name pester_lb_app_profile -Type http
+        }
+
+        it "Add LB VIP" {
 
             #Finally add VIP
             $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool pester_lb_pool2
@@ -213,8 +207,35 @@ Describe "Edge Load Balancer" {
             $lb_vip.port | Should be "80"
             $lb_vip.enableServiceInsertion | Should be "false"
             $lb_vip.accelerationEnabled | Should be "true"
-
         }
+
+
+        it "Remove LB VIP" {
+
+            $lb_vip = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVIP pester_vip | Remove-NsxLoadBalancerVIP -confirm:$false
+            $lb_vip = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVIP pester_vip
+            $lb_vip.name | Should be $null
+        }
+
+        AfterAll {
+
+            #Remove ALL LB VIP
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVIP | Remove-NsxLoadBalancerVIP -confirm:$false
+            #Remove All LB App Profile
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile | Remove-NsxLoadBalancerApplicationProfile -confirm:$false
+            #Remove All LB Pool
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool | Remove-NsxLoadBalancerPool -confirm:$false
+        }
+    }
+
+    Context "Load Balancer" {
+
+        it "Enable Load Balancer" {
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled
+            $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
+            $lb.enabled | Should be $true
+        }
+
     }
 
     AfterAll {
