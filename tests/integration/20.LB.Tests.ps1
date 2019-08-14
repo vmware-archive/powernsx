@@ -230,10 +230,21 @@ Describe "Edge Load Balancer" {
 
     Context "Load Balancer" {
 
-        it "Enable Load Balancer" {
-            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled
+        it "Configure Load Balancer" {
+            #by default, LB, Service Insertion, Acceleration, debug (info) is disabled
             $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
-            $lb.enabled | Should be $true
+            $lb.enabled | Should be "false"
+            $lb.enableServiceInsertion | should be "false"
+            $lb.accelerationEnabled | should be "false"
+            $lb.logging.logLevel | should be "info"
+            $lb.logging.enable |should be "false"
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Set-NsxLoadBalancer -Enabled -EnableAcceleration -EnableLogging -LogLevel "debug"
+            $lb = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer
+            $lb.enabled | Should be "true"
+            $lb.enableServiceInsertion | should be "false"
+            $lb.accelerationEnabled | should be "true"
+            $lb.logging.logLevel | should be "debug"
+            $lb.logging.enable |should be "true"
         }
 
     }
