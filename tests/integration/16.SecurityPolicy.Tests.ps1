@@ -94,7 +94,7 @@ Describe "SecurityPolicy" {
 
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #We kill the connection to NSX Manager here.
-        get-vm $testVMName1 -ErrorAction Ignore | remove-vm -Confirm:$false
+        get-vm $testVMName1 -ErrorAction Ignore | remove-vm -Confirm:$false -DeletePermanently
         write-host -ForegroundColor Green "Completed cleanup tasks for Sec Pol tests"
 
     }

@@ -127,9 +127,9 @@ Describe "DFW" {
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #We kill the connection to NSX Manager here.
         write-host -ForegroundColor Green "Performing cleanup tasks for DFW tests"
-        get-vm $testVMName1 -ErrorAction Ignore | remove-vm -Confirm:$false
-        get-vm $testVMName2 -ErrorAction Ignore | remove-vm -Confirm:$false
-        get-vm $testVMName3 -ErrorAction Ignore | remove-vm -Confirm:$false
+        get-vm $testVMName1 -ErrorAction Ignore | remove-vm -Confirm:$false -DeletePermanently
+        get-vm $testVMName2 -ErrorAction Ignore | remove-vm -Confirm:$false -DeletePermanently
+        get-vm $testVMName3 -ErrorAction Ignore | remove-vm -Confirm:$false -DeletePermanently
         get-nsxedge $dfwedgename | remove-nsxedge -confirm:$false
         start-sleep 5
 
