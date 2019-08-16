@@ -59,9 +59,11 @@ Describe "Edge HA" {
     }
 
     Context "Check Edge HA" {
-        $ha = get-nsxedge $haedge1name
-        $ha.features.highAvailability.enabled | should be "true"
-        $ha.features.highAvailability.declareDeadTime | should be 6
+        it "Get custom Edge HA Timer setting" {
+            $ha = get-nsxedge $haedge1name
+            $ha.features.highAvailability.enabled | should be "true"
+            $ha.features.highAvailability.declareDeadTime | should be 6
+        }
     }
 
     AfterAll {
