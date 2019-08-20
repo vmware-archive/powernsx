@@ -13660,7 +13660,7 @@ function New-NsxEdge {
             [switch]$EnableHa=$false,
         [Parameter (Mandatory=$false)]
             #Configure the Edge Appliance Dead Time.
-            [ValidateRange(6,900)]
+            [ValidateRange(3,900)]
             [int]$HaDeadTime,
         [Parameter (Mandatory=$false)]
             #Configure the vNIC index used to send HA heartbeats.
@@ -36664,7 +36664,7 @@ function Copy-NsxEdge{
             [switch]$EnableHa,
         [Parameter (Mandatory=$false)]
             #Configure HA dead time on the duplicated Edge.  Defaults to source edge setting.
-            [ValidateRange(6,900)]
+            [ValidateRange(3,900)]
             [int]$HaDeadTime,
         [Parameter (Mandatory=$false)]
             #Configure HA vNIC on the duplicated Edge.  Defaults to source edge setting.
