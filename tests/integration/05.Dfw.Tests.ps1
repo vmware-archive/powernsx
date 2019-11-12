@@ -1942,12 +1942,17 @@ Describe "DFW" {
             $rule.action | should be deny
             $rule.disabled | should be "false"
             $rule.logged | should be "true"
-            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1" | Set-NsxFirewallRule -name "modified_pester_dfw_rule1" -action allow -disabled:$true -logged:$false
+            #There is no comment before, it will be add
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "pester_dfw_rule1" | Set-NsxFirewallRule -name "modified_pester_dfw_rule1" -action allow -disabled:$true -logged:$false -comment "My Comment"
             $rule | should not be $null
             $rule.name | should be "modified_pester_dfw_rule1"
             $rule.action | should be allow
             $rule.disabled | should be "true"
             $rule.logged | should be "false"
+            $rule.notes | should be "My Comment"
+            #There is already a comment, it will be erase
+            $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "modified_pester_dfw_rule1" | Set-NsxFirewallRule -comment "My Comment 2"
+            $rule.notes | should be "My Comment 2"
         }
 
         BeforeEach {
