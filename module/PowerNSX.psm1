@@ -28519,6 +28519,11 @@ function Set-NsxFirewallRule {
     Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -action deny
 
     Change action to deny to RuleId 1007
+
+    .EXAMPLE
+    Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -comment "My Comment"
+
+    Set/update the comment of the RuleId 1007
     #>
 
     param (
@@ -28537,6 +28542,9 @@ function Set-NsxFirewallRule {
         [Parameter (Mandatory=$false)]
             [ValidateSet("Allow","Deny", "Reject")]
             [string]$action,
+        [Parameter (Mandatory=$false)]
+            [ValidateNotNullOrEmpty()]
+            [string]$comment,
         [Parameter (Mandatory=$false)]
             #PowerNSX Connection object.
             [ValidateNotNullOrEmpty()]
@@ -28568,6 +28576,15 @@ function Set-NsxFirewallRule {
 
         if ( $PsBoundParameters.ContainsKey('action') ) {
             $_FirewallRule.action = $action
+        }
+
+
+        if ( $PsBoundParameters.ContainsKey('comment') ) {
+            if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_FirewallRule -Query 'descendant::notes')) {
+                $_FirewallRule.notes = $comment.ToString()
+            } else{
+                 Add-XmlElement -xmlRoot $_FirewallRule -xmlElementName "notes" -xmlElementText $comment.ToString()
+            }
         }
 
         $uri = "/api/4.0/firewall/globalroot-0/config/layer3sections/$sectionId/rules/$Ruleid"
