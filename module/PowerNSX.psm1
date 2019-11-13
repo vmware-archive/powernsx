@@ -28523,7 +28523,7 @@ function Set-NsxFirewallRule {
     .EXAMPLE
     Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -comment "My Comment"
 
-    Change action to deny to RuleId 1007
+    Set/update the comment of the RuleId 1007
     #>
 
     param (
@@ -28542,7 +28542,7 @@ function Set-NsxFirewallRule {
         [Parameter (Mandatory=$false)]
             [ValidateSet("Allow","Deny", "Reject")]
             [string]$action,
-            [Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [string]$comment,
         [Parameter (Mandatory=$false)]
@@ -28585,7 +28585,6 @@ function Set-NsxFirewallRule {
             } else{
                  Add-XmlElement -xmlRoot $_FirewallRule -xmlElementName "notes" -xmlElementText $comment.ToString()
             }
-
         }
 
         $uri = "/api/4.0/firewall/globalroot-0/config/layer3sections/$sectionId/rules/$Ruleid"
