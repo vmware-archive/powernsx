@@ -1950,7 +1950,7 @@ Describe "DFW" {
             $rule.disabled | should be "true"
             $rule.logged | should be "false"
             $rule.notes | should be "My Comment"
-            #There is already a comment, it will be erase
+            #There is already a comment, it will be replaced
             $rule = Get-NsxFirewallSection -Name $l3sectionname | Get-NsxFirewallRule -Name "modified_pester_dfw_rule1" | Set-NsxFirewallRule -comment "My Comment 2"
             $rule.notes | should be "My Comment 2"
         }
