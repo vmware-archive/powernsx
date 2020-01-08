@@ -304,6 +304,20 @@ Describe "Edge Load Balancer" {
 
     }
 
+    Context "Load Balancer App Rule" {
+
+        it "Add LB App Rule" {
+            Get-NsxEdge -Name $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationRule -Name "lb_app_rule" -Script "timeout client 100s"
+
+            $lb_app_rule = Get-NsxEdge -Name $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationRule -Name "lb_app_rule"
+            $lb_app_rule.name | should be "lb_app_rule"
+            $lb_app_rule.script | should be "timeout client 100s"
+
+            # There's no PowerNSX cmdlet to remove an application rule. Will be cleaned up as a result of deleting the Edge.
+        }
+
+    }
+    
     AfterAll {
         #AfterAll block runs _once_ at completion of invocation regardless of number of tests/contexts/describes.
         #Clean up anything you create in here.  Be forceful - you want to leave the test env as you found it as much as is possible.
