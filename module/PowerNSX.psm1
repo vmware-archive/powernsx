@@ -32434,8 +32434,8 @@ function New-NsxLoadBalancerApplicationRule {
         #Store the edgeId and remove it from the XML as we need to post it...
         $edgeId = $LoadBalancer.edgeId
 
-        if ( -not $_LoadBalancer.enabled -eq 'true' ) {
-            Write-Warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
+        if ( -not $LoadBalancer.enabled -eq 'true' ) {
+            write-warning "Load Balancer feature is not enabled on edge $($edgeId).  Use Set-NsxLoadBalancer -EnableLoadBalancing to enable."
         }
         #Create a new XML document. Use applicationRule as root.
         [System.XML.XmlDocument]$xmldoc = New-Object System.XML.XmlDocument
