@@ -28596,11 +28596,11 @@ function Set-NsxFirewallRule {
             $_FirewallRule.action = $action
         }
 		
-		if ( $PsBoundParameters.ContainsKey('ApplyToDfw') -or $PsBoundParameters.ContainsKey('ApplyToAllEdges') -or $PsBoundParameters.ContainsKey('appliedTo')){
-			$appliedToList = New-NsxAppliedToListNode -itemList $appliedTo -xmlDoc $_FirewallRule.SchemaInfo.OwnerDocument -ApplyToDFW:$ApplyToDFW -ApplyToAllEdges:$ApplyToAllEdges
-			$_FirewallRule.removeChild($_FirewallRule.appliedToList)
-			$_FirewallRule.AppendChild($appliedToList)
-		}
+        if ( $PsBoundParameters.ContainsKey('ApplyToDfw') -or $PsBoundParameters.ContainsKey('ApplyToAllEdges') -or $PsBoundParameters.ContainsKey('appliedTo')){
+            $appliedToList = New-NsxAppliedToListNode -itemList $appliedTo -xmlDoc $_FirewallRule.SchemaInfo.OwnerDocument -ApplyToDFW:$ApplyToDFW -ApplyToAllEdges:$ApplyToAllEdges
+            $_FirewallRule.removeChild($_FirewallRule.appliedToList)
+            $_FirewallRule.AppendChild($appliedToList)
+        }
 
         if ( $PsBoundParameters.ContainsKey('comment') ) {
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_FirewallRule -Query 'descendant::notes')) {
