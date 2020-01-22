@@ -28598,10 +28598,11 @@ function Set-NsxFirewallRule {
 
     if ( $PsBoundParameters.ContainsKey('ApplyToDfw') -or $PsBoundParameters.ContainsKey('ApplyToAllEdges') -or $PsBoundParameters.ContainsKey('appliedTo')){
         $appliedToList = New-NsxAppliedToListNode -itemList $appliedTo -xmlDoc $_FirewallRule.SchemaInfo.OwnerDocument -ApplyToDFW:$ApplyToDFW -ApplyToAllEdges:$ApplyToAllEdges
-        if ($appliedToList){
+        if ( $appliedToList ) {
             $_FirewallRule.removeChild($_FirewallRule.appliedToList)
             $_FirewallRule.AppendChild($appliedToList)
         }
+        
     }
 
         if ( $PsBoundParameters.ContainsKey('comment') ) {
