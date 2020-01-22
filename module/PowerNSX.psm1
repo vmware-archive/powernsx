@@ -28529,7 +28529,7 @@ function Set-NsxFirewallRule {
     Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -ApplyToDfw
 
     SetRuleId AppliedTo for RuleID 1007 to the Distributed Firewall
-	
+    
     .EXAMPLE
     Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -appliedTo (Get-NsxSecurityGroup myGroup)
 
@@ -28598,8 +28598,10 @@ function Set-NsxFirewallRule {
 
     if ( $PsBoundParameters.ContainsKey('ApplyToDfw') -or $PsBoundParameters.ContainsKey('ApplyToAllEdges') -or $PsBoundParameters.ContainsKey('appliedTo')){
         $appliedToList = New-NsxAppliedToListNode -itemList $appliedTo -xmlDoc $_FirewallRule.SchemaInfo.OwnerDocument -ApplyToDFW:$ApplyToDFW -ApplyToAllEdges:$ApplyToAllEdges
-        $_FirewallRule.removeChild($_FirewallRule.appliedToList)
-        $_FirewallRule.AppendChild($appliedToList)
+        if ($appliedToList){
+            $_FirewallRule.removeChild($_FirewallRule.appliedToList)
+            $_FirewallRule.AppendChild($appliedToList)
+        }
     }
 
         if ( $PsBoundParameters.ContainsKey('comment') ) {
@@ -34754,7 +34756,7 @@ function Set-NsxLoadBalancerPool {
 
         if ( $PsBoundParameters.ContainsKey('name') ) {
             $_LoadBalancerPool.name = $name
-			$poolname = $name
+            $poolname = $name
         }
 
         if ( $PsBoundParameters.ContainsKey('Description') ) {
