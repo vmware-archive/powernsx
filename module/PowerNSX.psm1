@@ -28524,7 +28524,7 @@ function Set-NsxFirewallRule {
     Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -comment "My Comment"
 
     Set/update the comment of the RuleId 1007
-	
+
 	.EXAMPLE
     Get-NsxFirewallRule -Ruleid 1007 | Set-NsxFirewallRule -ApplyToDfw
 
@@ -28555,9 +28555,9 @@ function Set-NsxFirewallRule {
         [Parameter (Mandatory=$false)]
             [ValidateNotNullOrEmpty()]
             [string]$comment,
-		[Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false)]
             [object[]]$appliedTo,
-		[Parameter (Mandatory=$false)]
+        [Parameter (Mandatory=$false)]
             # Enable application of the rule to 'DISTRIBUTED_FIREWALL' (ie, to all VNICs present on NSX prepared hypervisors.  This does NOT include NSX Edges)
             [switch]$ApplyToDfw=$false,
         [Parameter (Mandatory=$false)]
@@ -28596,11 +28596,11 @@ function Set-NsxFirewallRule {
             $_FirewallRule.action = $action
         }
 		
-        if ( $PsBoundParameters.ContainsKey('ApplyToDfw') -or $PsBoundParameters.ContainsKey('ApplyToAllEdges') -or $PsBoundParameters.ContainsKey('appliedTo')){
-            $appliedToList = New-NsxAppliedToListNode -itemList $appliedTo -xmlDoc $_FirewallRule.SchemaInfo.OwnerDocument -ApplyToDFW:$ApplyToDFW -ApplyToAllEdges:$ApplyToAllEdges
-            $_FirewallRule.removeChild($_FirewallRule.appliedToList)
-            $_FirewallRule.AppendChild($appliedToList)
-        }
+		if ( $PsBoundParameters.ContainsKey('ApplyToDfw') -or $PsBoundParameters.ContainsKey('ApplyToAllEdges') -or $PsBoundParameters.ContainsKey('appliedTo')){
+			$appliedToList = New-NsxAppliedToListNode -itemList $appliedTo -xmlDoc $_FirewallRule.SchemaInfo.OwnerDocument -ApplyToDFW:$ApplyToDFW -ApplyToAllEdges:$ApplyToAllEdges
+			$_FirewallRule.removeChild($_FirewallRule.appliedToList)
+			$_FirewallRule.AppendChild($appliedToList)
+		}
 
         if ( $PsBoundParameters.ContainsKey('comment') ) {
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $_FirewallRule -Query 'descendant::notes')) {
