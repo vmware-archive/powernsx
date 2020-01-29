@@ -25098,7 +25098,6 @@ function New-NsxSecurityTag {
 }
 
 function Get-NsxSecurityTag {
-
     <#
     .SYNOPSIS
     Retrieves an NSX Security Tag
@@ -25112,40 +25111,40 @@ function Get-NsxSecurityTag {
 
     .EXAMPLE
     Get-NSXSecurityTag
-
     Gets all Security Tags
 
     .EXAMPLE
     Get-NSXSecurityTag -name ST-Web-DMZ
-
     Gets a specific Security Tag by name
     #>
 
    param (
+        [Parameter (Mandatory=$false)]
+        #Get Security Tag by name
+        [ValidateNotNullOrEmpty()]
+        [string]$Name,
 
-        [Parameter (Mandatory=$false, Position=1)]
-            #Get Security Tag by name
-            [ValidateNotNullOrEmpty()]
-            [string]$Name,
         [Parameter (Mandatory=$false)]
-            #Get security tag by objectId
-            [string]$objectId,
+        #Get security tag by objectId
+        [string]$objectId,
         [Parameter (Mandatory=$false)]
-            #Include system security tags
-            [switch]$IncludeSystem=$false,
+
+        #Include system security tags
+        [switch]$IncludeSystem=$false,
+
         [Parameter (Mandatory=$False)]
-            #PowerNSX Connection object
-            [ValidateNotNullOrEmpty()]
-            [PSCustomObject]$Connection=$defaultNSXConnection
-
+        #PowerNSX Connection object
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection=$defaultNSXConnection
     )
 
+<#
     process {
-
         if ( -not $PsBoundParameters.ContainsKey('objectId')) {
             #either all or by name
             $URI = "/api/2.0/services/securitytags/tag"
             [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTags/securityTag')) {
                 if  ( $PsBoundParameters.ContainsKey('Name')) {
                     $tags = $response.securitytags.securitytag | where-object { $_.name -eq $name }
@@ -25162,10 +25161,10 @@ function Get-NsxSecurityTag {
             }
         }
         else {
-
             #Just getting a single Security group by object id
             $URI = "/api/2.0/services/securitytags/tag/$objectId"
             $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
             if ( (Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTag')) {
                 $tags = $response.securitytag
             }
@@ -25178,7 +25177,53 @@ function Get-NsxSecurityTag {
             }
         }
     }
+#>
 
+process {
+    if ($PsBoundParameters.ContainsKey('Name')) {
+        $URI = "/api/2.0/services/securitytags/tag?filterBy=name&filterValue=$($name)"
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTags/securityTag')) {
+            $tags = $response.securitytags.securitytag
+        }
+    }
+    elseif ($PsBoundParameters.ContainsKey('objectId')) {
+        $URI = "/api/2.0/services/securitytags/tag?filterBy=objectId&filterValue=$($objectId)"
+        $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTags/securityTag')) {
+            $tags = $response.securitytags.securitytag
+        }
+    }
+    else {
+        $startIndex = 0
+
+        $URI = "/api/2.0/services/securitytags/tag"
+        [System.Xml.XmlDocument]$response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTags/securityTag')) {
+            $totalCount = $response.securitytags.pagingInfo.totalCount
+
+            while ($startIndex -le $totalCount) {
+                $URI = "/api/2.0/services/securitytags/tag?startIndex=$($startIndex)"
+                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                $tags += $response.securitytags.securitytag
+
+                $startIndex += 1024
+            }
+        }
+    }
+
+    if ( -not $IncludeSystem ) {
+        if ((Invoke-XPathQuery -QueryMethod SelectSingleNode -Node $response -Query 'descendant::securityTags/securityTag')) {
+            $tags | where-object { ( $_.systemResource -ne 'true') }
+        }
+    }
+    else {
+        $tags
+    }
+    }
     end {}
 }
 
