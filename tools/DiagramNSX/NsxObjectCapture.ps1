@@ -1,7 +1,7 @@
 #NSX Object Capture Script
 #Nick Bradford
 #nbradford@vmware.com
-#Version 2.0.1
+#Version 2.0.2
 
 
 <#
@@ -47,7 +47,7 @@ If ( (-not $Connection) -and ( -not $Connection.ViConnection.IsConnected ) ) {
 Set-StrictMode -Off
 
 # We set a version number here
-[version]$version = "2.0.1"
+[version]$version = "2.0.2"
 
 #########################
 #Define Windows environment stuff
@@ -232,7 +232,10 @@ Get-Vm -server $connection.ViConnection| % {
         "IsEdge" = $IsEdge;
         "IsLogicalRouter" = $IsLogicalRouter;
         "IsController" = $IsController;
-        "ToolsIp" = $_.Guest.Ipaddress })
+        "ToolsIp" = $_.Guest.Ipaddress;
+        "Uuid" = $configview.Config.Uuid;
+        "InstanceUuid" = $configview.Config.InstanceUuid
+    })
 }
 
 write-host "  Getting IP and MAC details from Spoofguard"
