@@ -11652,6 +11652,18 @@ function New-NsxLogicalRouter {
             #Optional tenant string to be configured on the DLR.
             [ValidateNotNullOrEmpty()]
             [String]$Tenant,
+        [Parameter (Mandatory=$false)]
+            #Cli account username.
+            [ValidateNotNullOrEmpty()]
+            [String]$Username="admin",
+        [Parameter (Mandatory=$true)]
+            #CLI account password
+            [ValidateNotNullOrEmpty()]
+            [String]$Password,
+        [Parameter (Mandatory=$false)]
+            #Enable SSH
+            [ValidateNotNullOrEmpty()]
+            [switch]$EnableSSH=$false,
         [Parameter (Mandatory=$False)]
             #PowerNSX Connection object
             [ValidateNotNullOrEmpty()]
@@ -11694,6 +11706,19 @@ function New-NsxLogicalRouter {
         $xmlAppliances.appendChild($xmlAppliance) | out-null
         Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "resourcePoolId" -xmlElementText $ResPoolId
         Add-XmlElement -xmlRoot $xmlAppliance -xmlElementName "datastoreId" -xmlElementText $datastore.extensiondata.moref.value
+
+        #CLI Settings
+        if ( $PsBoundParameters.ContainsKey('EnableSSH') -or $PSBoundParameters.ContainsKey('Password') ) {
+
+            [System.XML.XMLElement]$xmlCliSettings = $XMLDoc.CreateElement("cliSettings")
+            $xmlRoot.appendChild($xmlCliSettings) | out-null
+
+            if ( $PsBoundParameters.ContainsKey('Password') ) {
+                Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "userName" -xmlElementText $UserName
+                Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "password" -xmlElementText $Password
+            }
+            if ( $PsBoundParameters.ContainsKey('EnableSSH') ) { Add-XmlElement -xmlRoot $xmlCliSettings -xmlElementName "remoteAccess" -xmlElementText $EnableSsh.ToString().ToLower() }
+        }
 
         if ( $EnableHA ) {
             [System.XML.XMLElement]$xmlAppliance = $XMLDoc.CreateElement("appliance")
