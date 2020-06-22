@@ -31920,6 +31920,9 @@ function Add-NsxLoadBalancerVip {
         [Parameter (Mandatory=$true)]
             [ValidateScript({ ValidateLoadBalancerPool $_ })]
             [System.Xml.XmlElement]$DefaultPool,
+        [Parameter (Mandatory=$true)]
+            #[ValidateScript({ ValidateLoadBalancerApplicationRule $_ })]
+            [System.Xml.XmlElement]$ApplicationRule,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [switch]$AccelerationEnabled=$True,
@@ -31966,6 +31969,9 @@ function Add-NsxLoadBalancerVip {
         Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "applicationProfileId" -xmlElementText $ApplicationProfile.applicationProfileId
         Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "defaultPoolId" -xmlElementText $DefaultPool.poolId
         Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "accelerationEnabled" -xmlElementText $AccelerationEnabled
+        if ( $PsBoundParameters.ContainsKey('ApplicationRule') ) {
+            Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "ApplicationRuleId" -xmlElementText $ApplicationRule.appRuleId
+        }
 
         $URI = "/api/4.0/edges/$($EdgeId)/loadbalancer/config"
         $body = $_LoadBalancer.OuterXml
