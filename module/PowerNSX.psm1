@@ -32293,10 +32293,50 @@ function Get-NsxSecurityPolicy {
                 #Get all Security Policies and optionally filter on Name
                 $URI = "/api/2.0/services/policy/securitypolicy/all"
                 $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+
+                $securityPolicies = @()
+
+                if ($response.securityPolicies | Get-Member -memberType Properties -Name pagingInfo) {
+                    $defaultPageSize = 1024
+                    $itemIndex =  0
+                    $startingIndex = 0
+                    $pagingInfo = $response.securityPolicies.pagingInfo
+    
+                    if ( [int]$paginginfo.totalCount -ne 0 ) {
+                        Write-Debug "$($MyInvocation.MyCommand.Name) : SecurityPolicy count non zero"
+                        do {
+                            Write-Debug "$($MyInvocation.MyCommand.Name) : In paging loop. PageSize: $($pagingInfo.PageSize), StartIndex: $($paginginfo.startIndex), TotalCount: $($paginginfo.totalcount)"
+    
+                            while (($itemindex -lt ([int]$paginginfo.pagesize + $startingIndex)) -and ($itemIndex -lt [int]$paginginfo.totalCount )) {
+                                Write-Debug "$($MyInvocation.MyCommand.Name) : In Item Processing Loop: ItemIndex: $itemIndex"
+                                Write-Debug "$($MyInvocation.MyCommand.Name) : $(@($response.securityPolicies.securityPolicy)[($itemIndex - $startingIndex)].objectId)"
+    
+                                $securityPolicies += @($response.securityPolicies.securityPolicy)[($itemIndex - $startingIndex)]
+                                $itemIndex += 1
+                            }
+                            Write-Debug "$($MyInvocation.MyCommand.Name) : Out of item processing - PagingInfo: PageSize: $($pagingInfo.PageSize), StartIndex: $($paginginfo.startIndex), TotalCount: $($paginginfo.totalcount)"
+                            if ( [int]$paginginfo.totalcount -gt $itemIndex) {
+                                Write-Debug "$($MyInvocation.MyCommand.Name) : PagingInfo: PageSize: $($pagingInfo.PageSize), StartIndex: $($paginginfo.startIndex), TotalCount: $($paginginfo.totalcount)"
+                                $startingIndex += $defaultPageSize
+                                $URI = "/api/2.0/services/policy/securitypolicy/all?pageSize=$defaultPageSize&startIndex=$startingIndex"
+    
+                                $response = invoke-nsxrestmethod -method "get" -uri $URI -connection $connection
+                                $pagingInfo = $response.securityPolicies.pagingInfo
+                            }
+    
+                        } until ( [int]$paginginfo.totalcount -le $itemIndex )
+                        Write-Debug "$($MyInvocation.MyCommand.Name) : Completed page processing: ItemIndex: $itemIndex"
+        
+                    }
+                }
+                else {
+                    $securityPolicies = $response.securityPolicies.securitypolicy
+                }
+
                 if  ( $PSBoundParameters.ContainsKey("Name") ) {
-                    $FinalSecPol = $response.securityPolicies.securityPolicy | where-object { $_.name -eq $Name }
+                    $FinalSecPol = $securityPolicies | where-object { $_.name -eq $Name }
                 } else {
-                    $FinalSecPol = $response.securityPolicies.securityPolicy
+                    $FinalSecPol = $securityPolicies
                 }
             }
 
