@@ -72,7 +72,7 @@ Describe "Edge HA" {
         #We kill the connection to NSX Manager here.
 
         get-nsxedge $haedge1name | remove-nsxedge -confirm:$false
-        start-sleep 5
+        start-sleep 10
 
         Get-NsxLogicalSwitch $hauplinklsname | Remove-NsxLogicalSwitch -Confirm:$false
         Get-NsxLogicalSwitch $hainternallsname | Remove-NsxLogicalSwitch -Confirm:$false
