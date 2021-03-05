@@ -3875,9 +3875,26 @@ function Invoke-InternalWebRequest {
 
                 #Response header values are an array of strings -
                 if ( @($header.Value).count -gt 1 ) {
-                    write-warning "Response header $header.key has more than one value.  Only the first value is retained.  Please raise an issue on the PowerNSX Github site with steps to reproduce if you see this warning!"
+                    if ($header.key -eq "X-Frame-Options") {
+                        # This header, according to RFC7034 should only have a 
+                        # single value. The list of possible values are: DENY, 
+                        # SAMEORIGIN and ALLOW-FROM and they are meant to be 
+                        # mutually exclusive. Seems as though the NSX Manager 
+                        # is sending back both DENY and SAMEORIGIN. As we aren't 
+                        # rendering the responses in a browser which leverages 
+                        # frames/iframes, just going to set this to DENY. The 
+                        # RFC states that "If a browser or plugin cannot reliably
+                        # determine whether or not the origin of the content and
+                        # the frame are the same, this MUST be treated as 'DENY'."
+                        $WebResponse.Headers.Add($header.key, "DENY")
+                    }
+                    else {
+                        $WebResponse.Headers.Add($header.key, ($Header.Value -join ', '))
+                    }
                 }
-                $WebResponse.Headers.Add($header.key, @($Header.Value)[0])
+                else {
+                    $WebResponse.Headers.Add($header.key, @($Header.Value)[0])
+                }
             }
 
             #If non success status, we still throw an exception with the response object so caller can determine details.
