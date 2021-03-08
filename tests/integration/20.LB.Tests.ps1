@@ -107,6 +107,37 @@ Describe "Edge Load Balancer" {
 
     }
 
+    # Test to cover a bug where New-NsxLoadBalancerPool fails to create a new pool on the Edge,
+    # when Edge already has one existing pool and one existing VIP.
+    Context "Load Balancer Pool (Extended)" {
+
+        it "Add LB Pools" {
+            # Add first LB pool
+            $vmmember1 = New-NsxLoadBalancerMemberSpec -name "VM01" -IpAddress 2.2.2.1 -Port 80
+            $lb_pool = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name "pester_lb_pool1" -Description "Pester LB Pool 1" -Transparent:$false -Algorithm round-robin -Memberspec $vmmember1 -Monitor $Monitor
+            
+            # Add an LB VIP
+            $lb_app_profile = Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationProfile -Name "pester_lb_app_profile" -Type http
+            Get-NsxEdge -Name $lbedge1name | Get-NsxLoadBalancer | Add-NsxLoadBalancerVip -name "pester_vip" -Description "Pester VIP" -ipaddress 1.1.1.1 -Protocol http -Port 80 -ApplicationProfile $lb_app_profile -DefaultPool $lb_pool -AccelerationEnable
+
+            # Add second LB Pool
+            $vmmember2 = New-NsxLoadBalancerMemberSpec -name "VM02" -IpAddress 2.2.2.2 -Port 80
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name "pester_lb_pool2" -Description "Pester LB Pool 2" -Transparent:$false -Algorithm round-robin -Memberspec $vmmember2 -Monitor $Monitor
+        }
+
+        it "Remove LB Pools" {    
+            # Remove second LB pool
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name "pester_lb_pool2" | Remove-NsxLoadBalancerPool -confirm:$false
+
+            # Remove LB VIP
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerVIP -name "pester_vip" | Remove-NsxLoadBalancerVIP -confirm:$false
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerApplicationProfile -Name "pester_lb_app_profile" | Remove-NsxLoadBalancerApplicationProfile -confirm:$false
+
+            # Remove first LB pool
+            Get-NsxEdge $lbedge1name | Get-NsxLoadBalancer | Get-NsxLoadBalancerPool -name "pester_lb_pool1" | Remove-NsxLoadBalancerPool -confirm:$false
+        }
+    }
+
     Context 'Load Balancer Pool Member' {
         BeforeAll {
             #Create LB Pool
