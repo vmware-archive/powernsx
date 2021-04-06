@@ -23814,11 +23814,7 @@ function Remove-NsxSecurityGroupMember {
                 if ( $FailIfAbsent) {
                     #Need to check before removing the member, because we are now using bulk update, the API doesnt do this for us.
                     #To support the prior functionality of failIfAbsent, we have to check ourselves...
-
-                    $existingMember = (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -query "child::member[objectId=`"$MemberMoref`"]" )
-
-                    if ( $existingMember -eq $null ) {
-                        throw "Member $($_Member.Name) ($MemberMoref) is not a member of the specified SecurityGroup."
+                        throw "Member $(if ($_Member | Get-Member -memberType Properties -name Name) {$_member.name}) ($MemberMoref) is not a member of the specified SecurityGroup."
                     }
                     else {
                         $null = $_SecurityGroup.Removechild($existingMember)
