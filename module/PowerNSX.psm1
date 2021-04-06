@@ -23747,6 +23747,9 @@ function Remove-NsxSecurityGroupMember {
             [object]$SecurityGroup,
         [Parameter (Mandatory=$False)]
             [switch]$FailIfAbsent=$true,
+        [Parameter (Mandatory=$False)]
+            #The specified exclude members are to be removed from the security group
+            [switch]$MemberIsExcluded=$false,
         [Parameter (Mandatory=$true)]
             [ValidateScript({ ValidateSecurityGroupMember $_ })]
             [object[]]$Member,
@@ -23767,7 +23770,7 @@ function Remove-NsxSecurityGroupMember {
     }
 
     process {
-
+        $modified = $False
         #Get our internal SG object and id.  The internal obejct is used to modify and put for bulk update.
         if ( $SecurityGroup -is [System.Xml.XmlElement] ) {
             $SecurityGroupId = $securityGroup.objectId
@@ -23811,20 +23814,40 @@ function Remove-NsxSecurityGroupMember {
                     throw "Invalid member specified $($_Member)"
                 }
 
+                # Check for the correct member type (inclue or exclude member)
+                if ( $MemberIsExcluded ) {
+                    $existingMember = (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -query "child::excludeMember[objectId=`"$MemberMoref`"]" )
+                }
+                else {
+                    $existingMember = (Invoke-XpathQuery -QueryMethod SelectSingleNode -Node $_SecurityGroup -query "child::member[objectId=`"$MemberMoref`"]" )
+                }
+
                 if ( $FailIfAbsent) {
-                    #Need to check before removing the member, because we are now using bulk update, the API doesnt do this for us.
                     #To support the prior functionality of failIfAbsent, we have to check ourselves...
+                    if ( $null -eq $existingMember ) {
                         throw "Member $(if ($_Member | Get-Member -memberType Properties -name Name) {$_member.name}) ($MemberMoref) is not a member of the specified SecurityGroup."
                     }
-                    else {
-                        $null = $_SecurityGroup.Removechild($existingMember)
-                    }
+                }
+
+                #Need to check before removing the member, because we are now using bulk update, the API doesnt do this for us.
+                if ($existingMember) {
+                    Write-Host -ForegroundColor Cyan "Existing member has some results"
+                    $null = $_SecurityGroup.Removechild($existingMember)
+                    $modified = $True
                 }
             }
-            $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
-            Write-Progress -activity "Updating membership of Security Group $SecurityGroupId"
-            $null = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
-            write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed
+
+            # There is no reason to just blindly update the configuration as
+            # there may be no changes required, so we only do it if we find the
+            # member/excludeMember object via the xPath query
+            Write-Host -ForegroundColor Cyan "Modified flag is: $Modified" 
+            if ($modified) {
+                $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
+                Write-Progress -activity "Updating membership of Security Group $SecurityGroupId"
+                $null = invoke-nsxwebrequest -method "put" -uri $URI -connection $connection -body $_SecurityGroup.OuterXml
+                write-progress -activity "Updating membership of Security Group $SecurityGroupId" -completed
+            }
+
         }
         #Get-NsxSecurityGroup -objectId $SecurityGroup.objectId -connection $connection
     }
