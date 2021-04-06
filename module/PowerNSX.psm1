@@ -23831,7 +23831,6 @@ function Remove-NsxSecurityGroupMember {
 
                 #Need to check before removing the member, because we are now using bulk update, the API doesnt do this for us.
                 if ($existingMember) {
-                    Write-Host -ForegroundColor Cyan "Existing member has some results"
                     $null = $_SecurityGroup.Removechild($existingMember)
                     $modified = $True
                 }
@@ -23840,7 +23839,6 @@ function Remove-NsxSecurityGroupMember {
             # There is no reason to just blindly update the configuration as
             # there may be no changes required, so we only do it if we find the
             # member/excludeMember object via the xPath query
-            Write-Host -ForegroundColor Cyan "Modified flag is: $Modified" 
             if ($modified) {
                 $URI = "/api/2.0/services/securitygroup/bulk/$($SecurityGroupId)"
                 Write-Progress -activity "Updating membership of Security Group $SecurityGroupId"
