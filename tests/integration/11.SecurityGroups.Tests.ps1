@@ -494,7 +494,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMembers
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberSg1, $MemberSg2 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add multiple members by id" {
@@ -526,7 +526,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMembers
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberSg1.objectId, $MemberSg2.objectId -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a Logical Switch member by object" {
@@ -555,7 +555,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberLS1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a Logical Switch member by id" {
@@ -584,7 +584,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberLS1.ObjectId -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a VM member by object" {
@@ -613,7 +613,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVM1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a VM member by id" {
@@ -642,7 +642,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVM1.ExtensionData.MoRef.Value -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add an IPSet member by object" {
@@ -671,7 +671,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberIpSet1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add an IPSet member by id" {
@@ -700,7 +700,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberIpSet1.objectId -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a ResourcePool member by object" {
@@ -729,7 +729,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberResPool1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add an ResourcePool member by id" {
@@ -758,7 +758,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberResPool1.ExtensionData.MoRef.Value -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a DVPortGRoup member by object" {
@@ -787,7 +787,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a DVPortGRoup member by id" {
@@ -816,7 +816,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1.ExtensionData.MoRef.Value -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a Datacenter member by object" {
@@ -845,7 +845,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a Datacenter member by id" {
@@ -874,7 +874,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1.ExtensionData.MoRef.Value -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a Cluster member by object" {
@@ -903,7 +903,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a Cluster member by id" {
@@ -932,7 +932,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1.ExtensionData.MoRef.Value -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a VNIC member by object" {
@@ -964,7 +964,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVnic1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a VNIC member by id" {
@@ -997,7 +997,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $VnicId -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add an SecurityTag member by object" {
@@ -1026,7 +1026,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a SecurityTag member by id" {
@@ -1055,7 +1055,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1.objectId -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a MACSet member by object" {
@@ -1084,7 +1084,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1 -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a MACSet member by id" {
@@ -1113,7 +1113,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1.objectId -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a Directory Group member by id" -skip:(-not $script:directoryDomainConfigured ) {
@@ -1143,7 +1143,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup.objectId -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         it "Can add a Directory Group member by object" -skip:(-not $script:directoryDomainConfigured ) {
@@ -1173,7 +1173,7 @@ Describe "SecurityGroups" {
             # Now remove the excludeMember
             Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup -MemberIsExcluded
             $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
-            $get.excludeMember | should be null
+            ($get | get-member -membertype property -Name excludeMember) | should be $null
         }
 
         foreach ( $key in $DynamicCriteriaKeySubstitute.keys ) {
