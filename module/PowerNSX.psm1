@@ -10259,7 +10259,7 @@ function Set-NsxLogicalSwitch {
 
         $uri = "/api/2.0/vdn/virtualwires/$($ObjectId)"
         $null = Invoke-NsxWebRequest -method put -Uri $uri -body $_virtualWire.OuterXml -connection $connection
-        Get-NsxlogicalSwitch -ObjectId $ObjectId
+        Get-NsxlogicalSwitch -ObjectId $ObjectId -connection $connection
 
     }
 
