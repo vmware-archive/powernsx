@@ -23790,7 +23790,7 @@ function Remove-NsxSecurityGroupMember {
                 if ($_Member -is [System.Xml.XmlElement] ) {
                     $MemberMoref = $_Member.objectId
                 }
-                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$" )) {
+                elseif ( ($_Member -is [string]) -and ($_Member -match "^vm-\d+$|^resgroup-\d+$|^dvportgroup-\d+$|^directory_group-\d+$|^domain-c\d+$" )) {
                     $MemberMoref = $_Member
 
                 }
