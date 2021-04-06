@@ -452,6 +452,18 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can modify a SecurityGroup excludion membership by id" {
+            #Specify SG to be modified and member by id
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberSg1.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $SecGrpMemberName1
+            $get.excludeMember.objectId | should be $MemberSG1.objectId
+        }
+
         it "Can add multiple members by object" {
             $SecGrp | Add-NsxSecurityGroupMember -Member $MemberSg1, $MemberSg2
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -464,6 +476,25 @@ Describe "SecurityGroups" {
             $get.member.objectId -contains $MemberSG1.objectId | should be $true
             $get.member.objectId -contains $MemberSG2.objectId | should be $true
 
+        }
+
+        it "Can remove multiple exclude members by object" {
+            $SecGrp | Add-NsxSecurityGroupMember -Member $MemberSg1, $MemberSg2 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMembers have been added
+            $get.excludeMember.count | should be 2
+            $get.excludeMember.name -contains $SecGrpMemberName1 | should be $true
+            $get.excludeMember.name -contains $SecGrpMemberName2 | should be $true
+            $get.excludeMember.objectId -contains $MemberSG1.objectId | should be $true
+            $get.excludeMember.objectId -contains $MemberSG2.objectId | should be $true
+            
+            # Now remove the excludeMembers
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberSg1, $MemberSg2 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add multiple members by id" {
@@ -479,6 +510,25 @@ Describe "SecurityGroups" {
             $get.member.objectId -contains $MemberSG2.objectId | should be $true
         }
 
+        it "Can remove multiple exclude members by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberSg1.objectId, $MemberSg2.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMembers have been added
+            $get.excludeMember.count | should be 2
+            $get.excludeMember.name -contains $SecGrpMemberName1 | should be $true
+            $get.excludeMember.name -contains $SecGrpMemberName2 | should be $true
+            $get.excludeMember.objectId -contains $MemberSG1.objectId | should be $true
+            $get.excludeMember.objectId -contains $MemberSG2.objectId | should be $true
+            
+            # Now remove the excludeMembers
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberSg1.objectId, $MemberSg2.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a Logical Switch member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberLS1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -489,6 +539,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberLSName1
             $get.member.objectId | should be $MemberLS1.objectId
 
+        }
+
+        it "Can remove a Logical Switch exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberLS1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberLSName1
+            $get.excludeMember.objectId | should be $MemberLS1.objectId
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberLS1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add a Logical Switch member by id" {
@@ -503,6 +570,23 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove a Logical Switch exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberLS1.ObjectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberLSName1
+            $get.excludeMember.objectId | should be $MemberLS1.objectId
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberLS1.ObjectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a VM member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVM1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -513,6 +597,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberVMName1
             $get.member.objectId | should be $MemberVM1.ExtensionData.MoRef.Value
 
+        }
+
+        it "Can remove a VM exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVM1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberVMName1
+            $get.excludeMember.objectId | should be $MemberVM1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVM1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add a VM member by id" {
@@ -527,6 +628,23 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove a VM exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVM1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberVMName1
+            $get.excludeMember.objectId | should be $MemberVM1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVM1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add an IPSet member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberIpSet1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -537,6 +655,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberIPSetName1
             $get.member.objectId | should be $MemberIpSet1.objectId
 
+        }
+
+        it "Can remove an IPSet exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberIpSet1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberIPSetName1
+            $get.excludeMember.objectId | should be $MemberIpSet1.objectId
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberIpSet1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add an IPSet member by id" {
@@ -551,6 +686,23 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove an IPSet exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberIpSet1.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberIPSetName1
+            $get.excludeMember.objectId | should be $MemberIpSet1.objectId
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberIpSet1.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a ResourcePool member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberResPool1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -561,6 +713,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberResPoolName1
             $get.member.objectId | should be $MemberResPool1.ExtensionData.MoRef.Value
 
+        }
+
+        it "Can remove a ResourcePool exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberResPool1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberResPoolName1
+            $get.excludeMember.objectId | should be $MemberResPool1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberResPool1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add an ResourcePool member by id" {
@@ -575,6 +744,23 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove an ResourcePool exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberResPool1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberResPoolName1
+            $get.excludeMember.objectId | should be $MemberResPool1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberResPool1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a DVPortGRoup member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -585,6 +771,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberVdPortGroupName1
             $get.member.objectId | should be $MemberVdPortGroup1.ExtensionData.MoRef.Value
 
+        }
+
+        it "Can remove a DVPortGRoup exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberVdPortGroupName1
+            $get.excludeMember.objectId | should be $MemberVdPortGroup1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add a DVPortGRoup member by id" {
@@ -599,6 +802,23 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove a DVPortGRoup exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberVdPortGroupName1
+            $get.excludeMember.objectId | should be $MemberVdPortGroup1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVdPortGroup1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a Datacenter member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -609,6 +829,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberDcName1
             $get.member.objectId | should be $MemberDc1.ExtensionData.MoRef.Value
 
+        }
+
+        it "Can remove a Datacenter exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberDcName1
+            $get.excludeMember.objectId | should be $MemberDc1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add a Datacenter member by id" {
@@ -623,6 +860,23 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove a Datacenter exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberDcName1
+            $get.excludeMember.objectId | should be $MemberDc1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberDc1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a Cluster member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -635,6 +889,23 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove a Cluster exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberClusterName1
+            $get.excludeMember.objectId | should be $MemberCluster1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a Cluster member by id" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1.ExtensionData.MoRef.Value
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -645,6 +916,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberClusterName1
             $get.member.objectId | should be $MemberCluster1.ExtensionData.MoRef.Value
 
+        }
+
+        it "Can remove a Cluster exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberClusterName1
+            $get.excludeMember.objectId | should be $MemberCluster1.ExtensionData.MoRef.Value
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberCluster1.ExtensionData.MoRef.Value -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add a VNIC member by object" {
@@ -661,6 +949,24 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove a VNIC exclude member by object" {
+            $vmUuid = ($MemberVnic1.parent | get-view).config.instanceuuid
+            $VnicId = "$vmUuid.$($MemberVnic1.id.substring($MemberVnic1.id.length-3))"
+
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVnic1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.objectId | should be $VnicId
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberVnic1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a VNIC member by id" {
 
             $vmUuid = ($MemberVnic1.parent | get-view).config.instanceuuid
@@ -675,6 +981,25 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove a VNIC exclude member by id" {
+
+            $vmUuid = ($MemberVnic1.parent | get-view).config.instanceuuid
+            $VnicId = "$vmUuid.$($MemberVnic1.id.substring($MemberVnic1.id.length-3))"
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $VnicId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.objectId | should be $VnicId
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $VnicId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add an SecurityTag member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -685,6 +1010,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberSTName1
             $get.member.objectId | should be $MemberST1.objectId
 
+        }
+
+        it "Can remove an SecurityTag exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberSTName1
+            $get.excludeMember.objectId | should be $MemberST1.objectId
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add a SecurityTag member by id" {
@@ -699,6 +1041,23 @@ Describe "SecurityGroups" {
 
         }
 
+        it "Can remove a SecurityTag exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberSTName1
+            $get.excludeMember.objectId | should be $MemberST1.objectId
+            
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberST1.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a MACSet member by object" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1
             $get = Get-nsxsecuritygroup -Name $secGrpName
@@ -711,7 +1070,24 @@ Describe "SecurityGroups" {
 
         }
 
-        it "Can add a MACSet member by object" {
+        it "Can remove a MACSet exclude member by object" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberMacSetName1
+            $get.excludeMember.objectId | should be $MemberMacSet1.objectId
+
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1 -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
+        it "Can add a MACSet member by id" {
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1.objectId
             $get = Get-nsxsecuritygroup -Name $secGrpName
             $get.name | should be $secGrp.name
@@ -721,6 +1097,23 @@ Describe "SecurityGroups" {
             $get.member.name | should be $MemberMacSetName1
             $get.member.objectId | should be $MemberMacSet1.objectId
 
+        }
+
+        it "Can remove a MACSet exclude member by id" {
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -Name $secGrpName
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $MemberMacSetName1
+            $get.excludeMember.objectId | should be $MemberMacSet1.objectId
+
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $MemberMacSet1.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         it "Can add a Directory Group member by id" -skip:(-not $script:directoryDomainConfigured ) {
@@ -735,6 +1128,24 @@ Describe "SecurityGroups" {
             $get.member.objectId | should be $directoryGroup.objectId
         }
 
+        it "Can remove a Directory Group exclude member by id" -skip:(-not $script:directoryDomainConfigured ) {
+            $directoryGroup = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup | Select-Object -First 1
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $directoryGroup.name
+            $get.excludeMember.objectId | should be $directoryGroup.objectId
+
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup.objectId -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
+        }
+
         it "Can add a Directory Group member by object" -skip:(-not $script:directoryDomainConfigured ) {
             $directoryGroup = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup | Select-Object -First 1
             Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup
@@ -745,6 +1156,24 @@ Describe "SecurityGroups" {
             $get.member | should beoftype System.xml.xmlelement
             $get.member.name | should be $directoryGroup.name
             $get.member.objectId | should be $directoryGroup.objectId
+        }
+
+        it "Can remove a Directory Group exclude member by object" -skip:(-not $script:directoryDomainConfigured ) {
+            $directoryGroup = Get-NsxApplicableMember -SecurityGroupApplicableMembers -MemberType DirectoryGroup | Select-Object -First 1
+            Add-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.name | should be $secGrp.name
+            $get.description | should be $secGrp.description
+
+            # Verify the excludeMember has been added
+            $get.excludeMember | should beoftype System.xml.xmlelement
+            $get.excludeMember.name | should be $directoryGroup.name
+            $get.excludeMember.objectId | should be $directoryGroup.objectId
+
+            # Now remove the excludeMember
+            Remove-NsxSecurityGroupMember -SecurityGroup $SecGrp.objectId -Member $directoryGroup -MemberIsExcluded
+            $get = Get-nsxsecuritygroup -objectid $SecGrp.objectId
+            $get.excludeMember | should be null
         }
 
         foreach ( $key in $DynamicCriteriaKeySubstitute.keys ) {
