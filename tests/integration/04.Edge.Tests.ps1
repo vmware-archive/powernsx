@@ -796,33 +796,58 @@ Describe "Edge" {
 
         It "Edge deployed by default with FIPS mode disabled" {
             $edge = Get-NsxEdge $name
-            $edge | Should not be $null
             $edge.enableFips | Should be "false"
         }
 
         It "Can enable FIPS mode on an already deployed Edge" {
             $edge = Get-NsxEdge $name
-            $edge | Should not be $null
             $edge.enableFips | Should be "false"
             $edge | Enable-NsxEdgeFips -confirm:$false
-            $edge = Get-NsxEdge $name
-            $edge.enableFips | Should be "true"
+            $edgeFIPSEnabled = Get-NsxEdge $name
+            $edgeFIPSEnabled.enableFips | Should be "true"
         }
 
         It "Can disable FIPS mode on an already deployed Edge" {
             $edge = Get-NsxEdge $name
-            $edge | Should not be $null
             $edge.enableFips | Should be "true"
-            $edge | Disable-NsxEdgeFips -confirm:$false
+            $edgeFIPSDisabled | Disable-NsxEdgeFips -confirm:$false
+            $edgeFIPSDisabled.enableFips | Should be "false"
+        }
+
+        It "Can deploy an edge with FIPS mode enabled" {
+            { $null = New-NsxEdge -Name $fipsName -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "fips-pestertest" -EnableFIPS } | Should not throw
+            $edgeNew = Get-NsxEdge $fipsName
+            $edgeNew.enableFips | Should be "true"
+        }
+    }
+
+    Context "FIPS" {
+
+        It "Edge deployed by default with FIPS mode disabled" {
             $edge = Get-NsxEdge $name
             $edge.enableFips | Should be "false"
         }
 
-        It "Can deploy an edge with FIPS mode enabled" {
-            { $edge = New-NsxEdge -Name $fipsName -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "fips-pestertest" -EnableFIPS } | Should not throw
-            $edge = Get-NsxEdge $fipsName
-            $edge | Should not be $null
+        It "Can enable FIPS mode on an already deployed Edge" {
+            $edge = Get-NsxEdge $name
+            $edge.enableFips | Should be "false"
+            $edge | Enable-NsxEdgeFips -confirm:$false
+            $edgeFIPSEnabled = Get-NsxEdge $name
+            $edgeFIPSEnabled.enableFips | Should be "true"
+        }
+
+        It "Can disable FIPS mode on an already deployed Edge" {
+            $edge = Get-NsxEdge $name
             $edge.enableFips | Should be "true"
+            $edge | Disable-NsxEdgeFips -confirm:$false
+            $edgeFIPSDisabled = Get-NsxEdge $name
+            $edgeFIPSDisabled.enableFips | Should be "false"
+        }
+
+        It "Can deploy an edge with FIPS mode enabled" {
+            { $null = New-NsxEdge -Name $fipsName -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "fips-pestertest" -EnableFIPS } | Should not throw
+            $edgeNew = Get-NsxEdge $fipsName
+            $edgeNew.enableFips | Should be "true"
         }
     }
 }
