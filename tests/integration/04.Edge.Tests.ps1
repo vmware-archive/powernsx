@@ -445,6 +445,12 @@ Describe "Edge" {
 
     Context "Edge Firewall" {
 
+        BeforeAll {
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "pestertest"
+            }
+        }
+
         It "Can retrieve edge firewall rules" {
             $rule = Get-NsxEdge $name | Get-NsxEdgeFirewall | Get-NsxEdgeFirewallRule $preexistingrulename
             $rule | Should not be $null
@@ -712,6 +718,12 @@ Describe "Edge" {
 
     Context "SSH" {
 
+        BeforeAll {
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "pestertest"
+            }
+        }
+
         It "Can disable SSH" {
             $edge = Get-NsxEdge $name
             #When deploy pstester ESG, the SSH is enabled
@@ -729,6 +741,12 @@ Describe "Edge" {
     }
 
     Context "CliSettings" {
+
+        BeforeAll {
+            if ( -not ( Get-NsxEdge $name ) ) {
+                New-NsxEdge -Name $name -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "pestertest"
+            }
+        }
 
         It "Can retrieve cliSettings" {
             $edge = Get-NsxEdge $name
