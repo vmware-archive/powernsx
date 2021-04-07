@@ -22,6 +22,7 @@ Describe "Edge" {
         #For naming items that will be created in NSX, use a unique prefix
         #pester_<testabbreviation>_<objecttype><uid>.  example:
         $script:name = "pester_e_edge1"
+        $script:fipsName = "fips-$($script:name)"
         $script:ls1_name = "pester_e_ls1"
         $script:ls2_name = "pester_e_ls2"
         $script:ls3_name = "pester_e_ls3"
@@ -788,6 +789,40 @@ Describe "Edge" {
             Get-NsxEdge $name | Should not be $null
             Get-NsxEdge $name | Remove-NsxEdge -Confirm:$false
             Get-NsxEdge $name | Should be $null
+        }
+    }
+
+    Context "FIPS" {
+
+        It "Edge deployed by default with FIPS mode disabled" {
+            $edge = Get-NsxEdge $name
+            $edge | Should not be $null
+            $edge.enableFips | Should be "false"
+        }
+
+        It "Can enable FIPS mode on an already deployed Edge" {
+            $edge = Get-NsxEdge $name
+            $edge | Should not be $null
+            $edge.enableFips | Should be "false"
+            $edge | Enable-NsxEdgeFips -confirm:$false
+            $edge = Get-NsxEdge $name
+            $edge.enableFips | Should be "true"
+        }
+
+        It "Can disable FIPS mode on an already deployed Edge" {
+            $edge = Get-NsxEdge $name
+            $edge | Should not be $null
+            $edge.enableFips | Should be "true"
+            $edge | Enable-NsxEdgeFips -confirm:$false
+            $edge = Get-NsxEdge $name
+            $edge.enableFips | Should be "false"
+        }
+
+        It "Can deploy an edge with FIPS mode enabled" {
+            { $edge = New-NsxEdge -Name $fipsName -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "fips-pestertest" } | Should not throw
+            $edge = Get-NsxEdge $fipsName
+            $edge | Should not be $null
+            $edge.enableFips | Should be "true"
         }
     }
 }
