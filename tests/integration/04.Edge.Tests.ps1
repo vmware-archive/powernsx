@@ -813,13 +813,13 @@ Describe "Edge" {
             $edge = Get-NsxEdge $name
             $edge | Should not be $null
             $edge.enableFips | Should be "true"
-            $edge | Enable-NsxEdgeFips -confirm:$false
+            $edge | Disable-NsxEdgeFips -confirm:$false
             $edge = Get-NsxEdge $name
             $edge.enableFips | Should be "false"
         }
 
         It "Can deploy an edge with FIPS mode enabled" {
-            { $edge = New-NsxEdge -Name $fipsName -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "fips-pestertest" } | Should not throw
+            { $edge = New-NsxEdge -Name $fipsName -Interface $vnics[0], $vnics[1], $vnics[2] -Cluster $cl -Datastore $ds -Password $password -Tenant $tenant -EnableSSH -Hostname "fips-pestertest" -EnableFIPS } | Should not throw
             $edge = Get-NsxEdge $fipsName
             $edge | Should not be $null
             $edge.enableFips | Should be "true"
