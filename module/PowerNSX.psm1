@@ -31895,14 +31895,16 @@ function Add-NsxLoadBalancerVip {
     This cmdlet creates a new Load Balancer VIP.
 
     .EXAMPLE
-    Example1: Need to create member specs for each of the pool members first
 
-    PS C:\> $WebVip = Get-NsxEdge Edge01 |
-        New-NsxLoadBalancerVip -Name WebVip -Description "Test Creating a VIP"
-        -IpAddress $edge_uplink_ip -Protocol http -Port 80
-        -ApplicationProfile $AppProfile -DefaultPool $WebPool
-        -AccelerationEnabled
+    $AppProfile = Get-NsxEdge Edge01 | Get-NsxLoadBalancer | New-NsxLoadBalancerApplicationProfile -Name lb_app_profile_http -Type http
+    PS C:\> $vmmember1 = New-NsxLoadBalancerMemberSpec -name "VM01" -IpAddress 192.0.2.1 -Port 80
+    PS C:\> $vmmember2 = New-NsxLoadBalancerMemberSpec -name "VM02" -IpAddress 192.0.2.2 -Port 80
+    PS C:\> $WebPool = Get-NsxEdge Edge01 | Get-NsxLoadBalancer | New-NsxLoadBalancerPool -name WebPool -Memberspec $vmmember1, $vmmember2
 
+    PS C:\> $WebVip = Get-NsxEdge Edge01 | New-NsxLoadBalancerVip -Name WebVip -Description "Test Creating a VIP" -IpAddress $edge_uplink_ip
+           -Protocol http -Port 80 -ApplicationProfile $AppProfile -DefaultPool $WebPool -AccelerationEnabled
+
+    Add Load Balance VIP ($edge_uplink_ip) with Application and DefaultPool using HTTP and Acceleration
     #>
 
     [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter","")] # Cant remove without breaking backward compatibility
@@ -31935,6 +31937,9 @@ function Add-NsxLoadBalancerVip {
         [Parameter (Mandatory=$true)]
             [ValidateScript({ ValidateLoadBalancerPool $_ })]
             [System.Xml.XmlElement]$DefaultPool,
+        [Parameter (Mandatory=$true)]
+            #[ValidateScript({ ValidateLoadBalancerApplicationRule $_ })]
+            [System.Xml.XmlElement]$ApplicationRule,
         [Parameter (Mandatory=$False)]
             [ValidateNotNullOrEmpty()]
             [switch]$AccelerationEnabled=$True,
@@ -31981,6 +31986,9 @@ function Add-NsxLoadBalancerVip {
         Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "applicationProfileId" -xmlElementText $ApplicationProfile.applicationProfileId
         Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "defaultPoolId" -xmlElementText $DefaultPool.poolId
         Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "accelerationEnabled" -xmlElementText $AccelerationEnabled
+        if ( $PsBoundParameters.ContainsKey('ApplicationRule') ) {
+            Add-XmlElement -xmlRoot $xmlVIip -xmlElementName "ApplicationRuleId" -xmlElementText $ApplicationRule.appRuleId
+        }
 
         $URI = "/api/4.0/edges/$($EdgeId)/loadbalancer/config"
         $body = $_LoadBalancer.OuterXml
