@@ -13670,6 +13670,10 @@ function New-NsxEdge {
         [ValidateNotNullOrEmpty()]
         [switch]$EnableSSH = $false,
         [Parameter (Mandatory = $false)]
+        #Enable FIPs mode
+        [ValidateNotNullOrEmpty()]
+        [switch]$EnableFIPS = $false,
+        [Parameter (Mandatory = $false)]
         #Enable autogeneration of edge firewall rules for enabled services.  Defaults to $true
         [ValidateNotNullOrEmpty()]
         [switch]$AutoGenerateRules = $true,
@@ -13725,6 +13729,11 @@ function New-NsxEdge {
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "name" -xmlElementText $Name
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "fqdn" -xmlElementText $Hostname
+        
+        #Enable FIPs mode
+        if ( $EnableFIPS ) {
+            Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "enableFips" -xmlElementText "true"
+        }
 
         Add-XmlElement -xmlRoot $xmlRoot -xmlElementName "type" -xmlElementText "gatewayServices"
         if ($PSBoundParameters.ContainsKey("Tenant")) {
@@ -14364,6 +14373,128 @@ function Disable-NsxEdgeSsh {
 
     end {}
 
+}
+
+function Enable-NsxEdgeFips {
+
+    <#
+    .SYNOPSIS
+    Enables FIPS on an existing NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    Enables FIPS on an existing NSX Edge Services Gateway. Changing the FIPS
+    mode will reboot the NSX Edge appliance
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Enable-NsxEdgeFips
+
+    Enable FIPS mode on edge Edge01
+
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter", "")]
+    param (
+
+        [Parameter (Mandatory = $true, ValueFromPipeline = $true, Position = 1)]
+        [ValidateScript( { ValidateEdge $_ })]
+        [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory = $False)]
+        #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+        [switch]$Confirm = $true,
+        [Parameter (Mandatory = $False)]
+        #PowerNSX Connection object
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection = $defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        if ($Edge.enableFips -eq "false") {
+            if ( $confirm ) {
+                $message = "Enabling FIPS mode will reboot the NSX Edge appliance."
+                $question = "Proceed with enabling FIPS mode on Edge Services Gateway: $($Edge.Name) ($($Edge.Edgesummary.ObjectId))?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+    
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/fips?enable=true"
+                Write-Progress -Activity "Enabling FIPS mode on Edge Services Gateway: $($Edge.Name) ($($Edge.Edgesummary.ObjectId))"
+                $null = Invoke-NsxWebRequest -method "post" -URI $URI -connection $connection
+                Write-Progress -Activity "Enabling FIPS mode on Edge Services Gateway: $($Edge.Name) ($($Edge.Edgesummary.ObjectId))" -Completed
+            }
+        }
+    }
+
+    end {}
+}
+
+function Disable-NsxEdgeFips {
+
+    <#
+    .SYNOPSIS
+    Disables FIPS mode on an existing NSX Edge Services Gateway.
+
+    .DESCRIPTION
+    Enables FIPS mode on an existing NSX Edge Services Gateway. Changing the FIPS
+    mode will reboot the NSX Edge appliance
+
+    .EXAMPLE
+    Get-NsxEdge Edge01 | Disable-NsxEdgeFips
+
+    Disable FIPS mode on edge Edge01
+
+    #>
+    [Diagnostics.CodeAnalysis.SuppressMessageAttribute("PSAvoidDefaultValueSwitchParameter", "")]
+    param (
+
+        [Parameter (Mandatory = $true, ValueFromPipeline = $true, Position = 1)]
+        [ValidateScript( { ValidateEdge $_ })]
+        [System.Xml.XmlElement]$Edge,
+        [Parameter (Mandatory = $False)]
+        #Prompt for confirmation.  Specify as -confirm:$false to disable confirmation prompt
+        [switch]$Confirm = $true,
+        [Parameter (Mandatory = $False)]
+        #PowerNSX Connection object
+        [ValidateNotNullOrEmpty()]
+        [PSCustomObject]$Connection = $defaultNSXConnection
+
+    )
+
+    begin {
+
+    }
+
+    process {
+
+        if ($Edge.enableFips -eq "true") {
+            if ( $confirm ) {
+                $message = "Disabling FIPS mode will reboot the NSX Edge appliance."
+                $question = "Proceed with disabling FIPS mode on Edge Services Gateway: $($Edge.Name) ($($Edge.Edgesummary.ObjectId))?"
+                $choices = New-Object Collections.ObjectModel.Collection[Management.Automation.Host.ChoiceDescription]
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&Yes'))
+                $choices.Add((New-Object Management.Automation.Host.ChoiceDescription -ArgumentList '&No'))
+    
+                $decision = $Host.UI.PromptForChoice($message, $question, $choices, 1)
+            }
+            else { $decision = 0 }
+            if ($decision -eq 0) {
+                $URI = "/api/4.0/edges/$($Edge.Edgesummary.ObjectId)/fips?enable=false"
+                Write-Progress -Activity "Disabling FIPS mode on Edge Services Gateway: $($Edge.Name) ($($Edge.Edgesummary.ObjectId))"
+                $null = Invoke-NsxWebRequest -method "post" -URI $URI -connection $connection
+                Write-Progress -Activity "Disabling FIPS mode on Edge Services Gateway: $($Edge.Name) ($($Edge.Edgesummary.ObjectId))" -Completed
+            }    
+        }
+    }
+
+    end {}
 }
 
 #########
