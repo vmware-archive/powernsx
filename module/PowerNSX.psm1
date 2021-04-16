@@ -3607,6 +3607,7 @@ function Format-XML () {
         $XmlSettings = New-Object System.Xml.XmlWriterSettings
         $XmlSettings.Indent = $true
         $XmlSettings.ConformanceLevel = "fragment"
+        $XmlSettings.CheckCharacters = $False
 
         $XmlWriter = [System.XMl.XmlWriter]::Create($StringWriter, $XmlSettings)
 
