@@ -56,6 +56,38 @@ Describe -Tag 'Slow' "Controller" {
         {Invoke-NsxControllerStateUpdate -Wait -WaitTimeout 300} | should not throw
     }
 
+    It "Can set controller syslog configuration" {
+        {$script:ControllerSyslog = Get-NSXController -ObjectId $ctrl.id | Set-NsxControllerSyslog -syslogServer "192.168.1.20" -Port "514" -Protocol "UDP" -Level "INFO" } | should not throw
+        $ControllerSyslog | should not be $null
+        $ControllerSyslog.syslogServer | should be "192.168.1.20"
+        $ControllerSyslog.port | should be "514"
+        $ControllerSyslog.protocol | should be "UDP"
+        $ControllerSyslog.level | should be "INFO"
+    }
+
+    It "Can get controller syslog configuration" {
+        {$script:ControllerSyslog = Get-NSXControllerSyslog -ObjectId $ctrl.id} | should not throw
+        $ControllerSyslog | should not be $null
+        $ControllerSyslog.syslogServer | should be "192.168.1.20"
+        $ControllerSyslog.port | should be "514"
+        $ControllerSyslog.protocol | should be "UDP"
+        $ControllerSyslog.level | should be "INFO"
+    }
+
+    It "Can update controller syslog configuration" {
+        {$script:ControllerSyslog = Get-NSXController -ObjectId $ctrl.id | Set-NsxControllerSyslog -syslogServer "192.168.1.21" -Port "515" -Protocol "TCP" -Level "WARN" } | should not throw
+        $ControllerSyslog | should not be $null
+        $ControllerSyslog.syslogServer | should be "192.168.1.21"
+        $ControllerSyslog.port | should be "515"
+        $ControllerSyslog.protocol | should be "TCP"
+        $ControllerSyslog.level | should be "WARN"
+    }
+
+    It "Can delete controller syslog configuration" {
+        {Get-NsxControllerSyslog -ObjectId $ctrl.id | Remove-NSXControllerSyslog} | should not throw
+        Get-NSXControllerSyslog -ObjectId $ctrl.id | should be $null
+    }
+
 
     AfterAll {
 
